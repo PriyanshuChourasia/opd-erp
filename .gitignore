@@ -40,3 +40,6 @@ yarn-error.log*
 **/.codewhale/*
 !**/.codewhale/constitution.json
 .deepseek/
+PROJECT_BLUEPRINT.md
+AGENTS.md
+.claude

@@ -1,0 +1,518 @@
+{
+  "nodes": [
+    {
+      "id": "doctor_erp_readme_turborepo_monorepo",
+      "label": "Turborepo Monorepo",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "doctor_erp_readme_doctor_erp_api",
+      "label": "Doctor ERP API",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_readme_nextjs_app",
+      "label": "docs Next.js App",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_readme_nextjs_app",
+      "label": "web Next.js App",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_repo_ui_shared_library",
+      "label": "@repo/ui Shared Component Library",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_repo_eslint_config",
+      "label": "@repo/eslint-config Shared ESLint Configurations",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_repo_typescript_config",
+      "label": "@repo/typescript-config Shared TypeScript Configurations",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "eslint_config_readme_internal_eslint",
+      "label": "Internal ESLint Configurations Package",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/packages/eslint-config/README.md",
+      "source_location": null,
+      "source_url": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_turborepo_remote_caching",
+      "label": "Turborepo Remote Caching with Vercel",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_typescript_static_type_checking",
+      "label": "TypeScript for Static Type Checking",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_eslint_code_linting",
+      "label": "ESLint for Code Linting",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_prettier_code_formatting",
+      "label": "Prettier for Code Formatting",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_readme_nextjs_font_optimization",
+      "label": "next/font Optimization",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_readme_nextjs_font_optimization",
+      "label": "next/font Optimization",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_readme_vercel_deployment",
+      "label": "Vercel Deployment Platform",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_readme_vercel_deployment",
+      "label": "Vercel Deployment Platform",
+      "file_type": "concept",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_public_next_svg_nextjs_logo",
+      "label": "Next.js Brand Logo",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/public/next.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_public_vercel_svg_vercel_logo",
+      "label": "Vercel Brand Logo",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/public/vercel.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_public_turborepo_dark_svg_turborepo_dark_logo",
+      "label": "Turborepo Dark Mode Logo",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/public/turborepo-dark.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_public_turborepo_light_svg_turborepo_light_logo",
+      "label": "Turborepo Light Mode Logo",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/public/turborepo-light.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_public_globe_svg_globe_icon",
+      "label": "Globe Icon",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/public/globe.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_public_window_svg_window_icon",
+      "label": "Window Icon",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/public/window.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_public_file_text_svg_file_text_icon",
+      "label": "File Text Icon",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/public/file-text.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_public_next_svg_nextjs_logo",
+      "label": "Next.js Brand Logo",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/public/next.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_public_vercel_svg_vercel_logo",
+      "label": "Vercel Brand Logo",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/public/vercel.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_public_turborepo_dark_svg_turborepo_dark_logo",
+      "label": "Turborepo Dark Mode Logo",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/public/turborepo-dark.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_public_turborepo_light_svg_turborepo_light_logo",
+      "label": "Turborepo Light Mode Logo",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/public/turborepo-light.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_public_globe_svg_globe_icon",
+      "label": "Globe Icon",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/public/globe.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_public_window_svg_window_icon",
+      "label": "Window Icon",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/public/window.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "web_public_file_text_svg_file_text_icon",
+      "label": "File Text Icon",
+      "file_type": "image",
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/public/file-text.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "doctor_erp_readme_turborepo_monorepo",
+      "target": "readme_repo_ui_shared_library",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doctor_erp_readme_turborepo_monorepo",
+      "target": "readme_repo_eslint_config",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doctor_erp_readme_turborepo_monorepo",
+      "target": "readme_repo_typescript_config",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doctor_erp_readme_turborepo_monorepo",
+      "target": "docs_readme_nextjs_app",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doctor_erp_readme_turborepo_monorepo",
+      "target": "web_readme_nextjs_app",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doctor_erp_readme_turborepo_monorepo",
+      "target": "doctor_erp_readme_doctor_erp_api",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_turborepo_remote_caching",
+      "target": "doctor_erp_readme_turborepo_monorepo",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_typescript_static_type_checking",
+      "target": "doctor_erp_readme_turborepo_monorepo",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_eslint_code_linting",
+      "target": "doctor_erp_readme_turborepo_monorepo",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_prettier_code_formatting",
+      "target": "doctor_erp_readme_turborepo_monorepo",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_readme_nextjs_font_optimization",
+      "target": "docs_readme_nextjs_app",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "web_readme_nextjs_font_optimization",
+      "target": "web_readme_nextjs_app",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_readme_vercel_deployment",
+      "target": "docs_readme_nextjs_app",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "web_readme_vercel_deployment",
+      "target": "web_readme_nextjs_app",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/web/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "eslint_config_readme_internal_eslint",
+      "target": "readme_repo_eslint_config",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/packages/eslint-config/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_readme_vercel_deployment",
+      "target": "web_readme_vercel_deployment",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_readme_nextjs_font_optimization",
+      "target": "web_readme_nextjs_font_optimization",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_readme_nextjs_app",
+      "target": "web_readme_nextjs_app",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "/Users/primesysindia/priyanshuprimesys/PersonalFolder/projects/pharmacy-erp-blueprint/doctor-erp/apps/docs/README.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

@@ -1,0 +1,37 @@
+services:
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: nestjs_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER = nest_user
+      - POSTGRES_PASSWORD = wish123456789
+      - POSTGRES_DB = opd_db
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nest_user -d nestjs_database"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+
+  nestjs_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://nest_user:wish123456789@postgres_db:5432/opd_db?schema=public
+    restart: always
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+
+volumes:
+  pgdata:

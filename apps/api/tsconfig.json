@@ -1,8 +1,8 @@
 {
-  "extends": "@repo/typescript-config/base.json",
+  // "extends": "@repo/typescript-config/base.json",
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "target": "ES2023",
     "rootDir": "./src",
     "outDir": "./dist",

@@ -4,16 +4,16 @@ services:
     container_name: nestjs_postgres
     restart: always
     environment:
-      - POSTGRES_USER = nest_user
-      - POSTGRES_PASSWORD = wish123456789
-      - POSTGRES_DB = opd_db
+      - POSTGRES_USER=nest_user
+      - POSTGRES_PASSWORD=wish123456789
+      - POSTGRES_DB=opd_db
     ports:
       - "5432:5432"
-
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nest_user -d nestjs_database"]
+      # FIX: Updated database name here to match POSTGRES_DB (opd_db)
+      test: ["CMD-SHELL", "pg_isready -U nest_user -d opd_db"]
       interval: 30s
       timeout: 30s
       retries: 5
@@ -31,7 +31,6 @@ services:
     depends_on:
       postgres_db:
         condition: service_healthy
-
 
 volumes:
   pgdata:

@@ -1,6 +1,6 @@
 # Doctor ERP — Complete Clinic & Hospital Management System
 
-![OPD ERP Dashboard](</var/folders/cf/8zyqpdhs1l900bf7ll9jp8180000gp/T/TemporaryItems/NSIRD_screencaptureui_7SHwzm/Screenshot 2026-07-05 at 16.18.01.png>)
+![OPD ERP Dashboard](</images/opd.png>)
 
 **One platform. Every patient touchpoint. Zero duplication.**
 
@@ -117,7 +117,7 @@ npm run dev -- --filter=clinic-ui  # React SPA on :3000
 
 ## Screenshots
 
-![Doctor ERP Dashboard](</var/folders/cf/8zyqpdhs1l900bf7ll9jp8180000gp/T/TemporaryItems/NSIRD_screencaptureui_7SHwzm/Screenshot 2026-07-05 at 16.18.01.png>)
+![Doctor ERP Dashboard](</images/opd.png>)
 
 ---
 

@@ -1,3 +1,4 @@
+import type { AuthUser } from "@/store/auth-slice";
 import { apiClient, toApiError, extractApiError } from "./axios-client";
 
 export { ApiError } from "./axios-client";
@@ -573,5 +574,27 @@ export function createBill(payload: CreateBillInput) {
     method: "POST",
     path: "/billing",
     body: payload,
+  });
+}
+
+// ─── Profile API ─────────────────────────────────────────────
+
+export function fetchProfile() {
+  return request<AuthUser>({ method: "GET", path: "/auth/me" });
+}
+
+export function updateProfile(data: { name?: string; email?: string }) {
+  return request<AuthUser>({
+    method: "PATCH",
+    path: "/auth/me",
+    body: data,
+  });
+}
+
+export function changePassword(data: { currentPassword: string; newPassword: string }) {
+  return request<{ message: string }>({
+    method: "POST",
+    path: "/auth/change-password",
+    body: data,
   });
 }

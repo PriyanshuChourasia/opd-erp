@@ -7,6 +7,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
+  // Raw health check — bypasses all middleware (global prefix, pipes, CORS, etc.)
+  app.getHttpAdapter().get('/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   app.enableCors();
   app.setGlobalPrefix('api');
 

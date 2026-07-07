@@ -46,6 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       name: user.name,
       email: user.email,
       roleName: user.role.name,
+      createdAt: user.createdAt.toISOString(),
       permissions: user.role.rolePermissions.map(
         (rp) => `${rp.permission.action}:${rp.permission.resource}`,
       ),

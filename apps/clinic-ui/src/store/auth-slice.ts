@@ -5,6 +5,7 @@ export interface AuthUser {
   name: string;
   email: string;
   roleName: string;
+  createdAt?: string;
   permissions: string[];
 }
 

@@ -22,6 +22,8 @@ export const registry: IModuleRegistry = {
             { id: 'logout', name: 'Logout', description: 'Invalidate current session', method: 'POST', path: '/auth/logout' },
             { id: 'refresh-token', name: 'Refresh Token', description: 'Rotate access token using refresh token', method: 'POST', path: '/auth/refresh' },
             { id: 'get-me', name: 'Get Current User', description: 'Get authenticated user profile', method: 'GET', path: '/auth/me' },
+            { id: 'update-profile', name: 'Update Profile', description: 'Update name and email', method: 'PATCH', path: '/auth/me' },
+            { id: 'change-password', name: 'Change Password', description: 'Update account password', method: 'POST', path: '/auth/change-password' },
           ],
         },
       ],

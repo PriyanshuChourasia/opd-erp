@@ -1,4 +1,5 @@
-import { Outlet, useMatches } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
 import { AppSidebar } from "./app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -9,9 +10,34 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { useAppDispatch } from "@/store/hooks";
+import { clearCredentials } from "@/store/auth-slice";
+import { fetchProfile } from "@/lib/api";
 
 export function DashboardLayout() {
   const matches = useMatches();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+
+  // Verify the JWT token is still valid by fetching the user profile.
+  // If the API returns an error (expired, revoked, server down), log out immediately.
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchProfile()
+      .then(() => {
+        // Profile fetched successfully — token is valid, nothing to do.
+      })
+      .catch(() => {
+        if (cancelled) return;
+        dispatch(clearCredentials());
+        navigate({ to: "/login", replace: true });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, navigate]);
   const title =
     [...matches]
       .reverse()

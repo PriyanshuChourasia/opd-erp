@@ -1,5 +1,5 @@
 import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { CalendarClock, LayoutDashboard, LogOut, Receipt, ShoppingCart, Stethoscope, Users } from "lucide-react";
+import { CalendarClock, LayoutDashboard, LogOut, Receipt, ShoppingCart, Stethoscope, User, Users } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
 import { useAppSelector } from "@/store/hooks";
@@ -86,6 +86,12 @@ export function PosLayout() {
             <DropdownMenuContent side="bottom" align="end" className="w-56">
               <DropdownMenuLabel>{user?.roleName ?? "No role"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/profile">
+                  <User />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut />
                 Log out

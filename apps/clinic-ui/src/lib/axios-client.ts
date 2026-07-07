@@ -1,7 +1,9 @@
 import axios from "axios";
 import axiosRetry from "axios-retry";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+// const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+
+const API_BASE = "https://opdapi.codymitra.com/api";
 
 /**
  * Axios instance pre-configured with the API base URL from the environment.

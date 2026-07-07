@@ -1,31 +1,43 @@
-# builder mode
+# ─── Builder Stage ──────────────────────────────────────────────
 FROM node:24-bookworm AS builder
-WORKDIR /usr/src/app
-COPY package*.json ./
+WORKDIR /app
 
-# FIX: Remove the local @repo/eslint-config dependency so npm doesn't look for it on the internet
-RUN sed -i '/@repo\/eslint-config/d' package.json
+# 1. Copy only manifests first (maximises Docker layer caching)
+COPY package.json package-lock.json ./
+COPY turbo.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/ packages/
 
-RUN npm install
-COPY prisma ./prisma/
-RUN npx prisma generate
-COPY . .
-RUN npm run build
+# 2. Install everything from root — npm workspaces resolve @repo/* links
+RUN npm ci
 
-# runtime mode
+# 3. Prisma client generation must happen before the source build
+COPY apps/api/prisma apps/api/prisma
+RUN cd apps/api && npx prisma generate
+
+# 4. Copy & build
+COPY apps/api/tsconfig*.json apps/api/
+COPY apps/api/src apps/api/src
+COPY apps/api/nest-cli.json apps/api/
+RUN cd apps/api && npm run build
+
+# ─── Runtime Stage ─────────────────────────────────────────────
 FROM node:24-bookworm-slim AS runtime
-WORKDIR /usr/src/app
+WORKDIR /app
+
+# Prisma needs OpenSSL even at runtime — the slim image doesn't have it
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
 
-COPY --from=builder /usr/src/app/node_modules ./node_modules
-COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /usr/src/app/node_modules/@prisma/client ./node_modules/@prisma/client
-COPY --from=builder /usr/src/app/prisma ./prisma
-COPY --from=builder /usr/src/app/dist ./dist
+# Copy only what's needed at runtime
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
-USER node
 EXPOSE 4000
 
-# FIX: Changed string format to array format so shell operators (&&) execute properly
+# Run migrations on startup, then start the server
+WORKDIR /app/apps/api
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

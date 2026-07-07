@@ -54,6 +54,10 @@ const clinicNav = [
   { to: "/prescriptions", label: "Prescriptions", icon: ClipboardList },
 ] as const;
 
+const accountNav = [
+  { to: "/profile", label: "Profile", icon: User },
+] as const;
+
 const pharmacyNav = [
   { to: "/pos", label: "Point of Sale", icon: ShoppingCart },
   { to: "/medicine-catalog", label: "Medicine Catalog", icon: Pill },
@@ -157,6 +161,24 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {devNav.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
+                    <Link to={item.to}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {accountNav.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
                     <Link to={item.to}>

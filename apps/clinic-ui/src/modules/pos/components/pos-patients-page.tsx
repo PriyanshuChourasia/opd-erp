@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Cake, ChevronDown, ChevronRight, Droplet, Mail, Pencil, Phone, Plus, Search, Users } from "lucide-react";
-import { fetchAppointments } from "../data/api";
+import { fetchAppointments } from "@/lib/api";
 import { searchPatients } from "../data/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ export function PosPatientsPage() {
 
   const { data: patients = [], isLoading } = useQuery({ queryKey: ["patients", search], queryFn: () => searchPatients(search || "") });
 
-  const historyQuery = useQuery({ queryKey: ["appointments", "patient", expandedId], queryFn: () => fetchAppointments({ patientId: expandedId! }), enabled: !!expandedId });
+  const historyQuery = useQuery({ queryKey: ["appointments", "patient", expandedId], queryFn: () => fetchAppointments({ patientId: expandedId!, limit: 50 }), enabled: !!expandedId });
+  const history = historyQuery.data?.data ?? [];
 
   return (
     <div className="space-y-4">
@@ -45,8 +46,8 @@ export function PosPatientsPage() {
                 <span role="button" tabIndex={0} className="flex size-8 shrink-0 items-center justify-center rounded-none opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); setEditingPatient(patient); setSheetOpen(true); }}><Pencil className="size-3.5" /></span>
               </button>
               {expanded && (<div className="border-t bg-muted/20 px-6 py-4 pl-16"><p className="mb-2 text-xs font-medium text-muted-foreground">Appointment history</p>
-                {historyQuery.isLoading ? (<p className="text-sm text-muted-foreground">Loading...</p>) : !historyQuery.data || historyQuery.data.length === 0 ? (<p className="text-sm text-muted-foreground">No appointments yet.</p>) : (
-                  <ul className="space-y-2">{historyQuery.data.map((appt: any) => (
+                {historyQuery.isLoading ? (<p className="text-sm text-muted-foreground">Loading...</p>) : history.length === 0 ? (<p className="text-sm text-muted-foreground">No appointments yet.</p>) : (
+                  <ul className="space-y-2">{history.map((appt: any) => (
                     <li key={appt.id} className="flex items-center justify-between text-sm">
                       <div className="min-w-0"><span className="font-medium">Dr. {appt.doctor.name}</span> <span className="text-muted-foreground">· {appt.type.replace("_", " ")} · {new Date(appt.date).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span></div>
                       <div className="flex shrink-0 items-center gap-2"><span className="text-muted-foreground">{currency(appt.fee)}</span><Badge variant="outline" className={`text-[10px] ${APPT_STATUS_STYLES[appt.status] ?? ""}`}>{appt.status.replace("_", " ")}</Badge></div>

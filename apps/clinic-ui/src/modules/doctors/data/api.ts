@@ -1,9 +1,9 @@
-import { apiFetch, type Doctor, type CreateDoctorInput } from "@/lib/api";
-import type { DoctorScheduleDay } from "./interface";
+import { apiFetch, type Doctor, type CreateDoctorInput, type EmployeeSchedule } from "@/lib/api";
+import type { EmployeeScheduleDay } from "./interface";
 
-export async function fetchDoctors(search?: string): Promise<Doctor[]> {
+export async function fetchDoctors(search?: string) {
   const url = search ? `/doctors?search=${encodeURIComponent(search)}` : "/doctors";
-  return apiFetch<Doctor[]>(url);
+  return apiFetch<{ data: Doctor[]; meta: { total: number; page: number; limit: number; totalPages: number } }>(url);
 }
 
 export async function fetchDoctor(id: string): Promise<Doctor> {
@@ -22,21 +22,30 @@ export async function deleteDoctor(id: string): Promise<void> {
   return apiFetch<void>(`/doctors/${id}`, { method: "DELETE" });
 }
 
-export async function fetchDoctorSchedules(doctorId: string): Promise<DoctorScheduleDay[]> {
-  return apiFetch<DoctorScheduleDay[]>(`/doctor-schedules?doctorId=${encodeURIComponent(doctorId)}`);
+export async function fetchDoctorSchedules(doctorId: string): Promise<EmployeeScheduleDay[]> {
+  const res = await apiFetch<EmployeeSchedule[]>(`/employee-schedules?employeeSchedulableType=Doctor&employeeSchedulableId=${encodeURIComponent(doctorId)}`);
+  return res.map((s) => ({
+    id: s.id,
+    dayOfWeek: s.dayOfWeek,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    shiftId: s.shiftId,
+    shift: s.shift,
+  }));
 }
 
-export async function upsertDoctorSchedule(data: {
-  doctorId: string;
+export async function createEmployeeSchedule(data: {
+  employeeSchedulableType: string;
+  employeeSchedulableId: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
-  slotDuration: number;
-  maxPatients: number;
-}): Promise<DoctorScheduleDay> {
-  return apiFetch<DoctorScheduleDay>("/doctor-schedules", { method: "POST", body: JSON.stringify(data) });
+  shiftId?: string;
+}): Promise<EmployeeScheduleDay> {
+  const res = await apiFetch<EmployeeSchedule>("/employee-schedules", { method: "POST", body: JSON.stringify(data) });
+  return { id: res.id, dayOfWeek: res.dayOfWeek, startTime: res.startTime, endTime: res.endTime, shiftId: res.shiftId, shift: res.shift };
 }
 
-export async function deleteDoctorSchedule(id: string): Promise<void> {
-  return apiFetch<void>(`/doctor-schedules/${id}`, { method: "DELETE" });
+export async function deleteEmployeeSchedule(id: string): Promise<void> {
+  return apiFetch<void>(`/employee-schedules/${id}`, { method: "DELETE" });
 }

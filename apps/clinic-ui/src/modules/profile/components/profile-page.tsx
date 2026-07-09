@@ -32,7 +32,8 @@ export function ProfilePage() {
 
   // ─── Profile edit state ──────────────────────────────────────
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name ?? "");
+  const [firstName, setFirstName] = useState(user?.firstName ?? "");
+  const [lastName, setLastName] = useState(user?.lastName ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -61,7 +62,7 @@ export function ProfilePage() {
     setSaving(true);
     showFeedback(null, null);
     try {
-      const updated = await updateProfile({ name, email });
+      const updated = await updateProfile({ firstName, lastName, email });
       // Update Redux store so the sidebar and other components reflect the new data
       dispatch(
         setCredentials({
@@ -80,7 +81,8 @@ export function ProfilePage() {
 
   const handleCancelEdit = () => {
     setEditing(false);
-    setName(user?.name ?? "");
+    setFirstName(user?.firstName ?? "");
+    setLastName(user?.lastName ?? "");
     setEmail(user?.email ?? "");
   };
 
@@ -152,7 +154,7 @@ export function ProfilePage() {
             <div className="relative">
               <Avatar className="size-16">
                 <AvatarFallback className="text-lg">
-                  {initials(user?.name ?? "?")}
+                  {initials(user?.firstName ?? "?")}
                 </AvatarFallback>
               </Avatar>
               <button
@@ -163,7 +165,7 @@ export function ProfilePage() {
               </button>
             </div>
             <div>
-              <CardTitle className="text-xl">{user?.name ?? "User"}</CardTitle>
+              <CardTitle className="text-xl">{user?.firstName ?? ""} {user?.lastName ?? "User"}</CardTitle>
               <CardDescription className="flex items-center gap-2">
                 <AtSign className="size-3" />
                 {user?.email ?? "—"}
@@ -224,11 +226,20 @@ export function ProfilePage() {
               <FieldGroup>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
-                    <FieldLabel htmlFor="profile-name">Full Name</FieldLabel>
+                    <FieldLabel htmlFor="profile-firstName">First Name</FieldLabel>
                     <Input
-                      id="profile-name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      id="profile-firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      disabled={saving}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="profile-lastName">Last Name</FieldLabel>
+                    <Input
+                      id="profile-lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
                       disabled={saving}
                     />
                   </Field>
@@ -247,8 +258,13 @@ export function ProfilePage() {
             ) : (
               <dl className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <dt className="text-muted-foreground">Full Name</dt>
-                  <dd className="font-medium">{user?.name ?? "—"}</dd>
+                  <dt className="text-muted-foreground">First Name</dt>
+                  <dd className="font-medium">{user?.firstName ?? "—"}</dd>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between text-sm">
+                  <dt className="text-muted-foreground">Last Name</dt>
+                  <dd className="font-medium">{user?.lastName ?? "—"}</dd>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between text-sm">

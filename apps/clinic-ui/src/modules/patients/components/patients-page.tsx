@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import {
   Pencil,
   Plus,
@@ -7,9 +8,6 @@ import {
   Trash2,
   Users,
   X,
-  Phone,
-  Mail,
-  Calendar,
   Droplets,
 } from "lucide-react";
 import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient, type Patient, type CreatePatientInput } from "@/lib/api";
@@ -21,6 +19,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
   Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
+import { DataTable } from "@/components/data-table/data-table";
 
 const bloodGroupColors: Record<string, string> = {
   "A+": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -36,6 +35,7 @@ const bloodGroupColors: Record<string, string> = {
 export function PatientsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -44,10 +44,18 @@ export function PatientsPage() {
     name: "", phone: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [],
   });
 
-  const { data: patients = [], isLoading } = useQuery({
-    queryKey: ["patients", search],
-    queryFn: () => fetchPatients(search || undefined),
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["patients", search, pagination.pageIndex, pagination.pageSize],
+    queryFn: () => fetchPatients({
+      search: search || undefined,
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+    }),
+    placeholderData: (previous) => previous,
   });
+
+  const patients = response?.data ?? [];
+  const pageCount = response?.meta.totalPages ?? 0;
 
   const createMutation = useMutation({
     mutationFn: createPatient,
@@ -88,6 +96,101 @@ export function PatientsPage() {
     if (editingId) updateMutation.mutate({ id: editingId, data: form });
     else createMutation.mutate(form);
   }
+
+  const columns = useMemo<ColumnDef<Patient>[]>(() => [
+    {
+      accessorKey: "name",
+      header: "Patient",
+      cell: ({ row }) => {
+        const patient = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Users className="size-3.5 text-primary" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-medium">{patient.name}</p>
+              {patient.gender && <p className="text-xs text-muted-foreground">{patient.gender}</p>}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      id: "contact",
+      header: "Contact",
+      cell: ({ row }) => {
+        const patient = row.original;
+        return (
+          <div className="text-xs text-muted-foreground">
+            <p>{patient.phone}</p>
+            {patient.email && <p>{patient.email}</p>}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "dateOfBirth",
+      header: "Date of birth",
+      cell: ({ row }) => {
+        const dob = row.original.dateOfBirth;
+        return dob ? new Date(dob).toLocaleDateString() : <span className="text-muted-foreground">—</span>;
+      },
+    },
+    {
+      accessorKey: "bloodGroup",
+      header: "Blood group",
+      cell: ({ row }) => {
+        const bloodGroup = row.original.bloodGroup;
+        if (!bloodGroup) return <span className="text-muted-foreground">—</span>;
+        return (
+          <Badge variant="outline" className={`text-[10px] uppercase ${bloodGroupColors[bloodGroup] ?? ""}`}>
+            <Droplets className="mr-1 size-2.5" />{bloodGroup}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "allergies",
+      header: "Allergies",
+      cell: ({ row }) => {
+        const allergies = row.original.allergies ?? [];
+        if (allergies.length === 0) return <span className="text-muted-foreground">—</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {allergies.map((a) => (
+              <span key={a} className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">{a}</span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const patient = row.original;
+        return (
+          <div className="flex justify-end gap-1">
+            <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(patient.id)}>
+              <Pencil className="size-3.5" />
+            </Button>
+            {deleteConfirm === patient.id ? (
+              <div className="flex items-center gap-1">
+                <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(patient.id)}>Confirm</Button>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(patient.id)}>
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [deleteConfirm]);
 
   return (
     <div className="space-y-6">
@@ -143,62 +246,32 @@ export function PatientsPage() {
         <CardHeader className="pb-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search by name, phone, or email..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              placeholder="Search by name, phone, or email..."
+              className="pl-9"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPagination((p) => ({ ...p, pageIndex: 0 }));
+              }}
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex justify-center py-12"><span className="text-sm text-muted-foreground">Loading...</span></div>
-          ) : patients.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-center">
-              <Users className="size-8 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">{search ? "No patients found" : "No patients registered yet"}</p>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {patients.map((patient) => (
-                <div key={patient.id} className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/50">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <Users className="size-4 text-primary" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{patient.name}</p>
-                      {patient.bloodGroup && (
-                        <Badge variant="outline" className={`text-[10px] uppercase ${bloodGroupColors[patient.bloodGroup] ?? ""}`}>
-                          <Droplets className="mr-1 size-2.5" />{patient.bloodGroup}
-                        </Badge>
-                      )}
-                      {patient.gender && <span className="text-xs text-muted-foreground">{patient.gender}</span>}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Phone className="size-3" />{patient.phone}</span>
-                      {patient.email && <span className="flex items-center gap-1"><Mail className="size-3" />{patient.email}</span>}
-                      {patient.dateOfBirth && <span className="flex items-center gap-1"><Calendar className="size-3" />{new Date(patient.dateOfBirth).toLocaleDateString()}</span>}
-                    </div>
-                    {(patient.allergies ?? []).length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {(patient.allergies ?? []).map((a: string) => (
-                          <span key={a} className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">{a}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(patient.id)}><Pencil className="size-3.5" /></Button>
-                    {deleteConfirm === patient.id ? (
-                      <div className="flex items-center gap-1">
-                        <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(patient.id)}>Confirm</Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
-                      </div>
-                    ) : (
-                      <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(patient.id)}><Trash2 className="size-3.5" /></Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            data={patients}
+            pageCount={pageCount}
+            pagination={pagination}
+            onPaginationChange={setPagination}
+            isLoading={isLoading}
+            emptyState={
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <Users className="size-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">{search ? "No patients found" : "No patients registered yet"}</p>
+              </div>
+            }
+          />
         </CardContent>
       </Card>
     </div>

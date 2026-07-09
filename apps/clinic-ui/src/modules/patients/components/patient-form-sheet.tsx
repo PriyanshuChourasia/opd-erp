@@ -12,6 +12,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { AddressManager } from "@/modules/addresses/components/address-manager";
 
 const emptyForm = {
   name: "",
@@ -130,9 +131,18 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, onSaved }
               </select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="p-address">Address</FieldLabel>
+              <FieldLabel htmlFor="p-address">Address (flat)</FieldLabel>
               <Input id="p-address" placeholder="123 Main St" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </Field>
+            {editingPatient?.id ? (
+              <div className="border-t pt-3 mt-2">
+                <AddressManager addressableType="Patient" addressableId={editingPatient.id} />
+              </div>
+            ) : (
+              <div className="border-t pt-3 mt-2">
+                <p className="text-xs text-muted-foreground">Save the patient first to add addresses.</p>
+              </div>
+            )}
             <Field>
               <FieldLabel htmlFor="p-emergency">Emergency Contact</FieldLabel>
               <Input id="p-emergency" placeholder="+1 555-000-0000" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} />

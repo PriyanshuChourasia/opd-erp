@@ -9,7 +9,6 @@ import { PatientsModule } from './patients/patients.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { MedicineCatalogModule } from './medicine-catalog/medicine-catalog.module';
-import { DoctorSchedulesModule } from './doctor-schedules/doctor-schedules.module';
 import { QueueModule } from './queue/queue.module';
 import { LabOrdersModule } from './lab-orders/lab-orders.module';
 import { RadiologyOrdersModule } from './radiology-orders/radiology-orders.module';
@@ -18,6 +17,12 @@ import { BillingModule } from './billing/billing.module';
 import { DispensingModule } from './dispensing/dispensing.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { UsersModule } from './users/users.module';
+import { OrganisationModule } from './organisation/organisation.module';
+import { ShiftsModule } from './shifts/shifts.module';
+import { AddressesModule } from './addresses/addresses.module';
+import { EmployeeSchedulesModule } from './employee-schedules/employee-schedules.module';
 
 @Module({
   imports: [
@@ -26,12 +31,12 @@ import { PermissionsModule } from './permissions/permissions.module';
     CommonModule,
     HealthModule,
     AuthModule,
+    DashboardModule,
     DoctorsModule,
     PatientsModule,
     AppointmentsModule,
     PrescriptionsModule,
     MedicineCatalogModule,
-    DoctorSchedulesModule,
     QueueModule,
     LabOrdersModule,
     RadiologyOrdersModule,
@@ -40,6 +45,11 @@ import { PermissionsModule } from './permissions/permissions.module';
     DispensingModule,
     RolesModule,
     PermissionsModule,
+    UsersModule,
+    OrganisationModule,
+    ShiftsModule,
+    AddressesModule,
+    EmployeeSchedulesModule,
   ],
 })
 export class AppModule {}

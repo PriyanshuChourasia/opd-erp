@@ -10,7 +10,8 @@ import {
 } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
-import type { UpdatePatientDto } from './dto/update-patient.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
+import { FindPatientsQueryDto } from './dto/find-patients-query.dto';
 
 @Controller('patients')
 export class PatientsController {
@@ -22,8 +23,8 @@ export class PatientsController {
   }
 
   @Get()
-  findAll(@Query('search') search?: string) {
-    return this.patientsService.findAll(search);
+  findAll(@Query() query: FindPatientsQueryDto) {
+    return this.patientsService.findAll(query);
   }
 
   @Get(':id')

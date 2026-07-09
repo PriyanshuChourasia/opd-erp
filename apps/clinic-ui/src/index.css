@@ -79,6 +79,14 @@ body {
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  /* Dataviz tokens — validated categorical/sequential/status palette (see dataviz skill) */
+  --viz-series: #1baf7a; /* single-hue bars: doctor load, top medicines, status breakdown */
+  --viz-sequential: #2a78d6; /* revenue trend line */
+  --viz-sequential-fill: #cde2fb; /* revenue trend area wash */
+  --viz-status-good: #0ca30c;
+  --viz-status-warning: #fab219;
+  --viz-status-serious: #ec835a;
+  --viz-status-critical: #d03b3b;
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -115,6 +123,13 @@ body {
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  --viz-series: #199e70;
+  --viz-sequential: #3987e5;
+  --viz-sequential-fill: #184f95;
+  --viz-status-good: #0ca30c;
+  --viz-status-warning: #fab219;
+  --viz-status-serious: #ec835a;
+  --viz-status-critical: #d03b3b;
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { BillingService } from './billing.service';
 import { CreateBillDto } from './dto/create-bill.dto';
 import { UpdateBillStatusDto } from './dto/update-bill-status.dto';
+import { FindBillsQueryDto } from './dto/find-bills-query.dto';
 
 @Controller('billing')
 export class BillingController {
@@ -13,8 +14,8 @@ export class BillingController {
   }
 
   @Get()
-  findAll(@Query('patientId') patientId?: string) {
-    return this.service.findAll(patientId);
+  findAll(@Query() query: FindBillsQueryDto) {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

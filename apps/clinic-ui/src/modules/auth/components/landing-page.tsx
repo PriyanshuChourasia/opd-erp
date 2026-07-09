@@ -6,33 +6,21 @@ import { useDispatch } from "react-redux";
 import {
   Activity,
   ArrowRight,
-  BookOpen,
   CalendarClock,
   CheckCircle2,
   ClipboardList,
-  Clock,
   FileText,
-  Gamepad2,
   Hospital,
-  Mail,
-  MapPin,
-  MessageSquare,
-  Monitor,
-  Phone,
   Pill,
   Receipt,
-  ScrollText,
   ShieldCheck,
   Stethoscope,
   Users,
-  XCircle,
-  Zap,
 } from "lucide-react";
 import { setCredentials } from "@/store/auth-slice";
 import { getHomeRoute } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -46,115 +34,132 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { registerSchema, type RegisterValues } from "../data/schema";
+import { registerSchema } from "../data/schema";
 import type { RegisterResponse } from "../data/interface";
 import { apiFetch } from "@/lib/api";
 
-// ─── Feature data ──────────────────────────────────────────────
+// ─── Data ──────────────────────────────────────────────────────
+
+const trustMarkers = [
+  { icon: ShieldCheck, label: "Role-based access control" },
+  { icon: Activity, label: "Real-time queue sync" },
+  { icon: FileText, label: "Full audit trail" },
+] as const;
 
 const features = [
   {
     icon: Users,
-    title: "Patient Management",
+    title: "Patient management",
     description:
-      "Register, search, and maintain comprehensive patient records — demographics, medical history, allergies, and emergency contacts in one place.",
-    color: "bg-blue-500/10 text-blue-600",
+      "Demographics, medical history, allergies, and emergency contacts kept in one searchable record.",
   },
   {
     icon: CalendarClock,
-    title: "Appointment Scheduling",
+    title: "Appointment scheduling",
     description:
-      "Manage appointments with real-time slot availability, token-based queue system, and multi-type support — walk-in, consultation, follow-up, and teleconsultation.",
-    color: "bg-emerald-500/10 text-emerald-600",
+      "Real-time slot availability with a token-based queue for walk-in, follow-up, and teleconsultation visits.",
   },
   {
     icon: Stethoscope,
-    title: "Doctor Consultation",
+    title: "Doctor consultation",
     description:
-      "Streamlined consultation workflow with vitals recording, diagnosis notes, and direct prescription generation during patient visits.",
-    color: "bg-violet-500/10 text-violet-600",
+      "Vitals, diagnosis notes, and prescriptions captured in a single workflow during the visit.",
   },
   {
     icon: ClipboardList,
-    title: "Prescriptions & Orders",
+    title: "Prescriptions & orders",
     description:
-      "Digital prescriptions with medicine catalog lookup, lab test orders, radiology requests, and procedure orders — all paperless.",
-    color: "bg-amber-500/10 text-amber-600",
+      "Digital prescriptions with medicine catalog lookup, plus lab, radiology, and procedure orders.",
   },
   {
     icon: Receipt,
     title: "Billing & POS",
     description:
-      "Full point-of-sale system with multi-payment support (CASH, CARD, UPI), discount management, invoice generation, and billing history.",
-    color: "bg-rose-500/10 text-rose-600",
+      "Point-of-sale billing with cash, card, and UPI, discount rules, and a full invoice history.",
   },
   {
     icon: Pill,
-    title: "Pharmacy Dispensing",
+    title: "Pharmacy dispensing",
     description:
-      "End-to-end pharmacy workflow with medicine catalog, stock tracking, dispensing validation against prescriptions, and inventory management.",
-    color: "bg-cyan-500/10 text-cyan-600",
+      "Stock-aware dispensing validated against the prescription record, with live inventory tracking.",
   },
   {
     icon: ShieldCheck,
-    title: "Role-Based Access",
+    title: "Role-based access",
     description:
-      "Granular permissions system with roles (Admin, Doctor, Receptionist, Pharmacist) — each user sees only what they need.",
-    color: "bg-indigo-500/10 text-indigo-600",
+      "Granular permissions for admins, doctors, receptionists, and pharmacists — everyone sees only what they need.",
   },
   {
     icon: Activity,
-    title: "Real-Time Queue",
+    title: "Live token queue",
     description:
-      "Live token queue with digital display, status tracking (waiting, in-progress, completed), and SMS-ready patient notifications.",
-    color: "bg-orange-500/10 text-orange-600",
+      "Waiting, in-progress, and completed states tracked in real time across the front desk and consultation rooms.",
   },
   {
     icon: FileText,
-    title: "Digital Records",
+    title: "Digital records",
     description:
-      "All patient data, prescriptions, lab reports, and billing history stored digitally — accessible anytime, anywhere with zero paperwork.",
-    color: "bg-teal-500/10 text-teal-600",
+      "Patient data, prescriptions, lab reports, and billing history stored digitally and available on demand.",
   },
 ] as const;
 
-const stats = [
-  { value: "10+", label: "Clinic Modules" },
-  { value: "99.9%", label: "Uptime" },
-  { value: "< 2s", label: "Response Time" },
-  { value: "Zero", label: "Paper Required" },
-] as const;
-
-const comparisons = [
+const workflowSteps = [
   {
-    manual: "Paper registers and files",
-    auto: "Digital patient records searchable in seconds",
-    icon: FileText,
+    icon: Users,
+    label: "Registration",
+    description: "Capture demographics and history once, at intake.",
   },
   {
-    manual: "Handwritten prescriptions (illegible)",
-    auto: "Type-safe digital prescriptions with medicine catalog",
-    icon: ScrollText,
+    icon: CalendarClock,
+    label: "Appointment & queue",
+    description: "Book slots and track walk-ins on a live token queue.",
   },
   {
-    manual: "Manual billing with calculators",
-    auto: "Automated billing with tax, discount, and multi-payment",
+    icon: Stethoscope,
+    label: "Consultation",
+    description: "Record vitals and diagnosis at the point of care.",
+  },
+  {
+    icon: ClipboardList,
+    label: "Prescriptions & orders",
+    description: "Issue prescriptions and lab or radiology orders.",
+  },
+  {
     icon: Receipt,
+    label: "Billing & POS",
+    description: "Invoice the visit with multi-payment support.",
   },
   {
-    manual: "Lost appointment slips",
-    auto: "Real-time token queue with digital tracking",
-    icon: Clock,
+    icon: Pill,
+    label: "Dispensing",
+    description: "Validate and dispense against the prescription.",
+  },
+] as const;
+
+const capabilities = [
+  {
+    icon: ShieldCheck,
+    title: "Granular permissions",
+    description:
+      "Admin, doctor, receptionist, and pharmacist roles each get a scoped view of the system — nothing more.",
   },
   {
-    manual: "Hours of end-of-day reconciliation",
-    auto: "Instant reports and automated audit trails",
-    icon: Monitor,
+    icon: Activity,
+    title: "Live across the building",
+    description:
+      "Front desk, consultation rooms, and the pharmacy counter stay in sync on the same queue and record.",
   },
   {
-    manual: "Separate systems that don't talk",
-    auto: "Unified platform — register once, use everywhere",
-    icon: Gamepad2,
+    icon: Receipt,
+    title: "Billing tied to the visit",
+    description:
+      "Invoices generate from the actual consultation and prescription — not a separate, disconnected ledger.",
+  },
+  {
+    icon: FileText,
+    title: "Traceable by design",
+    description:
+      "Every clinical and financial action is recorded against the user and timestamp that made it.",
   },
 ] as const;
 
@@ -165,12 +170,10 @@ export function LandingPage() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <HeroSection />
-      <StatsSection />
       <FeaturesSection />
+      <WorkflowSection />
       <AboutSection />
-      <ComparisonSection />
-      <WhySection />
-      <ContactSection />
+      <CapabilitiesSection />
       <Footer />
     </div>
   );
@@ -180,22 +183,31 @@ export function LandingPage() {
 
 function Navbar() {
   return (
-    <header className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
+    <header className="fixed top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-lg">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center bg-primary text-primary-foreground shadow-sm">
+          <span className="flex size-9 items-center justify-center bg-primary text-primary-foreground">
             <Hospital className="size-5" />
           </span>
-          <span className="text-lg font-semibold tracking-tight">
-            OPD ERP
-          </span>
+          <span className="text-lg font-semibold tracking-tight">OPD ERP</span>
         </Link>
+        <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
+          <a href="#features" className="transition-colors hover:text-foreground">
+            Features
+          </a>
+          <a href="#workflow" className="transition-colors hover:text-foreground">
+            Workflow
+          </a>
+          <a href="#about" className="transition-colors hover:text-foreground">
+            About
+          </a>
+        </nav>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
             <Link to="/login">Sign in</Link>
           </Button>
           <Button size="sm" asChild>
-            <a href="#register">
+            <a href="#get-started">
               Get started
               <ArrowRight className="size-3.5" />
             </a>
@@ -212,17 +224,19 @@ function HeroSection() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const form = useForm<RegisterValues>({
+  const form = useForm<import("../data/schema").RegisterValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: { username: "", firstName: "", lastName: "", email: "", password: "", confirmPassword: "" },
   });
 
   const registerMutation = useMutation({
-    mutationFn: (values: RegisterValues) =>
+    mutationFn: (values: import("../data/schema").RegisterValues) =>
       apiFetch<RegisterResponse>("/auth/register", {
         method: "POST",
         body: JSON.stringify({
-          name: values.name,
+          username: values.username,
+          firstName: values.firstName,
+          lastName: values.lastName,
           email: values.email,
           password: values.password,
         }),
@@ -234,87 +248,59 @@ function HeroSection() {
   });
 
   return (
-    <section className="relative flex min-h-screen items-center overflow-hidden pt-16">
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+    <section className="relative overflow-hidden pt-16">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,color-mix(in_oklch,var(--color-primary)_7%,transparent),transparent)]" />
 
-      {/* Decorative grid pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px]" />
-
-      {/* Floating orbs */}
-      <div className="absolute -left-32 -top-32 size-96 rounded-full bg-primary/5 blur-3xl" />
-      <div className="absolute -bottom-32 -right-32 size-96 rounded-full bg-primary/5 blur-3xl" />
-
-      <div className="relative mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          {/* ─── Left: Hero copy ─────────────────────────────── */}
+      <div className="relative mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+        <div className="grid items-start gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+          {/* ─── Left: copy ──────────────────────────────────── */}
           <div className="max-w-xl">
-            <Badge variant="secondary" className="mb-6 px-3 py-1 text-xs">
-              <Zap className="mr-1 size-3" />
-              One system. Every workflow.
-            </Badge>
-
-            <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-              The Clinic Operating System Your{" "}
-              <span className="bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent">
-                Practice Deserves
-              </span>
-            </h1>
-
-            <p className="mt-6 text-balance text-lg text-muted-foreground sm:text-xl">
-              From the front desk queue to the pharmacy counter — one unified
-              platform manages your entire clinic workflow. No paper, no chaos,
-              no separate systems.
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              Clinic operations, in one system
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Button
-                variant="outline"
-                size="lg"
-                className="text-base"
-                asChild
-              >
-                <a href="#features">
-                  <BookOpen className="size-4" />
-                  Explore Features
-                </a>
-              </Button>
-              <Button
-                size="lg"
-                className="text-base"
-                asChild
-              >
-                <a href="#register">
-                  Get Started Free
+            <h1 className="mt-4 text-balance text-4xl font-bold tracking-tight sm:text-5xl">
+              Run the whole clinic without leaving one screen
+            </h1>
+
+            <p className="mt-6 text-balance text-lg leading-relaxed text-muted-foreground">
+              Registration, the appointment queue, consultation, prescriptions,
+              billing, and pharmacy dispensing — connected end to end, so a
+              patient's record follows them through every step of the visit.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Button size="lg" className="text-base" asChild>
+                <Link to="/login">
+                  Sign in
                   <ArrowRight className="size-4" />
-                </a>
+                </Link>
+              </Button>
+              <Button variant="outline" size="lg" className="text-base" asChild>
+                <a href="#get-started">Set up your clinic</a>
               </Button>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-primary" />
-                No credit card
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-primary" />
-                Free setup
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-primary" />
-                24/7 support
-              </span>
-            </div>
+            <ul className="mt-10 flex flex-wrap gap-x-8 gap-y-3">
+              {trustMarkers.map(({ icon: Icon, label }) => (
+                <li
+                  key={label}
+                  className="flex items-center gap-2 text-sm text-muted-foreground"
+                >
+                  <Icon className="size-4 text-primary" />
+                  {label}
+                </li>
+              ))}
+            </ul>
           </div>
 
-          {/* ─── Right: Registration form ──────────────────── */}
-          <div className="mx-auto w-full max-w-md lg:mx-0">
-            <Card className="border-border/60 shadow-xl">
+          {/* ─── Right: registration ─────────────────────────── */}
+          <div id="get-started" className="mx-auto w-full max-w-md scroll-mt-24 lg:mx-0">
+            <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle className="text-xl">Create your account</CardTitle>
+                <CardTitle className="text-xl">Set up your clinic's workspace</CardTitle>
                 <CardDescription>
-                  Fill in the details below to start using OPD ERP.
+                  Create the first administrator account for your organisation.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -325,21 +311,55 @@ function HeroSection() {
                 >
                   <FieldGroup>
                     <Field>
-                      <FieldLabel htmlFor="hero-name">Full name</FieldLabel>
+                      <FieldLabel htmlFor="hero-username">Username</FieldLabel>
                       <Input
-                        id="hero-name"
-                        placeholder="Dr. John Doe"
-                        autoComplete="name"
-                        {...form.register("name")}
+                        id="hero-username"
+                        placeholder="johndoe"
+                        autoComplete="username"
+                        {...form.register("username")}
                       />
                       <FieldError
                         errors={
-                          form.formState.errors.name
-                            ? [form.formState.errors.name]
+                          form.formState.errors.username
+                            ? [form.formState.errors.username]
                             : undefined
                         }
                       />
                     </Field>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field>
+                        <FieldLabel htmlFor="hero-firstName">First name</FieldLabel>
+                        <Input
+                          id="hero-firstName"
+                          placeholder="John"
+                          autoComplete="given-name"
+                          {...form.register("firstName")}
+                        />
+                        <FieldError
+                          errors={
+                            form.formState.errors.firstName
+                              ? [form.formState.errors.firstName]
+                              : undefined
+                          }
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="hero-lastName">Last name</FieldLabel>
+                        <Input
+                          id="hero-lastName"
+                          placeholder="Doe"
+                          autoComplete="family-name"
+                          {...form.register("lastName")}
+                        />
+                        <FieldError
+                          errors={
+                            form.formState.errors.lastName
+                              ? [form.formState.errors.lastName]
+                              : undefined
+                          }
+                        />
+                      </Field>
+                    </div>
                     <Field>
                       <FieldLabel htmlFor="hero-email">
                         Email address
@@ -410,7 +430,7 @@ function HeroSection() {
                   >
                     {registerMutation.isPending
                       ? "Creating account..."
-                      : "Create your account"}
+                      : "Create account"}
                     {!registerMutation.isPending && (
                       <ArrowRight className="size-4" />
                     )}
@@ -428,47 +448,7 @@ function HeroSection() {
                 </p>
               </CardContent>
             </Card>
-
-            {/* Quick trust badges below the form */}
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {[
-                { icon: ShieldCheck, text: "SSL Encrypted" },
-                { icon: Clock, text: "Instant access" },
-                { icon: Users, text: "Multi-user" },
-              ].map((item) => (
-                <div
-                  key={item.text}
-                  className="flex items-center justify-center gap-1.5 rounded-none border bg-card px-3 py-2 text-xs text-muted-foreground"
-                >
-                  <item.icon className="size-3.5 text-primary" />
-                  {item.text}
-                </div>
-              ))}
-            </div>
           </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Stats ─────────────────────────────────────────────────────
-
-function StatsSection() {
-  return (
-    <section className="relative border-y border-border/40 bg-muted/30">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className="text-center">
-              <div className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
-                {stat.value}
-              </div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                {stat.label}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </section>
@@ -479,41 +459,73 @@ function StatsSection() {
 
 function FeaturesSection() {
   return (
-    <section id="features" className="relative scroll-mt-20 py-24">
+    <section id="features" className="scroll-mt-16 border-t border-border py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="secondary" className="mb-4">
-            Everything You Need
-          </Badge>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            One platform for your entire clinic
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            Modules
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            One platform for the entire clinic
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Every module is designed to work together seamlessly — register a
-            patient once and they flow through appointments, consultation,
-            billing, and pharmacy without re-entering data.
+            Every module shares the same patient and visit record — register
+            once and the data carries through appointments, consultation,
+            billing, and pharmacy.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid gap-px overflow-hidden bg-border sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
-            <Card
-              key={feature.title}
-              className="group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.02] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <CardHeader>
-                <div
-                  className={`mb-2 flex size-10 items-center justify-center ${feature.color}`}
-                >
-                  <feature.icon className="size-5" />
-                </div>
-                <CardTitle>{feature.title}</CardTitle>
-                <CardDescription className="text-sm leading-relaxed">
-                  {feature.description}
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            <div key={feature.title} className="bg-background p-6">
+              <feature.icon className="size-5 text-primary" />
+              <h3 className="mt-4 text-sm font-semibold">{feature.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {feature.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Workflow ──────────────────────────────────────────────────
+
+function WorkflowSection() {
+  return (
+    <section id="workflow" className="scroll-mt-16 border-t border-border py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            How it flows
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            One visit, one record, six steps
+          </h2>
+          <p className="mt-4 text-muted-foreground">
+            A patient moves through the same six stages every visit. OPD ERP
+            keeps them attached to a single record the whole way through.
+          </p>
+        </div>
+
+        <div className="mt-14 flex flex-col divide-y divide-border border-y border-border lg:flex-row lg:divide-x lg:divide-y-0">
+          {workflowSteps.map((step, index) => (
+            <div key={step.label} className="flex flex-1 gap-4 py-6 lg:flex-col lg:gap-3 lg:px-6 lg:py-8">
+              <div className="flex shrink-0 items-center gap-3 lg:flex-col lg:items-start lg:gap-4">
+                <span className="font-mono text-xs text-muted-foreground">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <step.icon className="size-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold">{step.label}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {step.description}
+                </p>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -525,141 +537,52 @@ function FeaturesSection() {
 
 function AboutSection() {
   return (
-    <section className="relative border-y border-border/40 bg-muted/30 py-24">
+    <section id="about" className="scroll-mt-16 border-t border-border bg-muted/30 py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
+        <div className="grid items-start gap-12 lg:grid-cols-2">
           <div>
-            <Badge variant="secondary" className="mb-4">
-              About OPD ERP
-            </Badge>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Built for clinics, by healthcare IT professionals
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              About
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              Built for the clinical workflow, not adapted to it
             </h2>
-            <div className="mt-6 space-y-4 text-muted-foreground leading-relaxed">
+            <div className="mt-6 space-y-4 leading-relaxed text-muted-foreground">
               <p>
-                OPD ERP is a modern, open-source clinic management system
-                designed to replace fragmented, paper-based workflows with a
-                single digital platform. From the moment a patient walks in to
-                the moment they leave with their medicine, every step is
-                tracked, every record is saved, and every transaction is
-                accounted for.
+                OPD ERP replaces the patchwork most clinics run on — paper
+                registers, a separate billing tool, and prescriptions that
+                never make it into a searchable record — with a single
+                system built around the actual sequence of a visit.
               </p>
               <p>
-                Unlike generic ERP systems that force your clinic to adapt to
-                rigid software, OPD ERP is built from the ground up for
-                the clinical workflow — patient registration, appointment
-                queue, doctor consultation, lab orders, pharmacy dispensing,
-                and billing — all in one place, all in real time.
-              </p>
-              <p>
-                Built with modern web technologies (React, TypeScript, NestJS,
-                PostgreSQL) and a clean, responsive interface that works on
-                desktops and tablets alike.
+                Registration, the appointment queue, consultation, orders,
+                billing, and pharmacy dispensing are modules of one
+                application, not integrations bolted onto each other.
               </p>
             </div>
           </div>
-          <div className="relative">
-            <div className="rounded-none border bg-card p-8 shadow-sm">
-              <h3 className="text-lg font-semibold">Tech Stack</h3>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {[
-                  "React 19",
-                  "TypeScript",
-                  "NestJS",
-                  "PostgreSQL",
-                  "Tailwind CSS",
-                  "TanStack Router",
-                  "shadcn/ui",
-                  "Prisma ORM",
-                ].map((tech) => (
-                  <div
-                    key={tech}
-                    className="flex items-center gap-2 rounded-none border bg-background px-3 py-2 text-sm"
-                  >
-                    <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
-                    {tech}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Decorative element */}
-            <div className="absolute -right-4 -top-4 -z-10 size-32 rounded-full bg-primary/10 blur-2xl" />
-            <div className="absolute -bottom-4 -left-4 -z-10 size-32 rounded-full bg-primary/10 blur-2xl" />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Comparison ────────────────────────────────────────────────
-
-function ComparisonSection() {
-  return (
-    <section className="relative py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="secondary" className="mb-4">
-            Why Switch?
-          </Badge>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ditch the paper, embrace the digital
-          </h2>
-          <p className="mt-4 text-muted-foreground">
-            Most clinics still run on a patchwork of paper registers, separate
-            billing software, and handwritten prescriptions. OPD ERP
-            replaces it all.
-          </p>
-        </div>
-
-        <div className="mt-16 grid gap-4 sm:grid-cols-2">
-          {comparisons.map((item) => (
-            <div
-              key={item.manual}
-              className="group relative rounded-none border bg-card p-5 transition-all duration-300 hover:shadow-md"
-            >
-              <div className="flex items-start gap-4">
-                <div className="flex size-8 shrink-0 items-center justify-center bg-primary/10 text-primary">
-                  <item.icon className="size-4" />
-                </div>
-                <div className="min-w-0 flex-1 space-y-3">
-                  <div className="flex items-start gap-2">
-                    <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
-                    <span className="text-sm text-muted-foreground">
-                      {item.manual}
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
-                    <span className="text-sm font-medium">{item.auto}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-12 rounded-none border bg-gradient-to-br from-primary/5 to-primary/[0.02] p-8 text-center sm:p-12">
-          <div className="mx-auto max-w-xl">
-            <h3 className="text-2xl font-bold tracking-tight">
-              What does this mean for your clinic?
-            </h3>
-            <ul className="mt-6 grid gap-3 text-left sm:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-semibold">Built with</h3>
+            <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden bg-border">
               {[
-                "No more lost files",
-                "Faster patient check-ins",
-                "Accurate billing every time",
-                "Real-time clinic overview",
-                "Reduced administrative overhead",
-                "Better patient experience",
-              ].map((item) => (
-                <li key={item} className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="size-4 shrink-0 text-primary" />
-                  {item}
-                </li>
+                "React 19",
+                "TypeScript",
+                "NestJS",
+                "PostgreSQL",
+                "Tailwind CSS",
+                "TanStack Router",
+                "shadcn/ui",
+                "Prisma ORM",
+              ].map((tech) => (
+                <div
+                  key={tech}
+                  className="flex items-center gap-2 bg-background px-3 py-2.5 text-sm"
+                >
+                  <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
+                  {tech}
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </div>
       </div>
@@ -667,177 +590,52 @@ function ComparisonSection() {
   );
 }
 
-// ─── Why (formerly Register, now a benefit callout) ────────────
+// ─── Capabilities ──────────────────────────────────────────────
 
-function WhySection() {
+function CapabilitiesSection() {
   return (
-    <section
-      id="register"
-      className="relative scroll-mt-20 border-y border-border/40 bg-muted/30 py-24"
-    >
+    <section className="border-t border-border py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <Badge variant="secondary" className="mb-4">
-            Why OPD ERP?
-          </Badge>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Start transforming your clinic today
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground leading-relaxed">
-            No credit card. No commitment. Just a modern system that your staff
-            will love using and your patients will notice.
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            Why it holds up
           </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            What the connected record actually gets you
+          </h2>
         </div>
 
-        <div className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-2">
-          {[
-            {
-              icon: Zap,
-              title: "Ready in minutes",
-              desc: "Cloud-based setup with no infrastructure to manage. Start using the system immediately after sign-up.",
-            },
-            {
-              icon: ShieldCheck,
-              title: "Enterprise-grade security",
-              desc: "SSL-encrypted data, role-based access control, and automated backups to keep your data safe.",
-            },
-            {
-              icon: MessageSquare,
-              title: "Free onboarding support",
-              desc: "Our team helps your staff get up to speed with personalized training sessions at no extra cost.",
-            },
-            {
-              icon: Hospital,
-              title: "Built for Indian clinics",
-              desc: "Designed for the workflows, regulations, and requirements of healthcare practices in India.",
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="group flex items-start gap-4 rounded-none border bg-card p-5 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
-            >
+        <div className="mt-14 grid gap-8 sm:grid-cols-2">
+          {capabilities.map((item) => (
+            <div key={item.title} className="flex gap-4">
               <span className="flex size-10 shrink-0 items-center justify-center bg-primary/10 text-primary">
                 <item.icon className="size-5" />
               </span>
               <div>
-                <h4 className="text-sm font-semibold">{item.title}</h4>
-                <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                  {item.desc}
+                <h3 className="text-sm font-semibold">{item.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  {item.description}
                 </p>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-10 text-center">
-          <Button
-            size="lg"
-            className="h-12 gap-2 px-6 text-base"
-            asChild
-          >
-            <a href="#">
-              Start Free Now
+        <div className="mt-16 flex flex-col items-start gap-6 border border-border bg-muted/30 p-8 sm:flex-row sm:items-center sm:justify-between sm:p-10">
+          <div>
+            <h3 className="text-xl font-bold tracking-tight">
+              Ready to move off paper?
+            </h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Create your clinic's workspace and start with the first visit.
+            </p>
+          </div>
+          <Button size="lg" className="shrink-0 text-base" asChild>
+            <a href="#get-started">
+              Get started
               <ArrowRight className="size-4" />
             </a>
           </Button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Contact ───────────────────────────────────────────────────
-
-function ContactSection() {
-  return (
-    <section id="contact" className="relative scroll-mt-20 py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="secondary" className="mb-4">
-            Get in Touch
-          </Badge>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Need help setting up?
-          </h2>
-          <p className="mt-4 text-muted-foreground">
-            Our team provides free onboarding assistance for clinics. Whether
-            you need help with deployment, configuration, or training — we're
-            here to help.
-          </p>
-        </div>
-
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="text-center transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-            <CardHeader>
-              <div className="mx-auto flex size-12 items-center justify-center bg-primary/10">
-                <Mail className="size-5 text-primary" />
-              </div>
-              <CardTitle className="mt-2">Email</CardTitle>
-              <CardDescription className="mt-1">
-                <a
-                  href="mailto:support@opderp.com"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  support@opderp.com
-                </a>
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="text-center transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-            <CardHeader>
-              <div className="mx-auto flex size-12 items-center justify-center bg-primary/10">
-                <Phone className="size-5 text-primary" />
-              </div>
-              <CardTitle className="mt-2">Phone</CardTitle>
-              <CardDescription className="mt-1">
-                <a
-                  href="tel:+15551234567"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  +1 (555) 123-4567
-                </a>
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="text-center transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-            <CardHeader>
-              <div className="mx-auto flex size-12 items-center justify-center bg-primary/10">
-                <MapPin className="size-5 text-primary" />
-              </div>
-              <CardTitle className="mt-2">Location</CardTitle>
-              <CardDescription className="mt-1">
-                Available worldwide — remote setup & support
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="text-center transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-            <CardHeader>
-              <div className="mx-auto flex size-12 items-center justify-center bg-primary/10">
-                <Clock className="size-5 text-primary" />
-              </div>
-              <CardTitle className="mt-2">Response Time</CardTitle>
-              <CardDescription className="mt-1">
-                Usually within 2-4 hours on business days
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-
-        <div className="mt-8 rounded-none border bg-muted/50 p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            For custom deployments, on-premise setup, training workshops, and
-            enterprise support —{" "}
-            <a
-              href="mailto:sales@opderp.com"
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
-              contact our sales team
-            </a>
-            .
-          </p>
         </div>
       </div>
     </section>
@@ -848,9 +646,9 @@ function ContactSection() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border/40 bg-muted/30">
+    <footer className="border-t border-border bg-muted/30">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-8 sm:grid-cols-3">
           <div>
             <Link to="/" className="flex items-center gap-2">
               <span className="flex size-8 items-center justify-center bg-primary text-primary-foreground">
@@ -858,9 +656,9 @@ function Footer() {
               </span>
               <span className="text-sm font-semibold">OPD ERP</span>
             </Link>
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              The open-source clinic management system for modern healthcare
-              practices.
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
+              A unified clinic management system — registration to pharmacy
+              dispensing, in one record.
             </p>
           </div>
 
@@ -877,18 +675,10 @@ function Footer() {
               </li>
               <li>
                 <a
-                  href="#register"
+                  href="#workflow"
                   className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  Pricing
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#contact"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Contact
+                  Workflow
                 </a>
               </li>
               <li>
@@ -896,7 +686,7 @@ function Footer() {
                   to="/login"
                   className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  Login
+                  Sign in
                 </Link>
               </li>
             </ul>
@@ -905,48 +695,17 @@ function Footer() {
           <div>
             <h4 className="text-sm font-semibold">Modules</h4>
             <ul className="mt-4 space-y-2">
-              {[
-                "Patients",
-                "Appointments",
-                "Billing",
-                "Pharmacy",
-                "Reports",
-              ].map((item) => (
+              {["Patients", "Appointments", "Billing", "Pharmacy"].map((item) => (
                 <li key={item}>
-                  <span className="text-sm text-muted-foreground">
-                    {item}
-                  </span>
+                  <span className="text-sm text-muted-foreground">{item}</span>
                 </li>
               ))}
             </ul>
           </div>
-
-          <div>
-            <h4 className="text-sm font-semibold">Contact</h4>
-            <ul className="mt-4 space-y-2">
-              <li>
-                <a
-                  href="mailto:support@opderp.com"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  support@opderp.com
-                </a>
-              </li>
-              <li>
-                <a
-                  href="tel:+15551234567"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  +1 (555) 123-4567
-                </a>
-              </li>
-            </ul>
-          </div>
         </div>
 
-        <div className="mt-10 border-t border-border/40 pt-6 text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} OPD ERP. Open source. Built
-          with care.
+        <div className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
+          &copy; {new Date().getFullYear()} OPD ERP.
         </div>
       </div>
     </footer>

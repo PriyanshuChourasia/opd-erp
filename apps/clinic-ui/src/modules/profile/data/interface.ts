@@ -1,6 +1,14 @@
 export interface UpdateProfileInput {
-  name?: string;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
   email?: string;
+  mobileNumber?: string;
+  countryCode?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  profilePhotoUrl?: string;
+  qualification?: string;
 }
 
 export interface ChangePasswordInput {

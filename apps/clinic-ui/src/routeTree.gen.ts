@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PosRouteImport } from './routes/_pos'
+import { Route as PatientRouteImport } from './routes/_patient'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardShiftsRouteImport } from './routes/_dashboard/shifts'
 import { Route as DashboardQueueRouteImport } from './routes/_dashboard/queue'
 import { Route as DashboardProfileRouteImport } from './routes/_dashboard/profile'
 import { Route as DashboardPrescriptionsRouteImport } from './routes/_dashboard/prescriptions'
@@ -23,7 +25,9 @@ import { Route as DashboardDispensingRouteImport } from './routes/_dashboard/dis
 import { Route as DashboardDashboardRouteImport } from './routes/_dashboard/dashboard'
 import { Route as DashboardBillingRouteImport } from './routes/_dashboard/billing'
 import { Route as DashboardAppointmentsRouteImport } from './routes/_dashboard/appointments'
+import { Route as DashboardAddressesRouteImport } from './routes/_dashboard/addresses'
 import { Route as PosPosIndexRouteImport } from './routes/_pos/pos/index'
+import { Route as PatientPatientIndexRouteImport } from './routes/_patient/patient/index'
 import { Route as DashboardOrganisationIndexRouteImport } from './routes/_dashboard/organisation/index'
 import { Route as DashboardDevelopmentIndexRouteImport } from './routes/_dashboard/development/index'
 import { Route as PosPosPatientsRouteImport } from './routes/_pos/pos/patients'
@@ -43,6 +47,10 @@ const PosRoute = PosRouteImport.update({
   id: '/_pos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PatientRoute = PatientRouteImport.update({
+  id: '/_patient',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
@@ -51,6 +59,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
+  id: '/shifts',
+  path: '/shifts',
+  getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardQueueRoute = DashboardQueueRouteImport.update({
   id: '/queue',
@@ -103,10 +116,20 @@ const DashboardAppointmentsRoute = DashboardAppointmentsRouteImport.update({
   path: '/appointments',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardAddressesRoute = DashboardAddressesRouteImport.update({
+  id: '/addresses',
+  path: '/addresses',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const PosPosIndexRoute = PosPosIndexRouteImport.update({
   id: '/pos/',
   path: '/pos/',
   getParentRoute: () => PosRoute,
+} as any)
+const PatientPatientIndexRoute = PatientPatientIndexRouteImport.update({
+  id: '/patient/',
+  path: '/patient/',
+  getParentRoute: () => PatientRoute,
 } as any)
 const DashboardOrganisationIndexRoute =
   DashboardOrganisationIndexRouteImport.update({
@@ -163,6 +186,7 @@ const DashboardDevelopmentFeaturesRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/addresses': typeof DashboardAddressesRoute
   '/appointments': typeof DashboardAppointmentsRoute
   '/billing': typeof DashboardBillingRoute
   '/dashboard': typeof DashboardDashboardRoute
@@ -173,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/prescriptions': typeof DashboardPrescriptionsRoute
   '/profile': typeof DashboardProfileRoute
   '/queue': typeof DashboardQueueRoute
+  '/shifts': typeof DashboardShiftsRoute
   '/development/features': typeof DashboardDevelopmentFeaturesRoute
   '/development/modules': typeof DashboardDevelopmentModulesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
@@ -182,11 +207,13 @@ export interface FileRoutesByFullPath {
   '/pos/patients': typeof PosPosPatientsRoute
   '/development/': typeof DashboardDevelopmentIndexRoute
   '/organisation/': typeof DashboardOrganisationIndexRoute
+  '/patient/': typeof PatientPatientIndexRoute
   '/pos/': typeof PosPosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/addresses': typeof DashboardAddressesRoute
   '/appointments': typeof DashboardAppointmentsRoute
   '/billing': typeof DashboardBillingRoute
   '/dashboard': typeof DashboardDashboardRoute
@@ -197,6 +224,7 @@ export interface FileRoutesByTo {
   '/prescriptions': typeof DashboardPrescriptionsRoute
   '/profile': typeof DashboardProfileRoute
   '/queue': typeof DashboardQueueRoute
+  '/shifts': typeof DashboardShiftsRoute
   '/development/features': typeof DashboardDevelopmentFeaturesRoute
   '/development/modules': typeof DashboardDevelopmentModulesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
@@ -206,14 +234,17 @@ export interface FileRoutesByTo {
   '/pos/patients': typeof PosPosPatientsRoute
   '/development': typeof DashboardDevelopmentIndexRoute
   '/organisation': typeof DashboardOrganisationIndexRoute
+  '/patient': typeof PatientPatientIndexRoute
   '/pos': typeof PosPosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/_patient': typeof PatientRouteWithChildren
   '/_pos': typeof PosRouteWithChildren
   '/login': typeof LoginRoute
+  '/_dashboard/addresses': typeof DashboardAddressesRoute
   '/_dashboard/appointments': typeof DashboardAppointmentsRoute
   '/_dashboard/billing': typeof DashboardBillingRoute
   '/_dashboard/dashboard': typeof DashboardDashboardRoute
@@ -224,6 +255,7 @@ export interface FileRoutesById {
   '/_dashboard/prescriptions': typeof DashboardPrescriptionsRoute
   '/_dashboard/profile': typeof DashboardProfileRoute
   '/_dashboard/queue': typeof DashboardQueueRoute
+  '/_dashboard/shifts': typeof DashboardShiftsRoute
   '/_dashboard/development/features': typeof DashboardDevelopmentFeaturesRoute
   '/_dashboard/development/modules': typeof DashboardDevelopmentModulesRoute
   '/_dashboard/organisation/roles': typeof DashboardOrganisationRolesRoute
@@ -233,6 +265,7 @@ export interface FileRoutesById {
   '/_pos/pos/patients': typeof PosPosPatientsRoute
   '/_dashboard/development/': typeof DashboardDevelopmentIndexRoute
   '/_dashboard/organisation/': typeof DashboardOrganisationIndexRoute
+  '/_patient/patient/': typeof PatientPatientIndexRoute
   '/_pos/pos/': typeof PosPosIndexRoute
 }
 export interface FileRouteTypes {
@@ -240,6 +273,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/addresses'
     | '/appointments'
     | '/billing'
     | '/dashboard'
@@ -250,6 +284,7 @@ export interface FileRouteTypes {
     | '/prescriptions'
     | '/profile'
     | '/queue'
+    | '/shifts'
     | '/development/features'
     | '/development/modules'
     | '/organisation/roles'
@@ -259,11 +294,13 @@ export interface FileRouteTypes {
     | '/pos/patients'
     | '/development/'
     | '/organisation/'
+    | '/patient/'
     | '/pos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
+    | '/addresses'
     | '/appointments'
     | '/billing'
     | '/dashboard'
@@ -274,6 +311,7 @@ export interface FileRouteTypes {
     | '/prescriptions'
     | '/profile'
     | '/queue'
+    | '/shifts'
     | '/development/features'
     | '/development/modules'
     | '/organisation/roles'
@@ -283,13 +321,16 @@ export interface FileRouteTypes {
     | '/pos/patients'
     | '/development'
     | '/organisation'
+    | '/patient'
     | '/pos'
   id:
     | '__root__'
     | '/'
     | '/_dashboard'
+    | '/_patient'
     | '/_pos'
     | '/login'
+    | '/_dashboard/addresses'
     | '/_dashboard/appointments'
     | '/_dashboard/billing'
     | '/_dashboard/dashboard'
@@ -300,6 +341,7 @@ export interface FileRouteTypes {
     | '/_dashboard/prescriptions'
     | '/_dashboard/profile'
     | '/_dashboard/queue'
+    | '/_dashboard/shifts'
     | '/_dashboard/development/features'
     | '/_dashboard/development/modules'
     | '/_dashboard/organisation/roles'
@@ -309,12 +351,14 @@ export interface FileRouteTypes {
     | '/_pos/pos/patients'
     | '/_dashboard/development/'
     | '/_dashboard/organisation/'
+    | '/_patient/patient/'
     | '/_pos/pos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
+  PatientRoute: typeof PatientRouteWithChildren
   PosRoute: typeof PosRouteWithChildren
   LoginRoute: typeof LoginRoute
 }
@@ -335,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_patient': {
+      id: '/_patient'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PatientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_dashboard': {
       id: '/_dashboard'
       path: ''
@@ -348,6 +399,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard/shifts': {
+      id: '/_dashboard/shifts'
+      path: '/shifts'
+      fullPath: '/shifts'
+      preLoaderRoute: typeof DashboardShiftsRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/_dashboard/queue': {
       id: '/_dashboard/queue'
@@ -419,12 +477,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAppointmentsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/addresses': {
+      id: '/_dashboard/addresses'
+      path: '/addresses'
+      fullPath: '/addresses'
+      preLoaderRoute: typeof DashboardAddressesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_pos/pos/': {
       id: '/_pos/pos/'
       path: '/pos'
       fullPath: '/pos/'
       preLoaderRoute: typeof PosPosIndexRouteImport
       parentRoute: typeof PosRoute
+    }
+    '/_patient/patient/': {
+      id: '/_patient/patient/'
+      path: '/patient'
+      fullPath: '/patient/'
+      preLoaderRoute: typeof PatientPatientIndexRouteImport
+      parentRoute: typeof PatientRoute
     }
     '/_dashboard/organisation/': {
       id: '/_dashboard/organisation/'
@@ -493,6 +565,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface DashboardRouteChildren {
+  DashboardAddressesRoute: typeof DashboardAddressesRoute
   DashboardAppointmentsRoute: typeof DashboardAppointmentsRoute
   DashboardBillingRoute: typeof DashboardBillingRoute
   DashboardDashboardRoute: typeof DashboardDashboardRoute
@@ -503,6 +576,7 @@ interface DashboardRouteChildren {
   DashboardPrescriptionsRoute: typeof DashboardPrescriptionsRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardQueueRoute: typeof DashboardQueueRoute
+  DashboardShiftsRoute: typeof DashboardShiftsRoute
   DashboardDevelopmentFeaturesRoute: typeof DashboardDevelopmentFeaturesRoute
   DashboardDevelopmentModulesRoute: typeof DashboardDevelopmentModulesRoute
   DashboardOrganisationRolesRoute: typeof DashboardOrganisationRolesRoute
@@ -512,6 +586,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAddressesRoute: DashboardAddressesRoute,
   DashboardAppointmentsRoute: DashboardAppointmentsRoute,
   DashboardBillingRoute: DashboardBillingRoute,
   DashboardDashboardRoute: DashboardDashboardRoute,
@@ -522,6 +597,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPrescriptionsRoute: DashboardPrescriptionsRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardQueueRoute: DashboardQueueRoute,
+  DashboardShiftsRoute: DashboardShiftsRoute,
   DashboardDevelopmentFeaturesRoute: DashboardDevelopmentFeaturesRoute,
   DashboardDevelopmentModulesRoute: DashboardDevelopmentModulesRoute,
   DashboardOrganisationRolesRoute: DashboardOrganisationRolesRoute,
@@ -533,6 +609,17 @@ const DashboardRouteChildren: DashboardRouteChildren = {
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
   DashboardRouteChildren,
 )
+
+interface PatientRouteChildren {
+  PatientPatientIndexRoute: typeof PatientPatientIndexRoute
+}
+
+const PatientRouteChildren: PatientRouteChildren = {
+  PatientPatientIndexRoute: PatientPatientIndexRoute,
+}
+
+const PatientRouteWithChildren =
+  PatientRoute._addFileChildren(PatientRouteChildren)
 
 interface PosRouteChildren {
   PosPosAppointmentsRoute: typeof PosPosAppointmentsRoute
@@ -553,6 +640,7 @@ const PosRouteWithChildren = PosRoute._addFileChildren(PosRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
+  PatientRoute: PatientRouteWithChildren,
   PosRoute: PosRouteWithChildren,
   LoginRoute: LoginRoute,
 }

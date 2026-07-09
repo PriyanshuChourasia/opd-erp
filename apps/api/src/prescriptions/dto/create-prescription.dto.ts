@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsInt, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 
 export class PrescriptionItemDto {
   @IsString()
@@ -19,9 +19,13 @@ export class PrescriptionItemDto {
   @IsString()
   instructions?: string;
 
+  @IsInt()
+  @Min(1)
   quantity!: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
   refills?: number;
 }
 
@@ -43,6 +47,6 @@ export class CreatePrescriptionDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PrescriptionItemDto)
-  @MinLength(1, { message: 'At least one prescription item is required' })
+  @ArrayMinSize(1, { message: 'At least one prescription item is required' })
   items!: PrescriptionItemDto[];
 }

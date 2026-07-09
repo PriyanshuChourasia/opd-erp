@@ -33,8 +33,10 @@ function startOfDay(date: Date): Date {
 }
 
 /**
- * Generates available appointment time slots from a doctor's schedule
+ * Generates available appointment time slots from an employee's schedule
  * and booked appointments.
+ *
+ * Uses EmployeeSchedule (generic) with configurable slot duration and max patients.
  *
  * # SOLID
  * - **Single Responsibility** — this is the only class that knows how to generate slots.
@@ -44,32 +46,49 @@ function startOfDay(date: Date): Date {
 export class SlotGeneratorService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateSlots(doctorId: string, dateStr: string): Promise<SlotResult> {
+  async generateSlots(
+    employeeSchedulableType: string,
+    employeeSchedulableId: string,
+    dateStr: string,
+    options?: { slotDuration?: number; maxPatients?: number },
+  ): Promise<SlotResult> {
     const date = startOfDay(new Date(dateStr));
-    const dayOfWeek = date.getDay();
+    // Convert JS getDay() (0=Sunday) to DayOfWeek (0=Monday)
+    const dayOfWeek = (date.getDay() + 6) % 7;
 
-    const schedule = await this.prisma.doctorSchedule.findUnique({
-      where: { doctorId_dayOfWeek: { doctorId, dayOfWeek } },
+    const schedule = await this.prisma.employeeSchedule.findFirst({
+      where: {
+        employeeSchedulableType,
+        employeeSchedulableId,
+        dayOfWeek,
+      },
     });
 
     if (!schedule) {
       return { available: false, slots: [] };
     }
 
+    const slotDuration = options?.slotDuration ?? 15;
+    const maxPatients = options?.maxPatients ?? 20;
+
     const nextDay = new Date(date);
     nextDay.setDate(nextDay.getDate() + 1);
 
-    const appointments = await this.prisma.appointment.findMany({
-      where: {
-        doctorId,
-        date: { gte: date, lt: nextDay },
-        status: { not: 'CANCELLED' },
-      },
-      select: { date: true },
-    });
+    // Query appointments for the doctor (when employee type is Doctor)
+    let bookedAppointments: { date: Date }[] = [];
+    if (employeeSchedulableType === 'Doctor') {
+      bookedAppointments = await this.prisma.appointment.findMany({
+        where: {
+          doctorId: employeeSchedulableId,
+          date: { gte: date, lt: nextDay },
+          status: { not: 'CANCELLED' },
+        },
+        select: { date: true },
+      });
+    }
 
     const bookedCounts = new Map<string, number>();
-    for (const appt of appointments) {
+    for (const appt of bookedAppointments) {
       const time = `${appt.date.getHours().toString().padStart(2, '0')}:${appt.date
         .getMinutes()
         .toString()
@@ -80,10 +99,10 @@ export class SlotGeneratorService {
     const slots: TimeSlot[] = [];
     const start = timeToMinutes(schedule.startTime);
     const end = timeToMinutes(schedule.endTime);
-    for (let minutes = start; minutes < end; minutes += schedule.slotDuration) {
+    for (let minutes = start; minutes < end; minutes += slotDuration) {
       const time = minutesToTime(minutes);
       const booked = bookedCounts.get(time) ?? 0;
-      slots.push({ time, capacity: schedule.maxPatients, booked, available: booked < schedule.maxPatients });
+      slots.push({ time, capacity: maxPatients, booked, available: booked < maxPatients });
     }
 
     return { available: true, slots };

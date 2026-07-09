@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchDoctors, fetchDoctor, createDoctor, updateDoctor, deleteDoctor, fetchDoctorSchedules, upsertDoctorSchedule, deleteDoctorSchedule } from "./api";
+import { fetchDoctors, fetchDoctor, createDoctor, updateDoctor, deleteDoctor, fetchDoctorSchedules, createEmployeeSchedule, deleteEmployeeSchedule } from "./api";
 
 export function useDoctors(search?: string) {
   return useQuery({ queryKey: ["doctors", search], queryFn: () => fetchDoctors(search) });
@@ -11,7 +11,7 @@ export function useDoctor(id: string) {
 
 export function useDoctorSchedules(doctorId: string | null) {
   return useQuery({
-    queryKey: ["doctor-schedules", doctorId],
+    queryKey: ["employee-schedules", "Doctor", doctorId],
     queryFn: () => fetchDoctorSchedules(doctorId!),
     enabled: !!doctorId,
   });

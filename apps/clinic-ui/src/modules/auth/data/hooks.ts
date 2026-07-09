@@ -25,7 +25,7 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: (values: RegisterValues) =>
-      registerApi(values.name, values.email, values.password),
+      registerApi(values.username, values.firstName, values.lastName, values.email, values.password),
     onSuccess: (data) => {
       dispatch(setCredentials(data));
       navigate({ to: getHomeRoute(data.user.roleName) });

@@ -1,12 +1,18 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
+export type UserableType = 'Doctor' | 'Patient' | 'Nurse' | 'Receptionist' | 'Pharmacist' | 'LabStaff';
+
 export interface AuthUser {
   id: string;
-  name: string;
+  username: string;
+  firstName: string;
+  lastName: string;
   email: string;
   roleName: string;
   createdAt?: string;
   permissions: string[];
+  userableType?: UserableType | null;
+  userableId?: string | null;
 }
 
 interface AuthState {

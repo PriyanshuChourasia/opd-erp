@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { IBaseService } from '../common/interfaces/base-service.interface';
+import { paginate } from '../common/utils/paginate';
+import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
+import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Prescription } from '@prisma/client';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
+import { FindPrescriptionsQueryDto } from './dto/find-prescriptions-query.dto';
 
 /**
  * E-prescriptions with medicine selection, dosage tracking, and item management.
@@ -13,7 +16,11 @@ import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
  * - **Open/Closed** — new item types can be added via DTO without changing core CRUD.
  */
 @Injectable()
-export class PrescriptionsService implements IBaseService<Prescription, CreatePrescriptionDto, UpdatePrescriptionDto> {
+export class PrescriptionsService
+  implements
+    IBaseService<Prescription, CreatePrescriptionDto, UpdatePrescriptionDto>,
+    IPaginatable<Prescription, FindPrescriptionsQueryDto>
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreatePrescriptionDto) {
@@ -37,14 +44,21 @@ export class PrescriptionsService implements IBaseService<Prescription, CreatePr
     });
   }
 
-  async findAll(patientId?: string) {
+  async findAll(query: FindPrescriptionsQueryDto): Promise<PaginatedResult<Prescription>> {
     const where: Record<string, unknown> = {};
-    if (patientId) where.patientId = patientId;
-    return this.prisma.prescription.findMany({
-      where,
-      include: { items: true, patient: true, doctor: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    if (query.patientId) where.patientId = query.patientId;
+    return paginate(
+      () => this.prisma.prescription.count({ where }),
+      ({ skip, take }) =>
+        this.prisma.prescription.findMany({
+          where,
+          include: { items: true, patient: true, doctor: true },
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+          skip,
+          take,
+        }),
+      query,
+    );
   }
 
   async findOne(id: string) {

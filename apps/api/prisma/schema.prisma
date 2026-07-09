@@ -8,16 +8,29 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  name          String
-  email         String         @unique
-  password      String
-  isActive      Boolean        @default(true)
-  roleId        String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  role          Role           @relation(fields: [roleId], references: [id])
-  refreshTokens RefreshToken[]
+  id               String         @id @default(uuid())
+  username         String         @unique
+  firstName        String
+  middleName       String?
+  lastName         String
+  gender           String?        // MALE | FEMALE | OTHER
+  dateOfBirth      DateTime?
+  email            String         @unique
+  mobileNumber     String?
+  countryCode      String         @default("+91")
+  profilePhotoUrl  String?
+  qualification    String?
+  password         String
+  isActive         Boolean        @default(true)
+  roleId           String
+  userableType     String?        // "Doctor" | "Patient" | "Nurse" | "Receptionist" | "Pharmacist" | "LabStaff"
+  userableId       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  role             Role           @relation(fields: [roleId], references: [id])
+  refreshTokens    RefreshToken[]
+
+  @@index([userableType, userableId])
 }
 
 model Role {
@@ -91,38 +104,33 @@ model Patient {
 }
 
 model Doctor {
-  id              String   @id @default(uuid())
-  name            String
-  email           String   @unique
-  phone           String?
-  specialization  String?
-  licenseNumber   String   @unique
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                       String   @id @default(uuid())
+  qualification            String?
+  specialization           String?
+  medicalRegistrationNo   String   @unique
+  medicalCouncil           String?
+  registrationYear         Int?
+  yearsOfExperience        Int?
+  consultationFee          Int      @default(0)
+  consultationMode         String   @default("OFFLINE") // OFFLINE | ONLINE | BOTH
+  signature                String?
+  registrationCertificateUrl String?
+  degreeCertificateUrl     String?
+  governmentIdUrl          String?
+  verificationStatus       String   @default("PENDING") // PENDING | VERIFIED | REJECTED | SUSPENDED
+  isActive                 Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
-  schedules       DoctorSchedule[]
   appointments    Appointment[]
   queueEntries    QueueEntry[]
   prescriptions   Prescription[]
   labOrders       LabOrder[]
   radiologyOrders RadiologyOrder[]
   procedureOrders ProcedureOrder[]
-}
 
-model DoctorSchedule {
-  id           String   @id @default(uuid())
-  doctorId     String
-  dayOfWeek    Int      // 0=Sunday … 6=Saturday
-  startTime    String   // "09:00"
-  endTime      String   // "17:00"
-  slotDuration Int      @default(15) // minutes
-  maxPatients  Int      @default(20)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  doctor       Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-
-  @@unique([doctorId, dayOfWeek])
+  @@index([verificationStatus])
+  @@index([specialization])
 }
 
 model QueueEntry {
@@ -336,4 +344,81 @@ model Dispensing {
 
   @@index([prescriptionId])
   @@index([medicineId])
+}
+
+// ─── Shift ───────────────────────────────────────────────────
+
+model Shift {
+  id             String              @id @default(uuid())
+  name           String
+  code           String              @unique // e.g. "M", "E", "N", "OPD_EVE"
+  startTime      String              // "HH:mm"
+  endTime        String              // "HH:mm"
+  breakStartTime String?             // "HH:mm"
+  breakEndTime   String?             // "HH:mm"
+  isOvernight    Boolean             @default(false)
+  description    String?
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  schedules      EmployeeSchedule[]
+}
+
+// ─── Employee Schedule (generic, replaces DoctorSchedule) ────
+
+model EmployeeSchedule {
+  id          String   @id @default(uuid())
+  dayOfWeek   Int      // 0=Monday … 6=Sunday (see DayOfWeek enum)
+  startTime   String   // "HH:mm"
+  endTime     String   // "HH:mm"
+  shiftId     String?
+  employeeSchedulableType  String   // "Doctor" | "Nurse" | "Receptionist" | "Pharmacist" | "LabStaff"
+  employeeSchedulableId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  shift       Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+
+  @@index([employeeSchedulableType, employeeSchedulableId, dayOfWeek], map: "emp_sched_type_id_dow")
+  @@index([employeeSchedulableType, employeeSchedulableId], map: "emp_sched_type_id")
+}
+
+// ─── Address (polymorphic) ───────────────────────────────────
+// Reusable for Users, Doctors, Clinics, Hospitals, Organisations, etc.
+
+model Address {
+  id              String   @id @default(uuid())
+  addressType     String   // CLINIC | HOME | BILLING | OTHER
+  addressLine1    String
+  addressLine2    String?
+  landmark        String?
+  city            String?
+  district        String?
+  state           String?
+  country         String   @default("India")
+  postalCode      String?
+  latitude        Float?
+  longitude       Float?
+  isPrimary       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  addressableType String   // "User" | "Doctor" | "Organisation" | "Clinic" | "Hospital"
+  addressableId   String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([addressableType, addressableId])
+  @@index([addressableType, addressableId, isPrimary])
+}
+
+// ─── Organisation ────────────────────────────────────────────
+
+model Organisation {
+  id                 String   @id @default(uuid())
+  name               String
+  address            String?
+  phone              String?
+  email              String?
+  website            String?
+  registrationNumber String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }

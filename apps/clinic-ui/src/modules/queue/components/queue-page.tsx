@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { ChevronRight, ListOrdered, Plus, SkipForward, Trash2, UserCheck, UserX, X } from "lucide-react";
-import { fetchQueue, createQueueEntry, updateQueueStatus, deleteQueueEntry } from "@/lib/api";
+import { fetchQueue, createQueueEntry, updateQueueStatus, deleteQueueEntry, type QueueEntry } from "@/lib/api";
 import { fetchDoctors, fetchPatients } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,23 +11,35 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
   Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
+import { DataTable } from "@/components/data-table/data-table";
 import { STATUS_STYLES, NEXT_STATUS } from "../data/interface";
 
 export function QueuePage() {
   const queryClient = useQueryClient();
   const [filterDoctor, setFilterDoctor] = useState("");
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [form, setForm] = useState<{ patientId: string; doctorId: string }>({ patientId: "", doctorId: "" });
 
-  const { data: queue = [], isLoading } = useQuery({
-    queryKey: ["queue", filterDoctor],
-    queryFn: () => fetchQueue(filterDoctor || undefined),
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["queue", filterDoctor, pagination.pageIndex, pagination.pageSize],
+    queryFn: () => fetchQueue({
+      doctorId: filterDoctor || undefined,
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+    }),
+    placeholderData: (previous) => previous,
     refetchInterval: 15_000,
   });
 
-  const { data: doctors = [] } = useQuery({ queryKey: ["doctors", ""], queryFn: () => fetchDoctors() });
-  const { data: patients = [] } = useQuery({ queryKey: ["patients", ""], queryFn: () => fetchPatients() });
+  const queue = response?.data ?? [];
+  const pageCount = response?.meta.totalPages ?? 0;
+
+  const { data: doctorsResp } = useQuery({ queryKey: ["doctors", "", 0, 100], queryFn: () => fetchDoctors({ limit: 100 }) });
+  const doctors = doctorsResp?.data ?? [];
+  const { data: patientsResp } = useQuery({ queryKey: ["patients", "", 0, 100], queryFn: () => fetchPatients({ limit: 100 }) });
+  const patients = patientsResp?.data ?? [];
 
   const createMutation = useMutation({
     mutationFn: createQueueEntry,
@@ -45,6 +58,85 @@ export function QueuePage() {
 
   const waitingCount = queue.filter((e) => e.status === "WAITING").length;
   const inProgress = queue.filter((e) => e.status === "IN_PROGRESS");
+
+  const columns = useMemo<ColumnDef<QueueEntry>[]>(() => [
+    {
+      accessorKey: "tokenNumber",
+      header: "Token #",
+      cell: ({ row }) => {
+        const entry = row.original;
+        return (
+          <span className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            entry.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+            entry.status === "COMPLETED" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+            "bg-muted text-muted-foreground"
+          }`}>{String(entry.tokenNumber).padStart(2, "0")}</span>
+        );
+      },
+    },
+    {
+      id: "patient",
+      header: "Patient",
+      cell: ({ row }) => <p className="text-sm font-medium">{row.original.patient.name}</p>,
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const entry = row.original;
+        return <Badge variant="outline" className={`text-[10px] ${STATUS_STYLES[entry.status] ?? ""}`}>{entry.status.replace("_", " ")}</Badge>;
+      },
+    },
+    {
+      id: "doctor",
+      header: "Doctor",
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.doctor?.medicalRegistrationNo ?? 'Doctor'}</span>,
+    },
+    {
+      id: "checkedInAt",
+      header: "Checked-in time",
+      cell: ({ row }) => {
+        const checkedInAt = row.original.checkedInAt;
+        return (
+          <span className="text-xs text-muted-foreground">
+            {checkedInAt ? new Date(checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+          </span>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const entry = row.original;
+        return (
+          <div className="flex justify-end gap-1">
+            {NEXT_STATUS[entry.status] && (
+              <Button variant="ghost" size="icon" className="size-8" title={`Move to ${NEXT_STATUS[entry.status]}`} onClick={() => statusMutation.mutate({ id: entry.id, status: NEXT_STATUS[entry.status]! })}>
+                {NEXT_STATUS[entry.status] === "IN_PROGRESS" ? <ChevronRight className="size-4 text-blue-600" /> :
+                 NEXT_STATUS[entry.status] === "COMPLETED" ? <UserCheck className="size-4 text-green-600" /> : <ChevronRight className="size-4" />}
+              </Button>
+            )}
+            {entry.status === "WAITING" && (
+              <>
+                <Button variant="ghost" size="icon" className="size-8" title="Skip" onClick={() => statusMutation.mutate({ id: entry.id, status: "SKIPPED" })}><SkipForward className="size-4 text-muted-foreground" /></Button>
+                <Button variant="ghost" size="icon" className="size-8" title="No show" onClick={() => statusMutation.mutate({ id: entry.id, status: "NO_SHOW" })}><UserX className="size-4 text-red-500" /></Button>
+              </>
+            )}
+            {deleteConfirm === entry.id ? (
+              <div className="flex items-center gap-1">
+                <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(entry.id)}>Confirm</Button>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(entry.id)}><Trash2 className="size-3.5" /></Button>
+            )}
+          </div>
+        );
+      },
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [deleteConfirm]);
 
   return (
     <div className="space-y-6">
@@ -68,7 +160,7 @@ export function QueuePage() {
                 <Field><FieldLabel htmlFor="q-doctor">Doctor</FieldLabel>
                   <select id="q-doctor" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.doctorId} onChange={(e) => setForm({ ...form, doctorId: e.target.value })}>
                     <option value="">Select a doctor...</option>
-                    {doctors.map((d) => (<option key={d.id} value={d.id}>Dr. {d.name} — {d.specialization ?? "General"}</option>))}
+                    {doctors.map((d) => (<option key={d.id} value={d.id}>{d.medicalRegistrationNo ?? 'Doctor'}</option>))}
                   </select>
                 </Field>
               </FieldGroup>
@@ -82,9 +174,8 @@ export function QueuePage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button variant={!filterDoctor ? "default" : "outline"} size="sm" onClick={() => setFilterDoctor("")}>All</Button>
-        {doctors.map((d) => (
-          <Button key={d.id} variant={filterDoctor === d.id ? "default" : "outline"} size="sm" onClick={() => setFilterDoctor(d.id)}>Dr. {d.name}</Button>
+        <Button variant={!filterDoctor ? "default" : "outline"} size="sm" onClick={() => { setFilterDoctor(""); setPagination((p) => ({ ...p, pageIndex: 0 })); }}>All</Button>          {doctors.map((d) => (
+          <Button key={d.id} variant={filterDoctor === d.id ? "default" : "outline"} size="sm" onClick={() => { setFilterDoctor(d.id); setPagination((p) => ({ ...p, pageIndex: 0 })); }}>{d.medicalRegistrationNo ?? 'Doctor'}</Button>
         ))}
       </div>
 
@@ -105,52 +196,20 @@ export function QueuePage() {
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Today's Queue</CardTitle></CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex justify-center py-12"><span className="text-sm text-muted-foreground">Loading...</span></div>
-          ) : queue.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-center"><ListOrdered className="size-8 text-muted-foreground/50" /><p className="text-sm text-muted-foreground">Queue is empty</p></div>
-          ) : (
-            <div className="divide-y">
-              {queue.map((entry) => (
-                <div key={entry.id} className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/30">
-                  <span className={`flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                    entry.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-                    entry.status === "COMPLETED" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-                    "bg-muted text-muted-foreground"
-                  }`}>{String(entry.tokenNumber).padStart(2, "0")}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{entry.patient.name}</p>
-                      <Badge variant="outline" className={`text-[10px] ${STATUS_STYLES[entry.status] ?? ""}`}>{entry.status.replace("_", " ")}</Badge>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Dr. {entry.doctor.name} · {entry.checkedInAt ? new Date(entry.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {NEXT_STATUS[entry.status] && (
-                      <Button variant="ghost" size="icon" className="size-8" title={`Move to ${NEXT_STATUS[entry.status]}`} onClick={() => statusMutation.mutate({ id: entry.id, status: NEXT_STATUS[entry.status]! })}>
-                        {NEXT_STATUS[entry.status] === "IN_PROGRESS" ? <ChevronRight className="size-4 text-blue-600" /> :
-                         NEXT_STATUS[entry.status] === "COMPLETED" ? <UserCheck className="size-4 text-green-600" /> : <ChevronRight className="size-4" />}
-                      </Button>
-                    )}
-                    {entry.status === "WAITING" && (
-                      <>
-                        <Button variant="ghost" size="icon" className="size-8" title="Skip" onClick={() => statusMutation.mutate({ id: entry.id, status: "SKIPPED" })}><SkipForward className="size-4 text-muted-foreground" /></Button>
-                        <Button variant="ghost" size="icon" className="size-8" title="No show" onClick={() => statusMutation.mutate({ id: entry.id, status: "NO_SHOW" })}><UserX className="size-4 text-red-500" /></Button>
-                      </>
-                    )}
-                    {deleteConfirm === entry.id ? (
-                      <div className="flex items-center gap-1">
-                        <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(entry.id)}>Confirm</Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
-                      </div>
-                    ) : (
-                      <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(entry.id)}><Trash2 className="size-3.5" /></Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            data={queue}
+            pageCount={pageCount}
+            pagination={pagination}
+            onPaginationChange={setPagination}
+            isLoading={isLoading}
+            emptyState={
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <ListOrdered className="size-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">Queue is empty</p>
+              </div>
+            }
+          />
         </CardContent>
       </Card>
     </div>

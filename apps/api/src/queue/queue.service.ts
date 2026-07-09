@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { IBaseService } from '../common/interfaces/base-service.interface';
+import { paginate } from '../common/utils/paginate';
+import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
+import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { QueueEntry } from '@prisma/client';
 import { CreateQueueEntryDto } from './dto/create-queue-entry.dto';
 import { UpdateQueueStatusDto } from './dto/update-queue-status.dto';
+import { FindQueueQueryDto } from './dto/find-queue-query.dto';
 
 /**
  * Live token queue with status tracking and check-in management.
@@ -11,9 +14,12 @@ import { UpdateQueueStatusDto } from './dto/update-queue-status.dto';
  * # SOLID
  * - **Single Responsibility** — only queue entry lifecycle.
  * - **Open/Closed** — new status transitions can be added without modifying core logic.
+ * - **Dependency Inversion** — implements `IBaseService` & `IPaginatable` contracts.
  */
 @Injectable()
-export class QueueService implements IBaseService<QueueEntry, CreateQueueEntryDto, UpdateQueueStatusDto> {
+export class QueueService
+  implements IBaseService<QueueEntry, CreateQueueEntryDto, UpdateQueueStatusDto>, IPaginatable<QueueEntry, FindQueueQueryDto>
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateQueueEntryDto) {
@@ -40,21 +46,28 @@ export class QueueService implements IBaseService<QueueEntry, CreateQueueEntryDt
     });
   }
 
-  async findAll(doctorId?: string, date?: string) {
+  async findAll(query: FindQueueQueryDto): Promise<PaginatedResult<QueueEntry>> {
     const where: Record<string, unknown> = {};
 
-    if (doctorId) where.doctorId = doctorId;
-    if (date) {
-      const d = new Date(date);
+    if (query.doctorId) where.doctorId = query.doctorId;
+    if (query.date) {
+      const d = new Date(query.date);
       d.setHours(0, 0, 0, 0);
       where.queueDate = d;
     }
 
-    return this.prisma.queueEntry.findMany({
-      where,
-      include: { patient: true, doctor: true },
-      orderBy: { tokenNumber: 'asc' },
-    });
+    return paginate(
+      () => this.prisma.queueEntry.count({ where }),
+      ({ skip, take }) =>
+        this.prisma.queueEntry.findMany({
+          where,
+          include: { patient: true, doctor: true },
+          orderBy: [{ tokenNumber: 'asc' }, { id: 'asc' }],
+          skip,
+          take,
+        }),
+      query,
+    );
   }
 
   async findOne(id: string) {

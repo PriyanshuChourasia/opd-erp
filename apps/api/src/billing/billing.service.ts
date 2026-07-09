@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { IBaseService } from '../common/interfaces/base-service.interface';
+import { paginate } from '../common/utils/paginate';
+import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
+import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Bill } from '@prisma/client';
 import { CreateBillDto } from './dto/create-bill.dto';
 import { UpdateBillStatusDto } from './dto/update-bill-status.dto';
+import { FindBillsQueryDto } from './dto/find-bills-query.dto';
 
 /**
  * Generates invoice numbers using the database's auto-increment by
@@ -26,7 +29,9 @@ async function generateInvoiceNo(prisma: PrismaService): Promise<string> {
  *   without modifying core CRUD.
  */
 @Injectable()
-export class BillingService implements IBaseService<Bill, CreateBillDto, UpdateBillStatusDto> {
+export class BillingService
+  implements IBaseService<Bill, CreateBillDto, UpdateBillStatusDto>, IPaginatable<Bill, FindBillsQueryDto>
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateBillDto) {
@@ -60,14 +65,21 @@ export class BillingService implements IBaseService<Bill, CreateBillDto, UpdateB
     });
   }
 
-  async findAll(patientId?: string) {
+  async findAll(query: FindBillsQueryDto): Promise<PaginatedResult<Bill>> {
     const where: Record<string, unknown> = {};
-    if (patientId) where.patientId = patientId;
-    return this.prisma.bill.findMany({
-      where,
-      include: { items: true, patient: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    if (query.patientId) where.patientId = query.patientId;
+    return paginate(
+      () => this.prisma.bill.count({ where }),
+      ({ skip, take }) =>
+        this.prisma.bill.findMany({
+          where,
+          include: { items: true, patient: true },
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+          skip,
+          take,
+        }),
+      query,
+    );
   }
 
   async findOne(id: string) {

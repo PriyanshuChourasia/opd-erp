@@ -78,9 +78,9 @@ export function PosLayout() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2">
                 <Avatar className="size-6">
-                  <AvatarFallback>{initials(user?.name ?? "?")}</AvatarFallback>
+                  <AvatarFallback>{initials(user?.firstName ?? "?")}</AvatarFallback>
                 </Avatar>
-                {user?.name ?? "Guest"}
+                {user?.firstName ?? ""} {user?.lastName ?? "Guest"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="bottom" align="end" className="w-56">

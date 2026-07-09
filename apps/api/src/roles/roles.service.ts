@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { IBaseService } from '../common/interfaces/base-service.interface';
+import { paginate } from '../common/utils/paginate';
+import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
+import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Role } from '@prisma/client';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { FindRolesQueryDto } from './dto/find-roles-query.dto';
 
 /**
  * Role-based access control — define roles and assign permissions.
@@ -14,7 +17,9 @@ import { UpdateRoleDto } from './dto/update-role.dto';
  *   changing the role CRUD contract.
  */
 @Injectable()
-export class RolesService implements IBaseService<Role, CreateRoleDto, UpdateRoleDto> {
+export class RolesService
+  implements IBaseService<Role, CreateRoleDto, UpdateRoleDto>, IPaginatable<Role, FindRolesQueryDto>
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateRoleDto) {
@@ -30,14 +35,21 @@ export class RolesService implements IBaseService<Role, CreateRoleDto, UpdateRol
     });
   }
 
-  async findAll() {
-    return this.prisma.role.findMany({
-      include: {
-        _count: { select: { users: true } },
-        rolePermissions: { include: { permission: true } },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
+  async findAll(query: FindRolesQueryDto): Promise<PaginatedResult<Role>> {
+    return paginate(
+      () => this.prisma.role.count(),
+      ({ skip, take }) =>
+        this.prisma.role.findMany({
+          include: {
+            _count: { select: { users: true } },
+            rolePermissions: { include: { permission: true } },
+          },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          skip,
+          take,
+        }),
+      query,
+    );
   }
 
   async findOne(id: string) {

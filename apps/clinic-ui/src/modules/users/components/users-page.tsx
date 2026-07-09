@@ -1,48 +1,116 @@
-import { Plus, Search, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { ColumnDef, PaginationState } from "@tanstack/react-table";
+import { Search, Users as UsersIcon } from "lucide-react";
+import { fetchUsers, type User } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
-
-const users = [
-  { id: "1", name: "Dr. Sarah Chen", email: "sarah.chen@citycare.com", role: "Doctor", status: "active" },
-  { id: "2", name: "John Smith", email: "john.smith@citycare.com", role: "Receptionist", status: "active" },
-  { id: "3", name: "Admin User", email: "admin@citycare.com", role: "Admin", status: "active" },
-  { id: "4", name: "Nurse Emily Davis", email: "emily.davis@citycare.com", role: "Nurse", status: "active" },
-  { id: "5", name: "Mike Johnson", email: "mike.j@citycare.com", role: "Pharmacist", status: "active" },
-  { id: "6", name: "Lisa Wong", email: "lisa.wong@citycare.com", role: "Doctor", status: "inactive" },
-  { id: "7", name: "Alex Rivera", email: "alex.rivera@citycare.com", role: "Receptionist", status: "invited" },
-  { id: "8", name: "Dr. James Park", email: "james.park@citycare.com", role: "Doctor", status: "active" },
-];
-
-const roleBadgeVariant: Record<string, "secondary" | "outline" | "default"> = { Admin: "default", Doctor: "secondary", Nurse: "outline", Receptionist: "outline", Pharmacist: "secondary" };
-const statusVariant: Record<string, "secondary" | "outline" | "default"> = { active: "default", inactive: "secondary", invited: "outline" };
+import { DataTable } from "@/components/data-table/data-table";
 
 export function UsersPage() {
+  const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["users", search, pagination.pageIndex, pagination.pageSize],
+    queryFn: () =>
+      fetchUsers({
+        search: search || undefined,
+        page: pagination.pageIndex + 1,
+        limit: pagination.pageSize,
+      }),
+    placeholderData: (previous) => previous,
+  });
+
+  const users = response?.data ?? [];
+  const pageCount = response?.meta.totalPages ?? 0;
+
+  const columns = useMemo<ColumnDef<User>[]>(() => [
+    {
+      id: "name",
+      header: "Name",
+      cell: ({ row }) => {
+        const user = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar className="size-8">
+              <AvatarFallback className="text-xs">{initials(user.firstName)}</AvatarFallback>
+            </Avatar>
+            <p className="truncate font-medium text-sm">{user.firstName} {user.lastName}</p>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.email}</span>,
+    },
+    {
+      id: "role",
+      header: "Role",
+      cell: ({ row }) => <Badge variant="secondary">{row.original.role.name}</Badge>,
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? "default" : "outline"}>
+          {row.original.isActive ? "active" : "inactive"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {new Date(row.original.createdAt).toLocaleDateString()}
+        </span>
+      ),
+    },
+  ], []);
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-semibold tracking-tight">Users</h1><p className="mt-1 text-sm text-muted-foreground">Manage your team members and their access</p></div>
-        <Button><Plus className="mr-2 size-4" />Invite User</Button>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
+        <p className="mt-1 text-sm text-muted-foreground">View your team members and their access</p>
       </div>
+
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-4"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Search users by name or email..." className="pl-9" /></div><Button variant="outline">Filter</Button></div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search users by name or email..."
+              className="pl-9"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPagination((p) => ({ ...p, pageIndex: 0 }));
+              }}
+            />
+          </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y">
-            {users.map((user) => (
-              <div key={user.id} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/50 transition-colors">
-                <Avatar className="size-9"><AvatarFallback className="text-xs">{initials(user.name)}</AvatarFallback></Avatar>
-                <div className="min-w-0 flex-1"><p className="text-sm font-medium">{user.name}</p><p className="text-xs text-muted-foreground">{user.email}</p></div>
-                <Badge variant={roleBadgeVariant[user.role] ?? "outline"}>{user.role}</Badge>
-                <Badge variant={statusVariant[user.status] ?? "outline"}>{user.status}</Badge>
-                <Button variant="ghost" size="icon" className="size-8"><ShieldCheck className="size-4" /></Button>
+          <DataTable
+            columns={columns}
+            data={users}
+            pageCount={pageCount}
+            pagination={pagination}
+            onPaginationChange={setPagination}
+            isLoading={isLoading}
+            emptyState={
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <UsersIcon className="size-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">{search ? "No users found" : "No users yet"}</p>
               </div>
-            ))}
-          </div>
+            }
+          />
         </CardContent>
       </Card>
     </div>

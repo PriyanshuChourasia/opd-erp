@@ -33,11 +33,13 @@ ENV NODE_ENV=${NODE_ENV}
 
 # Copy only what's needed at runtime
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 EXPOSE 4000
 
-# Run migrations on startup, then start the server
+# Run migrations, seed reference/demo data (idempotent upserts), then start the server
 WORKDIR /app/apps/api
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/main.js"]

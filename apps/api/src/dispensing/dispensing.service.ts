@@ -1,19 +1,24 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { IBaseService } from '../common/interfaces/base-service.interface';
+import { paginate } from '../common/utils/paginate';
+import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
+import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Dispensing } from '@prisma/client';
 import { CreateDispensingDto } from './dto/create-dispensing.dto';
 import { UpdateDispensingDto } from './dto/update-dispensing.dto';
+import { FindDispensingQueryDto } from './dto/find-dispensing-query.dto';
 
 /**
  * Pharmacy dispensing — track prescription fulfillment and batch information.
  *
  * # SOLID
  * - **Single Responsibility** — only dispensing lifecycle.
- * - **Dependency Inversion** — implements `IBaseService` contract.
+ * - **Dependency Inversion** — implements `IBaseService` & `IPaginatable` contracts.
  */
 @Injectable()
-export class DispensingService implements IBaseService<Dispensing, CreateDispensingDto, UpdateDispensingDto> {
+export class DispensingService
+  implements IBaseService<Dispensing, CreateDispensingDto, UpdateDispensingDto>, IPaginatable<Dispensing, FindDispensingQueryDto>
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateDispensingDto) {
@@ -32,14 +37,21 @@ export class DispensingService implements IBaseService<Dispensing, CreateDispens
     });
   }
 
-  async findAll(prescriptionId?: string) {
+  async findAll(query: FindDispensingQueryDto): Promise<PaginatedResult<Dispensing>> {
     const where: Record<string, unknown> = {};
-    if (prescriptionId) where.prescriptionId = prescriptionId;
-    return this.prisma.dispensing.findMany({
-      where,
-      include: { prescription: true },
-      orderBy: { dispensedAt: 'desc' },
-    });
+    if (query.prescriptionId) where.prescriptionId = query.prescriptionId;
+    return paginate(
+      () => this.prisma.dispensing.count({ where }),
+      ({ skip, take }) =>
+        this.prisma.dispensing.findMany({
+          where,
+          include: { prescription: true },
+          orderBy: [{ dispensedAt: 'desc' }, { id: 'asc' }],
+          skip,
+          take,
+        }),
+      query,
+    );
   }
 
   async findOne(id: string) {

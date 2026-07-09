@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { PrescriptionsService } from './prescriptions.service';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
+import { FindPrescriptionsQueryDto } from './dto/find-prescriptions-query.dto';
 
 @Controller('prescriptions')
 export class PrescriptionsController {
@@ -13,8 +14,8 @@ export class PrescriptionsController {
   }
 
   @Get()
-  findAll(@Query('patientId') patientId?: string) {
-    return this.service.findAll(patientId);
+  findAll(@Query() query: FindPrescriptionsQueryDto) {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

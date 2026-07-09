@@ -85,6 +85,21 @@ async function request<T>(config: {
 
 // ─── Types ────────────────────────────────────────────────────
 
+export interface PaginatedResult<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -114,22 +129,95 @@ export interface CreatePatientInput {
 
 export interface Doctor {
   id: string;
-  name: string;
-  email: string;
-  phone?: string | null;
+  qualification?: string | null;
   specialization?: string | null;
-  licenseNumber: string;
+  medicalRegistrationNo: string;
+  medicalCouncil?: string | null;
+  registrationYear?: number | null;
+  yearsOfExperience?: number | null;
+  consultationFee: number;
+  consultationMode: string;
+  signature?: string | null;
+  registrationCertificateUrl?: string | null;
+  degreeCertificateUrl?: string | null;
+  governmentIdUrl?: string | null;
+  verificationStatus: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateDoctorInput {
-  name: string;
-  email: string;
-  phone?: string;
+  qualification?: string;
   specialization?: string;
-  licenseNumber: string;
+  medicalRegistrationNo: string;
+  medicalCouncil?: string;
+  registrationYear?: number;
+  yearsOfExperience?: number;
+  consultationFee?: number;
+  consultationMode?: string;
+  signature?: string;
+  registrationCertificateUrl?: string;
+  degreeCertificateUrl?: string;
+  governmentIdUrl?: string;
+  verificationStatus?: string;
+}
+
+/**
+ * Unified input for creating a Doctor together with its User account
+ * and an optional Address in a single API call.
+ */
+export interface CreateDoctorWithUserInput {
+  // User account
+  username: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  email: string;
+  mobileNumber?: string;
+  password: string;
+
+  // Doctor professional
+  qualification?: string;
+  specialization?: string;
+  medicalRegistrationNo: string;
+  medicalCouncil?: string;
+  registrationYear?: number;
+  yearsOfExperience?: number;
+  consultationFee?: number;
+  consultationMode?: string;
+  signature?: string;
+  registrationCertificateUrl?: string;
+  degreeCertificateUrl?: string;
+  governmentIdUrl?: string;
+  verificationStatus?: string;
+
+  // Address (optional)
+  addressType?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  landmark?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+}
+
+export interface DoctorWithUserResult {
+  doctor: Doctor;
+  user: {
+    id: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobileNumber: string | null;
+    roleName: string;
+    userableType: string;
+    userableId: string;
+  };
+  address: Address | null;
 }
 
 export interface QueueEntry {
@@ -150,23 +238,41 @@ export interface CreateQueueEntryInput {
   doctorId: string;
 }
 
-export interface DoctorSchedule {
+export interface EmployeeSchedule {
   id: string;
-  doctorId: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
-  slotDuration: number;
-  maxPatients: number;
+  shiftId?: string | null;
+  employeeSchedulableType: string;
+  employeeSchedulableId: string;
+  createdAt: string;
+  updatedAt: string;
+  shift?: Shift | null;
 }
 
-export interface UpsertDoctorScheduleInput {
-  doctorId: string;
+export interface CreateEmployeeScheduleInput {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
-  slotDuration?: number;
-  maxPatients?: number;
+  shiftId?: string;
+  employeeSchedulableType: string;
+  employeeSchedulableId: string;
+}
+
+export interface Shift {
+  id: string;
+  name: string;
+  code: string;
+  startTime: string;
+  endTime: string;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
+  isOvernight: boolean;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DoctorSlot {
@@ -227,6 +333,74 @@ export interface MedicineCatalogItem {
   genericName: string;
   strength?: string | null;
   form?: string | null;
+}
+
+export interface Medicine {
+  id: string;
+  name: string;
+  genericName?: string | null;
+  brandName?: string | null;
+  category?: string | null;
+  strength?: string | null;
+  unit: string;
+  price: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PrescriptionItem {
+  id: string;
+  prescriptionId: string;
+  medicineId: string;
+  medicineName: string;
+  dosage: string;
+  duration?: string | null;
+  instructions?: string | null;
+  quantity: number;
+  refills: number;
+  createdAt: string;
+}
+
+export type PrescriptionStatus = "ACTIVE" | "DISPENSED" | "CANCELLED";
+
+export interface Prescription {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  diagnosis?: string | null;
+  notes?: string | null;
+  status: PrescriptionStatus;
+  createdAt: string;
+  updatedAt: string;
+  patient: Patient;
+  doctor: Doctor;
+  items: PrescriptionItem[];
+}
+
+export interface DispensingPrescription {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  diagnosis?: string | null;
+  notes?: string | null;
+  status: PrescriptionStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Dispensing {
+  id: string;
+  prescriptionId: string;
+  medicineId: string;
+  medicineName: string;
+  quantity: number;
+  batchNo?: string | null;
+  expiryDate?: string | null;
+  notes?: string | null;
+  dispensedAt: string;
+  dispensedBy?: string | null;
+  prescription: DispensingPrescription;
 }
 
 export interface BillItemInput {
@@ -314,13 +488,146 @@ export interface CreateRoleInput {
   permissionIds?: string[];
 }
 
+export interface User {
+  id: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  email: string;
+  mobileNumber?: string | null;
+  countryCode: string;
+  gender?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  role: { name: string };
+}
+
+export interface Organisation {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  registrationNumber?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateOrganisationInput {
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  registrationNumber?: string;
+}
+
+// ─── Address Types ────────────────────────────────────────────
+
+export interface Address {
+  id: string;
+  addressType: string;
+  addressLine1: string;
+  addressLine2?: string | null;
+  landmark?: string | null;
+  city?: string | null;
+  district?: string | null;
+  state?: string | null;
+  country: string;
+  postalCode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isPrimary: boolean;
+  isActive: boolean;
+  addressableType: string;
+  addressableId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAddressInput {
+  addressType: string;
+  addressLine1: string;
+  addressLine2?: string;
+  landmark?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
+  isPrimary?: boolean;
+  addressableType: string;
+  addressableId: string;
+}
+
+export interface UpdateAddressInput {
+  addressType?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  landmark?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
+  isPrimary?: boolean;
+}
+
+export const ADDRESS_TYPES = ['CLINIC', 'HOME', 'BILLING', 'OTHER'] as const;
+export type AddressType = (typeof ADDRESS_TYPES)[number];
+
+// ─── Address API ──────────────────────────────────────────────
+
+export function fetchAddresses(params: { addressType?: string; addressableType?: string; addressableId?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Address>>({
+    method: "GET",
+    path: "/addresses",
+    params: {
+      addressableType: params.addressableType,
+      addressableId: params.addressableId,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchEntityAddresses(addressableType: string, addressableId: string) {
+  return request<Address[]>({ method: "GET", path: "/addresses/by-entity", params: { addressableType, addressableId } });
+}
+
+export function createAddress(input: CreateAddressInput) {
+  return request<Address>({ method: "POST", path: "/addresses", body: input });
+}
+
+export function updateAddress(id: string, input: UpdateAddressInput) {
+  return request<Address>({ method: "PATCH", path: `/addresses/${id}`, body: input });
+}
+
+export function setPrimaryAddress(id: string) {
+  return request<Address>({ method: "PATCH", path: `/addresses/${id}/primary` });
+}
+
+export function deleteAddress(id: string) {
+  return request<void>({ method: "DELETE", path: `/addresses/${id}` });
+}
+
 // ─── Patient API ──────────────────────────────────────────────
 
-export function fetchPatients(search?: string) {
-  return request<Patient[]>({
+export function fetchPatients(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Patient>>({
     method: "GET",
     path: "/patients",
-    params: { search },
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
   });
 }
 
@@ -350,11 +657,15 @@ export function deletePatient(id: string) {
 
 // ─── Doctor API ───────────────────────────────────────────────
 
-export function fetchDoctors(search?: string) {
-  return request<Doctor[]>({
+export function fetchDoctors(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Doctor>>({
     method: "GET",
     path: "/doctors",
-    params: { search },
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
   });
 }
 
@@ -366,6 +677,14 @@ export function createDoctor(input: CreateDoctorInput) {
   return request<Doctor>({
     method: "POST",
     path: "/doctors",
+    body: input,
+  });
+}
+
+export function createDoctorWithUser(input: CreateDoctorWithUserInput) {
+  return request<DoctorWithUserResult>({
+    method: "POST",
+    path: "/doctors/with-user",
     body: input,
   });
 }
@@ -384,11 +703,16 @@ export function deleteDoctor(id: string) {
 
 // ─── Queue API ────────────────────────────────────────────────
 
-export function fetchQueue(doctorId?: string, date?: string) {
-  return request<QueueEntry[]>({
+export function fetchQueue(params: { doctorId?: string; date?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<QueueEntry>>({
     method: "GET",
     path: "/queue",
-    params: { doctorId, date },
+    params: {
+      doctorId: params.doctorId,
+      date: params.date,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
   });
 }
 
@@ -412,51 +736,110 @@ export function deleteQueueEntry(id: string) {
   return request<void>({ method: "DELETE", path: `/queue/${id}` });
 }
 
-// ─── Doctor Schedule API ──────────────────────────────────────
+// ─── Employee Schedule API (replaces DoctorSchedule) ─────────
 
-export function fetchDoctorSchedules(doctorId: string) {
-  return request<DoctorSchedule[]>({
+export function fetchEmployeeSchedules(employeeType: string, employeeId: string) {
+  return request<EmployeeSchedule[]>({
     method: "GET",
-    path: "/doctor-schedules",
-    params: { doctorId },
+    path: "/employee-schedules",
+    params: { employeeSchedulableType: employeeType, employeeSchedulableId: employeeId },
   });
 }
 
-export function upsertDoctorSchedule(input: UpsertDoctorScheduleInput) {
-  return request<DoctorSchedule>({
+export function createEmployeeSchedule(input: CreateEmployeeScheduleInput) {
+  return request<EmployeeSchedule>({
     method: "POST",
-    path: "/doctor-schedules",
+    path: "/employee-schedules",
     body: input,
   });
 }
 
-export function deleteDoctorSchedule(id: string) {
+export function deleteEmployeeSchedule(id: string) {
   return request<void>({
     method: "DELETE",
-    path: `/doctor-schedules/${id}`,
+    path: `/employee-schedules/${id}`,
   });
 }
 
 export function fetchDoctorSlots(doctorId: string, date: string) {
   return request<DoctorSlots>({
     method: "GET",
-    path: "/doctor-schedules/slots",
-    params: { doctorId, date },
+    path: "/employee-schedules/slots",
+    params: { employeeSchedulableType: 'Doctor', employeeSchedulableId: doctorId, date },
   });
+}
+
+// ─── Shift API ────────────────────────────────────────────────
+
+export interface CreateShiftInput {
+  name: string;
+  code: string;
+  startTime: string;
+  endTime: string;
+  breakStartTime?: string;
+  breakEndTime?: string;
+  isOvernight?: boolean;
+  description?: string;
+  isActive?: boolean;
+}
+
+export function fetchShifts(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Shift>>({
+    method: "GET",
+    path: "/shifts",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchShift(id: string) {
+  return request<Shift>({ method: "GET", path: `/shifts/${id}` });
+}
+
+export function createShift(input: CreateShiftInput) {
+  return request<Shift>({
+    method: "POST",
+    path: "/shifts",
+    body: input,
+  });
+}
+
+export function updateShift(id: string, input: Partial<CreateShiftInput>) {
+  return request<Shift>({
+    method: "PATCH",
+    path: `/shifts/${id}`,
+    body: input,
+  });
+}
+
+export function deleteShift(id: string) {
+  return request<void>({ method: "DELETE", path: `/shifts/${id}` });
 }
 
 // ─── Appointment API ──────────────────────────────────────────
 
-export function fetchAppointments(filters: {
-  doctorId?: string;
-  date?: string;
-  status?: string;
-  patientId?: string;
-} = {}) {
-  return request<Appointment[]>({
+export function fetchAppointments(
+  params: {
+    doctorId?: string;
+    date?: string;
+    status?: string;
+    patientId?: string;
+  } & PaginationParams = {},
+) {
+  return request<PaginatedResult<Appointment>>({
     method: "GET",
     path: "/appointments",
-    params: filters,
+    params: {
+      doctorId: params.doctorId,
+      date: params.date,
+      status: params.status,
+      patientId: params.patientId,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
   });
 }
 
@@ -485,8 +868,15 @@ export function deleteAppointment(id: string) {
 
 // ─── Role & Permission API ────────────────────────────────────
 
-export function fetchRoles() {
-  return request<Role[]>({ method: "GET", path: "/roles" });
+export function fetchRoles(params: PaginationParams = {}) {
+  return request<PaginatedResult<Role>>({
+    method: "GET",
+    path: "/roles",
+    params: {
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
 }
 
 export function fetchRole(id: string) {
@@ -513,8 +903,15 @@ export function deleteRole(id: string) {
   return request<void>({ method: "DELETE", path: `/roles/${id}` });
 }
 
-export function fetchPermissions() {
-  return request<Permission[]>({ method: "GET", path: "/permissions" });
+export function fetchPermissions(params: PaginationParams = {}) {
+  return request<PaginatedResult<Permission>>({
+    method: "GET",
+    path: "/permissions",
+    params: {
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
 }
 
 export function createPermission(input: CreatePermissionInput) {
@@ -531,11 +928,15 @@ export function deletePermission(id: string) {
 
 // ─── Billing API ──────────────────────────────────────────────
 
-export function fetchBills(patientId?: string) {
-  return request<Bill[]>({
+export function fetchBills(params: { patientId?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Bill>>({
     method: "GET",
     path: "/billing",
-    params: { patientId },
+    params: {
+      patientId: params.patientId,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
   });
 }
 
@@ -551,22 +952,94 @@ export function updateBillStatus(id: string, status: BillStatus) {
   });
 }
 
+// ─── Medicine Catalog API ─────────────────────────────────────
+
+export function fetchMedicines(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Medicine>>({
+    method: "GET",
+    path: "/medicine-catalog",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+// ─── Prescriptions API ────────────────────────────────────────
+
+export function fetchPrescriptions(params: { patientId?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Prescription>>({
+    method: "GET",
+    path: "/prescriptions",
+    params: {
+      patientId: params.patientId,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+// ─── Dispensing API ───────────────────────────────────────────
+
+export function fetchDispensings(params: { prescriptionId?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Dispensing>>({
+    method: "GET",
+    path: "/dispensing",
+    params: {
+      prescriptionId: params.prescriptionId,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+// ─── Users API ────────────────────────────────────────────────
+
+export function fetchUsers(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<User>>({
+    method: "GET",
+    path: "/users",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+// ─── Organisation API ─────────────────────────────────────────
+
+export function fetchOrganisation() {
+  return request<Organisation | null>({ method: "GET", path: "/organisation" });
+}
+
+export function updateOrganisation(data: UpdateOrganisationInput) {
+  return request<Organisation>({
+    method: "PATCH",
+    path: "/organisation",
+    body: data,
+  });
+}
+
 // ─── Search helpers ───────────────────────────────────────────
 
-export function searchPatients(query: string) {
-  return request<Patient[]>({
+export async function searchPatients(query: string) {
+  const res = await request<PaginatedResult<Patient>>({
     method: "GET",
     path: "/patients",
     params: { search: query },
   });
+  return res.data;
 }
 
-export function searchMedicines(query: string) {
-  return request<MedicineCatalogItem[]>({
+export async function searchMedicines(query: string) {
+  const res = await request<PaginatedResult<MedicineCatalogItem>>({
     method: "GET",
     path: "/medicine-catalog",
     params: { search: query },
   });
+  return res.data;
 }
 
 export function createBill(payload: CreateBillInput) {
@@ -577,13 +1050,22 @@ export function createBill(payload: CreateBillInput) {
   });
 }
 
+// ─── User-Doctor Linkage API ────────────────────────────────
+
+export function linkDoctorToUser(doctorId: string) {
+  return request<AuthUser>({
+    method: "POST",
+    path: `/auth/me/link-doctor/${doctorId}`,
+  });
+}
+
 // ─── Profile API ─────────────────────────────────────────────
 
 export function fetchProfile() {
   return request<AuthUser>({ method: "GET", path: "/auth/me" });
 }
 
-export function updateProfile(data: { name?: string; email?: string }) {
+export function updateProfile(data: { firstName?: string; lastName?: string; email?: string; mobileNumber?: string; gender?: string; dateOfBirth?: string; profilePhotoUrl?: string; qualification?: string }) {
   return request<AuthUser>({
     method: "PATCH",
     path: "/auth/me",

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RegisterDto } from './dto/register.dto';
@@ -38,6 +38,16 @@ export class AuthController {
     @Body() dto: UpdateProfileDto,
   ) {
     return this.authService.updateProfile(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/link-doctor/:doctorId')
+  @HttpCode(HttpStatus.OK)
+  async linkDoctorProfile(
+    @Req() req: { user: { id: string } },
+    @Param('doctorId') doctorId: string,
+  ) {
+    return this.authService.linkDoctorProfile(req.user.id, doctorId);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -43,7 +43,7 @@ export function RegisterPage() {
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: { username: "", firstName: "", lastName: "", email: "", password: "", confirmPassword: "" },
   });
 
   const registerMutation = useMutation({
@@ -51,7 +51,9 @@ export function RegisterPage() {
       apiFetch<RegisterResponse>("/auth/register", {
         method: "POST",
         body: JSON.stringify({
-          name: values.name,
+          username: values.username,
+          firstName: values.firstName,
+          lastName: values.lastName,
           email: values.email,
           password: values.password,
         }),
@@ -96,10 +98,22 @@ export function RegisterPage() {
             >
               <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor="name">Full name</FieldLabel>
-                  <Input id="name" autoComplete="name" {...form.register("name")} />
-                  <FieldError errors={form.formState.errors.name ? [form.formState.errors.name] : undefined} />
+                  <FieldLabel htmlFor="username">Username</FieldLabel>
+                  <Input id="username" placeholder="johndoe" autoComplete="username" {...form.register("username")} />
+                  <FieldError errors={form.formState.errors.username ? [form.formState.errors.username] : undefined} />
                 </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel htmlFor="firstName">First name</FieldLabel>
+                    <Input id="firstName" autoComplete="given-name" {...form.register("firstName")} />
+                    <FieldError errors={form.formState.errors.firstName ? [form.formState.errors.firstName] : undefined} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="lastName">Last name</FieldLabel>
+                    <Input id="lastName" autoComplete="family-name" {...form.register("lastName")} />
+                    <FieldError errors={form.formState.errors.lastName ? [form.formState.errors.lastName] : undefined} />
+                  </Field>
+                </div>
                 <Field>
                   <FieldLabel htmlFor="email">Email</FieldLabel>
                   <Input id="email" type="email" autoComplete="email" {...form.register("email")} />

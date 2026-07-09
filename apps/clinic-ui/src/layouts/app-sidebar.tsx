@@ -4,10 +4,12 @@ import {
   Building2,
   CalendarClock,
   ClipboardList,
+  Clock,
   Cpu,
   LayoutDashboard,
   ListOrdered,
   LogOut,
+  MapPin,
   Package,
   Pill,
   Receipt,
@@ -73,6 +75,8 @@ const devNav = [
 
 const orgNav = [
   { to: "/organisation", label: "Overview", icon: Building2 },
+  { to: "/shifts", label: "Shifts", icon: Clock },
+  { to: "/addresses", label: "Addresses", icon: MapPin },
   { to: "/organisation/users", label: "Users", icon: UserCog },
   { to: "/organisation/roles", label: "Roles & Permissions", icon: ShieldCheck },
 ] as const;
@@ -199,10 +203,10 @@ export function AppSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg">
                   <Avatar className="size-6">
-                    <AvatarFallback>{initials(user?.name ?? "?")}</AvatarFallback>
+                    <AvatarFallback>{initials(user?.firstName ?? "?")}</AvatarFallback>
                   </Avatar>
                   <div className="flex min-w-0 flex-col text-left">
-                    <span className="truncate text-sm font-medium">{user?.name ?? "Guest"}</span>
+                    <span className="truncate text-sm font-medium">{user?.firstName ?? ""} {user?.lastName ?? "Guest"}</span>
                     <span className="truncate text-xs text-muted-foreground">{user?.email ?? "Not signed in"}</span>
                   </div>
                 </SidebarMenuButton>

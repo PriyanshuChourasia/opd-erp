@@ -11,6 +11,7 @@ import {
 import { QueueService } from './queue.service';
 import { CreateQueueEntryDto } from './dto/create-queue-entry.dto';
 import { UpdateQueueStatusDto } from './dto/update-queue-status.dto';
+import { FindQueueQueryDto } from './dto/find-queue-query.dto';
 
 @Controller('queue')
 export class QueueController {
@@ -22,11 +23,8 @@ export class QueueController {
   }
 
   @Get()
-  findAll(
-    @Query('doctorId') doctorId?: string,
-    @Query('date') date?: string,
-  ) {
-    return this.queueService.findAll(doctorId, date);
+  findAll(@Query() query: FindQueueQueryDto) {
+    return this.queueService.findAll(query);
   }
 
   @Get(':id')

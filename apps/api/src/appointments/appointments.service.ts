@@ -1,19 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { IBaseService } from '../common/interfaces/base-service.interface';
+import { paginate } from '../common/utils/paginate';
+import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
+import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Appointment } from '@prisma/client';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
+import { FindAppointmentsQueryDto } from './dto/find-appointments-query.dto';
 
 /**
  * Appointment booking, scheduling, status tracking, and calendar management.
  *
  * # SOLID
  * - **Single Responsibility** — only appointment lifecycle.
- * - **Dependency Inversion** — implements `IBaseService` contract.
+ * - **Dependency Inversion** — implements `IBaseService` & `IPaginatable` contracts.
  */
 @Injectable()
-export class AppointmentsService implements IBaseService<Appointment, CreateAppointmentDto, UpdateAppointmentStatusDto> {
+export class AppointmentsService
+  implements
+    IBaseService<Appointment, CreateAppointmentDto, UpdateAppointmentStatusDto>,
+    IPaginatable<Appointment, FindAppointmentsQueryDto>
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateAppointmentDto) {
@@ -43,24 +50,31 @@ export class AppointmentsService implements IBaseService<Appointment, CreateAppo
     });
   }
 
-  async findAll(filters: { doctorId?: string; date?: string; status?: string; patientId?: string }) {
+  async findAll(query: FindAppointmentsQueryDto): Promise<PaginatedResult<Appointment>> {
     const where: Record<string, unknown> = {};
-    if (filters.doctorId) where.doctorId = filters.doctorId;
-    if (filters.status) where.status = filters.status;
-    if (filters.patientId) where.patientId = filters.patientId;
-    if (filters.date) {
-      const dayStart = new Date(filters.date);
+    if (query.doctorId) where.doctorId = query.doctorId;
+    if (query.status) where.status = query.status;
+    if (query.patientId) where.patientId = query.patientId;
+    if (query.date) {
+      const dayStart = new Date(query.date);
       dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayEnd.getDate() + 1);
       where.date = { gte: dayStart, lt: dayEnd };
     }
 
-    return this.prisma.appointment.findMany({
-      where,
-      include: { patient: true, doctor: true },
-      orderBy: { date: 'asc' },
-    });
+    return paginate(
+      () => this.prisma.appointment.count({ where }),
+      ({ skip, take }) =>
+        this.prisma.appointment.findMany({
+          where,
+          include: { patient: true, doctor: true },
+          orderBy: [{ date: 'asc' }, { id: 'asc' }],
+          skip,
+          take,
+        }),
+      query,
+    );
   }
 
   async findOne(id: string) {

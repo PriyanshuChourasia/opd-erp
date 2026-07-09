@@ -1,9 +1,9 @@
 import axios from "axios";
 import axiosRetry from "axios-retry";
 
-// const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
-const API_BASE = "https://opdapi.codymitra.com/api";
+// const API_BASE = "https://opdapi.codymitra.com/api";
 
 /**
  * Axios instance pre-configured with the API base URL from the environment.
@@ -21,8 +21,8 @@ export const apiClient = axios.create({
 // ─── Retry configuration ─────────────────────────────────────
 
 axiosRetry(apiClient, {
-  retries: 3,
-  retryDelay: (retryCount) => retryCount * 1_000, // 1s, 2s, 3s
+  retries: 2,
+  retryDelay: (retryCount) => retryCount * 1_000, // 1s, 2s
   retryCondition: (error) => {
     // `isNetworkOrIdempotentRequestError` retries on:
     //   - Network errors (no response) for ALL methods
@@ -35,7 +35,7 @@ axiosRetry(apiClient, {
   },
   onRetry: (retryCount, error) => {
     if (import.meta.env.DEV) {
-      console.warn(`[API] Retry ${retryCount}/3 — ${error.config?.url}`, error.message);
+      console.warn(`[API] Retry ${retryCount}/2 — ${error.config?.url}`, error.message);
     }
   },
 });

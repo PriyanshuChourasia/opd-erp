@@ -1,10 +1,10 @@
-export interface DoctorScheduleDay {
+export interface EmployeeScheduleDay {
   id?: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
-  slotDuration: number;
-  maxPatients: number;
+  shiftId?: string | null;
+  shift?: { id: string; name: string; code: string } | null;
 }
 
 export interface DayForm {
@@ -12,16 +12,19 @@ export interface DayForm {
   id?: string;
   startTime: string;
   endTime: string;
-  slotDuration: number;
-  maxPatients: number;
+  shiftId?: string;
 }
 
+/**
+ * DayOfWeek mapping: 0=Monday … 6=Sunday (ISO 8601)
+ * Compatible with the DayOfWeek enum on the backend.
+ */
 export const DAYS = [
-  { value: 0, label: "Sunday" },
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
+  { value: 0, label: "Monday" },
+  { value: 1, label: "Tuesday" },
+  { value: 2, label: "Wednesday" },
+  { value: 3, label: "Thursday" },
+  { value: 4, label: "Friday" },
+  { value: 5, label: "Saturday" },
+  { value: 6, label: "Sunday" },
 ] as const;

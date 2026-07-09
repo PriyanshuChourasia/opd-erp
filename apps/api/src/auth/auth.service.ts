@@ -7,13 +7,19 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import type { AuthResponseDto } from './dto/auth-response.dto';
+import type { AuthResponseDto, UserableType } from './dto/auth-response.dto';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
 import type { ChangePasswordDto } from './dto/change-password.dto';
+
+function asUserableType(val: string | null): UserableType | null {
+  const allowed: UserableType[] = ['Doctor', 'Patient', 'Nurse', 'Receptionist', 'Pharmacist', 'LabStaff'];
+  return allowed.includes(val as UserableType) ? (val as UserableType) : null;
+}
 
 @Injectable()
 export class AuthService {
@@ -25,11 +31,19 @@ export class AuthService {
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     // Check if email already exists
-    const existing = await this.prisma.user.findUnique({
+    const existingEmail = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
-    if (existing) {
+    if (existingEmail) {
       throw new ConflictException('A user with this email already exists');
+    }
+
+    // Check if username already exists
+    const existingUsername = await this.prisma.user.findUnique({
+      where: { username: dto.username },
+    });
+    if (existingUsername) {
+      throw new ConflictException('A user with this username already exists');
     }
 
     // Find or create the default ADMIN role for newly registered users
@@ -48,8 +62,17 @@ export class AuthService {
     // Create user
     const user = await this.prisma.user.create({
       data: {
-        name: dto.name,
+        username: dto.username,
+        firstName: dto.firstName,
+        middleName: dto.middleName,
+        lastName: dto.lastName,
         email: dto.email,
+        mobileNumber: dto.mobileNumber,
+        countryCode: dto.countryCode ?? '+91',
+        gender: dto.gender,
+        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+        profilePhotoUrl: dto.profilePhotoUrl,
+        qualification: dto.qualification,
         password: hashedPassword,
         roleId: role.id,
       },
@@ -71,20 +94,29 @@ export class AuthService {
       accessToken,
       user: {
         id: user.id,
-        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         roleName: user.role.name,
         permissions: user.role.rolePermissions.map(
           (rp) => `${rp.permission.action}:${rp.permission.resource}`,
         ),
+        username: user.username,
+        userableType: asUserableType(user.userableType),
+        userableId: user.userableId,
       },
     };
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
-    // Find user by email
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+    // Find user by email or username
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          dto.email ? { email: dto.email } : {},
+          dto.username ? { username: dto.username } : {},
+        ].filter((cond) => Object.keys(cond).length > 0),
+      },
       include: {
         role: {
           include: {
@@ -97,7 +129,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     if (!user.isActive) {
@@ -117,12 +149,16 @@ export class AuthService {
       accessToken,
       user: {
         id: user.id,
-        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         roleName: user.role.name,
         permissions: user.role.rolePermissions.map(
           (rp) => `${rp.permission.action}:${rp.permission.resource}`,
         ),
+        username: user.username,
+        userableType: asUserableType(user.userableType),
+        userableId: user.userableId,
       },
     };
   }
@@ -160,13 +196,24 @@ export class AuthService {
 
     return {
       id: user.id,
-      name: user.name,
+      firstName: user.firstName,
+      middleName: user.middleName,
+      lastName: user.lastName,
       email: user.email,
+      mobileNumber: user.mobileNumber,
+      countryCode: user.countryCode,
+      gender: user.gender,
+      dateOfBirth: user.dateOfBirth?.toISOString() ?? null,
+      profilePhotoUrl: user.profilePhotoUrl,
+      qualification: user.qualification,
+      username: user.username,
       roleName: user.role.name,
       createdAt: user.createdAt.toISOString(),
       permissions: user.role.rolePermissions.map(
         (rp) => `${rp.permission.action}:${rp.permission.resource}`,
       ),
+      userableType: asUserableType(user.userableType),
+      userableId: user.userableId,
     };
   }
 
@@ -181,9 +228,15 @@ export class AuthService {
       }
     }
 
+    // Build update data, converting dateOfBirth string to Date if present
+    const data: Prisma.UserUpdateInput = { ...dto };
+    if (dto.dateOfBirth) {
+      (data as any).dateOfBirth = new Date(dto.dateOfBirth);
+    }
+
     const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: dto,
+      data,
       include: {
         role: {
           include: {
@@ -197,13 +250,74 @@ export class AuthService {
 
     return {
       id: updated.id,
-      name: updated.name,
+      firstName: updated.firstName,
+      middleName: updated.middleName,
+      lastName: updated.lastName,
       email: updated.email,
+      mobileNumber: updated.mobileNumber,
+      countryCode: updated.countryCode,
+      gender: updated.gender,
+      dateOfBirth: updated.dateOfBirth?.toISOString() ?? null,
+      profilePhotoUrl: updated.profilePhotoUrl,
+      qualification: updated.qualification,
+      username: updated.username,
       roleName: updated.role.name,
       createdAt: updated.createdAt.toISOString(),
       permissions: updated.role.rolePermissions.map(
         (rp) => `${rp.permission.action}:${rp.permission.resource}`,
       ),
+      userableType: asUserableType(updated.userableType),
+      userableId: updated.userableId,
+    };
+  }
+
+  async linkDoctorProfile(userId: string, doctorId: string) {
+    // Verify doctor exists
+    const doctor = await this.prisma.doctor.findUnique({ where: { id: doctorId } });
+    if (!doctor) {
+      throw new NotFoundException(`Doctor ${doctorId} not found`);
+    }
+
+    // Clear this user's existing profile link (if any)
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { userableType: null, userableId: null },
+    });
+
+    // Unlink any other user that might be linked to this doctor
+    await this.prisma.user.updateMany({
+      where: { userableType: 'Doctor', userableId: doctorId },
+      data: { userableType: null, userableId: null },
+    });
+
+    // Link this user to the doctor
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { userableType: 'Doctor', userableId: doctorId },
+      include: {
+        role: {
+          include: {
+            rolePermissions: {
+              include: { permission: true },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      username: user.username,
+      roleName: user.role.name,
+      createdAt: user.createdAt.toISOString(),
+      permissions: user.role.rolePermissions.map(
+        (rp) => `${rp.permission.action}:${rp.permission.resource}`,
+      ),
+      userableType: asUserableType(user.userableType),
+      userableId: user.userableId,
     };
   }
 

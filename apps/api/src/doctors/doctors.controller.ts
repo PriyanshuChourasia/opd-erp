@@ -10,7 +10,9 @@ import {
 } from '@nestjs/common';
 import { DoctorsService } from './doctors.service';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
-import type { UpdateDoctorDto } from './dto/update-doctor.dto';
+import { CreateDoctorWithUserDto } from './dto/create-doctor-with-user.dto';
+import { UpdateDoctorDto, UpdateVerificationStatusDto } from './dto/update-doctor.dto';
+import { FindDoctorsQueryDto } from './dto/find-doctors-query.dto';
 
 @Controller('doctors')
 export class DoctorsController {
@@ -21,9 +23,14 @@ export class DoctorsController {
     return this.doctorsService.create(dto);
   }
 
+  @Post('with-user')
+  createWithUser(@Body() dto: CreateDoctorWithUserDto) {
+    return this.doctorsService.createWithUser(dto);
+  }
+
   @Get()
-  findAll(@Query('search') search?: string) {
-    return this.doctorsService.findAll(search);
+  findAll(@Query() query: FindDoctorsQueryDto) {
+    return this.doctorsService.findAll(query);
   }
 
   @Get(':id')
@@ -34,6 +41,14 @@ export class DoctorsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateDoctorDto) {
     return this.doctorsService.update(id, dto);
+  }
+
+  @Patch(':id/verification')
+  updateVerificationStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateVerificationStatusDto,
+  ) {
+    return this.doctorsService.updateVerificationStatus(id, dto);
   }
 
   @Delete(':id')

@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useDispatch } from "react-redux";
@@ -15,7 +17,9 @@ export function useLogin() {
     onSuccess: (data) => {
       dispatch(setCredentials(data));
       navigate({ to: getHomeRoute(data.user.roleName) });
+      toast.success("Logged in successfully");
     },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 }
 
@@ -29,6 +33,8 @@ export function useRegister() {
     onSuccess: (data) => {
       dispatch(setCredentials(data));
       navigate({ to: getHomeRoute(data.user.roleName) });
+      toast.success("Account created successfully");
     },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 }

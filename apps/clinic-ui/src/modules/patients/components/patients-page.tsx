@@ -11,6 +11,8 @@ import {
   Droplets,
 } from "lucide-react";
 import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient, type Patient, type CreatePatientInput } from "@/lib/api";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -59,17 +61,20 @@ export function PatientsPage() {
 
   const createMutation = useMutation({
     mutationFn: createPatient,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); closeSheet(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); closeSheet(); toast.success("Patient created successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<CreatePatientInput> }) => updatePatient(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); closeSheet(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); closeSheet(); toast.success("Patient updated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: deletePatient,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setDeleteConfirm(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setDeleteConfirm(null); toast.success("Patient deleted successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   function openAdd() {

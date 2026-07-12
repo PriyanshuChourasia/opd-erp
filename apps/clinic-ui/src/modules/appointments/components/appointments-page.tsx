@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { CalendarClock, Check, ChevronRight, Plus, Search, UserCheck, UserX, X } from "lucide-react";
+import { CalendarClock, Check, ChevronRight, FileText, Plus, Receipt, Search, UserCheck, UserX, X } from "lucide-react";
 import {
   fetchAppointments,
   createAppointment,
   updateAppointmentStatus,
+  checkoutAppointment,
   fetchDoctors,
   fetchDoctorSlots,
   fetchPatients,
@@ -14,6 +16,8 @@ import {
   type AppointmentStatus,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +58,12 @@ function todayStr() {
   const offset = d.getTimezoneOffset();
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
+function tomorrowStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
 
 interface BookingForm {
   patient: { id: string; name: string; phone: string } | null;
@@ -72,10 +82,14 @@ function emptyBookingForm(): BookingForm {
 
 export function AppointmentsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [filterDoctor, setFilterDoctor] = useState("");
   const [filterDate, setFilterDate] = useState(todayStr());
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [statusConfirm, setStatusConfirm] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [patientSheetOpen, setPatientSheetOpen] = useState(false);
   const [form, setForm] = useState<BookingForm>(emptyBookingForm());
@@ -101,27 +115,76 @@ export function AppointmentsPage() {
   });
   const slotsQuery = useQuery({ queryKey: ["doctor-slots", form.doctorId, form.date], queryFn: () => fetchDoctorSlots(form.doctorId, form.date), enabled: !!form.doctorId && !!form.date });
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPagination((p) => ({ ...p, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const { data: appointmentsResponse, isLoading } = useQuery({
-    queryKey: ["appointments", filterDoctor, filterDate, pagination.pageIndex, pagination.pageSize],
+    queryKey: ["appointments", filterDoctor, filterDate, search, pagination.pageIndex, pagination.pageSize],
     queryFn: () => fetchAppointments({
       doctorId: filterDoctor || undefined,
-      date: filterDate || undefined,
+      date: search ? undefined : (filterDate || undefined),
+      search: search || undefined,
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
     }),
     placeholderData: (previous) => previous,
     refetchInterval: 15_000,
   });
-  const appointments = appointmentsResponse?.data ?? [];
+  const appointments = useMemo(() => appointmentsResponse?.data ?? [], [appointmentsResponse]);
   const pageCount = appointmentsResponse?.meta.totalPages ?? 0;
 
   const createMutation = useMutation({
     mutationFn: () => createAppointment({ patientId: form.patient!.id, doctorId: form.doctorId, date: `${form.date}T${form.slot}:00`, type: form.type as AppointmentType, fee: form.fee, notes: form.notes || undefined }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["appointments"] }); queryClient.invalidateQueries({ queryKey: ["doctor-slots", form.doctorId, form.date] }); setSheetOpen(false); setForm(emptyBookingForm()); setPatientQuery(""); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["appointments"] }); queryClient.invalidateQueries({ queryKey: ["doctor-slots", form.doctorId, form.date] }); setSheetOpen(false); setForm(emptyBookingForm()); setPatientQuery(""); toast.success("Appointment booked successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: AppointmentStatus }) => updateAppointmentStatus(id, status),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["appointments"] }); setStatusConfirm(null); },
+    mutationFn: ({ id, status, cancellationReason }: { id: string; status: AppointmentStatus; cancellationReason?: string }) =>
+      updateAppointmentStatus(id, status, cancellationReason),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["appointments"] }); setStatusConfirm(null); setCancelReason(""); toast.success("Appointment status updated"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: (id: string) => checkoutAppointment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success("Invoice generated successfully");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  const pendingInvoiceAppointments = useMemo(
+    () => appointments.filter((a) => a.status === "COMPLETED" && !a.bill),
+    [appointments],
+  );
+
+  const bulkCheckoutMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      let succeeded = 0;
+      let failed = 0;
+      // Sequential on purpose: invoice numbers are allocated by counting
+      // existing bills, so concurrent checkouts could race onto the same number.
+      for (const id of ids) {
+        try {
+          await checkoutAppointment(id);
+          succeeded++;
+        } catch {
+          failed++;
+        }
+      }
+      return { succeeded, failed };
+    },
+    onSuccess: ({ succeeded, failed }) => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      if (succeeded) toast.success(`Generated ${succeeded} invoice${succeeded === 1 ? "" : "s"}`);
+      if (failed) toast.error(`${failed} invoice${failed === 1 ? "" : "s"} failed to generate`);
+    },
   });
 
   const canBook = !!form.patient && !!form.doctorId && !!form.slot;
@@ -167,7 +230,7 @@ export function AppointmentsPage() {
     {
       id: "doctor",
       header: "Doctor",
-      cell: ({ row }) => <span className="text-sm">{row.original.doctor?.medicalRegistrationNo ?? 'Doctor'}</span>,
+      cell: ({ row }) => <span className="text-sm">{row.original.doctor?.name ?? row.original.doctor?.medicalRegistrationNo ?? 'Doctor'}</span>,
     },
     {
       accessorKey: "type",
@@ -195,25 +258,47 @@ export function AppointmentsPage() {
         const appt = row.original;
         const next = NEXT_APPT_STATUS[appt.status];
         return (
-          <div className="flex justify-end gap-1">
+          <div className="flex items-center justify-end gap-1">
+            {appt.status === "COMPLETED" && (
+              appt.bill ? (
+                <Badge variant="outline" className="text-[10px]" title={`Invoice ${appt.bill.invoiceNo}`}>{appt.bill.invoiceNo}</Badge>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="size-8" title="Generate invoice (direct)" aria-label="Generate invoice directly" onClick={() => checkoutMutation.mutate(appt.id)}>
+                    <FileText className="size-4 text-green-600" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="size-8" title="Generate invoice (POS)" aria-label="Generate invoice via POS checkout" onClick={() => navigate({ to: "/pos", search: { appointmentId: appt.id } })}>
+                    <Receipt className="size-4 text-primary" />
+                  </Button>
+                </div>
+              )
+            )}
             {next && (
-              <Button variant="ghost" size="icon" className="size-8" title={`Move to ${next}`} onClick={() => statusMutation.mutate({ id: appt.id, status: next })}>
+              <Button variant="ghost" size="icon" className="size-8" title={`Move to ${next}`} aria-label={`Move to ${next}`} onClick={() => statusMutation.mutate({ id: appt.id, status: next })}>
                 {next === "COMPLETED" ? <Check className="size-4 text-green-600" /> : next === "CHECKED_IN" ? <UserCheck className="size-4 text-blue-600" /> : <ChevronRight className="size-4" />}
               </Button>
             )}
             {(appt.status === "SCHEDULED" || appt.status === "CONFIRMED") && (
-              <Button variant="ghost" size="icon" className="size-8" title="No show" onClick={() => statusMutation.mutate({ id: appt.id, status: "NO_SHOW" })}>
+              <Button variant="ghost" size="icon" className="size-8" title="No show" aria-label="Mark as no-show" onClick={() => statusMutation.mutate({ id: appt.id, status: "NO_SHOW" })}>
                 <UserX className="size-4 text-red-500" />
               </Button>
             )}
             {appt.status !== "COMPLETED" && appt.status !== "CANCELLED" && appt.status !== "NO_SHOW" && (
               statusConfirm === appt.id ? (
                 <div className="flex items-center gap-1">
-                  <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => statusMutation.mutate({ id: appt.id, status: "CANCELLED" })}>Cancel</Button>
-                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setStatusConfirm(null)}><X className="size-3.5" /></Button>
+                  <Input
+                    autoFocus
+                    placeholder="Reason (optional)"
+                    className="h-8 w-36 text-xs"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason || undefined }); }}
+                  />
+                  <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason || undefined })}>Cancel</Button>
+                  <Button variant="ghost" size="icon" className="size-8" aria-label="Dismiss cancellation" onClick={() => { setStatusConfirm(null); setCancelReason(""); }}><X className="size-3.5" /></Button>
                 </div>
               ) : (
-                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Cancel" onClick={() => setStatusConfirm(appt.id)}><X className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Cancel" aria-label="Cancel appointment" onClick={() => setStatusConfirm(appt.id)}><X className="size-3.5" /></Button>
               )
             )}
           </div>
@@ -221,7 +306,7 @@ export function AppointmentsPage() {
       },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [statusConfirm]);
+  ], [statusConfirm, cancelReason]);
 
   return (
     <div className="space-y-6">
@@ -230,6 +315,17 @@ export function AppointmentsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Appointments</h1>
           <p className="mt-1 text-sm text-muted-foreground">OPD appointment booking &amp; scheduling</p>
         </div>
+        <div className="flex items-center gap-2">
+          {pendingInvoiceAppointments.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => bulkCheckoutMutation.mutate(pendingInvoiceAppointments.map((a) => a.id))}
+              disabled={bulkCheckoutMutation.isPending}
+            >
+              <FileText className="mr-2 size-4" />
+              {bulkCheckoutMutation.isPending ? "Generating..." : `Generate ${pendingInvoiceAppointments.length} invoice${pendingInvoiceAppointments.length === 1 ? "" : "s"}`}
+            </Button>
+          )}
         <Sheet open={sheetOpen} onOpenChange={(open) => (open ? setSheetOpen(true) : (setSheetOpen(false), setForm(emptyBookingForm())))}>
           <SheetTrigger asChild><Button onClick={() => setSheetOpen(true)}><Plus className="mr-2 size-4" />New Appointment</Button></SheetTrigger>
           <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
@@ -239,7 +335,7 @@ export function AppointmentsPage() {
                 {form.patient ? (
                   <div className="flex items-center justify-between rounded-none border px-3 py-2">
                     <div><p className="text-sm font-medium">{form.patient.name}</p><p className="text-xs text-muted-foreground">{form.patient.phone}</p></div>
-                    <Button variant="ghost" size="icon-sm" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}><X /></Button>
+                    <Button variant="ghost" size="icon-sm" aria-label="Clear selected patient" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}><X /></Button>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -267,8 +363,12 @@ export function AppointmentsPage() {
               </Field>
               {form.department && (
                 <Field><FieldLabel htmlFor="a-doctor">Doctor</FieldLabel>
-                  <select id="a-doctor" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.doctorId} onChange={(e) => { setForm((prev) => ({ ...prev, doctorId: e.target.value, slot: null })); }}>
-                    <option value="">Select a doctor...</option>{doctorsInDepartment.map((d) => (<option key={d.id} value={d.id}>{d.medicalRegistrationNo ?? 'Doctor'}</option>))}
+                  <select id="a-doctor" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.doctorId} onChange={(e) => {
+                    const doctorId = e.target.value;
+                    const selected = doctorsInDepartment.find((doc) => doc.id === doctorId);
+                    setForm((prev) => ({ ...prev, doctorId, slot: null, fee: selected?.consultationFee ? selected.consultationFee : prev.fee }));
+                  }}>
+                    <option value="">Select a doctor...</option>{doctorsInDepartment.map((d) => (<option key={d.id} value={d.id}>{d.name ?? d.medicalRegistrationNo ?? 'Doctor'}{d.consultationFee ? ` · ${currency(d.consultationFee)}` : ''}</option>))}
                   </select>
                 </Field>
               )}
@@ -302,12 +402,21 @@ export function AppointmentsPage() {
             </SheetFooter>
           </SheetContent>
         </Sheet>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Search patient name, phone, or token #" className="w-64 pl-9" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+        </div>
         <Button variant={!filterDoctor ? "default" : "outline"} size="sm" onClick={() => setFilterDoctorAndResetPage("")}>All doctors</Button>
-        {doctors.map((d) => (<Button key={d.id} variant={filterDoctor === d.id ? "default" : "outline"} size="sm" onClick={() => setFilterDoctorAndResetPage(d.id)}>{d.medicalRegistrationNo ?? 'Doctor'}</Button>))}
-        <Input type="date" className="ml-auto w-auto" value={filterDate} onChange={(e) => setFilterDateAndResetPage(e.target.value)} />
+        {doctors.map((d) => (<Button key={d.id} variant={filterDoctor === d.id ? "default" : "outline"} size="sm" onClick={() => setFilterDoctorAndResetPage(d.id)}>{d.name ?? d.medicalRegistrationNo ?? 'Doctor'}</Button>))}
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant={filterDate === todayStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(todayStr())}>Today</Button>
+          <Button variant={filterDate === tomorrowStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(tomorrowStr())}>Tomorrow</Button>
+          <Input type="date" className="w-auto" title={search ? "Date filter is ignored while searching" : undefined} disabled={!!search} value={filterDate} onChange={(e) => setFilterDateAndResetPage(e.target.value)} />
+        </div>
       </div>
 
       <Card>

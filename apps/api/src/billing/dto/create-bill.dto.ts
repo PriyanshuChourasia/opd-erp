@@ -29,6 +29,10 @@ export class CreateBillDto {
 
   @IsOptional()
   @IsString()
+  appointmentId?: string;
+
+  @IsOptional()
+  @IsString()
   paymentMethod?: string;
 
   @IsOptional()

@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchDoctors, fetchDoctor, createDoctor, updateDoctor, deleteDoctor, fetchDoctorSchedules, createEmployeeSchedule, deleteEmployeeSchedule } from "./api";
 
@@ -19,18 +21,27 @@ export function useDoctorSchedules(doctorId: string | null) {
 
 export function useCreateDoctor() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: createDoctor, onSuccess: () => qc.invalidateQueries({ queryKey: ["doctors"] }) });
+  return useMutation({
+    mutationFn: createDoctor,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["doctors"] }); toast.success("Doctor created successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
 }
 
 export function useUpdateDoctor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<import("@/lib/api").CreateDoctorInput> }) => updateDoctor(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["doctors"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["doctors"] }); toast.success("Doctor updated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 }
 
 export function useDeleteDoctor() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: deleteDoctor, onSuccess: () => qc.invalidateQueries({ queryKey: ["doctors"] }) });
+  return useMutation({
+    mutationFn: deleteDoctor,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["doctors"] }); toast.success("Doctor deleted successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
 }

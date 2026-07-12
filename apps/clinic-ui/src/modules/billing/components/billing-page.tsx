@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { Ban, CreditCard, Receipt, RotateCcw } from "lucide-react";
 import { fetchBills, updateBillStatus, type Bill, type BillStatus } from "@/lib/api";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +36,8 @@ export function BillingPage() {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: BillStatus }) => updateBillStatus(id, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["bills"] }),
+    onSuccess: (_, variables) => { queryClient.invalidateQueries({ queryKey: ["bills"] }); toast.success(`Bill ${variables.status === "PAID" ? "marked as paid" : variables.status === "REFUNDED" ? "refunded" : "cancelled"}`); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   const columns = useMemo<ColumnDef<Bill>[]>(() => [

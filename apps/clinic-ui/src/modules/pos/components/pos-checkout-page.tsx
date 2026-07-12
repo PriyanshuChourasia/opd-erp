@@ -1,7 +1,11 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import { createBill, searchMedicines, searchPatients } from "../data/api";
+import { fetchAppointmentInvoicePreview } from "@/lib/api";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +15,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { CartItem, DiscountMode, PaymentMethod } from "../data/interface";
 import { paymentMethods, currency } from "../data/interface";
 
+const posIndexRoute = getRouteApi("/_pos/pos/");
+
 export function PosCheckoutPage() {
+  const { appointmentId } = posIndexRoute.useSearch();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [patientQuery, setPatientQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string; phone: string } | null>(null);
   const [itemQuery, setItemQuery] = useState("");
@@ -19,6 +28,19 @@ export function PosCheckoutPage() {
   const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");
   const [discountValue, setDiscountValue] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+
+  const invoicePreview = useQuery({
+    queryKey: ["appointment-invoice-preview", appointmentId],
+    queryFn: () => fetchAppointmentInvoicePreview(appointmentId!),
+    enabled: !!appointmentId,
+  });
+
+  useEffect(() => {
+    if (!invoicePreview.data || invoicePreview.data.alreadyInvoiced) return;
+    const { appointment, items } = invoicePreview.data;
+    setSelectedPatient({ id: appointment.patient.id, name: appointment.patient.name, phone: appointment.patient.phone });
+    setCart(items.map((item) => ({ id: crypto.randomUUID(), itemType: item.itemType, itemId: item.itemId, description: item.itemName, quantity: item.quantity ?? 1, unitPrice: item.unitPrice })));
+  }, [invoicePreview.data]);
 
   const patientResults = useQuery({
     queryKey: ["pos-patients", patientQuery],
@@ -39,11 +61,22 @@ export function PosCheckoutPage() {
   const checkoutMutation = useMutation({
     mutationFn: () => createBill({
       patientId: selectedPatient?.id ?? null,
-      items: cart.map((item) => ({ itemType: "MEDICINE", itemName: item.description, quantity: item.quantity, unitPrice: item.unitPrice })),
+      appointmentId: appointmentId || undefined,
+      items: cart.map((item) => ({ itemType: item.itemType ?? "MEDICINE", itemId: item.itemId, itemName: item.description, quantity: item.quantity, unitPrice: item.unitPrice })),
       discount: discountAmount,
       paymentMethod,
     }),
-    onSuccess: () => { setCart([]); setSelectedPatient(null); setDiscountValue(0); },
+    onSuccess: () => {
+      setCart([]);
+      setSelectedPatient(null);
+      setDiscountValue(0);
+      toast.success("Sale completed successfully");
+      if (appointmentId) {
+        queryClient.invalidateQueries({ queryKey: ["appointments"] });
+        navigate({ to: "/pos" });
+      }
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   function addMedicineToCart(medicine: { id: string; brandName: string; genericName: string; strength: string }) {
@@ -55,8 +88,27 @@ export function PosCheckoutPage() {
   function updateCartItem(id: string, patch: Partial<CartItem>) { setCart((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item))); }
   function removeCartItem(id: string) { setCart((prev) => prev.filter((item) => item.id !== id)); }
 
+  if (appointmentId && invoicePreview.data?.alreadyInvoiced) {
+    return (
+      <Card className="flex-1">
+        <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            This appointment is already invoiced as <span className="font-medium text-foreground">{invoicePreview.data.appointment.bill?.invoiceNo}</span>.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => navigate({ to: "/pos" })}>Back to checkout</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="grid flex-1 gap-4 lg:grid-cols-3">
+    <div className="flex flex-1 flex-col gap-4">
+      {appointmentId && (
+        <div className="rounded-none border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
+          {invoicePreview.isLoading ? "Loading appointment…" : "Generating invoice for a completed appointment — the consultation fee is pre-filled below."}
+        </div>
+      )}
+      <div className="grid flex-1 gap-4 lg:grid-cols-3">
       <div className="flex flex-col gap-4 lg:col-span-2">
         <Card><CardHeader><CardTitle className="text-sm">Patient</CardTitle></CardHeader>
           <CardContent>{selectedPatient ? (
@@ -130,6 +182,7 @@ export function PosCheckoutPage() {
         </CardContent>
         <CardFooter><Button className="w-full" disabled={cart.length === 0 || checkoutMutation.isPending} onClick={() => checkoutMutation.mutate()}>{checkoutMutation.isPending ? "Processing..." : `Complete sale · ${currency(total)}`}</Button></CardFooter>
       </Card>
+      </div>
     </div>
   );
 }

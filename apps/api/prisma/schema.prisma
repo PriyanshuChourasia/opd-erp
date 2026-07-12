@@ -161,10 +161,12 @@ model Appointment {
   tokenNumber Int?
   fee         Int      @default(0)
   notes       String?
+  cancellationReason String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   patient     Patient  @relation(fields: [patientId], references: [id])
   doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  bill        Bill?
 
   @@index([patientId])
   @@index([doctorId])
@@ -293,19 +295,21 @@ model ProcedureOrder {
 // ─── Billing ─────────────────────────────────────────────────
 
 model Bill {
-  id            String      @id @default(uuid())
+  id            String       @id @default(uuid())
   patientId     String?
-  invoiceNo     String      @unique // Human-readable invoice number
-  subtotal      Int         @default(0)
-  discount      Int         @default(0)
-  tax           Int         @default(0)
-  total         Int         @default(0)
-  paymentMethod String      @default("CASH") // CASH | CARD | UPI
-  status        String      @default("PENDING") // PENDING | PAID | PARTIAL | REFUNDED | CANCELLED
+  appointmentId String?      @unique // Set when this invoice originated from an appointment checkout
+  invoiceNo     String       @unique // Human-readable invoice number
+  subtotal      Int          @default(0)
+  discount      Int          @default(0)
+  tax           Int          @default(0)
+  total         Int          @default(0)
+  paymentMethod String       @default("CASH") // CASH | CARD | UPI
+  status        String       @default("PENDING") // PENDING | PAID | PARTIAL | REFUNDED | CANCELLED
   notes         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  patient       Patient?    @relation(fields: [patientId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  patient       Patient?     @relation(fields: [patientId], references: [id])
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   items         BillItem[]
 
   @@index([patientId])

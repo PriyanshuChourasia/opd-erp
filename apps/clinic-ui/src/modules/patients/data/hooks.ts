@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient } from "./api";
 import type { CreatePatientInput } from "./interface";
@@ -23,7 +25,9 @@ export function useCreatePatient() {
     mutationFn: createPatient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
+      toast.success("Patient created successfully");
     },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 }
 
@@ -33,7 +37,9 @@ export function useUpdatePatient() {
     mutationFn: ({ id, data }: { id: string; data: Partial<CreatePatientInput> }) => updatePatient(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
+      toast.success("Patient updated successfully");
     },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 }
 
@@ -43,6 +49,8 @@ export function useDeletePatient() {
     mutationFn: deletePatient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
+      toast.success("Patient deleted successfully");
     },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 }

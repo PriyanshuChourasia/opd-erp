@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/utils/paginate';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
@@ -35,6 +35,15 @@ export class BillingService
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateBillDto) {
+    if (dto.appointmentId) {
+      const appointment = await this.prisma.appointment.findUnique({
+        where: { id: dto.appointmentId },
+        include: { bill: true },
+      });
+      if (!appointment) throw new NotFoundException(`Appointment ${dto.appointmentId} not found`);
+      if (appointment.bill) throw new ConflictException(`Appointment ${dto.appointmentId} is already invoiced (${appointment.bill.invoiceNo})`);
+    }
+
     const items = dto.items.map((item) => ({
       itemType: item.itemType,
       itemId: item.itemId,
@@ -52,6 +61,7 @@ export class BillingService
     return this.prisma.bill.create({
       data: {
         patientId: dto.patientId,
+        appointmentId: dto.appointmentId,
         invoiceNo: await generateInvoiceNo(this.prisma),
         subtotal,
         discount,

@@ -12,6 +12,8 @@ import {
   type UpdateAddressInput,
   ADDRESS_TYPES,
 } from "@/lib/api";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -63,19 +65,23 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
 
   const createMutation = useMutation({
     mutationFn: createAddress,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey }); cancelForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey }); cancelForm(); toast.success("Address added successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateAddressInput }) => updateAddress(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey }); cancelForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey }); cancelForm(); toast.success("Address updated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
   const deleteMutation = useMutation({
     mutationFn: deleteAddress,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey }); setDeleteConfirm(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey }); setDeleteConfirm(null); toast.success("Address deleted"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
   const primaryMutation = useMutation({
     mutationFn: setPrimaryAddress,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey }); toast.success("Primary address updated"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   function cancelForm() { setShowForm(false); setEditingId(null); setForm(emptyAddressForm(addressableType, addressableId)); }

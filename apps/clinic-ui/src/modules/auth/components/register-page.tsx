@@ -14,6 +14,8 @@ import {
 import { setCredentials } from "@/store/auth-slice";
 import { getHomeRoute } from "@/lib/roles";
 import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -61,7 +63,9 @@ export function RegisterPage() {
     onSuccess: (data) => {
       dispatch(setCredentials(data));
       navigate({ to: getHomeRoute(data.user.roleName) });
+      toast.success("Account created successfully");
     },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   return (

@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { Check, Pencil, Plus, ShieldCheck, Trash2, Users, X } from "lucide-react";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,13 +83,14 @@ export function RolesPage() {
       }
       return created;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["permissions"] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["permissions"] }); toast.success("Default permissions seeded"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  const createMutation = useMutation({ mutationFn: createRole, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["roles"] }); closeSheet(); } });
-  const updateMutation = useMutation({ mutationFn: ({ id, data }: { id: string; data: { name: string; description?: string; permissionIds?: string[] } }) => updateRole(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["roles"] }); closeSheet(); } });
-  const deleteMutation = useMutation({ mutationFn: deleteRole, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["roles"] }); setDeleteConfirm(null); } });
-  const deletePermMutation = useMutation({ mutationFn: deletePermission, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["permissions"] }); setDeletePermConfirm(null); } });
+  const createMutation = useMutation({ mutationFn: createRole, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["roles"] }); closeSheet(); toast.success("Role created successfully"); }, onError: (err) => { toast.error(extractApiError(err)); } });
+  const updateMutation = useMutation({ mutationFn: ({ id, data }: { id: string; data: { name: string; description?: string; permissionIds?: string[] } }) => updateRole(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["roles"] }); closeSheet(); toast.success("Role updated successfully"); }, onError: (err) => { toast.error(extractApiError(err)); } });
+  const deleteMutation = useMutation({ mutationFn: deleteRole, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["roles"] }); setDeleteConfirm(null); toast.success("Role deleted successfully"); }, onError: (err) => { toast.error(extractApiError(err)); } });
+  const deletePermMutation = useMutation({ mutationFn: deletePermission, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["permissions"] }); setDeletePermConfirm(null); toast.success("Permission deleted"); }, onError: (err) => { toast.error(extractApiError(err)); } });
 
   function openAdd() { setEditingId(null); setFormName(""); setFormDesc(""); setFormPermissions([]); setSheetOpen(true); }
   async function openEdit(id: string) { setEditingId(id); const role = await queryClient.fetchQuery({ queryKey: ["role", id], queryFn: () => fetchRole(id) }); setFormName(role.name); setFormDesc(role.description ?? ""); setFormPermissions(role.rolePermissions.map((rp: any) => rp.permissionId)); setSheetOpen(true); }
@@ -226,7 +229,7 @@ export function RolesPage() {
                 <Field><FieldLabel htmlFor="perm-action">Action</FieldLabel><select id="perm-action" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={permAction} onChange={(e) => setPermAction(e.target.value)}><option value="">Select...</option><option value="read">Read</option><option value="create">Create</option><option value="update">Update</option><option value="delete">Delete</option><option value="manage">Manage</option></select></Field>
                 <Field><FieldLabel htmlFor="perm-name">Display Name</FieldLabel><Input id="perm-name" placeholder="e.g. Read Patients" value={permName} onChange={(e) => setPermName(e.target.value)} /></Field>
               </FieldGroup></div>
-              <SheetFooter><Button variant="outline" onClick={() => setPermSheetOpen(false)}>Cancel</Button><Button onClick={async () => { await createPermission({ resource: permResource, action: permAction, name: permName }); queryClient.invalidateQueries({ queryKey: ["permissions"] }); setPermSheetOpen(false); }} disabled={!permResource || !permAction || !permName}>Create</Button></SheetFooter>
+              <SheetFooter><Button variant="outline" onClick={() => setPermSheetOpen(false)}>Cancel</Button><Button onClick={async () => { await createPermission({ resource: permResource, action: permAction, name: permName }); queryClient.invalidateQueries({ queryKey: ["permissions"] }); setPermSheetOpen(false); toast.success("Permission created"); }} disabled={!permResource || !permAction || !permName}>Create</Button></SheetFooter>
             </SheetContent>
           </Sheet>
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

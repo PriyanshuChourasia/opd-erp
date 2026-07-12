@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchQueryBuilder } from '../common/services/search-query-builder';
 import { paginate } from '../common/utils/paginate';
+import { getDoctorNameMap } from '../common/utils/doctor-names';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
 import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Doctor } from '@prisma/client';
@@ -54,17 +55,20 @@ export class DoctorsService
       'medicalCouncil',
       { field: 'qualification', mode: 'insensitive' as const },
     ]);
-    return paginate(
+    const result = await paginate(
       () => this.prisma.doctor.count({ where }),
       ({ skip, take }) => this.prisma.doctor.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip, take }),
       query,
     );
+    const nameMap = await getDoctorNameMap(this.prisma, result.data.map((d) => d.id));
+    return { ...result, data: result.data.map((d) => ({ ...d, name: nameMap.get(d.id) ?? null })) };
   }
 
   async findOne(id: string) {
     const doctor = await this.prisma.doctor.findUnique({ where: { id } });
     if (!doctor) throw new NotFoundException(`Doctor ${id} not found`);
-    return doctor;
+    const nameMap = await getDoctorNameMap(this.prisma, [doctor.id]);
+    return { ...doctor, name: nameMap.get(doctor.id) ?? null };
   }
 
   async update(id: string, dto: UpdateDoctorDto) {

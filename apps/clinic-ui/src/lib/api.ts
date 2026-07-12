@@ -129,6 +129,8 @@ export interface CreatePatientInput {
 
 export interface Doctor {
   id: string;
+  /** Resolved off the linked User account; null if no User is linked yet. */
+  name?: string | null;
   qualification?: string | null;
   specialization?: string | null;
   medicalRegistrationNo: string;
@@ -304,6 +306,12 @@ export type AppointmentStatus =
   | "CANCELLED"
   | "NO_SHOW";
 
+export interface AppointmentBillSummary {
+  id: string;
+  invoiceNo: string;
+  status: string;
+}
+
 export interface Appointment {
   id: string;
   patientId: string;
@@ -314,8 +322,16 @@ export interface Appointment {
   tokenNumber: number | null;
   fee: number;
   notes: string | null;
+  cancellationReason: string | null;
   patient: Patient;
   doctor: Doctor;
+  bill: AppointmentBillSummary | null;
+}
+
+export interface AppointmentInvoicePreview {
+  appointment: Appointment;
+  alreadyInvoiced: boolean;
+  items: BillItemInput[];
 }
 
 export interface CreateAppointmentInput {
@@ -413,6 +429,7 @@ export interface BillItemInput {
 
 export interface CreateBillInput {
   patientId?: string | null;
+  appointmentId?: string;
   paymentMethod?: "CASH" | "CARD" | "UPI";
   notes?: string;
   discount?: number;
@@ -437,6 +454,7 @@ export type BillStatus = "PENDING" | "PAID" | "PARTIAL" | "REFUNDED" | "CANCELLE
 export interface Bill {
   id: string;
   patientId: string | null;
+  appointmentId: string | null;
   invoiceNo: string;
   subtotal: number;
   discount: number;
@@ -827,6 +845,7 @@ export function fetchAppointments(
     date?: string;
     status?: string;
     patientId?: string;
+    search?: string;
   } & PaginationParams = {},
 ) {
   return request<PaginatedResult<Appointment>>({
@@ -837,6 +856,7 @@ export function fetchAppointments(
       date: params.date,
       status: params.status,
       patientId: params.patientId,
+      search: params.search,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -851,11 +871,11 @@ export function createAppointment(input: CreateAppointmentInput) {
   });
 }
 
-export function updateAppointmentStatus(id: string, status: AppointmentStatus) {
+export function updateAppointmentStatus(id: string, status: AppointmentStatus, cancellationReason?: string) {
   return request<Appointment>({
     method: "PATCH",
     path: `/appointments/${id}/status`,
-    body: { status },
+    body: { status, cancellationReason },
   });
 }
 
@@ -863,6 +883,21 @@ export function deleteAppointment(id: string) {
   return request<void>({
     method: "DELETE",
     path: `/appointments/${id}`,
+  });
+}
+
+export function fetchAppointmentInvoicePreview(id: string) {
+  return request<AppointmentInvoicePreview>({
+    method: "GET",
+    path: `/appointments/${id}/invoice-preview`,
+  });
+}
+
+export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; discount?: number; tax?: number; notes?: string }) {
+  return request<Bill>({
+    method: "POST",
+    path: `/appointments/${id}/checkout`,
+    body: payload ?? {},
   });
 }
 

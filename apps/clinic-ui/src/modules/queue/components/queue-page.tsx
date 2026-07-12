@@ -4,6 +4,8 @@ import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { ChevronRight, ListOrdered, Plus, SkipForward, Trash2, UserCheck, UserX, X } from "lucide-react";
 import { fetchQueue, createQueueEntry, updateQueueStatus, deleteQueueEntry, type QueueEntry } from "@/lib/api";
 import { fetchDoctors, fetchPatients } from "@/lib/api";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,17 +45,20 @@ export function QueuePage() {
 
   const createMutation = useMutation({
     mutationFn: createQueueEntry,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["queue"] }); setSheetOpen(false); setForm({ patientId: "", doctorId: "" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["queue"] }); setSheetOpen(false); setForm({ patientId: "", doctorId: "" }); toast.success("Patient added to queue"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => updateQueueStatus(id, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["queue"] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["queue"] }); toast.success("Queue status updated"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteQueueEntry,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["queue"] }); setDeleteConfirm(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["queue"] }); setDeleteConfirm(null); toast.success("Queue entry removed"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   const waitingCount = queue.filter((e) => e.status === "WAITING").length;

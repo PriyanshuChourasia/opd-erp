@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchRoles, fetchRole, createRole, updateRole, deleteRole, fetchPermissions, createPermission, deletePermission } from "./api";
 import type { CreateRoleInput } from "./interface";
@@ -16,18 +18,27 @@ export function usePermissions() {
 
 export function useCreateRole() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: createRole, onSuccess: () => qc.invalidateQueries({ queryKey: ["roles"] }) });
+  return useMutation({
+    mutationFn: createRole,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["roles"] }); toast.success("Role created successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
 }
 
 export function useUpdateRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<CreateRoleInput> }) => updateRole(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["roles"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["roles"] }); toast.success("Role updated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 }
 
 export function useDeleteRole() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: deleteRole, onSuccess: () => qc.invalidateQueries({ queryKey: ["roles"] }) });
+  return useMutation({
+    mutationFn: deleteRole,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["roles"] }); toast.success("Role deleted successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
 }

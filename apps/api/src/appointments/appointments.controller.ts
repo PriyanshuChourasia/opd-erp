@@ -3,6 +3,7 @@ import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { FindAppointmentsQueryDto } from './dto/find-appointments-query.dto';
+import { CheckoutAppointmentDto } from './dto/checkout-appointment.dto';
 
 @Controller('appointments')
 export class AppointmentsController {
@@ -21,6 +22,16 @@ export class AppointmentsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.appointmentsService.findOne(id);
+  }
+
+  @Get(':id/invoice-preview')
+  invoicePreview(@Param('id') id: string) {
+    return this.appointmentsService.invoicePreview(id);
+  }
+
+  @Post(':id/checkout')
+  checkout(@Param('id') id: string, @Body() dto: CheckoutAppointmentDto) {
+    return this.appointmentsService.checkout(id, dto);
   }
 
   @Patch(':id/status')

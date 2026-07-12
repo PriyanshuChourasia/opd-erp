@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { Clock, Pencil, Plus, Search, Trash2, X, Moon, Sun, Sunrise } from "lucide-react";
 import { fetchShifts, fetchShift, createShift, updateShift, deleteShift, type Shift, type CreateShiftInput } from "@/lib/api";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -54,15 +56,18 @@ export function ShiftsPage() {
 
   const createMutation = useMutation({
     mutationFn: createShift,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shifts"] }); closeSheet(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shifts"] }); closeSheet(); toast.success("Shift created successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<CreateShiftInput> }) => updateShift(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shifts"] }); closeSheet(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shifts"] }); closeSheet(); toast.success("Shift updated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
   const deleteMutation = useMutation({
     mutationFn: deleteShift,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shifts"] }); setDeleteConfirm(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shifts"] }); setDeleteConfirm(null); toast.success("Shift deleted successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   function openAdd() { setEditingId(null); setForm(emptyForm()); setSheetOpen(true); }

@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Globe, Mail, MapPin, ShieldCheck, Users, Settings } from "lucide-react";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -67,7 +69,9 @@ export function OrganisationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organisation"] });
       setEditing(false);
+      toast.success("Organisation updated successfully");
     },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   function startEditing() {

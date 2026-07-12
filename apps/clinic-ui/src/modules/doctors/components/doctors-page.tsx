@@ -7,6 +7,8 @@ import { fetchDoctors, fetchDoctor, createDoctorWithUser, updateDoctor, deleteDo
 import { fetchDoctorSchedules, createEmployeeSchedule, deleteEmployeeSchedule } from "../data/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setCredentials } from "@/store/auth-slice";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -60,25 +62,28 @@ export function DoctorsPage() {
 
   const createMutation = useMutation({
     mutationFn: createDoctorWithUser,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); closeSheet(); },
-    onError: (err) => { console.error('Failed to create doctor with user:', err); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); closeSheet(); toast.success("Doctor created successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<CreateDoctorInput> }) => updateDoctor(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); closeSheet(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); closeSheet(); toast.success("Doctor updated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
   const deleteMutation = useMutation({
     mutationFn: deleteDoctor,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); setDeleteConfirm(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); setDeleteConfirm(null); toast.success("Doctor deleted successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   const linkMutation = useMutation({
     mutationFn: linkDoctorToUser,
     onSuccess: (data) => {
       dispatch(setCredentials({ accessToken: localStorage.getItem("clinic_access_token") ?? "", user: data }));
+      toast.success("Doctor linked to your profile");
     },
     onError: (err) => {
-      console.error('Failed to link doctor profile:', err);
+      toast.error(extractApiError(err));
     },
   });
 
@@ -121,7 +126,8 @@ export function DoctorsPage() {
         return Promise.resolve(undefined);
       }));
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules", "Doctor", scheduleDoctorId] }); setScheduleDoctorId(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules", "Doctor", scheduleDoctorId] }); setScheduleDoctorId(null); toast.success("Schedule saved successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   function updateDay(dayOfWeek: number, patch: Partial<DayForm>) {
@@ -154,6 +160,8 @@ export function DoctorsPage() {
     setEditingId(id);
     const doctor = await queryClient.fetchQuery({ queryKey: ["doctor", id], queryFn: () => fetchDoctor(id) });
     setForm({
+      // Only set doctor professional fields (safe for UpdateDoctorDto on backend)
+      // User/address fields are irrelevant for editing (hidden in UI)
       specialization: doctor.specialization ?? "",
       medicalRegistrationNo: doctor.medicalRegistrationNo,
       consultationFee: doctor.consultationFee,
@@ -162,7 +170,6 @@ export function DoctorsPage() {
       registrationYear: doctor.registrationYear ?? undefined,
       yearsOfExperience: doctor.yearsOfExperience ?? undefined,
       consultationMode: doctor.consultationMode,
-      verificationStatus: doctor.verificationStatus,
     });
     setSheetOpen(true);
   }
@@ -172,8 +179,16 @@ export function DoctorsPage() {
   function handleSave() {
     if (!form.medicalRegistrationNo.trim()) return;
     if (editingId) {
-      // Editing: only doctor fields
-      const { firstName: _f, lastName: _l, email: _e, username: _u, password: _p, mobileNumber: _m, addressType: _at, addressLine1: _a1, addressLine2: _a2, landmark: _lm, city: _c, district: _d, state: _s, country: _co, postalCode: _po, middleName: _mn, ...doctorOnly } = form as any;
+      // Editing: only fields accepted by the backend UpdateDoctorDto
+      // verificationStatus has its own dedicated endpoint; medicalRegistrationNo is immutable after creation
+      const {
+        firstName: _f, lastName: _l, email: _e, username: _u, password: _p,
+        mobileNumber: _m, addressType: _at, addressLine1: _a1, addressLine2: _a2,
+        landmark: _lm, city: _c, district: _d, state: _s, country: _co,
+        postalCode: _po, middleName: _mn,
+        verificationStatus: _vs, medicalRegistrationNo: _mrn, isActive: _ia,
+        ...doctorOnly
+      } = form as any;
       updateMutation.mutate({ id: editingId, data: doctorOnly });
     } else {
       // Creating: all fields
@@ -394,18 +409,21 @@ export function DoctorsPage() {
                     </Select>
                   </Field>
                 </div>
-                <Field>
-                  <FieldLabel htmlFor="d-verification">Verification Status</FieldLabel>
-                  <Select value={form.verificationStatus ?? "PENDING"} onValueChange={(v) => setForm({ ...form, verificationStatus: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="VERIFIED">Verified</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                      <SelectItem value="SUSPENDED">Suspended</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
+                {/* Verification status — only shown on create; use the dedicated verification endpoint to update */}
+                {!editingId && (
+                  <Field>
+                    <FieldLabel htmlFor="d-verification">Verification Status</FieldLabel>
+                    <Select value={form.verificationStatus ?? "PENDING"} onValueChange={(v) => setForm({ ...form, verificationStatus: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="VERIFIED">Verified</SelectItem>
+                        <SelectItem value="REJECTED">Rejected</SelectItem>
+                        <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
 
                 {/* ─── Address Section (add only, optional) ─── */}
                 {!editingId && (

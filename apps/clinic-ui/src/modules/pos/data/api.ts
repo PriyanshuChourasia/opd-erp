@@ -15,7 +15,8 @@ export async function searchPatients(q: string): Promise<any[]> {
 
 export async function createBill(data: {
   patientId: string | null;
-  items: { itemType: string; itemName: string; quantity: number; unitPrice: number }[];
+  appointmentId?: string;
+  items: { itemType: string; itemId?: string; itemName: string; quantity: number; unitPrice: number }[];
   discount: number;
   paymentMethod: PaymentMethod;
 }): Promise<Bill> {

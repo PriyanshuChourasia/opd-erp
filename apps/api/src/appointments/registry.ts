@@ -21,6 +21,7 @@ export const registry: IModuleRegistry = {
             { id: 'list-appointments', name: 'List Appointments', description: 'List appointments with filters', method: 'GET', path: '/appointments' },
             { id: 'get-appointment', name: 'Get Appointment', description: 'View appointment details', method: 'GET', path: '/appointments/:id' },
             { id: 'update-status', name: 'Update Status', description: 'Update appointment status', method: 'PATCH', path: '/appointments/:id/status' },
+            { id: 'invoice-preview', name: 'Invoice Preview', description: 'Get a draft invoice (consultation fee line item) for checkout', method: 'GET', path: '/appointments/:id/invoice-preview' },
             { id: 'delete-appointment', name: 'Delete Appointment', description: 'Cancel an appointment', method: 'DELETE', path: '/appointments/:id' },
           ],
         },

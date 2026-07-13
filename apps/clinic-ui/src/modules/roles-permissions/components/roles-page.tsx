@@ -54,9 +54,9 @@ export function RolesPage() {
   });
 
   const roles = rolesResponse?.data ?? [];
-  const rolesPageCount = rolesResponse?.meta.totalPages ?? 0;
+  const rolesPageCount = rolesResponse?.meta?.totalPages ?? 0;
   const permissionsList = permissionsResponse?.data ?? [];
-  const permissionsPageCount = permissionsResponse?.meta.totalPages ?? 0;
+  const permissionsPageCount = permissionsResponse?.meta?.totalPages ?? 0;
 
   // Unpaginated lists (few enough records to always fetch in full) for the
   // permission matrix and the permission-picker inside the role sheet.

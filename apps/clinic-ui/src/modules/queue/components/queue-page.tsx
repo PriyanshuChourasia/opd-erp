@@ -36,7 +36,7 @@ export function QueuePage() {
   });
 
   const queue = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const { data: doctorsResp } = useQuery({ queryKey: ["doctors", "", 0, 100], queryFn: () => fetchDoctors({ limit: 100 }) });
   const doctors = doctorsResp?.data ?? [];

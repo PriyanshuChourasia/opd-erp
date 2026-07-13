@@ -58,7 +58,7 @@ export function DoctorsPage() {
   });
 
   const doctors = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const createMutation = useMutation({
     mutationFn: createDoctorWithUser,

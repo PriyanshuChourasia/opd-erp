@@ -20,7 +20,7 @@ export function DispensingPage() {
   });
 
   const dispensings = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const columns = useMemo<ColumnDef<Dispensing>[]>(() => [
     {

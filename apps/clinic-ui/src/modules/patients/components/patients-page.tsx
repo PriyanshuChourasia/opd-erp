@@ -57,7 +57,7 @@ export function PatientsPage() {
   });
 
   const patients = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const createMutation = useMutation({
     mutationFn: createPatient,

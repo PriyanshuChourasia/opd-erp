@@ -147,7 +147,7 @@ export function PatientDashboardPage() {
             {loadingRx ? (
               <Skeleton className="h-8 w-12" />
             ) : (
-              <p className="text-2xl font-semibold tabular-nums">{prescriptionsData?.meta.total ?? 0}</p>
+              <p className="text-2xl font-semibold tabular-nums">{prescriptionsData?.meta?.total ?? 0}</p>
             )}
           </CardContent>
         </Card>
@@ -169,7 +169,7 @@ export function PatientDashboardPage() {
             {loadingBills ? (
               <Skeleton className="h-8 w-12" />
             ) : (
-              <p className="text-2xl font-semibold tabular-nums">{billsData?.meta.total ?? 0}</p>
+              <p className="text-2xl font-semibold tabular-nums">{billsData?.meta?.total ?? 0}</p>
             )}
           </CardContent>
         </Card>

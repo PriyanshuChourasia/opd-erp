@@ -35,7 +35,7 @@ export function AddressesPage() {
   });
 
   const addresses = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const columns = useMemo<ColumnDef<Address>[]>(() => [
     {

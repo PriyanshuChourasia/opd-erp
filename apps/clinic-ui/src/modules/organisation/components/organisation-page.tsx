@@ -47,8 +47,8 @@ export function OrganisationPage() {
   });
 
   const stats = [
-    { label: "Total Users", value: usersResponse?.meta.total ?? "—", icon: Users },
-    { label: "Active Roles", value: rolesResponse?.meta.total ?? "—", icon: ShieldCheck },
+    { label: "Total Users", value: usersResponse?.meta?.total ?? "—", icon: Users },
+    { label: "Active Roles", value: rolesResponse?.meta?.total ?? "—", icon: ShieldCheck },
   ];
 
   useEffect(() => {

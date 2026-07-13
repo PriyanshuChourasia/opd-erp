@@ -27,7 +27,7 @@ export function PrescriptionsPage() {
   });
 
   const prescriptions = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const columns = useMemo<ColumnDef<Prescription>[]>(() => [
     {

@@ -32,7 +32,7 @@ export function BillingPage() {
   });
 
   const bills = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: BillStatus }) => updateBillStatus(id, status),

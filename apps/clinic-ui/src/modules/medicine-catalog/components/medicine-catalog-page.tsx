@@ -28,7 +28,7 @@ export function MedicineCatalogPage() {
   });
 
   const medicines = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const columns = useMemo<ColumnDef<Medicine>[]>(() => [
     {

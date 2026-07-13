@@ -52,7 +52,7 @@ export function ShiftsPage() {
   });
 
   const shifts = response?.data ?? [];
-  const pageCount = response?.meta.totalPages ?? 0;
+  const pageCount = response?.meta?.totalPages ?? 0;
 
   const createMutation = useMutation({
     mutationFn: createShift,

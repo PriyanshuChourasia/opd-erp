@@ -136,7 +136,7 @@ export function AppointmentsPage() {
     refetchInterval: 15_000,
   });
   const appointments = useMemo(() => appointmentsResponse?.data ?? [], [appointmentsResponse]);
-  const pageCount = appointmentsResponse?.meta.totalPages ?? 0;
+  const pageCount = appointmentsResponse?.meta?.totalPages ?? 0;
 
   const createMutation = useMutation({
     mutationFn: () => createAppointment({ patientId: form.patient!.id, doctorId: form.doctorId, date: `${form.date}T${form.slot}:00`, type: form.type as AppointmentType, fee: form.fee, notes: form.notes || undefined }),

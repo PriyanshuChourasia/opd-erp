@@ -12,7 +12,10 @@ async function bootstrap() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  app.enableCors();
+  app.enableCors({
+    origin: "https://opd.codymitra.com",
+    credentials: false
+  });
   app.setGlobalPrefix('api');
 
   app.useGlobalPipes(

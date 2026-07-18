@@ -14,5 +14,8 @@ export async function getDoctorNameMap(prisma: PrismaService, doctorIds: string[
     select: { userableId: true, firstName: true, lastName: true },
   });
 
-  return new Map(users.map((u) => [u.userableId as string, `Dr. ${u.firstName} ${u.lastName}`]));
+  return new Map(users.map((u) => {
+    const first = u.firstName.startsWith('Dr.') ? u.firstName : `Dr. ${u.firstName}`;
+    return [u.userableId as string, `${first} ${u.lastName}`];
+  }));
 }

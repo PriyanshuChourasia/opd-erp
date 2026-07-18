@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { Ban, CreditCard, Receipt, RotateCcw } from "lucide-react";
-import { fetchBills, updateBillStatus, type Bill, type BillStatus } from "@/lib/api";
+import { Ban, CreditCard, Eye, Receipt, RotateCcw } from "lucide-react";
+import { fetchBills, fetchOrganisation, updateBillStatus, type Bill, type BillStatus } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -23,6 +24,7 @@ function currency(value: number) { return `₹${value.toFixed(2)}`; }
 export function BillingPage() {
   const queryClient = useQueryClient();
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [viewBill, setViewBill] = useState<Bill | null>(null);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["bills", pagination.pageIndex, pagination.pageSize],
@@ -33,6 +35,8 @@ export function BillingPage() {
 
   const bills = response?.data ?? [];
   const pageCount = response?.meta?.totalPages ?? 0;
+
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: BillStatus }) => updateBillStatus(id, status),
@@ -95,6 +99,9 @@ export function BillingPage() {
         const bill = row.original;
         return (
           <div className="flex justify-end gap-1">
+            <Button variant="ghost" size="icon" className="size-8" title="View invoice" onClick={() => setViewBill(bill)}>
+              <Eye className="size-4 text-muted-foreground" />
+            </Button>
             {(bill.status === "PENDING" || bill.status === "PARTIAL") && (
               <Button variant="ghost" size="icon" className="size-8" title="Mark paid" onClick={() => statusMutation.mutate({ id: bill.id, status: "PAID" })}>
                 <CreditCard className="size-4 text-green-600" />
@@ -143,6 +150,94 @@ export function BillingPage() {
           />
         </CardContent>
       </Card>
+
+      <Sheet open={!!viewBill} onOpenChange={(open) => !open && setViewBill(null)}>
+        <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Invoice {viewBill?.invoiceNo}</SheetTitle>
+            <SheetDescription>Full itemized invoice details.</SheetDescription>
+          </SheetHeader>
+          {viewBill && (
+            <div className="space-y-4 px-4 pb-4 text-sm">
+              {organisation && (
+                <div className="border-b pb-3">
+                  <p className="font-semibold">{organisation.name}</p>
+                  {organisation.address && <p className="text-xs text-muted-foreground">{organisation.address}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    {[organisation.phone, organisation.email].filter(Boolean).join(" · ")}
+                  </p>
+                  {organisation.registrationNumber && (
+                    <p className="text-xs text-muted-foreground">Reg. No: {organisation.registrationNumber}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Bill to</p>
+                  <p className="font-medium">{viewBill.patient ? viewBill.patient.name : "Walk-in customer"}</p>
+                  {viewBill.patient?.phone && <p className="text-xs text-muted-foreground">{viewBill.patient.phone}</p>}
+                  {viewBill.patient?.address && <p className="text-xs text-muted-foreground">{viewBill.patient.address}</p>}
+                </div>
+                <div className="text-right">
+                  <Badge variant="outline" className={`text-[10px] ${STATUS_STYLES[viewBill.status] ?? ""}`}>{viewBill.status}</Badge>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {new Date(viewBill.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                  </p>
+                </div>
+              </div>
+
+              {viewBill.appointment && (
+                <div className="rounded-none border px-3 py-2 text-xs text-muted-foreground">
+                  {viewBill.appointment.doctorName && <p>Doctor: <span className="text-foreground">{viewBill.appointment.doctorName}</span></p>}
+                  <p>Visit type: <span className="text-foreground">{viewBill.appointment.type.replace("_", " ")}</span></p>
+                  <p>Visit date: <span className="text-foreground">{new Date(viewBill.appointment.date).toLocaleDateString()}</span></p>
+                </div>
+              )}
+
+              <table className="w-full text-xs [&_td]:py-1.5 [&_th]:pb-1.5">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="font-normal">Item</th>
+                    <th className="w-10 text-center font-normal">Qty</th>
+                    <th className="w-20 text-right font-normal">Unit</th>
+                    <th className="w-20 text-right font-normal">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewBill.items.map((item) => (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td>{item.itemName}</td>
+                      <td className="text-center">{item.quantity}</td>
+                      <td className="text-right">{currency(item.unitPrice)}</td>
+                      <td className="text-right">{currency(item.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
+                <div className="flex justify-between"><span>Subtotal</span><span>{currency(viewBill.subtotal)}</span></div>
+                {viewBill.discount > 0 && <div className="flex justify-between"><span>Discount</span><span>-{currency(viewBill.discount)}</span></div>}
+                {viewBill.tax > 0 && <div className="flex justify-between"><span>Tax</span><span>{currency(viewBill.tax)}</span></div>}
+                <div className="flex justify-between text-sm font-semibold text-foreground"><span>Total</span><span>{currency(viewBill.total)}</span></div>
+              </div>
+
+              <div className="flex justify-between border-t pt-2 text-xs text-muted-foreground">
+                <span>Payment method</span>
+                <span className="text-foreground">{viewBill.paymentMethod}</span>
+              </div>
+
+              {viewBill.notes && (
+                <div className="border-t pt-2">
+                  <p className="text-xs text-muted-foreground">Notes</p>
+                  <p className="text-xs">{viewBill.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

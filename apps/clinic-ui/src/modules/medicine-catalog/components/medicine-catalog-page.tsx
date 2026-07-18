@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
 
 function currency(value: number) {
-  return `₹${(value / 100).toFixed(2)}`;
+  return `₹${value.toFixed(2)}`;
 }
 
 export function MedicineCatalogPage() {

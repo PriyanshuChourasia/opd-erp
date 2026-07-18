@@ -1,5 +1,6 @@
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   Box,
   Building2,
   CalendarClock,
@@ -20,6 +21,7 @@ import {
   UserCog,
   Users,
   Zap,
+  Headphones,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
@@ -49,10 +51,11 @@ import { initials } from "@/lib/utils";
 
 const clinicNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/pos", label: "Point of Sale", icon: ShoppingCart },
   { to: "/queue", label: "Queue", icon: ListOrdered },
   { to: "/appointments", label: "Appointments", icon: CalendarClock },
   { to: "/patients", label: "Patients", icon: Users },
-  { to: "/doctors", label: "Doctors", icon: Stethoscope },
+  { to: "/doctors", label: "Doctors", icon: UserCog },
   { to: "/prescriptions", label: "Prescriptions", icon: ClipboardList },
 ] as const;
 
@@ -61,16 +64,15 @@ const accountNav = [
 ] as const;
 
 const pharmacyNav = [
-  { to: "/pos", label: "Point of Sale", icon: ShoppingCart },
   { to: "/medicine-catalog", label: "Medicine Catalog", icon: Pill },
   { to: "/billing", label: "Billing", icon: Receipt },
   { to: "/dispensing", label: "Dispensing", icon: Package },
 ] as const;
 
 const devNav = [
-  { to: "/development", label: "Overview", icon: Cpu },
-  { to: "/development/modules", label: "Application Modules", icon: Box },
-  { to: "/development/features", label: "Application Features", icon: Zap },
+  { to: "/developer", label: "Overview", icon: Cpu },
+  { to: "/developer/modules", label: "Modules", icon: Box },
+  { to: "/developer/features", label: "Features", icon: Zap },
 ] as const;
 
 const orgNav = [
@@ -161,7 +163,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>Development</SidebarGroupLabel>
+          <SidebarGroupLabel>Developer</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {devNav.map((item) => (

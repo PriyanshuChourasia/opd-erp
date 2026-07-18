@@ -6,6 +6,7 @@ export interface TimeSlot {
   capacity: number;
   booked: number;
   available: boolean;
+  patients?: string[];
 }
 
 export interface SlotResult {
@@ -75,7 +76,7 @@ export class SlotGeneratorService {
     nextDay.setDate(nextDay.getDate() + 1);
 
     // Query appointments for the doctor (when employee type is Doctor)
-    let bookedAppointments: { date: Date }[] = [];
+    let bookedAppointments: { date: Date; patient?: { name: string } | null }[] = [];
     if (employeeSchedulableType === 'Doctor') {
       bookedAppointments = await this.prisma.appointment.findMany({
         where: {
@@ -83,17 +84,20 @@ export class SlotGeneratorService {
           date: { gte: date, lt: nextDay },
           status: { not: 'CANCELLED' },
         },
-        select: { date: true },
+        select: { date: true, patient: { select: { name: true } } },
       });
     }
 
-    const bookedCounts = new Map<string, number>();
+    const bookedByTime = new Map<string, { count: number; patients: string[] }>();
     for (const appt of bookedAppointments) {
       const time = `${appt.date.getHours().toString().padStart(2, '0')}:${appt.date
         .getMinutes()
         .toString()
         .padStart(2, '0')}`;
-      bookedCounts.set(time, (bookedCounts.get(time) ?? 0) + 1);
+      const entry = bookedByTime.get(time) ?? { count: 0, patients: [] };
+      entry.count++;
+      if (appt.patient?.name) entry.patients.push(appt.patient.name);
+      bookedByTime.set(time, entry);
     }
 
     const slots: TimeSlot[] = [];
@@ -101,8 +105,9 @@ export class SlotGeneratorService {
     const end = timeToMinutes(schedule.endTime);
     for (let minutes = start; minutes < end; minutes += slotDuration) {
       const time = minutesToTime(minutes);
-      const booked = bookedCounts.get(time) ?? 0;
-      slots.push({ time, capacity: maxPatients, booked, available: booked < maxPatients });
+      const entry = bookedByTime.get(time);
+      const booked = entry?.count ?? 0;
+      slots.push({ time, capacity: maxPatients, booked, available: booked < maxPatients, patients: entry?.patients });
     }
 
     return { available: true, slots };

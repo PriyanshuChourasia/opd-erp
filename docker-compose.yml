@@ -36,9 +36,12 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_refresh}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+    volumes:
+      - uploads:/app/apps/api/uploads
     depends_on:
       postgres_db:
         condition: service_healthy
 
 volumes:
   pgdata:
+  uploads:

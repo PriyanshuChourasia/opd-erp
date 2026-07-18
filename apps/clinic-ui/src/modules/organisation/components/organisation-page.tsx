@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Globe, Mail, MapPin, ShieldCheck, Users, Settings } from "lucide-react";
@@ -9,6 +9,7 @@ import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   fetchOrganisation,
   fetchRoles,
@@ -28,7 +29,7 @@ const emptyForm: UpdateOrganisationInput = {
 
 export function OrganisationPage() {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [form, setForm] = useState<UpdateOrganisationInput>(emptyForm);
 
   const { data: organisation, isLoading: orgLoading } = useQuery({
@@ -51,30 +52,7 @@ export function OrganisationPage() {
     { label: "Active Roles", value: rolesResponse?.meta?.total ?? "—", icon: ShieldCheck },
   ];
 
-  useEffect(() => {
-    if (organisation) {
-      setForm({
-        name: organisation.name,
-        address: organisation.address ?? "",
-        phone: organisation.phone ?? "",
-        email: organisation.email ?? "",
-        website: organisation.website ?? "",
-        registrationNumber: organisation.registrationNumber ?? "",
-      });
-    }
-  }, [organisation]);
-
-  const saveMutation = useMutation({
-    mutationFn: (input: UpdateOrganisationInput) => updateOrganisation(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["organisation"] });
-      setEditing(false);
-      toast.success("Organisation updated successfully");
-    },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
-
-  function startEditing() {
+  function openSheet() {
     if (organisation) {
       setForm({
         name: organisation.name,
@@ -87,8 +65,18 @@ export function OrganisationPage() {
     } else {
       setForm(emptyForm);
     }
-    setEditing(true);
+    setSheetOpen(true);
   }
+
+  const saveMutation = useMutation({
+    mutationFn: (input: UpdateOrganisationInput) => updateOrganisation(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["organisation"] });
+      setSheetOpen(false);
+      toast.success("Organisation updated successfully");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
 
   function handleSave() {
     saveMutation.mutate(form);
@@ -101,12 +89,10 @@ export function OrganisationPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Organisation</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage your clinic's settings, users, and permissions</p>
         </div>
-        {!editing && (
-          <Button variant="outline" onClick={startEditing}>
-            <Settings className="mr-2 size-4" />
-            {organisation ? "Edit Profile" : "Set Up Organisation"}
-          </Button>
-        )}
+        <Button variant="outline" onClick={openSheet}>
+          <Settings className="mr-2 size-4" />
+          {organisation ? "Edit Profile" : "Set Up Organisation"}
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -137,39 +123,6 @@ export function OrganisationPage() {
           <CardContent>
             {orgLoading ? (
               <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : editing ? (
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="org-name">Clinic Name *</FieldLabel>
-                  <Input id="org-name" placeholder="My Clinic" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="org-address">Address</FieldLabel>
-                  <Input id="org-address" placeholder="123 Healthcare Blvd, Medical District" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="org-phone">Phone</FieldLabel>
-                  <Input id="org-phone" placeholder="+1 (555) 123-4567" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="org-email">Email</FieldLabel>
-                  <Input id="org-email" type="email" placeholder="admin@clinic.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="org-website">Website</FieldLabel>
-                  <Input id="org-website" placeholder="www.clinic.com" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="org-reg">Registration No.</FieldLabel>
-                  <Input id="org-reg" placeholder="MC-2024-00189" value={form.registrationNumber} onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })} />
-                </Field>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
-                  <Button onClick={handleSave} disabled={!form.name?.trim() || saveMutation.isPending}>
-                    Save
-                  </Button>
-                </div>
-              </FieldGroup>
             ) : organisation ? (
               <dl className="space-y-3">
                 {[
@@ -189,7 +142,7 @@ export function OrganisationPage() {
             ) : (
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <p className="text-sm text-muted-foreground">Organisation profile not set up yet.</p>
-                <Button onClick={startEditing}>Set Up Organisation</Button>
+                <Button onClick={openSheet}>Set Up Organisation</Button>
               </div>
             )}
           </CardContent>
@@ -232,6 +185,49 @@ export function OrganisationPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{organisation ? "Edit Organisation" : "Set Up Organisation"}</SheetTitle>
+            <SheetDescription>Update your clinic's profile information.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4">
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="org-name">Clinic Name *</FieldLabel>
+                <Input id="org-name" placeholder="My Clinic" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="org-address">Address</FieldLabel>
+                <Input id="org-address" placeholder="123 Healthcare Blvd, Medical District" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="org-phone">Phone</FieldLabel>
+                <Input id="org-phone" placeholder="+1 (555) 123-4567" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="org-email">Email</FieldLabel>
+                <Input id="org-email" type="email" placeholder="admin@clinic.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="org-website">Website</FieldLabel>
+                <Input id="org-website" placeholder="www.clinic.com" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="org-reg">Registration No.</FieldLabel>
+                <Input id="org-reg" placeholder="MC-2024-00189" value={form.registrationNumber} onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })} />
+              </Field>
+            </FieldGroup>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setSheetOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={!form.name?.trim() || saveMutation.isPending}>
+              Save
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

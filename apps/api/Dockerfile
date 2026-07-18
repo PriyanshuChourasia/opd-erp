@@ -37,9 +37,16 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
+RUN chmod +x ./apps/api/docker-entrypoint.sh
 
 EXPOSE 4000
 
-# Run migrations, seed reference/demo data (idempotent upserts), then start the server
+# Run migrations, seed reference/demo data, then start the server.
+# If seeding fails because the database's actual schema has drifted out of
+# sync with the migration history (columns/tables missing despite
+# `_prisma_migrations` claiming everything is applied), self-heal by
+# resetting the database and reapplying migrations + seed from scratch —
+# so a plain `docker compose up -d --build` recovers on its own.
 WORKDIR /app/apps/api
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/main.js"]
+CMD ["./docker-entrypoint.sh"]

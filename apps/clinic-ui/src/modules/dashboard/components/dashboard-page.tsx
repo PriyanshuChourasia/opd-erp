@@ -22,8 +22,9 @@ export function DashboardPage() {
   const statsQuery = useDashboardStats();
   const chartsQuery = useDashboardCharts();
 
-  if (getHomeRoute(user?.roleName) === "/pos") {
-    return <Navigate to="/pos" replace />;
+  const home = getHomeRoute(user?.roleName);
+  if (home !== "/dashboard") {
+    return <Navigate to={home} replace />;
   }
 
   const stats = statsQuery.data;

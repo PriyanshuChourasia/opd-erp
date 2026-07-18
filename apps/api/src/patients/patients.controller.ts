@@ -41,4 +41,9 @@ export class PatientsController {
   remove(@Param('id') id: string) {
     return this.patientsService.remove(id);
   }
+
+  @Patch(':id/restore')
+  restore(@Param('id') id: string) {
+    return this.patientsService.restore(id);
+  }
 }

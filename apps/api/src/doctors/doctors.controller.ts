@@ -12,6 +12,7 @@ import { DoctorsService } from './doctors.service';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { CreateDoctorWithUserDto } from './dto/create-doctor-with-user.dto';
 import { UpdateDoctorDto, UpdateVerificationStatusDto } from './dto/update-doctor.dto';
+import { UpdateDoctorWithUserDto } from './dto/update-doctor-with-user.dto';
 import { FindDoctorsQueryDto } from './dto/find-doctors-query.dto';
 
 @Controller('doctors')
@@ -41,6 +42,21 @@ export class DoctorsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateDoctorDto) {
     return this.doctorsService.update(id, dto);
+  }
+
+  @Get(':id/user')
+  findLinkedUser(@Param('id') id: string) {
+    return this.doctorsService.findLinkedUser(id);
+  }
+
+  @Patch(':id/with-user')
+  updateWithUser(@Param('id') id: string, @Body() dto: UpdateDoctorWithUserDto) {
+    return this.doctorsService.updateWithUser(id, dto);
+  }
+
+  @Patch(':id/restore')
+  restore(@Param('id') id: string) {
+    return this.doctorsService.restore(id);
   }
 
   @Patch(':id/verification')

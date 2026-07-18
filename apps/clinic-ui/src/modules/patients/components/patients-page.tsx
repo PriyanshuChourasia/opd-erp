@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import {
@@ -9,8 +9,11 @@ import {
   Users,
   X,
   Droplets,
+  Camera,
+  FileUp,
+  FileText,
 } from "lucide-react";
-import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient, type Patient, type CreatePatientInput } from "@/lib/api";
+import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient, fetchDocumentsByEntity, uploadDocument, deleteDocument, type Patient, type CreatePatientInput, type DocumentRecord } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
@@ -22,6 +25,9 @@ import {
   Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
 import { DataTable } from "@/components/data-table/data-table";
+import { DocumentManager } from "@/modules/documents/components/document-manager";
+import { DocumentGallery } from "@/modules/documents/components/document-viewer";
+import { AllergySelect } from "@/components/allergy-select";
 
 const bloodGroupColors: Record<string, string> = {
   "A+": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -34,6 +40,32 @@ const bloodGroupColors: Record<string, string> = {
   "AB-": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
 };
 
+function PatientAvatar({ patientId, name }: { patientId: string; name: string }) {
+  const { data: docs } = useQuery({
+    queryKey: ["documents", "Patient", patientId],
+    queryFn: () => fetchDocumentsByEntity("Patient", patientId),
+    enabled: !!patientId,
+    staleTime: 60_000,
+  });
+  const photo = docs?.find((d) => d.documentType === "PROFILE_PHOTO" && d.isActive);
+
+  if (photo) {
+    return (
+      <img
+        src={`/uploads/documents/${photo.fileName}`}
+        alt={name}
+        className="size-8 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
+
+  return (
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+      <Users className="size-3.5 text-primary" />
+    </span>
+  );
+}
+
 export function PatientsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -42,8 +74,17 @@ export function PatientsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // Documents sheet state
+  const [docSheetOpen, setDocSheetOpen] = useState(false);
+  const [docSheetPatient, setDocSheetPatient] = useState<Patient | null>(null);
+
+  // Pending files for add mode
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState<CreatePatientInput>({
-    name: "", phone: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [],
+    name: "", phone: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [], isFollowUp: false,
   });
 
   const { data: response, isLoading } = useQuery({
@@ -73,34 +114,98 @@ export function PatientsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deletePatient,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setDeleteConfirm(null); toast.success("Patient deleted successfully"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setDeleteConfirm(null); toast.success("Patient deactivated successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
   function openAdd() {
     setEditingId(null);
-    setForm({ name: "", phone: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [] });
+    setPendingFiles([]);
+    setForm({ name: "", phone: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [], isFollowUp: false });
     setSheetOpen(true);
   }
 
   async function openEdit(id: string) {
     setEditingId(id);
+    setPendingFiles([]);
     const patient = await queryClient.fetchQuery({ queryKey: ["patient", id], queryFn: () => fetchPatient(id) });
     setForm({
       name: patient.name, phone: patient.phone, email: patient.email ?? "", dateOfBirth: patient.dateOfBirth ? patient.dateOfBirth.split("T")[0] ?? "" : "",
       gender: patient.gender ?? "", bloodGroup: patient.bloodGroup ?? "", address: patient.address ?? "", emergencyContact: patient.emergencyContact ?? "",
-      allergies: patient.allergies ?? [],
+      allergies: patient.allergies ?? [], isFollowUp: patient.isFollowUp ?? false,
     });
     setSheetOpen(true);
   }
 
-  function closeSheet() { setSheetOpen(false); setEditingId(null); }
+  function openDocs(patient: Patient) {
+    setDocSheetPatient(patient);
+    setDocSheetOpen(true);
+  }
+
+  function closeSheet() { setSheetOpen(false); setEditingId(null); setPendingFiles([]); }
+
+  // Upload pending files after patient creation
+  const uploadPendingDocs = async (patientId: string) => {
+    for (const pf of pendingFiles) {
+      try {
+        await uploadDocument(pf.file, pf.documentType, "Patient", patientId, { caption: pf.label || undefined, isPrimary: pf.documentType === "PROFILE_PHOTO" });
+      } catch { /* toast per file */ }
+    }
+    if (pendingFiles.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ["documents", "Patient", patientId] });
+    }
+  };
 
   function handleSave() {
     if (!form.name.trim() || !form.phone.trim()) return;
-    if (editingId) updateMutation.mutate({ id: editingId, data: form });
-    else createMutation.mutate(form);
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: form });
+    } else {
+      createMutation.mutate(form, {
+        onSuccess: async (patient: Patient) => {
+          await uploadPendingDocs(patient.id);
+          queryClient.invalidateQueries({ queryKey: ["patients"] });
+          closeSheet();
+          toast.success("Patient created successfully");
+        },
+      });
+    }
   }
+
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("File must be under 10 MB"); return; }
+    const preview = URL.createObjectURL(file);
+    setPendingFiles((prev) => [...prev, { file, label: "Profile Photo", documentType: "PROFILE_PHOTO", preview }]);
+    e.target.value = "";
+  }
+
+  function handleDocSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name} is over 10 MB, skipped`); continue; }
+      const isImage = file.type.startsWith("image/");
+      setPendingFiles((prev) => [...prev, { file, label: "", documentType: isImage ? "OTHER" : "MEDICAL_RECORD" }]);
+    }
+    e.target.value = "";
+  }
+
+  function removePending(index: number) {
+    setPendingFiles((prev) => {
+      const removed = prev[index];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  function updatePendingLabel(index: number, label: string) {
+    setPendingFiles((prev) => prev.map((f, i) => i === index ? { ...f, label } : f));
+  }
+
+  const photoPending = pendingFiles.filter((f) => f.documentType === "PROFILE_PHOTO");
+  const otherPending = pendingFiles.filter((f) => f.documentType !== "PROFILE_PHOTO");
 
   const columns = useMemo<ColumnDef<Patient>[]>(() => [
     {
@@ -110,11 +215,12 @@ export function PatientsPage() {
         const patient = row.original;
         return (
           <div className="flex items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Users className="size-3.5 text-primary" />
-            </span>
+            <PatientAvatar patientId={patient.id} name={patient.name} />
             <div className="min-w-0">
-              <p className="truncate font-medium">{patient.name}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="truncate font-medium">{patient.name}</p>
+                {patient.isFollowUp && <Badge variant="outline" className="shrink-0 text-[10px] text-blue-700 dark:text-blue-400">Follow-up</Badge>}
+              </div>
               {patient.gender && <p className="text-xs text-muted-foreground">{patient.gender}</p>}
             </div>
           </div>
@@ -177,12 +283,15 @@ export function PatientsPage() {
         const patient = row.original;
         return (
           <div className="flex justify-end gap-1">
+            <Button variant="ghost" size="icon" className="size-8" title="Documents" onClick={() => openDocs(patient)}>
+              <FileText className="size-3.5" />
+            </Button>
             <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(patient.id)}>
               <Pencil className="size-3.5" />
             </Button>
             {deleteConfirm === patient.id ? (
               <div className="flex items-center gap-1">
-                <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(patient.id)}>Confirm</Button>
+                <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(patient.id)}>Deactivate</Button>
                 <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
               </div>
             ) : (
@@ -211,10 +320,77 @@ export function PatientsPage() {
           <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{editingId ? "Edit Patient" : "Add Patient"}</SheetTitle>
-              <SheetDescription>{editingId ? "Update patient details below." : "Register a new patient."}</SheetDescription>
+              <SheetDescription>{editingId ? "Update patient details, photo, and documents." : "Register a new patient. Add photo and documents below (optional)."}</SheetDescription>
             </SheetHeader>
             <div className="flex-1 space-y-4 px-4 pb-4">
               <FieldGroup>
+                {/* ── Photo & Documents ── */}
+                {editingId ? (
+                  <div className="border-t pt-3 mt-2 space-y-4">
+                    <DocumentManager documentableType="Patient" documentableId={editingId} documentType="PROFILE_PHOTO" label="Profile Photo" />
+                    <div className="border-t pt-3">
+                      <p className="text-sm font-medium mb-2">Documents & Images <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
+                      <DocumentUploaderInline patientId={editingId} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-t pt-3 mt-2 space-y-3">
+                    {/* Photo preview */}
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={() => photoInputRef.current?.click()}
+                        className="flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors hover:border-primary/50 hover:bg-muted shrink-0">
+                        {photoPending[0]?.preview ? (
+                          <img src={photoPending[0].preview} alt="Photo" className="size-full object-cover" />
+                        ) : (
+                          <Camera className="size-6 text-muted-foreground/50" />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">Profile Photo</p>
+                        <p className="text-xs text-muted-foreground">{photoPending[0] ? photoPending[0].file.name : "Click to select a photo"}</p>
+                      </div>
+                      <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handlePhotoSelect} />
+                    </div>
+                    {/* Documents */}
+                    <div className="border-t pt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium">Documents & Images <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
+                        <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}>
+                          <FileUp className="mr-1.5 size-3.5" /> Add File
+                        </Button>
+                        <input ref={docInputRef} type="file" accept="image/*,application/pdf,.doc,.docx" multiple className="hidden" onChange={handleDocSelect} />
+                      </div>
+                      {otherPending.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No documents added yet. You can add them now or later.</p>
+                      )}
+                      <div className="space-y-2">
+                        {otherPending.map((pf) => {
+                          const realIdx = pendingFiles.indexOf(pf);
+                          const isImage = pf.file.type.startsWith("image/");
+                          return (
+                            <div key={realIdx} className="flex items-center gap-2 rounded-none border p-2">
+                              {isImage && pf.preview ? (
+                                <img src={pf.preview} alt="" className="size-10 shrink-0 rounded object-cover" />
+                              ) : (
+                                <span className="flex size-10 shrink-0 items-center justify-center rounded bg-muted">
+                                  <FileUp className="size-5 text-muted-foreground" />
+                                </span>
+                              )}
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
+                                <Input placeholder="Label (e.g. Aadhaar Card, Prescription)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(realIdx, e.target.value)} />
+                              </div>
+                              <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removePending(realIdx)}>
+                                <X className="size-3.5" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <Field><FieldLabel htmlFor="p-name">Full Name *</FieldLabel><Input id="p-name" placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
                 <Field><FieldLabel htmlFor="p-phone">Phone *</FieldLabel><Input id="p-phone" placeholder="+1 555-000-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
                 <Field><FieldLabel htmlFor="p-email">Email</FieldLabel><Input id="p-email" type="email" placeholder="john@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
@@ -234,7 +410,13 @@ export function PatientsPage() {
                 </Field>
                 <Field><FieldLabel htmlFor="p-address">Address</FieldLabel><Input id="p-address" placeholder="123 Main St, City" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
                 <Field><FieldLabel htmlFor="p-emergency">Emergency Contact</FieldLabel><Input id="p-emergency" placeholder="+1 555-000-0001" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} /></Field>
-                <Field><FieldLabel htmlFor="p-allergies">Allergies (comma-separated)</FieldLabel><Input id="p-allergies" placeholder="Penicillin, Sulfa" value={(form.allergies ?? []).join(", ")} onChange={(e) => setForm({ ...form, allergies: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })} /></Field>
+                <Field><FieldLabel htmlFor="p-allergies">Allergies</FieldLabel><AllergySelect value={form.allergies ?? []} onChange={(allergies) => setForm({ ...form, allergies })} /></Field>
+                <Field>
+                  <label htmlFor="p-follow-up" className="flex w-fit items-center gap-2 text-sm">
+                    <input id="p-follow-up" type="checkbox" className="size-4" checked={form.isFollowUp ?? false} onChange={(e) => setForm({ ...form, isFollowUp: e.target.checked })} />
+                    Follow-up patient
+                  </label>
+                </Field>
               </FieldGroup>
             </div>
             <SheetFooter>
@@ -279,6 +461,155 @@ export function PatientsPage() {
           />
         </CardContent>
       </Card>
+
+      {/* ── Documents Sheet (opened from table actions) ── */}
+      <Sheet open={docSheetOpen} onOpenChange={setDocSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Documents — {docSheetPatient?.name}</SheetTitle>
+            <SheetDescription>Upload, view, and manage documents for this patient.</SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-4 space-y-4">
+            {docSheetPatient?.id && (
+              <>
+                <DocumentManager documentableType="Patient" documentableId={docSheetPatient.id} documentType="PROFILE_PHOTO" label="Profile Photo" />
+                <div className="border-t pt-3">
+                  <p className="text-sm font-medium mb-2">Upload Documents <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
+                  <DocumentUploaderInline patientId={docSheetPatient.id} />
+                </div>
+                <div className="border-t pt-3">
+                  <DocumentGallery documentableType="Patient" documentableId={docSheetPatient.id} />
+                </div>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
+}
+
+// ── Inline document uploader for edit mode (has patient ID) ──
+
+function DocumentUploaderInline({ patientId }: { patientId: string }) {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; label: string; preview?: string }[]>([]);
+
+  const { data: docs = [] } = useQuery({
+    queryKey: ["documents", "Patient", patientId],
+    queryFn: () => fetchDocumentsByEntity("Patient", patientId),
+    enabled: !!patientId,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: ({ file, caption }: { file: File; caption?: string }) =>
+      uploadDocument(file, file.type.startsWith("image/") ? "OTHER" : "MEDICAL_RECORD", "Patient", patientId, { caption }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents", "Patient", patientId] }); },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteDocument,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents", "Patient", patientId] }); toast.success("Document removed"); },
+  });
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name} is over 10 MB, skipped`); continue; }
+      const isImage = file.type.startsWith("image/");
+      const preview = isImage ? URL.createObjectURL(file) : undefined;
+      setPendingFiles((prev) => [...prev, { file, label: "", preview }]);
+    }
+    e.target.value = "";
+  }
+
+  function removePending(index: number) {
+    setPendingFiles((prev) => { const r = prev[index]; if (r?.preview) URL.revokeObjectURL(r.preview); return prev.filter((_, i) => i !== index); });
+  }
+
+  function updatePendingLabel(index: number, label: string) {
+    setPendingFiles((prev) => prev.map((f, i) => i === index ? { ...f, label } : f));
+  }
+
+  async function uploadAll() {
+    if (pendingFiles.length === 0) return;
+    let ok = 0;
+    for (const pf of pendingFiles) {
+      try {
+        await uploadMutation.mutateAsync({ file: pf.file, caption: pf.label || undefined });
+        ok++;
+      } catch { /* toast per file */ }
+    }
+    for (const pf of pendingFiles) { if (pf.preview) URL.revokeObjectURL(pf.preview); }
+    setPendingFiles([]);
+    if (ok > 0) toast.success(`${ok} document${ok === 1 ? "" : "s"} uploaded`);
+  }
+
+  const nonPhotoDocs = docs.filter((d) => d.documentType !== "PROFILE_PHOTO" && d.isActive);
+
+  return (
+    <div className="space-y-3">
+      {nonPhotoDocs.map((doc) => (
+        <div key={doc.id} className="flex items-center gap-2 rounded-none border p-2">
+          {doc.mimeType.startsWith("image/") ? (
+            <img src={`/uploads/documents/${doc.fileName}`} alt="" className="size-10 shrink-0 rounded object-cover" />
+          ) : (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded bg-muted">
+              <FileText className="size-5 text-muted-foreground" />
+            </span>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium truncate">{doc.originalName}</p>
+            <p className="text-[10px] text-muted-foreground">{doc.caption || doc.documentType} · {(doc.fileSize / 1024).toFixed(0)} KB</p>
+          </div>
+          <Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" onClick={() => deleteMutation.mutate(doc.id)}>
+            <X className="size-3.5" />
+          </Button>
+        </div>
+      ))}
+
+      {pendingFiles.map((pf, idx) => (
+        <div key={idx} className="flex items-center gap-2 rounded-none border p-2">
+          {pf.preview ? (
+            <img src={pf.preview} alt="" className="size-10 shrink-0 rounded object-cover" />
+          ) : (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded bg-muted">
+              <FileUp className="size-5 text-muted-foreground" />
+            </span>
+          )}
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
+            <Input placeholder="Label (e.g. Aadhaar Card, Prescription)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(idx, e.target.value)} />
+          </div>
+          <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removePending(idx)}>
+            <X className="size-3.5" />
+          </Button>
+        </div>
+      ))}
+
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+          <FileUp className="mr-1.5 size-3.5" /> Add File
+        </Button>
+        {pendingFiles.length > 0 && (
+          <Button type="button" size="sm" onClick={uploadAll} disabled={uploadMutation.isPending}>
+            {uploadMutation.isPending ? "Uploading..." : `Upload ${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"}`}
+          </Button>
+        )}
+        <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx" multiple className="hidden" onChange={handleFileSelect} />
+      </div>
+      {nonPhotoDocs.length === 0 && pendingFiles.length === 0 && (
+        <p className="text-xs text-muted-foreground">No documents yet. Click "Add File" to upload files.</p>
+      )}
+    </div>
+  );
+}
+
+interface PendingFile {
+  file: File;
+  label: string;
+  documentType: string;
+  preview?: string;
 }

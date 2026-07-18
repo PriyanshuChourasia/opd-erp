@@ -34,12 +34,15 @@ export class PatientsService
         address: dto.address,
         emergencyContact: dto.emergencyContact,
         allergies: dto.allergies ?? [],
+        isFollowUp: dto.isFollowUp ?? false,
       },
     });
   }
 
   async findAll(query: FindPatientsQueryDto): Promise<PaginatedResult<Patient>> {
-    const where = SearchQueryBuilder.search(query.search, ['name', 'phone', 'email']);
+    const where: Record<string, unknown> = { ...SearchQueryBuilder.search(query.search, ['name', 'phone', 'email']) };
+    // Soft-delete: only show active patients by default
+    where.isActive = true;
     return paginate(
       () => this.prisma.patient.count({ where }),
       ({ skip, take }) => this.prisma.patient.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip, take }),
@@ -48,7 +51,14 @@ export class PatientsService
   }
 
   async findOne(id: string) {
-    const patient = await this.prisma.patient.findUnique({ where: { id } });
+    const patient = await this.prisma.patient.findUnique({
+      where: { id },
+      include: {
+        patientAllergies: {
+          include: { allergy: true },
+        },
+      },
+    });
     if (!patient) throw new NotFoundException(`Patient ${id} not found`);
     return patient;
   }
@@ -66,6 +76,11 @@ export class PatientsService
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.patient.delete({ where: { id } });
+    return this.prisma.patient.update({ where: { id }, data: { isActive: false } });
+  }
+
+  async restore(id: string) {
+    await this.findOne(id);
+    return this.prisma.patient.update({ where: { id }, data: { isActive: true } });
   }
 }

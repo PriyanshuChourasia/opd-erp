@@ -41,16 +41,6 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('me/link-doctor/:doctorId')
-  @HttpCode(HttpStatus.OK)
-  async linkDoctorProfile(
-    @Req() req: { user: { id: string } },
-    @Param('doctorId') doctorId: string,
-  ) {
-    return this.authService.linkDoctorProfile(req.user.id, doctorId);
-  }
-
-  @UseGuards(JwtAuthGuard)
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   async changePassword(

@@ -111,6 +111,8 @@ export interface Patient {
   address?: string | null;
   emergencyContact?: string | null;
   allergies: string[];
+  patientAllergies?: PatientAllergy[];
+  isFollowUp: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -125,6 +127,7 @@ export interface CreatePatientInput {
   address?: string;
   emergencyContact?: string;
   allergies?: string[];
+  isFollowUp?: boolean;
 }
 
 export interface Doctor {
@@ -224,7 +227,7 @@ export interface DoctorWithUserResult {
 
 export interface QueueEntry {
   id: string;
-  tokenNumber: number;
+  tokenNumber: string;
   patientId: string;
   doctorId: string;
   status: string;
@@ -233,6 +236,7 @@ export interface QueueEntry {
   createdAt: string;
   patient: Patient;
   doctor: Doctor;
+  appointment?: { id: string; fee: number; date: string; bill: { id: string; invoiceNo: string; status: string } | null } | null;
 }
 
 export interface CreateQueueEntryInput {
@@ -316,10 +320,11 @@ export interface Appointment {
   id: string;
   patientId: string;
   doctorId: string;
+  createdById?: string | null;
   date: string;
   type: string;
   status: string;
-  tokenNumber: number | null;
+  tokenNumber: string | null;
   fee: number;
   notes: string | null;
   cancellationReason: string | null;
@@ -467,6 +472,7 @@ export interface Bill {
   updatedAt: string;
   patient: Patient | null;
   items: BillItem[];
+  appointment?: { id: string; doctorId: string; type: string; date: string; doctorName: string | null } | null;
 }
 
 export interface Permission {
@@ -635,6 +641,75 @@ export function deleteAddress(id: string) {
   return request<void>({ method: "DELETE", path: `/addresses/${id}` });
 }
 
+// ─── Allergy Types ─────────────────────────────────────────
+
+export type AllergySeverity = "MILD" | "MODERATE" | "SEVERE" | "LIFE_THREATENING";
+export type AllergyCategory = "DRUG" | "FOOD" | "ENVIRONMENTAL" | "OTHER";
+
+export const ALLERGY_SEVERITIES: AllergySeverity[] = ["MILD", "MODERATE", "SEVERE", "LIFE_THREATENING"];
+export const ALLERGY_CATEGORIES: AllergyCategory[] = ["DRUG", "FOOD", "ENVIRONMENTAL", "OTHER"];
+
+export interface Allergy {
+  id: string;
+  name: string;
+  description?: string | null;
+  severity: AllergySeverity;
+  category: AllergyCategory;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAllergyInput {
+  name: string;
+  description?: string;
+  severity?: AllergySeverity;
+  category?: AllergyCategory;
+  isActive?: boolean;
+}
+
+export interface PatientAllergy {
+  id: string;
+  patientId: string;
+  allergyId: string;
+  notes?: string | null;
+  severityOverride?: AllergySeverity | null;
+  createdAt: string;
+  allergy: Allergy;
+}
+
+// ─── Allergy API ────────────────────────────────────────────
+
+export function fetchAllergies(params: { search?: string; category?: string; severity?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Allergy>>({
+    method: "GET",
+    path: "/allergies",
+    params: {
+      search: params.search,
+      category: params.category,
+      severity: params.severity,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchAllergy(id: string) {
+  return request<Allergy>({ method: "GET", path: `/allergies/${id}` });
+}
+
+export function createAllergy(input: CreateAllergyInput) {
+  return request<Allergy>({ method: "POST", path: "/allergies", body: input });
+}
+
+export function updateAllergy(id: string, input: Partial<CreateAllergyInput>) {
+  return request<Allergy>({ method: "PATCH", path: `/allergies/${id}`, body: input });
+}
+
+export function deleteAllergy(id: string) {
+  return request<void>({ method: "DELETE", path: `/allergies/${id}` });
+}
+
 // ─── Patient API ──────────────────────────────────────────────
 
 export function fetchPatients(params: { search?: string } & PaginationParams = {}) {
@@ -675,12 +750,13 @@ export function deletePatient(id: string) {
 
 // ─── Doctor API ───────────────────────────────────────────────
 
-export function fetchDoctors(params: { search?: string } & PaginationParams = {}) {
+export function fetchDoctors(params: { search?: string; isActive?: string } & PaginationParams = {}) {
   return request<PaginatedResult<Doctor>>({
     method: "GET",
     path: "/doctors",
     params: {
       search: params.search,
+      isActive: params.isActive,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -715,8 +791,41 @@ export function updateDoctor(id: string, input: Partial<CreateDoctorInput>) {
   });
 }
 
+/** Fetch the linked User account for a doctor */
+export function fetchDoctorUser(doctorId: string) {
+  return request<{
+    id: string;
+    username: string;
+    firstName: string;
+    middleName?: string | null;
+    lastName: string;
+    email: string;
+    mobileNumber?: string | null;
+    gender?: string | null;
+    roleId: string;
+  }>({
+    method: "GET",
+    path: `/doctors/${doctorId}/user`,
+  });
+}
+
+/** Update doctor + linked user + address in one call */
+export function updateDoctorWithUser(id: string, input: Partial<CreateDoctorWithUserInput>) {
+  return request<Doctor>({
+    method: "PATCH",
+    path: `/doctors/${id}/with-user`,
+    body: input,
+  });
+}
+
+/** Soft-delete a doctor by setting isActive=false. The record is preserved. */
 export function deleteDoctor(id: string) {
-  return request<void>({ method: "DELETE", path: `/doctors/${id}` });
+  return request<Doctor>({ method: "DELETE", path: `/doctors/${id}` });
+}
+
+/** Restore a previously dropped (soft-deleted) doctor. */
+export function restoreDoctor(id: string) {
+  return request<Doctor>({ method: "PATCH", path: `/doctors/${id}/restore` });
 }
 
 // ─── Queue API ────────────────────────────────────────────────
@@ -845,6 +954,7 @@ export function fetchAppointments(
     date?: string;
     status?: string;
     patientId?: string;
+    createdById?: string;
     search?: string;
   } & PaginationParams = {},
 ) {
@@ -856,6 +966,7 @@ export function fetchAppointments(
       date: params.date,
       status: params.status,
       patientId: params.patientId,
+      createdById: params.createdById,
       search: params.search,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
@@ -1029,18 +1140,88 @@ export function fetchDispensings(params: { prescriptionId?: string } & Paginatio
   });
 }
 
-// ─── Users API ────────────────────────────────────────────────
+// ─── Users API (Full CRUD) ───────────────────────────────────
 
-export function fetchUsers(params: { search?: string } & PaginationParams = {}) {
+export interface CreateUserInput {
+  username: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  email: string;
+  mobileNumber?: string;
+  countryCode?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  profilePhotoUrl?: string;
+  qualification?: string;
+  password: string;
+  roleId: string;
+}
+
+export interface UpdateUserInput {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  email?: string;
+  mobileNumber?: string;
+  countryCode?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  profilePhotoUrl?: string;
+  qualification?: string;
+  password?: string;
+  roleId?: string;
+}
+
+export interface RoleOption {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+export function fetchUsers(params: { search?: string; isActive?: string } & PaginationParams = {}) {
   return request<PaginatedResult<User>>({
     method: "GET",
     path: "/users",
     params: {
       search: params.search,
+      isActive: params.isActive,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
   });
+}
+
+export function fetchUser(id: string) {
+  return request<User & { roleId: string; username: string }>({
+    method: "GET",
+    path: `/users/${id}`,
+  });
+}
+
+export function fetchUserRoles() {
+  return request<RoleOption[]>({
+    method: "GET",
+    path: "/users/roles",
+  });
+}
+
+export function createUser(input: CreateUserInput) {
+  return request<User>({ method: "POST", path: "/users", body: input });
+}
+
+export function updateUser(id: string, input: UpdateUserInput) {
+  return request<User>({ method: "PATCH", path: `/users/${id}`, body: input });
+}
+
+/** Soft-delete a user by setting isActive=false */
+export function deleteUser(id: string) {
+  return request<User>({ method: "DELETE", path: `/users/${id}` });
+}
+
+/** Restore a previously soft-deleted user */
+export function restoreUser(id: string) {
+  return request<User>({ method: "PATCH", path: `/users/${id}/restore` });
 }
 
 // ─── Organisation API ─────────────────────────────────────────
@@ -1085,12 +1266,29 @@ export function createBill(payload: CreateBillInput) {
   });
 }
 
-// ─── User-Doctor Linkage API ────────────────────────────────
+export interface CreatePrescriptionItemInput {
+  medicineId: string;
+  medicineName: string;
+  dosage: string;
+  duration?: string;
+  instructions?: string;
+  quantity: number;
+  refills?: number;
+}
 
-export function linkDoctorToUser(doctorId: string) {
-  return request<AuthUser>({
+export interface CreatePrescriptionInput {
+  patientId: string;
+  doctorId: string;
+  diagnosis?: string;
+  notes?: string;
+  items: CreatePrescriptionItemInput[];
+}
+
+export function createPrescription(input: CreatePrescriptionInput) {
+  return request<Prescription>({
     method: "POST",
-    path: `/auth/me/link-doctor/${doctorId}`,
+    path: "/prescriptions",
+    body: input,
   });
 }
 
@@ -1114,4 +1312,128 @@ export function changePassword(data: { currentPassword: string; newPassword: str
     path: "/auth/change-password",
     body: data,
   });
+}
+
+// ─── Module Registry API ─────────────────────────────────────
+
+export interface ModuleAction {
+  id: string;
+  name: string;
+  description: string;
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  path?: string;
+}
+
+export interface ModuleCapability {
+  id: string;
+  name: string;
+  description: string;
+  actions: ModuleAction[];
+}
+
+export interface ModuleFeature {
+  id: string;
+  name: string;
+  description: string;
+  capabilities: ModuleCapability[];
+}
+
+export interface ModuleDependency {
+  name: string;
+  version?: string;
+  optional?: boolean;
+}
+
+export interface AppModule {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  author?: string;
+  features: ModuleFeature[];
+  dependencies?: ModuleDependency[];
+  routePrefix?: string;
+  enabled?: boolean;
+}
+
+export function fetchModules() {
+  return request<{ data: AppModule[]; total: number }>({
+    method: "GET",
+    path: "/modules",
+  });
+}
+
+export function fetchModule(id: string) {
+  return request<{ data: AppModule }>({
+    method: "GET",
+    path: `/modules/${id}`,
+  });
+}
+
+// ─── Document API ────────────────────────────────────────────
+
+export interface DocumentRecord {
+  id: string;
+  documentType: string;
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  fileSize: number;
+  filePath: string;
+  caption: string | null;
+  isPrimary: boolean;
+  isActive: boolean;
+  documentableType: string;
+  documentableId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function fetchDocumentsByEntity(documentableType: string, documentableId: string) {
+  return request<DocumentRecord[]>({
+    method: "GET",
+    path: "/documents/by-entity",
+    params: { documentableType, documentableId },
+  });
+}
+
+export function uploadDocument(
+  file: File,
+  documentType: string,
+  documentableType: string,
+  documentableId: string,
+  options?: { caption?: string; isPrimary?: boolean },
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("documentType", documentType);
+  formData.append("documentableType", documentableType);
+  formData.append("documentableId", documentableId);
+  if (options?.caption) formData.append("caption", options.caption);
+  if (options?.isPrimary) formData.append("isPrimary", "true");
+
+  return apiClient.post<DocumentRecord>("/documents", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }).then((res) => res.data);
+}
+
+export function deleteDocument(id: string) {
+  return request<void>({ method: "DELETE", path: `/documents/${id}` });
+}
+
+export function setPrimaryDocument(id: string) {
+  return request<DocumentRecord>({ method: "PATCH", path: `/documents/${id}/primary` });
+}
+
+/** Downloads a document as its original file, going through the authenticated API instead of the static /uploads path. */
+export async function downloadDocument(id: string, originalName: string) {
+  const res = await apiClient.get(`/documents/${id}/download`, { responseType: "blob" });
+  const url = URL.createObjectURL(res.data as Blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = originalName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }

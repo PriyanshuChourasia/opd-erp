@@ -1,9 +1,9 @@
 import { apiFetch, type Bill } from "@/lib/api";
 import type { PaymentMethod } from "./interface";
 
-export async function searchMedicines(q: string): Promise<{ id: string; brandName: string; genericName: string; strength: string }[]> {
-  const res = await apiFetch<{ data: { id: string; brandName: string; genericName: string; strength: string }[] }>(
-    `/medicine-catalog?search=${encodeURIComponent(q)}`,
+export async function searchMedicines(q: string): Promise<{ id: string; name: string; brandName: string | null; genericName: string | null; strength: string | null; price: number }[]> {
+  const res = await apiFetch<{ data: { id: string; name: string; brandName: string | null; genericName: string | null; strength: string | null; price: number }[] }>(
+    `/medicine-catalog?search=${encodeURIComponent(q)}&limit=50`,
   );
   return res.data;
 }

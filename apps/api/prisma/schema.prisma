@@ -29,6 +29,7 @@ model User {
   updatedAt        DateTime       @updatedAt
   role             Role           @relation(fields: [roleId], references: [id])
   refreshTokens    RefreshToken[]
+  createdAppointments Appointment[]
 
   @@index([userableType, userableId])
 }
@@ -78,6 +79,50 @@ model RefreshToken {
   @@index([userId])
 }
 
+// ─── Allergy Catalog ────────────────────────────────────────
+
+enum AllergySeverity {
+  MILD
+  MODERATE
+  SEVERE
+  LIFE_THREATENING
+}
+
+enum AllergyCategory {
+  DRUG
+  FOOD
+  ENVIRONMENTAL
+  OTHER
+}
+
+model Allergy {
+  id        String           @id @default(uuid())
+  name      String           @unique
+  description String?
+  severity  AllergySeverity  @default(MODERATE)
+  category  AllergyCategory  @default(OTHER)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  patientAllergies PatientAllergy[]
+}
+
+model PatientAllergy {
+  id              String           @id @default(uuid())
+  patientId       String
+  allergyId       String
+  notes           String?
+  severityOverride AllergySeverity?
+  createdAt       DateTime         @default(now())
+  patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  allergy         Allergy          @relation(fields: [allergyId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, allergyId])
+  @@index([patientId])
+  @@index([allergyId])
+}
+
 // ─── Clinical Models ──────────────────────────────────────────
 
 model Patient {
@@ -91,6 +136,8 @@ model Patient {
   address          String?
   emergencyContact String?
   allergies        String[]
+  isFollowUp       Boolean  @default(false)
+  isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -101,6 +148,7 @@ model Patient {
   radiologyOrders RadiologyOrder[]
   procedureOrders ProcedureOrder[]
   bills          Bill[]
+  patientAllergies PatientAllergy[]
 }
 
 model Doctor {
@@ -134,17 +182,19 @@ model Doctor {
 }
 
 model QueueEntry {
-  id          String   @id @default(uuid())
-  tokenNumber Int
-  patientId   String
-  doctorId    String
-  status      String   @default("WAITING") // WAITING | IN_PROGRESS | COMPLETED | SKIPPED | NO_SHOW
-  queueDate   DateTime @default(now())
-  checkedInAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  patient     Patient  @relation(fields: [patientId], references: [id])
-  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  id            String       @id @default(uuid())
+  tokenNumber   String
+  patientId     String
+  doctorId      String
+  status        String       @default("WAITING") // WAITING | IN_PROGRESS | COMPLETED | SKIPPED | NO_SHOW
+  queueDate     DateTime     @default(now())
+  checkedInAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  patient       Patient      @relation(fields: [patientId], references: [id])
+  doctor        Doctor       @relation(fields: [doctorId], references: [id])
+  appointmentId String?      @unique // Set when this queue entry has a linked appointment, used for invoicing
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
 
   @@unique([doctorId, queueDate, tokenNumber])
   @@index([doctorId, queueDate])
@@ -155,10 +205,11 @@ model Appointment {
   id          String   @id @default(uuid())
   patientId   String
   doctorId    String
+  createdById String?
   date        DateTime
   type        String   @default("CONSULTATION") // WALK_IN | CONSULTATION | SPECIALIST | EMERGENCY | FOLLOW_UP | TELECONSULTATION
   status      String   @default("SCHEDULED") // SCHEDULED | CONFIRMED | CHECKED_IN | IN_PROGRESS | COMPLETED | CANCELLED | NO_SHOW
-  tokenNumber Int?
+  tokenNumber String?
   fee         Int      @default(0)
   notes       String?
   cancellationReason String?
@@ -166,10 +217,13 @@ model Appointment {
   updatedAt   DateTime @updatedAt
   patient     Patient  @relation(fields: [patientId], references: [id])
   doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  createdBy   User?    @relation(fields: [createdById], references: [id])
   bill        Bill?
+  queueEntry  QueueEntry?
 
   @@index([patientId])
   @@index([doctorId])
+  @@index([createdById])
   @@index([date])
 }
 
@@ -183,7 +237,7 @@ model Medicine {
   category    String?  // TABLET | CAPSULE | SYRUP | INJECTION | CREAM | DROPS | INHALER | OTHER
   strength    String?  // e.g. "500mg"
   unit        String   @default("tablet") // tablet, ml, mg, etc.
-  price       Int      @default(0) // in smallest currency unit (paise/cents)
+  price       Int      @default(0) // in rupees
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -411,6 +465,29 @@ model Address {
 
   @@index([addressableType, addressableId])
   @@index([addressableType, addressableId, isPrimary])
+}
+
+// ─── Document (polymorphic) ──────────────────────────────────
+// Reusable for Patient photos, Doctor certificates, prescriptions, etc.
+
+model Document {
+  id               String   @id @default(uuid())
+  documentType     String   // PROFILE_PHOTO | MEDICAL_RECORD | CERTIFICATE | PRESCRIPTION | LAB_REPORT | OTHER
+  fileName         String
+  originalName     String
+  mimeType         String
+  fileSize         Int      // bytes
+  filePath         String   // relative path to stored file
+  caption          String?
+  isPrimary        Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  documentableType String   // "Patient" | "Doctor" | "Prescription" | "Appointment" | etc.
+  documentableId   String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([documentableType, documentableId])
+  @@index([documentableType, documentableId, isPrimary])
 }
 
 // ─── Organisation ────────────────────────────────────────────

@@ -1,12 +1,30 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/utils/paginate';
+import { getDoctorNameMap } from '../common/utils/doctor-names';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
 import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Bill } from '@prisma/client';
 import { CreateBillDto } from './dto/create-bill.dto';
 import { UpdateBillStatusDto } from './dto/update-bill-status.dto';
 import { FindBillsQueryDto } from './dto/find-bills-query.dto';
+
+interface WithAppointmentDoctor {
+  appointment: ({ doctorId: string } & Record<string, unknown>) | null;
+}
+
+/** Attaches the doctor's display name onto a bill's linked appointment, if any. */
+async function withDoctorName<T extends WithAppointmentDoctor>(prisma: PrismaService, bill: T): Promise<T> {
+  if (!bill.appointment) return bill;
+  const nameMap = await getDoctorNameMap(prisma, [bill.appointment.doctorId]);
+  return { ...bill, appointment: { ...bill.appointment, doctorName: nameMap.get(bill.appointment.doctorId) ?? null } };
+}
+
+async function withDoctorNames<T extends WithAppointmentDoctor>(prisma: PrismaService, bills: T[]): Promise<T[]> {
+  const doctorIds = bills.filter((b) => b.appointment).map((b) => b.appointment!.doctorId);
+  const nameMap = await getDoctorNameMap(prisma, doctorIds);
+  return bills.map((b) => (b.appointment ? { ...b, appointment: { ...b.appointment, doctorName: nameMap.get(b.appointment.doctorId) ?? null } } : b));
+}
 
 /**
  * Generates invoice numbers using the database's auto-increment by
@@ -78,27 +96,28 @@ export class BillingService
   async findAll(query: FindBillsQueryDto): Promise<PaginatedResult<Bill>> {
     const where: Record<string, unknown> = {};
     if (query.patientId) where.patientId = query.patientId;
-    return paginate(
+    const result = await paginate(
       () => this.prisma.bill.count({ where }),
       ({ skip, take }) =>
         this.prisma.bill.findMany({
           where,
-          include: { items: true, patient: true },
+          include: { items: true, patient: true, appointment: { select: { id: true, doctorId: true, type: true, date: true } } },
           orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
           skip,
           take,
         }),
       query,
     );
+    return { ...result, data: await withDoctorNames(this.prisma, result.data) };
   }
 
   async findOne(id: string) {
     const bill = await this.prisma.bill.findUnique({
       where: { id },
-      include: { items: true, patient: true },
+      include: { items: true, patient: true, appointment: { select: { id: true, doctorId: true, type: true, date: true } } },
     });
     if (!bill) throw new NotFoundException(`Bill ${id} not found`);
-    return bill;
+    return withDoctorName(this.prisma, bill);
   }
 
   async update(id: string, dto: UpdateBillStatusDto) {

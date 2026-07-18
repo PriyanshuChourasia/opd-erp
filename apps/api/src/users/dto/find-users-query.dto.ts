@@ -5,4 +5,8 @@ export class FindUsersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  isActive?: string;
 }

@@ -41,32 +41,62 @@ export class AppointmentsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateAppointmentDto) {
+  private generateTokenNumber(date: Date, patientName: string): string {
+    const y = date.getFullYear().toString();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const h = date.getHours().toString().padStart(2, '0');
+    const min = date.getMinutes().toString().padStart(2, '0');
+    const nameInitials = patientName
+      .split(' ')
+      .map((p) => p.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 4);
+    return `${y}${m}${d}-${nameInitials}-${h}${min}`;
+  }
+
+  async create(dto: CreateAppointmentDto, createdById?: string) {
     const date = new Date(dto.date);
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
 
-    const lastEntry = await this.prisma.appointment.findFirst({
-      where: { doctorId: dto.doctorId, date: { gte: dayStart, lt: dayEnd } },
-      orderBy: { tokenNumber: 'desc' },
-    });
-    const tokenNumber = (lastEntry?.tokenNumber ?? 0) + 1;
+    const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
+    const tokenNumber = this.generateTokenNumber(date, patient?.name ?? 'PTNT');
 
-    const appointment = await this.prisma.appointment.create({
-      data: {
-        patientId: dto.patientId,
-        doctorId: dto.doctorId,
-        date,
-        type: dto.type ?? 'CONSULTATION',
-        fee: dto.fee ?? 0,
-        notes: dto.notes,
-        tokenNumber,
-      },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+    // Use a transaction to create both the appointment and a queue entry atomically
+    const result = await this.prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.create({
+        data: {
+          patientId: dto.patientId,
+          doctorId: dto.doctorId,
+          createdById: createdById ?? null,
+          date,
+          type: dto.type ?? 'CONSULTATION',
+          fee: dto.fee ?? 0,
+          notes: dto.notes,
+          tokenNumber,
+        },
+        include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+      });
+
+      // Automatically add the patient to the queue for the appointment's date
+      const queueDate = new Date(date);
+      queueDate.setHours(0, 0, 0, 0);
+      const checkedInAt = new Date();
+      await tx.queueEntry.create({
+        data: {
+          patientId: dto.patientId,
+          doctorId: dto.doctorId,
+          tokenNumber,
+          queueDate,
+          checkedInAt,
+          status: 'WAITING',
+          appointmentId: appointment.id,
+        },
+      });
+
+      return appointment;
     });
-    return withDoctorName(this.prisma, appointment);
+
+    return withDoctorName(this.prisma, result);
   }
 
   async findAll(query: FindAppointmentsQueryDto): Promise<PaginatedResult<Appointment>> {
@@ -74,6 +104,7 @@ export class AppointmentsService
     if (query.doctorId) where.doctorId = query.doctorId;
     if (query.status) where.status = query.status;
     if (query.patientId) where.patientId = query.patientId;
+    if (query.createdById) where.createdById = query.createdById;
     if (query.date) {
       const dayStart = new Date(query.date);
       dayStart.setHours(0, 0, 0, 0);
@@ -83,11 +114,10 @@ export class AppointmentsService
     }
     if (query.search) {
       const search = query.search.trim();
-      const asToken = Number.parseInt(search, 10);
       where.OR = [
         { patient: { name: { contains: search, mode: 'insensitive' } } },
         { patient: { phone: { contains: search } } },
-        ...(Number.isFinite(asToken) && String(asToken) === search ? [{ tokenNumber: asToken }] : []),
+        { tokenNumber: { contains: search, mode: 'insensitive' } },
       ];
     }
 

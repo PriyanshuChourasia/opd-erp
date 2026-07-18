@@ -23,6 +23,8 @@ import { OrganisationModule } from './organisation/organisation.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { EmployeeSchedulesModule } from './employee-schedules/employee-schedules.module';
+import { DocumentsModule } from './documents/documents.module';
+import { AllergiesModule } from './allergies/allergies.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { EmployeeSchedulesModule } from './employee-schedules/employee-schedules
     ShiftsModule,
     AddressesModule,
     EmployeeSchedulesModule,
+    DocumentsModule,
+    AllergiesModule,
   ],
 })
 export class AppModule {}

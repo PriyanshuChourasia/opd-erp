@@ -271,56 +271,6 @@ export class AuthService {
     };
   }
 
-  async linkDoctorProfile(userId: string, doctorId: string) {
-    // Verify doctor exists
-    const doctor = await this.prisma.doctor.findUnique({ where: { id: doctorId } });
-    if (!doctor) {
-      throw new NotFoundException(`Doctor ${doctorId} not found`);
-    }
-
-    // Clear this user's existing profile link (if any)
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { userableType: null, userableId: null },
-    });
-
-    // Unlink any other user that might be linked to this doctor
-    await this.prisma.user.updateMany({
-      where: { userableType: 'Doctor', userableId: doctorId },
-      data: { userableType: null, userableId: null },
-    });
-
-    // Link this user to the doctor
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { userableType: 'Doctor', userableId: doctorId },
-      include: {
-        role: {
-          include: {
-            rolePermissions: {
-              include: { permission: true },
-            },
-          },
-        },
-      },
-    });
-
-    return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      username: user.username,
-      roleName: user.role.name,
-      createdAt: user.createdAt.toISOString(),
-      permissions: user.role.rolePermissions.map(
-        (rp) => `${rp.permission.action}:${rp.permission.resource}`,
-      ),
-      userableType: asUserableType(user.userableType),
-      userableId: user.userableId,
-    };
-  }
-
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

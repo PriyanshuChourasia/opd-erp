@@ -1,4 +1,4 @@
-import { IsArray, IsEmail, IsISO8601, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsEmail, IsISO8601, IsOptional, IsString } from 'class-validator';
 
 export class CreatePatientDto {
   @IsString()
@@ -35,4 +35,8 @@ export class CreatePatientDto {
   @IsArray()
   @IsString({ each: true })
   allergies?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isFollowUp?: boolean;
 }

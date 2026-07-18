@@ -46,6 +46,18 @@ export async function createEmployeeSchedule(data: {
   return { id: res.id, dayOfWeek: res.dayOfWeek, startTime: res.startTime, endTime: res.endTime, shiftId: res.shiftId, shift: res.shift };
 }
 
+export async function updateEmployeeSchedule(id: string, data: {
+  employeeSchedulableType: string;
+  employeeSchedulableId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  shiftId?: string;
+}): Promise<EmployeeScheduleDay> {
+  const res = await apiFetch<EmployeeSchedule>(`/employee-schedules/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  return { id: res.id, dayOfWeek: res.dayOfWeek, startTime: res.startTime, endTime: res.endTime, shiftId: res.shiftId, shift: res.shift };
+}
+
 export async function deleteEmployeeSchedule(id: string): Promise<void> {
   return apiFetch<void>(`/employee-schedules/${id}`, { method: "DELETE" });
 }

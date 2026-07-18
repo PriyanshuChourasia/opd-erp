@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchQueryBuilder } from '../common/services/search-query-builder';
@@ -10,6 +10,7 @@ import type { Doctor } from '@prisma/client';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { CreateDoctorWithUserDto } from './dto/create-doctor-with-user.dto';
 import { UpdateDoctorDto, UpdateVerificationStatusDto } from './dto/update-doctor.dto';
+import { UpdateDoctorWithUserDto } from './dto/update-doctor-with-user.dto';
 import { FindDoctorsQueryDto } from './dto/find-doctors-query.dto';
 
 /**
@@ -49,12 +50,21 @@ export class DoctorsService
   }
 
   async findAll(query: FindDoctorsQueryDto): Promise<PaginatedResult<Doctor>> {
-    const where = SearchQueryBuilder.search(query.search, [
+    const searchFilter = SearchQueryBuilder.search(query.search, [
       'specialization',
       'medicalRegistrationNo',
       'medicalCouncil',
       { field: 'qualification', mode: 'insensitive' as const },
     ]);
+
+    const where: Record<string, unknown> = { ...searchFilter };
+
+    // Filter by isActive: default to only active doctors, unless explicitly requested
+    if (query.isActive !== undefined) {
+      where.isActive = query.isActive === 'true';
+    } else {
+      where.isActive = true;
+    }
     const result = await paginate(
       () => this.prisma.doctor.count({ where }),
       ({ skip, take }) => this.prisma.doctor.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip, take }),
@@ -84,6 +94,116 @@ export class DoctorsService
     return this.prisma.doctor.update({
       where: { id },
       data: { verificationStatus: dto.verificationStatus },
+    });
+  }
+
+  async findLinkedUser(doctorId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { userableType: 'Doctor', userableId: doctorId },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        email: true,
+        mobileNumber: true,
+        gender: true,
+        roleId: true,
+      },
+    });
+    if (!user) throw new NotFoundException('Linked user not found for this doctor');
+    return user;
+  }
+
+  async updateWithUser(id: string, dto: UpdateDoctorWithUserDto) {
+    const doctor = await this.findOne(id);
+
+    // Extract user-specific fields
+    const {
+      firstName,
+      lastName,
+      middleName,
+      email,
+      username,
+      mobileNumber,
+      password,
+      addressType,
+      addressLine1,
+      addressLine2,
+      landmark,
+      city,
+      district,
+      state,
+      country,
+      postalCode,
+      verificationStatus,
+      ...doctorFields
+    } = dto;
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Update doctor fields (if any)
+      if (Object.keys(doctorFields).length > 0) {
+        await tx.doctor.update({ where: { id }, data: doctorFields });
+      }
+
+      // 2. Update verification status if provided
+      if (verificationStatus) {
+        if (doctor.verificationStatus === 'VERIFIED' && verificationStatus !== 'SUSPENDED') {
+          throw new BadRequestException('Cannot change verification status of a verified doctor');
+        }
+        await tx.doctor.update({ where: { id }, data: { verificationStatus } });
+      }
+
+      // 3. Update linked user fields (if any user fields provided)
+      const hasUserFields = firstName || lastName || email || username || mobileNumber || password;
+      if (hasUserFields) {
+        const userData: Record<string, unknown> = {};
+        if (firstName) userData.firstName = firstName;
+        if (lastName) userData.lastName = lastName;
+        if (middleName !== undefined) userData.middleName = middleName;
+        if (email) userData.email = email;
+        if (username) userData.username = username;
+        if (mobileNumber !== undefined) userData.mobileNumber = mobileNumber;
+        if (password) userData.password = await bcrypt.hash(password, 10);
+
+        await tx.user.updateMany({
+          where: { userableType: 'Doctor', userableId: id },
+          data: userData,
+        });
+      }
+
+      // 4. Update or create address if address fields provided
+      const hasAddressFields = addressLine1 || city || state || postalCode || country;
+      if (hasAddressFields) {
+        const addressData: Record<string, unknown> = {};
+        if (addressLine1) addressData.addressLine1 = addressLine1;
+        if (addressLine2 !== undefined) addressData.addressLine2 = addressLine2;
+        if (landmark !== undefined) addressData.landmark = landmark;
+        if (city) addressData.city = city;
+        if (district !== undefined) addressData.district = district;
+        if (state) addressData.state = state;
+        if (country) addressData.country = country;
+        if (postalCode) addressData.postalCode = postalCode;
+        if (addressType) addressData.addressType = addressType;
+
+        addressData.isPrimary = true;
+        addressData.isActive = true;
+        addressData.addressableType = 'Doctor';
+        addressData.addressableId = id;
+
+        const existingAddress = await tx.address.findFirst({
+          where: { addressableType: 'Doctor', addressableId: id, addressType: addressType ?? 'CLINIC' },
+        });
+
+        if (existingAddress) {
+          await tx.address.update({ where: { id: existingAddress.id }, data: addressData });
+        } else {
+          await tx.address.create({ data: addressData as any });
+        }
+      }
+
+      return this.findOne(id);
     });
   }
 
@@ -197,6 +317,14 @@ export class DoctorsService
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.doctor.delete({ where: { id } });
+    return this.prisma.doctor.update({ where: { id }, data: { isActive: false } });
+  }
+
+  async restore(id: string) {
+    const doctor = await this.prisma.doctor.findUnique({ where: { id } });
+    if (!doctor) throw new NotFoundException(`Doctor ${id} not found`);
+    return this.prisma.doctor.update({ where: { id }, data: { isActive: true } });
   }
 }
+
+export type { DoctorWithUser } from './dto/update-doctor-with-user.dto';

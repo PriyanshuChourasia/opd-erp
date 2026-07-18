@@ -18,6 +18,10 @@ export class FindAppointmentsQueryDto extends PaginationQueryDto {
   @IsString()
   patientId?: string;
 
+  @IsOptional()
+  @IsString()
+  createdById?: string;
+
   /** Free-text match against patient name/phone or an exact token number. */
   @IsOptional()
   @IsString()

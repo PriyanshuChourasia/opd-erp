@@ -27,11 +27,11 @@ interface TestAccount {
 }
 
 const testAccounts: TestAccount[] = [
-  { role: "Super Admin", email: "superadmin@clinic.com", password: "SuperAdmin@123" },
-  { role: "Admin", email: "admin@clinic.com", password: "Admin@123" },
-  { role: "Doctor", email: "doctor@clinic.com", password: "Doctor@123" },
-  { role: "Receptionist", email: "receptionist@clinic.com", password: "Receptionist@123" },
-  { role: "Assistant", email: "assistant@clinic.com", password: "Assistant@123" },
+  { role: "Super Admin", email: "superadmin@clinic.com", password: "Password@123" },
+  { role: "Admin", email: "admin@clinic.com", password: "Password@123" },
+  { role: "Doctor", email: "rajesh.sharma@clinic.com", password: "Doctor@123" },
+  { role: "Receptionist", email: "receptionist@clinic.com", password: "Password@123" },
+  { role: "Assistant", email: "assistant@clinic.com", password: "Password@123" },
 ];
 
 const workflowSteps = [
@@ -43,7 +43,7 @@ const workflowSteps = [
   { icon: Pill, label: "Pharmacy dispensing" },
 ];
 
-const DEFAULT_ACCOUNT = { email: "superadmin@clinic.com", password: "SuperAdmin@123" };
+const DEFAULT_ACCOUNT = { email: "superadmin@clinic.com", password: "Password@123" };
 
 export function LoginPage() {
   const loginMutation = useLogin();

@@ -42,10 +42,12 @@ interface PatientFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingPatient?: Patient | null;
+  defaultName?: string;
+  defaultPhone?: string;
   onSaved?: (patient: Patient) => void;
 }
 
-export function PatientFormSheet({ open, onOpenChange, editingPatient, onSaved }: PatientFormSheetProps) {
+export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultName, defaultPhone, onSaved }: PatientFormSheetProps) {
   const [form, setForm] = useState(emptyForm);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,9 +70,9 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, onSaved }
             emergencyContact: editingPatient.emergencyContact ?? "",
             isFollowUp: editingPatient.isFollowUp ?? false,
           }
-        : emptyForm,
+        : { ...emptyForm, name: defaultName ?? "", phone: defaultPhone ?? "" },
     );
-  }, [open, editingPatient]);
+  }, [open, editingPatient, defaultName, defaultPhone]);
 
   const createMutation = useCreatePatient();
   const updateMutation = useUpdatePatient();
@@ -97,10 +99,11 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, onSaved }
       );
     } else {
       createMutation.mutate(form as any, {
-        onSuccess: async (patient: Patient) => {
-          await uploadPendingDocs(patient.id);
+        onSuccess: async (patient: any) => {
+          const saved: Patient = patient?.data ?? patient;
+          await uploadPendingDocs(saved.id);
           onOpenChange(false);
-          onSaved?.(patient);
+          onSaved?.({ ...saved, name: form.name, phone: form.phone });
         },
       });
     }
@@ -223,10 +226,6 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, onSaved }
                 <option value="O+">O+</option><option value="O-">O-</option>
                 <option value="AB+">AB+</option><option value="AB-">AB-</option>
               </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="p-address">Address (flat)</FieldLabel>
-              <Input id="p-address" placeholder="123 Main St" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </Field>
             {editingPatient?.id ? (
               <div className="border-t pt-3 mt-2">

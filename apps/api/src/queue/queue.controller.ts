@@ -27,6 +27,13 @@ export class QueueController {
     return this.queueService.findAll(query);
   }
 
+  // Public, unauthenticated, minimal-data feed for a waiting-room display screen —
+  // no patient names/phones, just token/status/doctor. Must stay above ':id'.
+  @Get('display')
+  findDisplay() {
+    return this.queueService.findDisplay();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.queueService.findOne(id);

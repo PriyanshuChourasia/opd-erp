@@ -215,7 +215,7 @@ export function UsersPage() {
     },
     {
       id: "actions",
-      header: "",
+      header: "Action",
       cell: ({ row }) => {
         const user = row.original;
         return (

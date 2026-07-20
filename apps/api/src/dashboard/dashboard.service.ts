@@ -23,16 +23,22 @@ export class DashboardService {
     const today = startOfDay(new Date());
     const tomorrow = addDays(today, 1);
 
-    const [todayAppointments, patientsInQueue, registeredPatients, pendingPrescriptions] = await Promise.all([
+    const [todayAppointments, patientsInQueue, registeredPatients, pendingPrescriptions, todayBills] = await Promise.all([
       this.prisma.appointment.count({ where: { date: { gte: today, lt: tomorrow } } }),
       this.prisma.queueEntry.count({
         where: { queueDate: { gte: today, lt: tomorrow }, status: { in: ['WAITING', 'IN_PROGRESS'] } },
       }),
       this.prisma.patient.count(),
       this.prisma.prescription.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.bill.findMany({
+        where: { createdAt: { gte: today, lt: tomorrow }, status: { notIn: ['CANCELLED', 'REFUNDED'] } },
+        select: { total: true },
+      }),
     ]);
 
-    return { todayAppointments, patientsInQueue, registeredPatients, pendingPrescriptions };
+    const todayRevenue = todayBills.reduce((sum, b) => sum + b.total, 0);
+
+    return { todayAppointments, patientsInQueue, registeredPatients, pendingPrescriptions, todayRevenue };
   }
 
   async getCharts() {

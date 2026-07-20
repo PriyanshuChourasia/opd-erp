@@ -29,7 +29,9 @@ export function PosPatientsPage() {
       </div>
       <Card><CardHeader className="pb-3"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Search by name, phone, or email..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} /></div></CardHeader>
         <CardContent className="p-0">{isLoading ? (<div className="flex justify-center py-12"><span className="text-sm text-muted-foreground">Loading...</span></div>) : patients.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-center"><Users className="size-8 text-muted-foreground/50" /><p className="text-sm text-muted-foreground">{search ? "No patients found" : "No patients registered yet"}</p></div>
+          <div className="flex flex-col items-center gap-3 py-12 text-center"><Users className="size-8 text-muted-foreground/50" /><p className="text-sm text-muted-foreground">{search ? "No patients found" : "No patients registered yet"}</p>
+            <Button size="sm" onClick={() => { setEditingPatient(null); setSheetOpen(true); }}><Plus className="mr-1.5 size-3.5" />New Patient</Button>
+          </div>
         ) : (
           <div className="divide-y">{patients.map((patient: any) => {
             const expanded = expandedId === patient.id;

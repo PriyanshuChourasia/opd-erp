@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { Ban, CreditCard, Eye, Receipt, RotateCcw } from "lucide-react";
+import { Ban, CreditCard, Eye, Pencil, Receipt, RotateCcw } from "lucide-react";
 import { fetchBills, fetchOrganisation, updateBillStatus, type Bill, type BillStatus } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -25,6 +26,7 @@ export function BillingPage() {
   const queryClient = useQueryClient();
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [viewBill, setViewBill] = useState<Bill | null>(null);
+  const [editPatientId, setEditPatientId] = useState<string | null>(null);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["bills", pagination.pageIndex, pagination.pageSize],
@@ -61,7 +63,19 @@ export function BillingPage() {
       id: "patient",
       header: "Patient",
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.patient ? row.original.patient.name : "Walk-in customer"}</span>
+        <div className="group flex items-center gap-2">
+          <span className="text-sm">{row.original.patient ? row.original.patient.name : "Walk-in customer"}</span>
+          {row.original.patient && (
+            <button
+              type="button"
+              className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+              title="Edit patient"
+              onClick={() => setEditPatientId(row.original.patient!.id)}
+            >
+              <Pencil className="size-3" />
+            </button>
+          )}
+        </div>
       ),
     },
     {
@@ -94,7 +108,7 @@ export function BillingPage() {
     },
     {
       id: "actions",
-      header: "",
+      header: "Action",
       cell: ({ row }) => {
         const bill = row.original;
         return (
@@ -238,6 +252,13 @@ export function BillingPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <PatientFormSheet
+        open={!!editPatientId}
+        onOpenChange={(open) => { if (!open) setEditPatientId(null); }}
+        editingPatient={editPatientId ? (bills.find((b) => b.patient?.id === editPatientId)?.patient ?? null) : null}
+        onSaved={() => { queryClient.invalidateQueries({ queryKey: ["bills"] }); setEditPatientId(null); }}
+      />
     </div>
   );
 }

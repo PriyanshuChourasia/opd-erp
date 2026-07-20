@@ -29,6 +29,7 @@ export class OrganisationService {
           email: dto.email,
           website: dto.website,
           registrationNumber: dto.registrationNumber,
+          registrationFee: dto.registrationFee ?? 100,
         },
       });
     }

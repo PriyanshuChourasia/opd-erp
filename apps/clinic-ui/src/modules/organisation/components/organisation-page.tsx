@@ -25,6 +25,7 @@ const emptyForm: UpdateOrganisationInput = {
   email: "",
   website: "",
   registrationNumber: "",
+  registrationFee: 100,
 };
 
 export function OrganisationPage() {
@@ -61,6 +62,7 @@ export function OrganisationPage() {
         email: organisation.email ?? "",
         website: organisation.website ?? "",
         registrationNumber: organisation.registrationNumber ?? "",
+        registrationFee: organisation.registrationFee ?? 0,
       });
     } else {
       setForm(emptyForm);
@@ -132,6 +134,7 @@ export function OrganisationPage() {
                   { label: "Email", value: organisation.email },
                   { label: "Website", value: organisation.website },
                   { label: "Registration No.", value: organisation.registrationNumber },
+                  { label: "Registration Fee", value: organisation.registrationFee ? `₹${organisation.registrationFee}` : null },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-center justify-between text-sm">
                     <dt className="text-muted-foreground">{label}</dt>
@@ -217,6 +220,18 @@ export function OrganisationPage() {
               <Field>
                 <FieldLabel htmlFor="org-reg">Registration No.</FieldLabel>
                 <Input id="org-reg" placeholder="MC-2024-00189" value={form.registrationNumber} onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="org-reg-fee">Registration Fee (₹)</FieldLabel>
+                <Input
+                  id="org-reg-fee"
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={form.registrationFee ?? 0}
+                  onChange={(e) => setForm({ ...form, registrationFee: Number(e.target.value) || 0 })}
+                />
+                <p className="text-xs text-muted-foreground">Charged once per patient, on their first-ever appointment at this clinic.</p>
               </Field>
             </FieldGroup>
           </div>

@@ -6,6 +6,7 @@ export function useDashboardStats() {
     queryKey: ["dashboard", "stats"],
     queryFn: fetchDashboardStats,
     staleTime: 30_000,
+    refetchInterval: 15_000,
   });
 }
 

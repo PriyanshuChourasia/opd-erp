@@ -1,0 +1,8 @@
+{
+    "name": "opdbackend/user",
+    "autoload": {
+        "psr-4": {
+            "Modules\\User\\": ""
+        }
+    }
+}

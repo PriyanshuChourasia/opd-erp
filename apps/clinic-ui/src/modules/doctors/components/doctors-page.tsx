@@ -117,35 +117,46 @@ export function DoctorsPage() {
 
   const saveScheduleMutation = useMutation({
     mutationFn: async () => {
-      if (!scheduleDoctorId) return;
+      const currentDoctorId = scheduleDoctorId;
+      if (!currentDoctorId) return;
 
-      const operations = scheduleForm.map((day, dayOfWeek) => {
+      // Run operations SEQUENTIALLY (not in parallel) to avoid race conditions
+      // with the overlap validation on the backend.
+      const existingSchedules = scheduleQuery.data ?? [];
+
+      for (const [dayOfWeek, day] of scheduleForm.entries()) {
         const base = {
           employeeSchedulableType: 'Doctor' as const,
-          employeeSchedulableId: scheduleDoctorId,
+          employeeSchedulableId: currentDoctorId,
           dayOfWeek,
           startTime: day.startTime,
           endTime: day.endTime,
           shiftId: day.shiftId || undefined,
         };
 
-        if (day.enabled && day.id) {
-          // ✅ Existing entry — UPDATE (backend excludes self from overlap check)
-          return updateEmployeeSchedule(day.id, base);
+        try {
+          if (day.enabled && day.id) {
+            await updateEmployeeSchedule(day.id!, base);
+          } else if (day.enabled && !day.id) {
+            await createEmployeeSchedule(base);
+          } else if (!day.enabled && day.id) {
+            await deleteEmployeeSchedule(day.id!);
+          }
+        } catch (err: unknown) {
+          // If CREATE failed with 400 (overlap), fall back to UPDATE
+          const apiErr = err as { status?: number };
+          if (day.enabled && !day.id && apiErr.status === 400) {
+            const existing = existingSchedules.find((s) => s.dayOfWeek === dayOfWeek);
+            if (existing) {
+              await updateEmployeeSchedule(existing.id!, base);
+            } else {
+              throw err;
+            }
+          } else {
+            throw err;
+          }
         }
-        if (day.enabled && !day.id) {
-          // 🆕 New entry — CREATE
-          return createEmployeeSchedule(base);
-        }
-        if (!day.enabled && day.id) {
-          // ❌ Disabled day that had a schedule — DELETE
-          return deleteEmployeeSchedule(day.id);
-        }
-        // Disabled day with no existing schedule — nothing to do
-        return Promise.resolve(undefined);
-      });
-
-      await Promise.all(operations);
+      }
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules", "Doctor", scheduleDoctorId] }); setScheduleDoctorId(null); toast.success("Schedule saved successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
@@ -166,13 +177,15 @@ export function DoctorsPage() {
     );
   }
 
-  /** Apply a weekly schedule template to the entire form */
+  /** Apply a weekly schedule template to the entire form — preserves existing schedule IDs */
   function applyTemplate(template: ScheduleTemplate) {
-    const next = emptyScheduleForm();
-    for (const td of template.days) {
-      next[td.dayOfWeek] = { enabled: true, startTime: td.startTime, endTime: td.endTime };
-    }
-    setScheduleForm(next);
+    setScheduleForm((prev) => {
+      const next = [...prev];
+      for (const td of template.days) {
+        next[td.dayOfWeek] = { ...next[td.dayOfWeek], enabled: true, startTime: td.startTime, endTime: td.endTime };
+      }
+      return next;
+    });
   }
 
   /** Templates that match the current doctor's specialization, if any */
@@ -369,7 +382,7 @@ export function DoctorsPage() {
     },
     {
       id: "actions",
-      header: "",
+      header: "Action",
       cell: ({ row }) => {
         const doctor = row.original;
         return (

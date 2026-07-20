@@ -308,6 +308,7 @@ export type AppointmentStatus =
   | "IN_PROGRESS"
   | "COMPLETED"
   | "CANCELLED"
+  | "RESCHEDULED"
   | "NO_SHOW";
 
 export interface AppointmentBillSummary {
@@ -326,6 +327,8 @@ export interface Appointment {
   status: string;
   tokenNumber: string | null;
   fee: number;
+  registrationFee: number;
+  reasonForVisit: string | null;
   notes: string | null;
   cancellationReason: string | null;
   patient: Patient;
@@ -345,6 +348,8 @@ export interface CreateAppointmentInput {
   date: string;
   type: AppointmentType;
   fee: number;
+  registrationFee?: number;
+  reasonForVisit?: string;
   notes?: string;
 }
 
@@ -535,6 +540,7 @@ export interface Organisation {
   email?: string | null;
   website?: string | null;
   registrationNumber?: string | null;
+  registrationFee: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -546,6 +552,7 @@ export interface UpdateOrganisationInput {
   email?: string;
   website?: string;
   registrationNumber?: string;
+  registrationFee?: number;
 }
 
 // ─── Address Types ────────────────────────────────────────────
@@ -710,6 +717,55 @@ export function deleteAllergy(id: string) {
   return request<void>({ method: "DELETE", path: `/allergies/${id}` });
 }
 
+// ─── Diagnosis Types ────────────────────────────────────────
+
+export interface Diagnosis {
+  id: string;
+  name: string;
+  icdCode?: string | null;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDiagnosisInput {
+  name: string;
+  icdCode?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+// ─── Diagnosis API ──────────────────────────────────────────
+
+export function fetchDiagnoses(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Diagnosis>>({
+    method: "GET",
+    path: "/diagnoses",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchDiagnosis(id: string) {
+  return request<Diagnosis>({ method: "GET", path: `/diagnoses/${id}` });
+}
+
+export function createDiagnosis(input: CreateDiagnosisInput) {
+  return request<Diagnosis>({ method: "POST", path: "/diagnoses", body: input });
+}
+
+export function updateDiagnosis(id: string, input: Partial<CreateDiagnosisInput>) {
+  return request<Diagnosis>({ method: "PATCH", path: `/diagnoses/${id}`, body: input });
+}
+
+export function deleteDiagnosis(id: string) {
+  return request<void>({ method: "DELETE", path: `/diagnoses/${id}` });
+}
+
 // ─── Patient API ──────────────────────────────────────────────
 
 export function fetchPatients(params: { search?: string } & PaginationParams = {}) {
@@ -843,6 +899,19 @@ export function fetchQueue(params: { doctorId?: string; date?: string } & Pagina
   });
 }
 
+export interface QueueDisplayEntry {
+  tokenNumber: string;
+  status: string;
+  doctorName: string;
+}
+
+export function fetchQueueDisplay() {
+  return request<QueueDisplayEntry[]>({
+    method: "GET",
+    path: "/queue/display",
+  });
+}
+
 export function createQueueEntry(input: CreateQueueEntryInput) {
   return request<QueueEntry>({
     method: "POST",
@@ -868,7 +937,7 @@ export function deleteQueueEntry(id: string) {
 export function fetchEmployeeSchedules(employeeType: string, employeeId: string) {
   return request<EmployeeSchedule[]>({
     method: "GET",
-    path: "/employee-schedules",
+    path: "/employee-schedules/by-employee",
     params: { employeeSchedulableType: employeeType, employeeSchedulableId: employeeId },
   });
 }
@@ -990,10 +1059,45 @@ export function updateAppointmentStatus(id: string, status: AppointmentStatus, c
   });
 }
 
+export function rescheduleAppointment(id: string, input: { date: string; doctorId?: string }) {
+  return request<Appointment>({
+    method: "PATCH",
+    path: `/appointments/${id}/reschedule`,
+    body: input,
+  });
+}
+
 export function deleteAppointment(id: string) {
   return request<void>({
     method: "DELETE",
     path: `/appointments/${id}`,
+  });
+}
+
+export function fetchAppointment(id: string) {
+  return request<Appointment>({
+    method: "GET",
+    path: `/appointments/${id}`,
+  });
+}
+
+export interface UpdateAppointmentInput {
+  date?: string;
+  doctorId?: string;
+  type?: string;
+  fee?: number;
+  registrationFee?: number;
+  reasonForVisit?: string;
+  notes?: string;
+  status?: string;
+  cancellationReason?: string;
+}
+
+export function updateAppointment(id: string, input: UpdateAppointmentInput) {
+  return request<Appointment>({
+    method: "PATCH",
+    path: `/appointments/${id}`,
+    body: input,
   });
 }
 
@@ -1114,12 +1218,18 @@ export function fetchMedicines(params: { search?: string } & PaginationParams = 
 
 // ─── Prescriptions API ────────────────────────────────────────
 
-export function fetchPrescriptions(params: { patientId?: string } & PaginationParams = {}) {
+export function fetchPrescriptions(
+  params: { patientId?: string; doctorId?: string; status?: string; search?: string; date?: string } & PaginationParams = {},
+) {
   return request<PaginatedResult<Prescription>>({
     method: "GET",
     path: "/prescriptions",
     params: {
       patientId: params.patientId,
+      doctorId: params.doctorId,
+      status: params.status,
+      search: params.search,
+      date: params.date,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -1288,6 +1398,48 @@ export function createPrescription(input: CreatePrescriptionInput) {
   return request<Prescription>({
     method: "POST",
     path: "/prescriptions",
+    body: input,
+  });
+}
+
+export interface UpdatePrescriptionInput {
+  diagnosis?: string;
+  notes?: string;
+  status?: PrescriptionStatus;
+  items?: CreatePrescriptionItemInput[];
+}
+
+export function updatePrescription(id: string, input: UpdatePrescriptionInput) {
+  return request<Prescription>({
+    method: "PATCH",
+    path: `/prescriptions/${id}`,
+    body: input,
+  });
+}
+
+export interface ProcedureOrder {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  procedureName: string;
+  category?: string | null;
+  notes?: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface CreateProcedureOrderInput {
+  patientId: string;
+  doctorId: string;
+  procedureName: string;
+  category?: string;
+  notes?: string;
+}
+
+export function createProcedureOrder(input: CreateProcedureOrderInput) {
+  return request<ProcedureOrder>({
+    method: "POST",
+    path: "/procedure-orders",
     body: input,
   });
 }

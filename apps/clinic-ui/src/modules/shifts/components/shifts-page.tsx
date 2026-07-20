@@ -169,7 +169,7 @@ export function ShiftsPage() {
     },
     {
       id: "actions",
-      header: "",
+      header: "Action",
       cell: ({ row }) => {
         const shift = row.original;
         return (

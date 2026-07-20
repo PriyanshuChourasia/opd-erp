@@ -123,6 +123,18 @@ model PatientAllergy {
   @@index([allergyId])
 }
 
+// ─── Diagnosis Catalog ──────────────────────────────────────
+
+model Diagnosis {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  icdCode     String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 // ─── Clinical Models ──────────────────────────────────────────
 
 model Patient {
@@ -211,6 +223,8 @@ model Appointment {
   status      String   @default("SCHEDULED") // SCHEDULED | CONFIRMED | CHECKED_IN | IN_PROGRESS | COMPLETED | CANCELLED | NO_SHOW
   tokenNumber String?
   fee         Int      @default(0)
+  registrationFee Int  @default(0) // Charged once per patient, on their first-ever appointment
+  reasonForVisit String? // Chief complaint / why the patient is coming in
   notes       String?
   cancellationReason String?
   createdAt   DateTime @default(now())
@@ -500,6 +514,7 @@ model Organisation {
   email              String?
   website            String?
   registrationNumber String?
+  registrationFee    Int      @default(100) // Flat fee charged once per patient, on their first-ever appointment
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }

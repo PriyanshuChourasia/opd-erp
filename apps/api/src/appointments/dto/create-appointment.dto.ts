@@ -20,6 +20,15 @@ export class CreateAppointmentDto {
   fee?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  registrationFee?: number;
+
+  @IsOptional()
+  @IsString()
+  reasonForVisit?: string;
+
+  @IsOptional()
   @IsString()
   notes?: string;
 }

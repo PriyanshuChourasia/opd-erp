@@ -47,6 +47,23 @@ export class PrescriptionsService
   async findAll(query: FindPrescriptionsQueryDto): Promise<PaginatedResult<Prescription>> {
     const where: Record<string, unknown> = {};
     if (query.patientId) where.patientId = query.patientId;
+    if (query.doctorId) where.doctorId = query.doctorId;
+    if (query.status) where.status = query.status;
+    if (query.date) {
+      const dayStart = new Date(query.date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      where.createdAt = { gte: dayStart, lt: dayEnd };
+    }
+    if (query.search) {
+      const search = query.search.trim();
+      where.OR = [
+        { patient: { name: { contains: search, mode: 'insensitive' } } },
+        { patient: { phone: { contains: search } } },
+        { diagnosis: { contains: search, mode: 'insensitive' } },
+      ];
+    }
     return paginate(
       () => this.prisma.prescription.count({ where }),
       ({ skip, take }) =>

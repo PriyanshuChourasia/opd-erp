@@ -219,7 +219,7 @@ export function AllergiesPage() {
       },
       {
         id: "actions",
-        header: "",
+        header: "Action",
         cell: ({ row }) => {
           const allergy = row.original;
           return (

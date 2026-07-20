@@ -27,6 +27,7 @@ import {
 import { DataTable } from "@/components/data-table/data-table";
 import { DocumentManager } from "@/modules/documents/components/document-manager";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
+import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { AllergySelect } from "@/components/allergy-select";
 
 const bloodGroupColors: Record<string, string> = {
@@ -278,7 +279,7 @@ export function PatientsPage() {
     },
     {
       id: "actions",
-      header: "",
+      header: "Action",
       cell: ({ row }) => {
         const patient = row.original;
         return (
@@ -408,8 +409,16 @@ export function PatientsPage() {
                     {Object.keys(bloodGroupColors).map((bg) => (<option key={bg} value={bg}>{bg}</option>))}
                   </select>
                 </Field>
-                <Field><FieldLabel htmlFor="p-address">Address</FieldLabel><Input id="p-address" placeholder="123 Main St, City" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
                 <Field><FieldLabel htmlFor="p-emergency">Emergency Contact</FieldLabel><Input id="p-emergency" placeholder="+1 555-000-0001" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} /></Field>
+                {editingId ? (
+                  <div className="border-t pt-3 mt-2">
+                    <AddressManager addressableType="Patient" addressableId={editingId} />
+                  </div>
+                ) : (
+                  <div className="border-t pt-3 mt-2">
+                    <p className="text-xs text-muted-foreground">Save the patient first to add addresses.</p>
+                  </div>
+                )}
                 <Field><FieldLabel htmlFor="p-allergies">Allergies</FieldLabel><AllergySelect value={form.allergies ?? []} onChange={(allergies) => setForm({ ...form, allergies })} /></Field>
                 <Field>
                   <label htmlFor="p-follow-up" className="flex w-fit items-center gap-2 text-sm">
@@ -453,9 +462,10 @@ export function PatientsPage() {
             onPaginationChange={setPagination}
             isLoading={isLoading}
             emptyState={
-              <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <Users className="size-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">{search ? "No patients found" : "No patients registered yet"}</p>
+                <Button size="sm" onClick={openAdd}><Plus className="mr-1.5 size-3.5" />Add Patient</Button>
               </div>
             }
           />

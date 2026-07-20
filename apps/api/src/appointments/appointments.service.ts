@@ -7,8 +7,10 @@ import type { PaginatedResult } from '../common/interfaces/paginated-result.inte
 import type { Appointment } from '@prisma/client';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
+import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { FindAppointmentsQueryDto } from './dto/find-appointments-query.dto';
 import { CheckoutAppointmentDto } from './dto/checkout-appointment.dto';
+import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 
 interface WithDoctor {
   doctor: { id: string } & Record<string, unknown>;
@@ -61,42 +63,32 @@ export class AppointmentsService
     const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
     const tokenNumber = this.generateTokenNumber(date, patient?.name ?? 'PTNT');
 
-    // Use a transaction to create both the appointment and a queue entry atomically
-    const result = await this.prisma.$transaction(async (tx) => {
-      const appointment = await tx.appointment.create({
-        data: {
-          patientId: dto.patientId,
-          doctorId: dto.doctorId,
-          createdById: createdById ?? null,
-          date,
-          type: dto.type ?? 'CONSULTATION',
-          fee: dto.fee ?? 0,
-          notes: dto.notes,
-          tokenNumber,
-        },
-        include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
-      });
+    let registrationFee = dto.registrationFee;
+    if (registrationFee === undefined) {
+      const priorAppointmentCount = await this.prisma.appointment.count({ where: { patientId: dto.patientId } });
+      const organisation = await this.prisma.organisation.findFirst();
+      registrationFee = priorAppointmentCount === 0 ? (organisation?.registrationFee ?? 0) : 0;
+    }
 
-      // Automatically add the patient to the queue for the appointment's date
-      const queueDate = new Date(date);
-      queueDate.setHours(0, 0, 0, 0);
-      const checkedInAt = new Date();
-      await tx.queueEntry.create({
-        data: {
-          patientId: dto.patientId,
-          doctorId: dto.doctorId,
-          tokenNumber,
-          queueDate,
-          checkedInAt,
-          status: 'WAITING',
-          appointmentId: appointment.id,
-        },
-      });
-
-      return appointment;
+    // Booking alone does not queue the patient — they only enter the live
+    // token queue once checked in (see `update`, on the CHECKED_IN transition).
+    const appointment = await this.prisma.appointment.create({
+      data: {
+        patientId: dto.patientId,
+        doctorId: dto.doctorId,
+        createdById: createdById ?? null,
+        date,
+        type: dto.type ?? 'CONSULTATION',
+        fee: dto.fee ?? 0,
+        registrationFee,
+        reasonForVisit: dto.reasonForVisit,
+        notes: dto.notes,
+        tokenNumber,
+      },
+      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
     });
 
-    return withDoctorName(this.prisma, result);
+    return withDoctorName(this.prisma, appointment);
   }
 
   async findAll(query: FindAppointmentsQueryDto): Promise<PaginatedResult<Appointment>> {
@@ -106,11 +98,24 @@ export class AppointmentsService
     if (query.patientId) where.patientId = query.patientId;
     if (query.createdById) where.createdById = query.createdById;
     if (query.date) {
-      const dayStart = new Date(query.date);
-      dayStart.setHours(0, 0, 0, 0);
+      const dayStart = new Date(Date.UTC(
+        new Date(query.date).getUTCFullYear(),
+        new Date(query.date).getUTCMonth(),
+        new Date(query.date).getUTCDate(),
+      ));
       const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
       where.date = { gte: dayStart, lt: dayEnd };
+    }
+    if (query.createdAtDate) {
+      const dayStart = new Date(Date.UTC(
+        new Date(query.createdAtDate).getUTCFullYear(),
+        new Date(query.createdAtDate).getUTCMonth(),
+        new Date(query.createdAtDate).getUTCDate(),
+      ));
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+      where.createdAt = { gte: dayStart, lt: dayEnd };
     }
     if (query.search) {
       const search = query.search.trim();
@@ -127,7 +132,7 @@ export class AppointmentsService
         this.prisma.appointment.findMany({
           where,
           include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
-          orderBy: [{ date: 'asc' }, { id: 'asc' }],
+          orderBy: [{ createdAt: 'desc' }, { date: 'desc' }],
           skip,
           take,
         }),
@@ -146,12 +151,82 @@ export class AppointmentsService
   }
 
   async update(id: string, dto: UpdateAppointmentStatusDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     const appointment = await this.prisma.appointment.update({
       where: { id },
       data: {
         status: dto.status,
         cancellationReason: dto.status === 'CANCELLED' ? (dto.cancellationReason ?? null) : undefined,
+      },
+      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+    });
+
+    // Checking in moves the patient into the live token queue. Idempotent —
+    // a queue entry already linked to this appointment is left alone.
+    if (dto.status === 'CHECKED_IN' && existing.status !== 'CHECKED_IN') {
+      const alreadyQueued = await this.prisma.queueEntry.findUnique({ where: { appointmentId: id } });
+      if (!alreadyQueued) {
+        const checkedInAt = new Date();
+        const tokenNumber = this.generateTokenNumber(checkedInAt, appointment.patient.name);
+        await this.prisma.queueEntry.create({
+          data: {
+            patientId: appointment.patientId,
+            doctorId: appointment.doctorId,
+            tokenNumber,
+            queueDate: checkedInAt,
+            checkedInAt,
+            status: 'WAITING',
+            appointmentId: appointment.id,
+          },
+        });
+      }
+    }
+
+    return withDoctorName(this.prisma, appointment);
+  }
+
+  /**
+   * General-purpose update for appointment details (fee, type, notes, etc.).
+   * Does NOT handle status transitions — use `update()` for that.
+   */
+  async updateDetails(id: string, dto: UpdateAppointmentDto) {
+    await this.findOne(id);
+
+    const data: Record<string, unknown> = {};
+    if (dto.date !== undefined) data.date = new Date(dto.date);
+    if (dto.doctorId !== undefined) data.doctorId = dto.doctorId;
+    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.fee !== undefined) data.fee = dto.fee;
+    if (dto.registrationFee !== undefined) data.registrationFee = dto.registrationFee;
+    if (dto.reasonForVisit !== undefined) data.reasonForVisit = dto.reasonForVisit;
+    if (dto.notes !== undefined) data.notes = dto.notes;
+
+    const appointment = await this.prisma.appointment.update({
+      where: { id },
+      data,
+      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+    });
+    return withDoctorName(this.prisma, appointment);
+  }
+
+  /**
+   * Move an appointment to a new date/time (and optionally a new doctor),
+   * leaving it in RESCHEDULED status rather than reverting to SCHEDULED —
+   * this keeps the change visible in the appointment history/badge.
+   */
+  async reschedule(id: string, dto: RescheduleAppointmentDto) {
+    const existing = await this.findOne(id);
+    const date = new Date(dto.date);
+    const doctorId = dto.doctorId ?? existing.doctorId;
+    const tokenNumber = this.generateTokenNumber(date, existing.patient.name);
+
+    const appointment = await this.prisma.appointment.update({
+      where: { id },
+      data: {
+        date,
+        doctorId,
+        tokenNumber,
+        status: 'RESCHEDULED',
       },
       include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
     });
@@ -180,6 +255,17 @@ export class AppointmentsService
           quantity: 1,
           unitPrice: appointment.fee,
         },
+        ...(appointment.registrationFee > 0
+          ? [
+              {
+                itemType: 'REGISTRATION',
+                itemId: appointment.id,
+                itemName: `Registration Fee — ${appointment.patient.name}`,
+                quantity: 1,
+                unitPrice: appointment.registrationFee,
+              },
+            ]
+          : []),
       ],
     };
   }
@@ -197,10 +283,9 @@ export class AppointmentsService
     if (appointment.bill) throw new ConflictException(`Appointment ${id} is already invoiced (${appointment.bill.invoiceNo})`);
 
     const invoiceNo = await this.generateInvoiceNo();
-    const unitPrice = appointment.fee;
-    const quantity = 1;
-    const amount = unitPrice * quantity;
-    const subtotal = amount;
+    const consultationAmount = appointment.fee;
+    const registrationAmount = appointment.registrationFee;
+    const subtotal = consultationAmount + registrationAmount;
     const discount = dto.discount ?? 0;
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
@@ -224,8 +309,20 @@ export class AppointmentsService
               itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.name}`,
               quantity: 1,
               unitPrice: appointment.fee,
-              amount,
+              amount: consultationAmount,
             },
+            ...(registrationAmount > 0
+              ? [
+                  {
+                    itemType: 'REGISTRATION',
+                    itemId: appointment.id,
+                    itemName: `Registration Fee — ${appointment.patient.name}`,
+                    quantity: 1,
+                    unitPrice: appointment.registrationFee,
+                    amount: registrationAmount,
+                  },
+                ]
+              : []),
           ],
         },
       },

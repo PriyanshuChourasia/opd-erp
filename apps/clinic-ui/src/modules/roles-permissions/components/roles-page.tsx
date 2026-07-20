@@ -144,7 +144,7 @@ export function RolesPage() {
     },
     {
       id: "actions",
-      header: "",
+      header: "Action",
       cell: ({ row }) => {
         const role = row.original;
         return (
@@ -192,7 +192,7 @@ export function RolesPage() {
     },
     {
       id: "actions",
-      header: "",
+      header: "Action",
       cell: ({ row }) => {
         const perm = row.original;
         return (

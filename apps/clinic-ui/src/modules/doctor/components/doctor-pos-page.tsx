@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -17,9 +17,9 @@ import {
   fetchMedicines,
   updateQueueStatus,
   createPrescription,
+  createProcedureOrder,
   type QueueEntry,
   type Medicine,
-  type CreatePrescriptionItemInput,
 } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { toast } from "sonner";
@@ -29,8 +29,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Separator } from "@/components/ui/separator";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { DiagnosisSelect } from "@/components/diagnosis-select";
 
 interface RxItem {
   tempId: string;
@@ -54,6 +54,31 @@ function emptyRxItem(): RxItem {
   };
 }
 
+interface ProcedureItem {
+  tempId: string;
+  procedureName: string;
+  category: string;
+}
+
+const PROCEDURE_CATEGORIES = ["DIAGNOSTIC", "THERAPEUTIC", "SURGICAL", "PREVENTIVE", "OTHER"];
+
+function parseDailyTablets(dosage: string): number {
+  const parts = dosage.split("-").map(Number);
+  if (parts.length === 3 && parts.every((n) => !isNaN(n))) {
+    return (parts[0] ?? 0) + (parts[1] ?? 0) + (parts[2] ?? 0);
+  }
+  return 1;
+}
+
+function parseDays(duration: string): number {
+  const match = duration.match(/(\d+)/);
+  return match?.[1] ? parseInt(match[1], 10) : 7;
+}
+
+function totalTablets(dosage: string, duration: string, quantity: number): number {
+  return parseDailyTablets(dosage) * parseDays(duration) * quantity;
+}
+
 const QUEUE_STATUS_STYLES: Record<string, string> = {
   WAITING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   IN_PROGRESS: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -73,6 +98,9 @@ export function DoctorPosPage() {
   const [rxItems, setRxItems] = useState<RxItem[]>([]);
   const [medicineQuery, setMedicineQuery] = useState("");
   const [showMedicineSearch, setShowMedicineSearch] = useState<string | null>(null);
+  const [procedureOrders, setProcedureOrders] = useState<ProcedureItem[]>([]);
+  const [newProcedureName, setNewProcedureName] = useState("");
+  const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["queue", "doctor", doctorId],
@@ -103,11 +131,42 @@ export function DoctorPosPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
-  const prescriptionMutation = useMutation({
-    mutationFn: createPrescription,
+  const completeMutation = useMutation({
+    mutationFn: async () => {
+      if (rxItems.length > 0) {
+        await createPrescription({
+          patientId: selectedEntry!.patientId,
+          doctorId,
+          diagnosis: diagnosis || undefined,
+          notes: notes || undefined,
+          items: rxItems.map((item) => ({
+            medicineId: item.medicineId,
+            medicineName: item.medicineName,
+            dosage: item.dosage,
+            duration: item.duration || undefined,
+            instructions: item.instructions || undefined,
+            quantity: item.quantity,
+          })),
+        });
+      }
+      if (procedureOrders.length > 0) {
+        await Promise.all(
+          procedureOrders.map((p) =>
+            createProcedureOrder({
+              patientId: selectedEntry!.patientId,
+              doctorId,
+              procedureName: p.procedureName,
+              category: p.category,
+            }),
+          ),
+        );
+      }
+      // Mark the queue entry as completed
+      await updateQueueStatus(selectedEntry!.id, "COMPLETED");
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["queue"] });
-      toast.success("Prescription saved successfully");
+      toast.success("Saved successfully");
       clearForm();
     },
     onError: (err) => toast.error(extractApiError(err)),
@@ -120,6 +179,8 @@ export function DoctorPosPage() {
     setRxItems([]);
     setMedicineQuery("");
     setShowMedicineSearch(null);
+    setProcedureOrders([]);
+    setNewProcedureName("");
   }
 
   function clearForm() {
@@ -129,6 +190,21 @@ export function DoctorPosPage() {
     setRxItems([]);
     setMedicineQuery("");
     setShowMedicineSearch(null);
+    setProcedureOrders([]);
+    setNewProcedureName("");
+  }
+
+  function addProcedureOrder() {
+    if (!newProcedureName.trim()) return;
+    setProcedureOrders((prev) => [
+      ...prev,
+      { tempId: crypto.randomUUID(), procedureName: newProcedureName.trim(), category: newProcedureCategory },
+    ]);
+    setNewProcedureName("");
+  }
+
+  function removeProcedureOrder(tempId: string) {
+    setProcedureOrders((prev) => prev.filter((p) => p.tempId !== tempId));
   }
 
   function addMedicineToRx(med: Medicine) {
@@ -158,29 +234,22 @@ export function DoctorPosPage() {
 
   function handleComplete() {
     if (!selectedEntry || !doctorId) return;
-    prescriptionMutation.mutate({
-      patientId: selectedEntry.patientId,
-      doctorId,
-      diagnosis: diagnosis || undefined,
-      notes: notes || undefined,
-      items: rxItems.map((item) => ({
-        medicineId: item.medicineId,
-        medicineName: item.medicineName,
-        dosage: item.dosage,
-        duration: item.duration || undefined,
-        instructions: item.instructions || undefined,
-        quantity: item.quantity,
-      })),
-    });
+    if (!notes.trim()) {
+      toast.error("Doctor's notes are required before completing");
+      return;
+    }
+    completeMutation.mutate();
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">My Patients</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {waiting.length} waiting &middot; {inProgress.length} in progress
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">My Patients</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {waiting.length} waiting &middot; {inProgress.length} in progress
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
@@ -288,16 +357,12 @@ export function DoctorPosPage() {
               </Card>
 
               {/* Diagnosis */}
-              <Card>
+              <Card className="overflow-visible">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm">Diagnosis</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Input
-                    placeholder="e.g. Upper respiratory infection, Type 2 Diabetes..."
-                    value={diagnosis}
-                    onChange={(e) => setDiagnosis(e.target.value)}
-                  />
+                  <DiagnosisSelect value={diagnosis} onChange={setDiagnosis} />
                 </CardContent>
               </Card>
 
@@ -369,7 +434,7 @@ export function DoctorPosPage() {
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <Field>
-                          <FieldLabel className="text-[10px]">Dosage</FieldLabel>
+                          <FieldLabel className="text-[10px]">Dosage (daily)</FieldLabel>
                           <Input
                             className="h-8 text-xs"
                             placeholder="1-0-1"
@@ -378,7 +443,7 @@ export function DoctorPosPage() {
                           />
                         </Field>
                         <Field>
-                          <FieldLabel className="text-[10px]">Duration</FieldLabel>
+                          <FieldLabel className="text-[10px]">Duration (days)</FieldLabel>
                           <Input
                             className="h-8 text-xs"
                             placeholder="7 days"
@@ -387,7 +452,7 @@ export function DoctorPosPage() {
                           />
                         </Field>
                         <Field>
-                          <FieldLabel className="text-[10px]">Qty</FieldLabel>
+                          <FieldLabel className="text-[10px]">Tablets</FieldLabel>
                           <div className="flex items-center gap-1">
                             <Button
                               type="button"
@@ -411,6 +476,13 @@ export function DoctorPosPage() {
                           </div>
                         </Field>
                       </div>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span>{parseDailyTablets(item.dosage)} tab/day</span>
+                        <span>&middot;</span>
+                        <span>{parseDays(item.duration)} days</span>
+                        <span>&middot;</span>
+                        <span className="font-medium text-foreground">{totalTablets(item.dosage, item.duration, item.quantity)} tablets total</span>
+                      </div>
                       <Field>
                         <FieldLabel className="text-[10px]">Instructions</FieldLabel>
                         <Input
@@ -425,18 +497,71 @@ export function DoctorPosPage() {
                 </CardContent>
               </Card>
 
-              {/* Notes */}
+              {/* Procedures */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Doctor's Notes</CardTitle>
+                  <CardTitle className="text-sm">Procedures</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="e.g. ECG, Dressing, Nebulization..."
+                      value={newProcedureName}
+                      onChange={(e) => setNewProcedureName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") addProcedureOrder(); }}
+                    />
+                    <select
+                      className="flex h-9 w-36 shrink-0 rounded-none border border-input bg-background px-2 text-xs"
+                      value={newProcedureCategory}
+                      onChange={(e) => setNewProcedureCategory(e.target.value)}
+                    >
+                      {PROCEDURE_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+                    </select>
+                    <Button variant="outline" onClick={addProcedureOrder} disabled={!newProcedureName.trim()}>
+                      <Plus className="size-4" />
+                    </Button>
+                  </div>
+                  {procedureOrders.length === 0 ? (
+                    <p className="py-2 text-center text-xs text-muted-foreground">No procedures ordered yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {procedureOrders.map((p) => (
+                        <div key={p.tempId} className="flex items-center justify-between rounded-none border p-2">
+                          <div>
+                            <p className="text-sm font-medium">{p.procedureName}</p>
+                            <p className="text-[10px] text-muted-foreground">{p.category}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="size-6" onClick={() => removeProcedureOrder(p.tempId)}>
+                            <Trash2 className="size-3 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Notes (required) */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-1.5 text-sm">
+                    Doctor's Notes
+                    <span className="text-xs font-normal text-destructive">* required</span>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <textarea
-                    className="flex min-h-[80px] w-full rounded-none border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                    className={cn(
+                      "flex min-h-[80px] w-full rounded-none border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground",
+                      !notes.trim() && "border-destructive/50 focus-visible:ring-destructive/30"
+                    )}
                     placeholder="Additional notes, follow-up instructions, diet advice..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                   />
+                  {!notes.trim() && (
+                    <p className="mt-1 text-xs text-destructive">Notes are required before completing this consultation.</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -445,27 +570,13 @@ export function DoctorPosPage() {
                 <Button variant="outline" onClick={clearForm}>
                   Cancel
                 </Button>
-                <div className="flex items-center gap-2">
-                  {selectedEntry.status === "IN_PROGRESS" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        statusMutation.mutate({ id: selectedEntry.id, status: "COMPLETED" });
-                        setSelectedEntry({ ...selectedEntry, status: "COMPLETED" });
-                      }}
-                    >
-                      <CheckCircle2 className="mr-1.5 size-4" />
-                      Mark Done (No Rx)
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleComplete}
-                    disabled={rxItems.length === 0 || prescriptionMutation.isPending}
-                  >
-                    <Pill className="mr-1.5 size-4" />
-                    {prescriptionMutation.isPending ? "Saving..." : "Complete & Prescribe"}
-                  </Button>
-                </div>
+                <Button
+                  onClick={handleComplete}
+                  disabled={!notes.trim() || completeMutation.isPending}
+                >
+                  <CheckCircle2 className="mr-1.5 size-4" />
+                  {completeMutation.isPending ? "Saving..." : "Complete Consultation"}
+                </Button>
               </div>
             </div>
           )}

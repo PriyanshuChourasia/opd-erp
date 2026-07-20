@@ -1,3 +1,17 @@
+// ═══════════════════════════════════════════════════════════════════════════════════
+// ⚠️  DO NOT MODIFY THIS FILE WITHOUT EXPLICIT PERMISSION
+// ═══════════════════════════════════════════════════════════════════════════════════
+//
+// This file contains critical schedule overlap validation logic.
+// Any change can break appointment slot generation across the entire clinic.
+//
+// - This file is STRICTLY READ-ONLY for automated tools and LLMs.
+// - Manual changes require explicit approval from the project owner.
+// - If you believe a change is needed, explain the problem and get
+//   confirmation before editing any logic.
+//
+// ═══════════════════════════════════════════════════════════════════════════════════
+
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/utils/paginate';
@@ -16,6 +30,8 @@ import { FindEmployeeSchedulesQueryDto } from './dto/find-employee-schedules-que
  * # SOLID
  * - **Single Responsibility** — only employee schedule CRUD with overlap validation.
  * - **Dependency Inversion** — implements `IBaseService` & `IPaginatable` contracts.
+ *
+ * ⚠️ READ-ONLY — See header notice.
  */
 @Injectable()
 export class EmployeeSchedulesService
@@ -26,7 +42,38 @@ export class EmployeeSchedulesService
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateEmployeeScheduleDto) {
-    await this.validateNoOverlap(dto.employeeSchedulableType, dto.employeeSchedulableId, dto.dayOfWeek, dto.startTime, dto.endTime);
+    // Auto-upsert: if a schedule already exists for this employee on this day,
+    // update it instead of creating a duplicate. This prevents "overlap" errors
+    // when the frontend sends a CREATE for a day that already has a schedule
+    // (e.g., after applying a template before schedules finish loading).
+    const existing = await this.prisma.employeeSchedule.findFirst({
+      where: {
+        employeeSchedulableType: dto.employeeSchedulableType,
+        employeeSchedulableId: dto.employeeSchedulableId,
+        dayOfWeek: dto.dayOfWeek,
+      },
+    });
+
+    if (existing) {
+      // Update the existing schedule with new times/shift
+      return this.prisma.employeeSchedule.update({
+        where: { id: existing.id },
+        data: {
+          startTime: dto.startTime,
+          endTime: dto.endTime,
+          shiftId: dto.shiftId ?? null,
+        },
+      });
+    }
+
+    // No existing schedule — validate no overlap with OTHER schedules
+    await this.validateNoOverlap(
+      dto.employeeSchedulableType,
+      dto.employeeSchedulableId,
+      dto.dayOfWeek,
+      dto.startTime,
+      dto.endTime,
+    );
 
     return this.prisma.employeeSchedule.create({ data: dto });
   }
@@ -93,6 +140,7 @@ export class EmployeeSchedulesService
   /**
    * Prevent overlapping schedules for the same employee on the same day.
    * Overlap = (startA < endB) AND (startB < endA)
+   * Excludes the schedule being updated (if excludeId is provided).
    */
   private async validateNoOverlap(
     schedulableType: string,
@@ -104,20 +152,16 @@ export class EmployeeSchedulesService
   ) {
     if (!startTime || !endTime) return;
 
-    const where: Record<string, unknown> = {
-      employeeSchedulableType: schedulableType,
-      employeeSchedulableId: schedulableId,
-      dayOfWeek,
-    };
-    if (excludeId) where.id = { not: excludeId };
-
     const existing = await this.prisma.employeeSchedule.findFirst({
       where: {
-        ...where,
+        employeeSchedulableType: schedulableType,
+        employeeSchedulableId: schedulableId,
+        dayOfWeek,
+        id: excludeId ? { not: excludeId } : undefined,
         // Overlap: existing.startTime < newEndTime AND existing.endTime > newStartTime
         startTime: { lt: endTime },
         endTime: { gt: startTime },
-      } as any,
+      },
     });
 
     if (existing) {

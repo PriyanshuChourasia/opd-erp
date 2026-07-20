@@ -100,10 +100,16 @@ export class SlotGeneratorService {
       bookedByTime.set(time, entry);
     }
 
+    // Skip past slots when generating for today — a slot earlier than now can't be booked.
+    const now = new Date();
+    const isToday = startOfDay(now).getTime() === date.getTime();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
     const slots: TimeSlot[] = [];
     const start = timeToMinutes(schedule.startTime);
     const end = timeToMinutes(schedule.endTime);
     for (let minutes = start; minutes < end; minutes += slotDuration) {
+      if (isToday && minutes <= nowMinutes) continue;
       const time = minutesToTime(minutes);
       const entry = bookedByTime.get(time);
       const booked = entry?.count ?? 0;

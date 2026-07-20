@@ -26,4 +26,8 @@ export class FindAppointmentsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  createdAtDate?: string;
 }

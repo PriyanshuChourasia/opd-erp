@@ -25,6 +25,7 @@ import { AddressesModule } from './addresses/addresses.module';
 import { EmployeeSchedulesModule } from './employee-schedules/employee-schedules.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AllergiesModule } from './allergies/allergies.module';
+import { DiagnosesModule } from './diagnoses/diagnoses.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AllergiesModule } from './allergies/allergies.module';
     EmployeeSchedulesModule,
     DocumentsModule,
     AllergiesModule,
+    DiagnosesModule,
   ],
 })
 export class AppModule {}

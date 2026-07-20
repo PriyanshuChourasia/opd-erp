@@ -3,6 +3,7 @@ export interface DashboardStats {
   patientsInQueue: number;
   registeredPatients: number;
   pendingPrescriptions: number;
+  todayRevenue: number;
 }
 
 export interface RecentActivity {

@@ -151,3 +151,21 @@ body {
     @apply font-sans;
   }
 }
+
+/* Reusable print-only area: mark the printable content with #print-area,
+   everything else in the app is hidden for the duration of window.print(). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-area,
+  #print-area * {
+    visibility: visible;
+  }
+  #print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}

@@ -8,7 +8,6 @@ import {
   Clock,
   Cpu,
   LayoutDashboard,
-  ListOrdered,
   LogOut,
   MapPin,
   Package,
@@ -21,7 +20,6 @@ import {
   UserCog,
   Users,
   Zap,
-  Headphones,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
@@ -51,12 +49,11 @@ import { initials } from "@/lib/utils";
 
 const clinicNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/pos", label: "Point of Sale", icon: ShoppingCart },
-  { to: "/queue", label: "Queue", icon: ListOrdered },
   { to: "/appointments", label: "Appointments", icon: CalendarClock },
   { to: "/patients", label: "Patients", icon: Users },
   { to: "/doctors", label: "Doctors", icon: UserCog },
   { to: "/prescriptions", label: "Prescriptions", icon: ClipboardList },
+  { to: "/diagnoses", label: "Diagnoses", icon: Stethoscope },
 ] as const;
 
 const accountNav = [
@@ -102,7 +99,7 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <Link to="/dashboard">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Stethoscope className="size-4" />
+                  <LayoutDashboard className="size-4" />
                 </span>
                 <span className="min-w-0 truncate text-sm font-semibold">OPD ERP</span>
               </Link>

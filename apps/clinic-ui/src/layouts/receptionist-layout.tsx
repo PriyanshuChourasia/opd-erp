@@ -3,7 +3,6 @@ import {
   CalendarClock,
   ClipboardList,
   LayoutDashboard,
-  ListOrdered,
   LogOut,
   Receipt,
   Stethoscope,
@@ -27,7 +26,6 @@ import {
 
 const receptionistNav = [
   { to: "/receptionist", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/receptionist/queue", label: "Queue", icon: ListOrdered },
   { to: "/receptionist/appointments", label: "Appointments", icon: CalendarClock },
   { to: "/receptionist/patients", label: "Patients", icon: Users },
   { to: "/receptionist/billing", label: "Billing", icon: Receipt },

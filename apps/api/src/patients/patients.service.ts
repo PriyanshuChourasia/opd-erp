@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchQueryBuilder } from '../common/services/search-query-builder';
 import { paginate } from '../common/utils/paginate';
@@ -23,6 +23,8 @@ export class PatientsService
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreatePatientDto) {
+    const existing = await this.prisma.patient.findUnique({ where: { phone: dto.phone } });
+    if (existing) throw new ConflictException(`A patient with phone number "${dto.phone}" is already registered`);
     return this.prisma.patient.create({
       data: {
         name: dto.name,
@@ -65,6 +67,10 @@ export class PatientsService
 
   async update(id: string, dto: UpdatePatientDto) {
     await this.findOne(id);
+    if (dto.phone) {
+      const existing = await this.prisma.patient.findFirst({ where: { phone: dto.phone, NOT: { id } } });
+      if (existing) throw new ConflictException(`A patient with phone number "${dto.phone}" is already registered`);
+    }
     return this.prisma.patient.update({
       where: { id },
       data: {

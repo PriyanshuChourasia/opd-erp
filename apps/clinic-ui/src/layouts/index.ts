@@ -4,5 +4,6 @@ export { PosLayout } from "./pos-layout";
 export { ReceptionistLayout } from "./receptionist-layout";
 export { DoctorLayout } from "./doctor-layout";
 export { DeveloperLayout } from "./developer-layout";
+export { AppointmentsLayout } from "./appointments-layout";
 export { AppSidebar } from "./app-sidebar";
 export { ComingSoon } from "./coming-soon";

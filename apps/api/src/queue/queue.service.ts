@@ -82,11 +82,16 @@ export class QueueService
     const where: Record<string, unknown> = {};
 
     if (query.doctorId) where.doctorId = query.doctorId;
-    if (query.date) {
-      const d = new Date(query.date);
-      d.setHours(0, 0, 0, 0);
-      where.queueDate = d;
-    }
+
+    // Default to today's queue when no date is given — without this, entries
+    // are unbounded across all history and new ones can be paginated out of view.
+    // Use UTC-based boundaries so that the exclusive lt does not accidentally
+    // exclude entries created at midnight in a non-UTC timezone.
+    const now = query.date ? new Date(query.date) : new Date();
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const dayEnd = new Date(dayStart);
+    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+    where.queueDate = { gte: dayStart, lt: dayEnd };
 
     const result = await paginate(
       () => this.prisma.queueEntry.count({ where }),
@@ -98,7 +103,10 @@ export class QueueService
             doctor: true,
             appointment: { select: { id: true, fee: true, date: true, bill: this.billSelect } },
           },
-          orderBy: [{ tokenNumber: 'asc' }, { id: 'asc' }],
+          // Order by the appointment's actual scheduled time, not the token string —
+          // tokenNumber embeds patient initials before the time, so lexical sort
+          // (e.g. "AR-1200" vs "RG-0900") does not reflect who should be seen first.
+          orderBy: [{ appointment: { date: 'asc' } }, { checkedInAt: 'asc' }, { id: 'asc' }],
           skip,
           take,
         }),
@@ -114,21 +122,33 @@ export class QueueService
       doctor: { ...entry.doctor, name: nameMap.get(entry.doctorId) ?? null },
     }));
 
-    // Sort: today's entries first, then by token number
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    return { ...result, data };
+  }
 
-    data.sort((a, b) => {
-      const aIsToday = a.queueDate >= today && a.queueDate < tomorrow;
-      const bIsToday = b.queueDate >= today && b.queueDate < tomorrow;
-      if (aIsToday && !bIsToday) return -1;
-      if (!aIsToday && bIsToday) return 1;
-      return 0; // preserve original order within same day
+  /**
+   * Minimal feed for a public waiting-room display: token, status, and doctor
+   * name only — never patient name/phone, since this is unauthenticated.
+   */
+  async findDisplay() {
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+    const entries = await this.prisma.queueEntry.findMany({
+      where: { queueDate: { gte: today, lt: tomorrow } },
+      select: { tokenNumber: true, status: true, doctorId: true },
+      orderBy: [{ appointment: { date: 'asc' } }, { checkedInAt: 'asc' }, { id: 'asc' }],
     });
 
-    return { ...result, data };
+    const doctorIds = [...new Set(entries.map((e) => e.doctorId))];
+    const nameMap = await getDoctorNameMap(this.prisma, doctorIds);
+
+    return entries.map((e) => ({
+      tokenNumber: e.tokenNumber,
+      status: e.status,
+      doctorName: nameMap.get(e.doctorId) ?? 'Doctor',
+    }));
   }
 
   async findOne(id: string) {

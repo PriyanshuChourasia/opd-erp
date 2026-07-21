@@ -398,13 +398,13 @@ export function DoctorsPage() {
                 <Button variant="ghost" size="icon" className="size-8" title="Addresses" onClick={() => setAddressDoctorId(doctor.id)}>
                   <MapPin className="size-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(doctor.id)}>
+                <Button variant="ghost" size="icon" className="size-8" title="Edit doctor" onClick={() => openEdit(doctor.id)}>
                   <Pencil className="size-3.5" />
                 </Button>
                 {deleteConfirm === doctor.id ? (
                   <div className="flex items-center gap-1">
                     <Button variant="secondary" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(doctor.id)}>Drop</Button>
-                    <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
                   </div>
                 ) : (
                   <Button variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-amber-600" title="Drop doctor" onClick={() => setDeleteConfirm(doctor.id)}>
@@ -641,7 +641,7 @@ export function DoctorsPage() {
                               <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
                               <Input placeholder="Label (e.g. Medical Council Certificate)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(realIdx, e.target.value)} />
                             </div>
-                            <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removePending(realIdx)}>
+                            <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => removePending(realIdx)}>
                               <X className="size-3.5" />
                             </Button>
                           </div>
@@ -985,7 +985,7 @@ function DoctorDocUploader({ doctorId }: { doctorId: string }) {
             <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
             <Input placeholder="Label (e.g. Medical Council Certificate)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(idx, e.target.value)} />
           </div>
-          <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removePending(idx)}>
+          <Button variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => removePending(idx)}>
             <X className="size-3.5" />
           </Button>
         </div>

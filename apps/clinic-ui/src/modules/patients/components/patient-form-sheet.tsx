@@ -341,7 +341,7 @@ function PendingDocumentSection({
                     onChange={(e) => onUpdateLabel(realIdx, e.target.value)}
                   />
                 </div>
-                <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => onRemove(realIdx)}>
+                <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => onRemove(realIdx)}>
                   <X className="size-3.5" />
                 </Button>
               </div>

@@ -222,7 +222,7 @@ export function UsersPage() {
           <div className="flex justify-end gap-1">
             {user.isActive ? (
               <>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(user.id)}>
+                <Button variant="ghost" size="icon" className="size-8" title="Edit user" onClick={() => openEdit(user.id)}>
                   <Pencil className="size-3.5" />
                 </Button>
                 {deleteConfirm === user.id ? (
@@ -230,7 +230,7 @@ export function UsersPage() {
                     <Button variant="secondary" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(user.id)}>
                       Deactivate
                     </Button>
-                    <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}>
+                    <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}>
                       <X className="size-3.5" />
                     </Button>
                   </div>

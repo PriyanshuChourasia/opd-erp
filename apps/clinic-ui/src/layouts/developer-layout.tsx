@@ -50,7 +50,7 @@ export function DeveloperLayout() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/30">
+    <div className="flex h-screen flex-col bg-muted/30">
       <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-background px-4">
         <Link to="/developer" className="flex shrink-0 items-center gap-2">
           <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -111,7 +111,7 @@ export function DeveloperLayout() {
           </DropdownMenu>
         </div>
       </header>
-      <main className="flex flex-1 flex-col p-4 md:p-6">
+      <main className="flex flex-1 flex-col overflow-y-auto p-4 md:p-6">
         <Outlet />
       </main>
     </div>

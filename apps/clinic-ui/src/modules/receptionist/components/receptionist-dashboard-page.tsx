@@ -1,19 +1,24 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, ClipboardList, Clock, History, ListOrdered, Pencil, Plus, Receipt, Search, Users, X } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { CalendarClock, ClipboardList, Clock, History, ListOrdered, Pencil, Plus, Receipt, Search, Stethoscope, Users, X } from "lucide-react";
 import {
   fetchDoctors,
   fetchDoctorSlots,
   fetchPatients,
   createPatient,
+  createDoctorWithUser,
+  checkoutAppointment,
   fetchAppointments,
   fetchOrganisation,
   createAppointment,
   fetchQueue,
+  fetchEmployeeSchedules,
   type Doctor,
   type Appointment,
   type AppointmentType,
   type QueueEntry,
+  type CreateDoctorWithUserInput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -27,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
+import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useDashboardStats } from "@/modules/dashboard/data/hooks";
 import { STATUS_STYLES } from "../../queue/data/interface";
 
@@ -86,7 +92,6 @@ const statTiles = [
 interface BookingForm {
   patient: { id: string; name: string; phone: string } | null;
   type: string;
-  department: string;
   doctorId: string;
   fee: number;
   registrationFee: number | null;
@@ -97,86 +102,12 @@ interface BookingForm {
 }
 
 function emptyForm(): BookingForm {
-  return { patient: null, type: "WALK_IN", department: "", doctorId: "", fee: 100, registrationFee: null, date: todayStr(), slot: null, notes: "", allergies: [] };
-}
-
-function DoctorSlotsCard({
-  doctor,
-  date,
-  selectedDoctorId,
-  selectedSlot,
-  onSelectSlot,
-}: {
-  doctor: Doctor;
-  date: string;
-  selectedDoctorId: string;
-  selectedSlot: string | null;
-  onSelectSlot: (doctorId: string, fee: number, slot: string) => void;
-}) {
-  const { data: slotsData, isLoading } = useQuery({
-    queryKey: ["doctor-slots", doctor.id, date],
-    queryFn: () => fetchDoctorSlots(doctor.id, date),
-    enabled: !!doctor.id && !!date,
-  });
-
-  const isSelected = selectedDoctorId === doctor.id;
-  const slots = slotsData?.slots ?? [];
-  const availableCount = slots.filter((s) => s.available).length;
-
-  return (
-    <div className={cn("rounded-none border p-3 space-y-2", isSelected && "border-primary bg-primary/5")}>
-      <button
-        type="button"
-        className="flex w-full items-center justify-between text-left"
-        onClick={() => onSelectSlot(doctor.id, doctor.consultationFee ?? 0, "")}
-      >
-        <div>
-          <p className="text-sm font-medium">{doctor.name ?? doctor.medicalRegistrationNo}</p>
-          <p className="text-xs text-muted-foreground">
-            {doctor.medicalRegistrationNo}
-            {doctor.consultationFee ? ` · ${currency(doctor.consultationFee)}` : ""}
-          </p>
-        </div>
-        <Badge variant="outline" className="text-[9px]">
-          {isLoading ? "..." : `${availableCount}/${slots.length} free`}
-        </Badge>
-      </button>
-      {isLoading ? (
-        <div className="flex gap-1.5">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-7 w-14" />)}</div>
-      ) : slots.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          No schedule today — {isSelected ? <span className="font-medium text-primary">doctor selected</span> : "click the doctor above to select without a slot"}.
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {slots.map((slot) => (
-            <button
-              key={slot.time}
-              type="button"
-              disabled={!slot.available}
-              className={cn(
-                "rounded-none border px-3 py-2 text-xs font-medium transition-colors",
-                !slot.available && "cursor-not-allowed border-destructive/20 bg-destructive/5 text-destructive/60 line-through",
-                slot.available && selectedDoctorId === doctor.id && selectedSlot === slot.time
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : slot.available
-                    ? "border-green-300 bg-green-50 text-green-700 hover:border-green-400 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
-                    : ""
-              )}
-              onClick={() => onSelectSlot(doctor.id, doctor.consultationFee ?? 0, slot.time)}
-            >
-              {slot.time}
-              {!slot.available && <span className="ml-0.5 text-[8px]">({slot.booked})</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return { patient: null, type: "WALK_IN", doctorId: "", fee: 100, registrationFee: null, date: todayStr(), slot: null, notes: "", allergies: [] };
 }
 
 export function ReceptionistDashboardPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const statsQuery = useDashboardStats();
   const stats = statsQuery.data;
 
@@ -204,6 +135,29 @@ export function ReceptionistDashboardPage() {
   const [form, setForm] = useState<BookingForm>(emptyForm());
   const [patientQuery, setPatientQuery] = useState("");
   const [editPatientId, setEditPatientId] = useState<string | null>(null);
+  const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
+  const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
+  const [doctorFormOpen, setDoctorFormOpen] = useState(false);
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
+  const [newDoctorForm, setNewDoctorForm] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    username: string;
+    password: string;
+    medicalRegistrationNo: string;
+    specialization: string;
+    consultationFee: number;
+  }>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    username: "",
+    password: "",
+    medicalRegistrationNo: "",
+    specialization: "",
+    consultationFee: 0,
+  });
   const [newPatientName, setNewPatientName] = useState("");
   const [newPatientPhone, setNewPatientPhone] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
@@ -224,21 +178,58 @@ export function ReceptionistDashboardPage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
+  const createDoctorMutation = useMutation({
+    mutationFn: (input: CreateDoctorWithUserInput) => createDoctorWithUser(input),
+    onSuccess: (result: any) => {
+      const doctor = result?.data ?? result?.doctor ?? result;
+      setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, fee: doctor.consultationFee ?? prev.fee }));
+      setDoctorFormOpen(false);
+      setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 });
+      queryClient.invalidateQueries({ queryKey: ["doctors"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-schedules"] });
+      toast.success("Doctor created and selected");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
   const { data: doctorsResponse } = useQuery({
     queryKey: ["doctors", "booking"],
     queryFn: () => fetchDoctors({ limit: 100 }),
   });
   const doctors = doctorsResponse?.data ?? [];
 
-  const departments = useMemo(
-    () => [...new Set(doctors.map((d) => d.specialization?.trim() || "General"))].sort(),
-    [doctors],
-  );
+  // Fetch all doctor schedules to show times in the dropdown
+  const { data: allSchedules = [] } = useQuery({
+    queryKey: ["employee-schedules", "search-doctors"],
+    queryFn: async () => {
+      const results = await Promise.all(
+        doctors.map((d) => fetchEmployeeSchedules("Doctor", d.id).catch(() => []))
+      );
+      return results.flat();
+    },
+    enabled: doctors.length > 0,
+  });
 
-  const doctorsInDepartment = useMemo(
-    () => form.department ? doctors.filter((d) => (d.specialization?.trim() || "General") === form.department) : [],
-    [doctors, form.department],
-  );
+  // Build a schedule map for the selected date
+  const doctorScheduleMap = useMemo(() => {
+    if (!form.date) return new Map<string, { startTime: string; endTime: string }>();
+    const dateObj = new Date(form.date + "T00:00:00");
+    const dayOfWeek = (dateObj.getDay() + 6) % 7;
+    const map = new Map<string, { startTime: string; endTime: string }>();
+    for (const sched of allSchedules) {
+      if (sched.dayOfWeek === dayOfWeek) {
+        map.set(sched.employeeSchedulableId, { startTime: sched.startTime, endTime: sched.endTime });
+      }
+    }
+    return map;
+  }, [allSchedules, form.date]);
+
+  // Slots for the selected doctor + date
+  const slotsQuery = useQuery({
+    queryKey: ["doctor-slots", form.doctorId, form.date],
+    queryFn: () => fetchDoctorSlots(form.doctorId, form.date),
+    enabled: !!form.doctorId && !!form.date,
+  });
 
   const patientResults = useQuery({
     queryKey: ["booking-patients", patientQuery],
@@ -287,11 +278,43 @@ export function ReceptionistDashboardPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
-  function openSheet() { setForm(emptyForm()); setPatientQuery(""); setSheetOpen(true); }
-  function selectSlot(doctorId: string, fee: number, slot: string) { setForm((p) => ({ ...p, doctorId, fee, slot })); }
+  const bookAndPayMutation = useMutation({
+    mutationFn: async (payload: PaymentPayload) => {
+      const appointment = await createAppointment({
+        patientId: form.patient!.id,
+        doctorId: form.doctorId,
+        date: `${form.date}T${form.slot || "09:00"}:00`,
+        type: form.type as AppointmentType,
+        fee: form.fee,
+        ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
+        notes: form.notes || undefined,
+      });
+      await checkoutAppointment(appointment.id, {
+        paymentMethod: payload.paymentMethod,
+        discount: payload.discount > 0 ? payload.discount : undefined,
+        tax: payload.tax > 0 ? payload.tax : undefined,
+        notes: payload.notes || undefined,
+      });
+      return appointment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["doctor-slots"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["billing"] });
+      setPaymentSheetOpen(false);
+      setSheetOpen(false);
+      setForm(emptyForm());
+      setPatientQuery("");
+      toast.success("Appointment booked and paid successfully");
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
 
-  // Only patient name & phone are required
-  const canBook = !!form.patient?.name.trim() && !!form.patient?.phone.trim() && !!form.department.trim() && !!form.doctorId;
+  function openSheet() { setForm(emptyForm()); setPatientQuery(""); setSheetOpen(true); }
+
+  // Only patient name, phone & doctor are required
+  const canBook = !!form.patient?.name.trim() && !!form.patient?.phone.trim() && !!form.doctorId;
 
   return (
     <div className="space-y-6">
@@ -307,7 +330,7 @@ export function ReceptionistDashboardPage() {
           <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>New Appointment</SheetTitle>
-              <SheetDescription>Patient details, department, and doctor are required. Slot is optional.</SheetDescription>
+              <SheetDescription>Patient details and doctor are required. Slot is optional.</SheetDescription>
             </SheetHeader>
             <div className="flex-1 space-y-5 px-4 pb-4">
               {/* ── Patient (REQUIRED) ── */}
@@ -319,7 +342,7 @@ export function ReceptionistDashboardPage() {
                       <p className="text-sm font-medium">{form.patient.name}</p>
                       <p className="text-xs text-muted-foreground">{form.patient.phone}</p>
                     </div>
-                    <Button variant="ghost" size="icon-sm" onClick={() => setForm((p) => ({ ...p, patient: null, registrationFee: null }))}><X className="size-4" /></Button>
+                    <Button variant="ghost" size="icon-sm" title="Clear patient" onClick={() => setForm((p) => ({ ...p, patient: null, registrationFee: null }))}><X className="size-4" /></Button>
                   </div>
                 ) : (
                   <div className="relative">
@@ -369,7 +392,7 @@ export function ReceptionistDashboardPage() {
                 <div className="rounded-none border-2 border-teal-400 bg-teal-50 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-teal-800">+ Register New Patient</p>
-                    <Button variant="ghost" size="icon-sm" onClick={() => setShowRegisterForm(false)}>
+                    <Button variant="ghost" size="icon-sm" title="Close" onClick={() => setShowRegisterForm(false)}>
                       <X className="size-4" />
                     </Button>
                   </div>
@@ -498,14 +521,92 @@ export function ReceptionistDashboardPage() {
                 </div>
               )}
 
-              {/* ── Department (optional) ── */}
+              {/* ── Doctor * (search & select) ── */}
               <Field>
-                <FieldLabel>Department *</FieldLabel>
-                <select className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.department}
-                  onChange={(e) => setForm((p) => ({ ...p, department: e.target.value, doctorId: "", slot: null, fee: 0 }))}>
-                  <option value="">Skip — no specific department</option>
-                  {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <FieldLabel>Doctor *</FieldLabel>
+                {form.doctorId ? (
+                  <div className="flex items-center justify-between rounded-none border px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="size-4 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium">{(doctors.find((d) => d.id === form.doctorId)?.name ?? "Doctor")}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {doctors.find((d) => d.id === form.doctorId)?.specialization}
+                          {doctors.find((d) => d.id === form.doctorId)?.consultationFee ? ` · ${currency(doctors.find((d) => d.id === form.doctorId)!.consultationFee)}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon-sm" title="Clear doctor" onClick={() => setForm((p) => ({ ...p, doctorId: "", slot: null, fee: 0 }))}>
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search doctor by name or specialization..."
+                      className="pl-9"
+                      value={doctorSearchQuery}
+                      onChange={(e) => { setDoctorSearchQuery(e.target.value); setDoctorSearchOpen(true); }}
+                      onFocus={() => setDoctorSearchOpen(true)}
+                      onBlur={() => setTimeout(() => setDoctorSearchOpen(false), 200)}
+                    />
+                    {doctorSearchOpen && (
+                      <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
+                        {doctors
+                          .filter((d) =>
+                            !doctorSearchQuery.trim() ||
+                            (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
+                            (d.specialization ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase())
+                          )
+                          .map((d) => {
+                            const schedule = doctorScheduleMap.get(d.id);
+                            return (
+                              <button
+                                key={d.id}
+                                type="button"
+                                className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                                onMouseDown={() => {
+                                  setForm((prev) => ({ ...prev, doctorId: d.id, slot: null, fee: d.consultationFee ?? prev.fee }));
+                                  setDoctorSearchQuery("");
+                                  setDoctorSearchOpen(false);
+                                }}
+                              >
+                                <span className="font-medium">{d.name ?? d.medicalRegistrationNo ?? "Doctor"}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {d.specialization}
+                                  {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ""}
+                                </span>
+                                {schedule && (
+                                  <span className="mt-1 inline-flex items-center gap-1 rounded-none border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[11px] font-semibold font-mono text-primary">
+                                    <Clock className="size-3" />
+                                    {schedule.startTime} – {schedule.endTime}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        {doctors.filter((d) =>
+                          !doctorSearchQuery.trim() ||
+                          (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
+                          (d.specialization ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase())
+                        ).length === 0 && (
+                          <p className="p-3 text-center text-sm text-muted-foreground">No doctors found</p>
+                        )}
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-center gap-2 border-t px-3 py-2 text-sm font-medium text-primary hover:bg-muted transition-colors"
+                          onMouseDown={() => {
+                            setDoctorSearchOpen(false);
+                            setDoctorFormOpen(true);
+                          }}
+                        >
+                          <Plus className="size-4" /> New Doctor
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </Field>
 
               {/* ── Consultation Type (REQUIRED — determines priority) ── */}
@@ -573,29 +674,61 @@ export function ReceptionistDashboardPage() {
                 </div>
               </div>
 
-              {/* ── Doctors + Slots (shown only if department selected) ── */}
-              {form.department && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="size-3.5" />
-                    <span>Doctor * &amp; time slot (select a doctor below)</span>
-                  </div>
-                  {doctorsInDepartment.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-muted-foreground">No doctors in this department.</p>
+              {/* ── Slot selection (shown when doctor selected) ── */}
+              {form.doctorId && (
+                <Field>
+                  <FieldLabel>Slot</FieldLabel>
+                  {slotsQuery.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading slots...</p>
+                  ) : !slotsQuery.data?.available && slotsQuery.data ? (
+                    <p className="text-sm text-muted-foreground">No slots available for this day.</p>
                   ) : (
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
-                      {doctorsInDepartment.map((doc) => (
-                        <DoctorSlotsCard key={doc.id} doctor={doc} date={form.date} selectedDoctorId={form.doctorId} selectedSlot={form.slot} onSelectSlot={selectSlot} />
-                      ))}
+                    <div className="space-y-2">
+                      {slotsQuery.data && slotsQuery.data.slots.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {slotsQuery.data.slots.map((slot) => (
+                            <button
+                              key={slot.time}
+                              type="button"
+                              disabled={!slot.available}
+                              className={cn(
+                                "rounded-none border px-3 py-2 text-xs font-medium transition-colors",
+                                !slot.available && "cursor-not-allowed border-destructive/20 bg-destructive/5 text-destructive/60 line-through",
+                                slot.available && form.slot === slot.time
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : slot.available
+                                    ? "border-green-300 bg-green-50 text-green-700 hover:border-green-400 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
+                                    : ""
+                              )}
+                              onClick={() => setForm((p) => ({ ...p, slot: slot.time }))}
+                            >
+                              {slot.time}
+                              {!slot.available && <span className="ml-0.5 text-[8px]">({slot.booked})</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {(!slotsQuery.data || slotsQuery.data.slots.length === 0) && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Input
+                            type="time"
+                            className="w-auto"
+                            value={form.slot ?? ""}
+                            onChange={(e) => setForm((p) => ({ ...p, slot: e.target.value || null }))}
+                          />
+                          <span className="text-xs text-muted-foreground">Enter time manually</span>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </Field>
               )}
 
-              {/* ── Selected summary ── */}
-              {form.doctorId && (
-                <div className="rounded-none border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary">
-                  {doctors.find((d) => d.id === form.doctorId)?.name}{form.slot ? ` at ${form.slot}` : ""} · {currency(form.fee)}
+              {/* ── Selected doctor summary ── */}
+              {form.doctorId && form.slot && (
+                <div className="rounded-none border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary flex items-center gap-2">
+                  <Clock className="size-3.5" />
+                  <span>{doctors.find((d) => d.id === form.doctorId)?.name} at {form.slot} · {currency(form.fee)}</span>
                 </div>
               )}
 
@@ -613,13 +746,112 @@ export function ReceptionistDashboardPage() {
             </div>
             <SheetFooter>
               <Button variant="outline" onClick={() => setSheetOpen(false)}>Cancel</Button>
-              <Button onClick={() => createMutation.mutate()} disabled={!canBook || createMutation.isPending}>
-                Book · {currency(form.fee + regFeeAmount)}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => createMutation.mutate()} disabled={!canBook || createMutation.isPending || bookAndPayMutation.isPending}>
+                  {createMutation.isPending ? "Booking..." : `Book · ${currency(form.fee + regFeeAmount)}`}
+                </Button>
+                <Button
+                  variant="default"
+                  className="gap-1.5"
+                  onClick={() => setPaymentSheetOpen(true)}
+                  disabled={!canBook || bookAndPayMutation.isPending || createMutation.isPending}
+                >
+                  {bookAndPayMutation.isPending ? (
+                    "Processing..."
+                  ) : (
+                    <>
+                      Book &amp; Pay
+                      <span className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">
+                        {currency(form.fee + regFeeAmount)}
+                      </span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </SheetFooter>
           </SheetContent>
         </Sheet>
       </div>
+
+      {/* ── Payment Sheet ── */}
+      <PaymentSheet
+        open={paymentSheetOpen}
+        onOpenChange={setPaymentSheetOpen}
+        subtotal={form.fee + regFeeAmount}
+        isPending={bookAndPayMutation.isPending}
+        onSubmit={(payload) => bookAndPayMutation.mutate(payload)}
+        submitLabel="Confirm & Book"
+      />
+
+      {/* ── New Doctor Sheet ── */}
+      <Sheet open={doctorFormOpen} onOpenChange={(open) => { if (!open) { setDoctorFormOpen(false); setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 }); }}}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Add New Doctor</SheetTitle>
+            <SheetDescription>Create a doctor and auto-select them for this appointment.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4 pb-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel>First Name *</FieldLabel>
+                <Input placeholder="John" value={newDoctorForm.firstName} onChange={(e) => setNewDoctorForm((p) => ({ ...p, firstName: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel>Last Name *</FieldLabel>
+                <Input placeholder="Doe" value={newDoctorForm.lastName} onChange={(e) => setNewDoctorForm((p) => ({ ...p, lastName: e.target.value }))} />
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel>Email *</FieldLabel>
+              <Input type="email" placeholder="doctor@clinic.com" value={newDoctorForm.email} onChange={(e) => setNewDoctorForm((p) => ({ ...p, email: e.target.value }))} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel>Username *</FieldLabel>
+                <Input placeholder="drjohndoe" value={newDoctorForm.username} onChange={(e) => setNewDoctorForm((p) => ({ ...p, username: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel>Password *</FieldLabel>
+                <Input type="password" placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel>Medical Reg. No. *</FieldLabel>
+              <Input placeholder="MCI-10001" value={newDoctorForm.medicalRegistrationNo} onChange={(e) => setNewDoctorForm((p) => ({ ...p, medicalRegistrationNo: e.target.value }))} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel>Specialization</FieldLabel>
+                <Input placeholder="Cardiology" value={newDoctorForm.specialization} onChange={(e) => setNewDoctorForm((p) => ({ ...p, specialization: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel>Consultation Fee (₹)</FieldLabel>
+                <Input type="number" min={0} placeholder="500" value={newDoctorForm.consultationFee} onChange={(e) => setNewDoctorForm((p) => ({ ...p, consultationFee: Number(e.target.value) || 0 }))} />
+              </Field>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => { setDoctorFormOpen(false); setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 }); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => createDoctorMutation.mutate({
+                firstName: newDoctorForm.firstName.trim(),
+                lastName: newDoctorForm.lastName.trim(),
+                email: newDoctorForm.email.trim(),
+                username: newDoctorForm.username.trim(),
+                password: newDoctorForm.password,
+                medicalRegistrationNo: newDoctorForm.medicalRegistrationNo.trim(),
+                specialization: newDoctorForm.specialization.trim() || undefined,
+                consultationFee: newDoctorForm.consultationFee > 0 ? newDoctorForm.consultationFee : undefined,
+              })}
+              disabled={!newDoctorForm.firstName.trim() || !newDoctorForm.lastName.trim() || !newDoctorForm.email.trim() || !newDoctorForm.username.trim() || !newDoctorForm.password.trim() || !newDoctorForm.medicalRegistrationNo.trim() || createDoctorMutation.isPending}
+            >
+              {createDoctorMutation.isPending ? "Creating..." : "Create & Select"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {statTiles.map(({ key, label, icon: Icon }) => (
@@ -688,9 +920,20 @@ export function ReceptionistDashboardPage() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <Badge variant="outline" className={`text-[9px] ${APPT_STATUS_STYLES[appt.status] ?? ""}`}>
-                        {appt.status.replace("_", " ")}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        {appt.bill ? (
+                          <Badge variant="outline" className="text-[9px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                            Paid
+                          </Badge>
+                        ) : appt.status === "COMPLETED" ? (
+                          <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                            Unpaid
+                          </Badge>
+                        ) : null}
+                        <Badge variant="outline" className={`text-[9px] ${APPT_STATUS_STYLES[appt.status] ?? ""}`}>
+                          {appt.status.replace("_", " ")}
+                        </Badge>
+                      </div>
                       <span className="whitespace-nowrap text-xs font-medium text-primary">
                         {appt.registrationFee > 0
                           ? `${currency(appt.fee + appt.registrationFee)} (${currency(appt.fee)}+${currency(appt.registrationFee)})`

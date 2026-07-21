@@ -130,10 +130,10 @@ export function DevelopmentFeaturesPage() {
                 </div>
                 <div className="flex items-center gap-2"><Badge variant={feature.status === "enabled" ? "default" : feature.status === "beta" ? "secondary" : "outline"} className={feature.status === "enabled" ? "bg-green-600/10 text-green-600" : feature.status === "beta" ? "bg-amber-600/10 text-amber-600" : ""}>{feature.status}</Badge></div>
                 <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(feature)}><Pencil className="size-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="size-8" title="Edit feature" onClick={() => openEdit(feature)}><Pencil className="size-3.5" /></Button>
                   {deleteConfirm === feature.id ? (
-                    <div className="flex items-center gap-1"><Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => { setFeatures((prev) => prev.filter((f) => f.id !== feature.id)); setDeleteConfirm(null); }}>Confirm</Button><Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button></div>
-                  ) : (<Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(feature.id)}><Trash2 className="size-3.5" /></Button>)}
+                    <div className="flex items-center gap-1"><Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => { setFeatures((prev) => prev.filter((f) => f.id !== feature.id)); setDeleteConfirm(null); }}>Confirm</Button><Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button></div>
+                  ) : (<Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Delete feature" onClick={() => setDeleteConfirm(feature.id)}><Trash2 className="size-3.5" /></Button>)}
                 </div>
               </div>
               {isExpanded && (

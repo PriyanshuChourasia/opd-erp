@@ -287,16 +287,16 @@ export function PatientsPage() {
             <Button variant="ghost" size="icon" className="size-8" title="Documents" onClick={() => openDocs(patient)}>
               <FileText className="size-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(patient.id)}>
+            <Button variant="ghost" size="icon" className="size-8" title="Edit patient" onClick={() => openEdit(patient.id)}>
               <Pencil className="size-3.5" />
             </Button>
             {deleteConfirm === patient.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(patient.id)}>Deactivate</Button>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
               </div>
             ) : (
-              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(patient.id)}>
+              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Deactivate patient" onClick={() => setDeleteConfirm(patient.id)}>
                 <Trash2 className="size-3.5" />
               </Button>
             )}
@@ -381,7 +381,7 @@ export function PatientsPage() {
                                 <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
                                 <Input placeholder="Label (e.g. Aadhaar Card, Prescription)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(realIdx, e.target.value)} />
                               </div>
-                              <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removePending(realIdx)}>
+                              <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => removePending(realIdx)}>
                                 <X className="size-3.5" />
                               </Button>
                             </div>
@@ -574,7 +574,7 @@ function DocumentUploaderInline({ patientId }: { patientId: string }) {
             <p className="text-xs font-medium truncate">{doc.originalName}</p>
             <p className="text-[10px] text-muted-foreground">{doc.caption || doc.documentType} · {(doc.fileSize / 1024).toFixed(0)} KB</p>
           </div>
-          <Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" onClick={() => deleteMutation.mutate(doc.id)}>
+          <Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" title="Delete document" onClick={() => deleteMutation.mutate(doc.id)}>
             <X className="size-3.5" />
           </Button>
         </div>
@@ -593,7 +593,7 @@ function DocumentUploaderInline({ patientId }: { patientId: string }) {
             <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
             <Input placeholder="Label (e.g. Aadhaar Card, Prescription)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(idx, e.target.value)} />
           </div>
-          <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removePending(idx)}>
+          <Button variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => removePending(idx)}>
             <X className="size-3.5" />
           </Button>
         </div>

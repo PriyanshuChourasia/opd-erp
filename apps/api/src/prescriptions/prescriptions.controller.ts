@@ -1,8 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrescriptionsService } from './prescriptions.service';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
 import { FindPrescriptionsQueryDto } from './dto/find-prescriptions-query.dto';
+
+interface AuthedRequest {
+  user: { userableType?: string | null; userableId?: string | null };
+}
 
 @Controller('prescriptions')
 export class PrescriptionsController {
@@ -13,9 +18,11 @@ export class PrescriptionsController {
     return this.service.create(dto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Query() query: FindPrescriptionsQueryDto) {
-    return this.service.findAll(query);
+  findAll(@Query() query: FindPrescriptionsQueryDto, @Req() req: AuthedRequest) {
+    const requestingDoctorId = req.user.userableType === 'Doctor' ? (req.user.userableId ?? undefined) : undefined;
+    return this.service.findAll(query, requestingDoctorId);
   }
 
   @Get(':id')

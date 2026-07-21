@@ -174,7 +174,7 @@ export function QueuePage() {
             {deleteConfirm === entry.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(entry.id)}>Confirm</Button>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
               </div>
             ) : (
               <>
@@ -194,7 +194,7 @@ export function QueuePage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(entry.id)}><Trash2 className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}><Trash2 className="size-3.5" /></Button>
               </>
             )}
           </div>
@@ -219,7 +219,7 @@ export function QueuePage() {
           {selectedFilterDoctor ? (
             <div className="flex h-9 items-center justify-between rounded-none border px-3 text-sm">
               <span className="truncate">{selectedFilterDoctor.name ?? selectedFilterDoctor.medicalRegistrationNo}</span>
-              <Button variant="ghost" size="icon-sm" aria-label="Clear doctor filter" onClick={() => { setFilterDoctor(""); setDoctorFilterQuery(""); setPagination((p) => ({ ...p, pageIndex: 0 })); }}><X className="size-3.5" /></Button>
+              <Button variant="ghost" size="icon-sm" title="Clear doctor filter" aria-label="Clear doctor filter" onClick={() => { setFilterDoctor(""); setDoctorFilterQuery(""); setPagination((p) => ({ ...p, pageIndex: 0 })); }}><X className="size-3.5" /></Button>
             </div>
           ) : (
             <>

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ReceptionistDashboardPage } from "@/modules/receptionist";
+import { ReceptionistTabsPage } from "@/modules/receptionist";
 
 export const Route = createFileRoute("/_receptionist/receptionist/")({
-  component: ReceptionistDashboardPage,
+  component: ReceptionistTabsPage,
 });

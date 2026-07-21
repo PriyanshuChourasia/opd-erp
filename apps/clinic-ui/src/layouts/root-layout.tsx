@@ -7,7 +7,7 @@ export function RootLayout() {
     <>
       <Outlet />
       <Toaster richColors closeButton position="top-right" />
-      {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
+      {/* {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />} */}
     </>
   );
 }

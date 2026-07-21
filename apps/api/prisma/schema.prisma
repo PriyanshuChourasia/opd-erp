@@ -514,7 +514,10 @@ model Organisation {
   email              String?
   website            String?
   registrationNumber String?
-  registrationFee    Int      @default(100) // Flat fee charged once per patient, on their first-ever appointment
+  registrationFee    Int      @default(100)
+  discountEnabled    Boolean  @default(true)
+  maxDiscountPercent Int      @default(50)
+  defaultDiscountType String   @default("percent")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }

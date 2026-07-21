@@ -541,6 +541,9 @@ export interface Organisation {
   website?: string | null;
   registrationNumber?: string | null;
   registrationFee: number;
+  discountEnabled: boolean;
+  maxDiscountPercent: number;
+  defaultDiscountType: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -553,6 +556,9 @@ export interface UpdateOrganisationInput {
   website?: string;
   registrationNumber?: string;
   registrationFee?: number;
+  discountEnabled?: boolean;
+  maxDiscountPercent?: number;
+  defaultDiscountType?: string;
 }
 
 // ─── Address Types ────────────────────────────────────────────

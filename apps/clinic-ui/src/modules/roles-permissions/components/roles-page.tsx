@@ -149,16 +149,16 @@ export function RolesPage() {
         const role = row.original;
         return (
           <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(role.id)}>
+            <Button variant="ghost" size="icon" className="size-8" title="Edit role" onClick={() => openEdit(role.id)}>
               <Pencil className="size-3.5" />
             </Button>
             {!role.isSystem && (deleteConfirm === role.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(role.id)}>Confirm</Button>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
               </div>
             ) : (
-              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(role.id)}>
+              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Delete role" onClick={() => setDeleteConfirm(role.id)}>
                 <Trash2 className="size-3.5" />
               </Button>
             ))}
@@ -200,10 +200,10 @@ export function RolesPage() {
             {deletePermConfirm === perm.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deletePermMutation.mutate(perm.id)}>Confirm</Button>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeletePermConfirm(null)}><X className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeletePermConfirm(null)}><X className="size-3.5" /></Button>
               </div>
             ) : (
-              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeletePermConfirm(perm.id)}>
+              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Delete permission" onClick={() => setDeletePermConfirm(perm.id)}>
                 <Trash2 className="size-3.5" />
               </Button>
             )}

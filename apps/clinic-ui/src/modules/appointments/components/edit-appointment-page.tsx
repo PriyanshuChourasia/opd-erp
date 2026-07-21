@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { AlertTriangle, ChevronDown, History, Pencil, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Clock, History, Pencil, Plus, Search, X } from "lucide-react";
 import {
+  checkoutAppointment,
+  createDoctorWithUser,
   fetchAppointment,
   updateAppointment,
   fetchDoctors,
@@ -14,6 +16,7 @@ import {
   updatePatient,
   fetchEmployeeSchedules,
   type AppointmentType,
+  type CreateDoctorWithUserInput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -22,8 +25,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
+import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in Registration" },
@@ -35,6 +40,20 @@ const CONSULTATION_TYPES = [
 ] as const;
 
 function currency(value: number) { return `₹${value.toFixed(2)}`; }
+
+function generateTimeSlots(start: string, end: string, intervalMinutes: number): string[] {
+  const startParts = start.split(':');
+  const endParts = end.split(':');
+  const startMin = parseInt(startParts[0] ?? '0') * 60 + parseInt(startParts[1] ?? '0');
+  const endMin = parseInt(endParts[0] ?? '0') * 60 + parseInt(endParts[1] ?? '0');
+  const slots: string[] = [];
+  for (let m = startMin; m < endMin; m += intervalMinutes) {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
+  }
+  return slots;
+}
 
 function PlaceholderField({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -103,6 +122,18 @@ export function EditAppointmentPage() {
   const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
   const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
+  const [doctorFormOpen, setDoctorFormOpen] = useState(false);
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
+  const [newDoctorForm, setNewDoctorForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    username: "",
+    password: "",
+    medicalRegistrationNo: "",
+    specialization: "",
+    consultationFee: 0,
+  });
 
   function goBack() { navigate({ to: "/appointments" }); }
 
@@ -172,6 +203,20 @@ export function EditAppointmentPage() {
     return available;
   }, [allSchedules, form.date, doctors]);
 
+  // Map doctor ID → schedule for the selected date (to show times in dropdown)
+  const doctorScheduleMap = useMemo(() => {
+    if (!form.date) return new Map<string, { startTime: string; endTime: string }>();
+    const dateObj = new Date(form.date + "T00:00:00");
+    const dayOfWeek = (dateObj.getDay() + 6) % 7;
+    const map = new Map<string, { startTime: string; endTime: string }>();
+    for (const sched of allSchedules) {
+      if (sched.dayOfWeek === dayOfWeek) {
+        map.set(sched.employeeSchedulableId, { startTime: sched.startTime, endTime: sched.endTime });
+      }
+    }
+    return map;
+  }, [allSchedules, form.date]);
+
   const patientResults = useQuery({
     queryKey: ["appointment-patients", patientQuery],
     queryFn: () => fetchPatients({ search: patientQuery, limit: 8 }),
@@ -203,6 +248,20 @@ export function EditAppointmentPage() {
 
   const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation });
 
+  const createDoctorMutation = useMutation({
+    mutationFn: (input: CreateDoctorWithUserInput) => createDoctorWithUser(input),
+    onSuccess: (result: any) => {
+      const doctor = result?.data ?? result?.doctor ?? result;
+      setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, fee: doctor.consultationFee ?? prev.fee }));
+      setDoctorFormOpen(false);
+      setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 });
+      queryClient.invalidateQueries({ queryKey: ["doctors"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-schedules"] });
+      toast.success("Doctor created and selected");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (selectedPatient && JSON.stringify(selectedPatient.allergies ?? []) !== JSON.stringify(form.allergies)) {
@@ -220,10 +279,45 @@ export function EditAppointmentPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["appointment", appointmentId] });
+      queryClient.invalidateQueries({ queryKey: ["queue"] });
       toast.success("Appointment updated successfully");
       navigate({ to: "/appointments" });
     },
     onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  const saveAndPayMutation = useMutation({
+    mutationFn: async (payload: PaymentPayload) => {
+      if (selectedPatient && JSON.stringify(selectedPatient.allergies ?? []) !== JSON.stringify(form.allergies)) {
+        await updatePatient(form.patient!.id, { allergies: form.allergies });
+      }
+      await updateAppointment(appointmentId, {
+        doctorId: form.doctorId,
+        date: `${form.date}T${form.slot}:00`,
+        type: form.type,
+        fee: form.fee,
+        registrationFee: form.registrationFee,
+        notes: form.notes || undefined,
+      });
+      await checkoutAppointment(appointmentId, {
+        paymentMethod: payload.paymentMethod,
+        discount: payload.discount > 0 ? payload.discount : undefined,
+        tax: payload.tax > 0 ? payload.tax : undefined,
+        notes: payload.notes || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointment", appointmentId] });
+      queryClient.invalidateQueries({ queryKey: ["queue"] });
+      queryClient.invalidateQueries({ queryKey: ["billing"] });
+      toast.success("Appointment updated and paid successfully");
+      setPaymentSheetOpen(false);
+      navigate({ to: "/appointments" });
+    },
+    onError: (err) => {
+      toast.error(extractApiError(err));
+    },
   });
 
   const canSave = !!form.patient && !!form.doctorId && !!form.slot && !!form.type;
@@ -307,7 +401,7 @@ export function EditAppointmentPage() {
                 {form.patient && selectedPatient ? (
                   <div className="flex items-center justify-between rounded-none border border-input bg-background px-3 py-1.5">
                     <span className="truncate text-sm font-medium">{selectedPatient.name}</span>
-                    <Button variant="ghost" size="icon-sm" aria-label="Clear patient" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}>
+                    <Button variant="ghost" size="icon-sm" title="Clear patient" aria-label="Clear patient" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}>
                       <X className="size-3.5" />
                     </Button>
                   </div>
@@ -379,7 +473,7 @@ export function EditAppointmentPage() {
                         {doctors.find((d) => d.id === form.doctorId)?.name ?? 'Doctor'}
                         {doctors.find((d) => d.id === form.doctorId)?.consultationFee ? ` · ${currency(doctors.find((d) => d.id === form.doctorId)!.consultationFee)}` : ''}
                       </span>
-                      <Button variant="ghost" size="icon-sm" aria-label="Clear doctor" onClick={() => setForm((prev) => ({ ...prev, doctorId: "", slot: null }))}>
+                      <Button variant="ghost" size="icon-sm" title="Clear doctor" aria-label="Clear doctor" onClick={() => setForm((prev) => ({ ...prev, doctorId: "", slot: null }))}>
                         <X className="size-3.5" />
                       </Button>
                     </div>
@@ -422,6 +516,12 @@ export function EditAppointmentPage() {
                               {d.specialization}
                               {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ''}
                             </span>
+                            {doctorScheduleMap.has(d.id) && (
+                              <span className="mt-1 inline-flex items-center gap-1 rounded-none border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[11px] font-semibold font-mono text-primary">
+                                <Clock className="size-3" />
+                                {doctorScheduleMap.get(d.id)!.startTime} – {doctorScheduleMap.get(d.id)!.endTime}
+                              </span>
+                            )}
                           </button>
                         ))}
                       {doctors
@@ -433,6 +533,16 @@ export function EditAppointmentPage() {
                         ).length === 0 && (
                         <p className="p-3 text-center text-sm text-muted-foreground">No doctors scheduled on this date</p>
                       )}
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-center gap-2 border-t px-3 py-2 text-sm font-medium text-primary hover:bg-muted transition-colors"
+                        onMouseDown={() => {
+                          setDoctorSearchOpen(false);
+                          setDoctorFormOpen(true);
+                        }}
+                      >
+                        <Plus className="size-4" /> New Doctor
+                      </button>
                     </div>
                   )}
                 </div>
@@ -467,6 +577,14 @@ export function EditAppointmentPage() {
                         <Input
                           type="time"
                           value={form.slot ?? ""}
+                          min={(() => {
+                            if (!selectedDoctorSchedule) return '';
+                            if (form.date !== todayStr()) return selectedDoctorSchedule.startTime;
+                            const now = new Date();
+                            const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                            return nowTime > selectedDoctorSchedule.startTime ? nowTime : selectedDoctorSchedule.startTime;
+                          })()}
+                          max={selectedDoctorSchedule?.endTime ?? ""}
                           onChange={(e) => {
                             const time = e.target.value;
                             if (!time) {
@@ -479,6 +597,14 @@ export function EditAppointmentPage() {
                                 return;
                               }
                             }
+                            if (form.date === todayStr()) {
+                              const now = new Date();
+                              const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                              if (time < nowTime) {
+                                toast.error("Cannot select a time that has already passed");
+                                return;
+                              }
+                            }
                             if (bookedSlots.includes(time)) {
                               toast.error("This time is already booked");
                               return;
@@ -486,21 +612,54 @@ export function EditAppointmentPage() {
                             setForm((prev) => ({ ...prev, slot: time }));
                           }}
                         />
-                        {bookedSlots.length > 0 && (
-                          <div>
-                            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Booked</span>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {bookedSlots.map((t) => (
-                                <span
-                                  key={t}
-                                  className="rounded-none border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600 line-through"
-                                >
-                                  {t}
-                                </span>
-                              ))}
+                        {/* Visual slot grid */}
+                        {selectedDoctorSchedule && (() => {
+                          const slots = generateTimeSlots(selectedDoctorSchedule.startTime, selectedDoctorSchedule.endTime, 30);
+                          const now = new Date();
+                          const today = todayStr();
+                          const isToday = form.date === today;
+                          const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                          return (
+                            <div>
+                              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                Available slots
+                                {bookedSlots.length > 0 && (
+                                  <span className="ml-2 text-red-500">({bookedSlots.length} booked)</span>
+                                )}
+                              </span>
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {slots.map((t) => {
+                                  const isBooked = bookedSlots.includes(t);
+                                  const isPast = isToday && t < currentTime;
+                                  const disabled = isBooked || isPast;
+                                  const isSelected = form.slot === t;
+                                  return (
+                                    <button
+                                      key={t}
+                                      type="button"
+                                      disabled={disabled}
+                                      title={isBooked ? "Already booked" : isPast ? "Time has passed" : `Select ${t}`}
+                                      onClick={() => {
+                                        if (!disabled) {
+                                          setForm((prev) => ({ ...prev, slot: t }));
+                                        }
+                                      }}
+                                      className={cn(
+                                        "relative rounded-none border px-2.5 py-1 text-[11px] font-medium font-mono transition-all duration-150",
+                                        isBooked && "cursor-not-allowed border-red-200 bg-red-50 text-red-300 line-through",
+                                        isPast && !isBooked && "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400",
+                                        isSelected && !disabled && "z-10 border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary",
+                                        !disabled && !isSelected && "border-input text-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                                      )}
+                                    >
+                                      {t}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     )}
                   </Field>
@@ -572,7 +731,7 @@ export function EditAppointmentPage() {
                           <Pencil className="size-3" />
                           Edit
                         </Button>
-                        <Button variant="ghost" size="icon-sm" aria-label="Clear selected patient" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}>
+                        <Button variant="ghost" size="icon-sm" title="Clear selected patient" aria-label="Clear selected patient" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}>
                           <X className="size-4" />
                         </Button>
                       </>
@@ -745,9 +904,28 @@ export function EditAppointmentPage() {
 
       <div className="flex items-center justify-end gap-4">
         <Button variant="outline" onClick={goBack}>Cancel</Button>
-        <Button onClick={() => updateMutation.mutate()} disabled={!canSave || updateMutation.isPending}>
-          {updateMutation.isPending ? "Saving..." : `Save Changes · ${currency(form.fee + form.registrationFee)}`}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => updateMutation.mutate()} disabled={!canSave || updateMutation.isPending || saveAndPayMutation.isPending}>
+            {updateMutation.isPending ? "Saving..." : `Save Changes · ${currency(form.fee + form.registrationFee)}`}
+          </Button>
+          <Button
+            variant="default"
+            className="gap-1.5"
+            onClick={() => setPaymentSheetOpen(true)}
+            disabled={!canSave || saveAndPayMutation.isPending || updateMutation.isPending}
+          >
+            {saveAndPayMutation.isPending ? (
+              "Processing..."
+            ) : (
+              <>
+                Save &amp; Pay
+                <span className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">
+                  {currency(form.fee + form.registrationFee)}
+                </span>
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <PatientFormSheet
@@ -762,6 +940,86 @@ export function EditAppointmentPage() {
           setPatientSheetOpen(false);
           setEditPatientId(null);
         }} />
+
+      {/* ── Payment Sheet ── */}
+      <PaymentSheet
+        open={paymentSheetOpen}
+        onOpenChange={setPaymentSheetOpen}
+        subtotal={form.fee + form.registrationFee}
+        isPending={saveAndPayMutation.isPending}
+        onSubmit={(payload) => saveAndPayMutation.mutate(payload)}
+        submitLabel="Confirm & Save"
+      />
+
+      {/* ── New Doctor Sheet ── */}
+      <Sheet open={doctorFormOpen} onOpenChange={(open) => { if (!open) { setDoctorFormOpen(false); setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 }); }}}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Add New Doctor</SheetTitle>
+            <SheetDescription>Create a doctor and auto-select them for this appointment.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4 pb-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel>First Name *</FieldLabel>
+                <Input placeholder="John" value={newDoctorForm.firstName} onChange={(e) => setNewDoctorForm((p) => ({ ...p, firstName: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel>Last Name *</FieldLabel>
+                <Input placeholder="Doe" value={newDoctorForm.lastName} onChange={(e) => setNewDoctorForm((p) => ({ ...p, lastName: e.target.value }))} />
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel>Email *</FieldLabel>
+              <Input type="email" placeholder="doctor@clinic.com" value={newDoctorForm.email} onChange={(e) => setNewDoctorForm((p) => ({ ...p, email: e.target.value }))} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel>Username *</FieldLabel>
+                <Input placeholder="drjohndoe" value={newDoctorForm.username} onChange={(e) => setNewDoctorForm((p) => ({ ...p, username: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel>Password *</FieldLabel>
+                <Input type="password" placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel>Medical Reg. No. *</FieldLabel>
+              <Input placeholder="MCI-10001" value={newDoctorForm.medicalRegistrationNo} onChange={(e) => setNewDoctorForm((p) => ({ ...p, medicalRegistrationNo: e.target.value }))} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel>Specialization</FieldLabel>
+                <Input placeholder="Cardiology" value={newDoctorForm.specialization} onChange={(e) => setNewDoctorForm((p) => ({ ...p, specialization: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel>Consultation Fee (₹)</FieldLabel>
+                <Input type="number" min={0} placeholder="500" value={newDoctorForm.consultationFee} onChange={(e) => setNewDoctorForm((p) => ({ ...p, consultationFee: Number(e.target.value) || 0 }))} />
+              </Field>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => { setDoctorFormOpen(false); setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 }); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => createDoctorMutation.mutate({
+                firstName: newDoctorForm.firstName.trim(),
+                lastName: newDoctorForm.lastName.trim(),
+                email: newDoctorForm.email.trim(),
+                username: newDoctorForm.username.trim(),
+                password: newDoctorForm.password,
+                medicalRegistrationNo: newDoctorForm.medicalRegistrationNo.trim(),
+                specialization: newDoctorForm.specialization.trim() || undefined,
+                consultationFee: newDoctorForm.consultationFee > 0 ? newDoctorForm.consultationFee : undefined,
+              })}
+              disabled={!newDoctorForm.firstName.trim() || !newDoctorForm.lastName.trim() || !newDoctorForm.email.trim() || !newDoctorForm.username.trim() || !newDoctorForm.password.trim() || !newDoctorForm.medicalRegistrationNo.trim() || createDoctorMutation.isPending}
+            >
+              {createDoctorMutation.isPending ? "Creating..." : "Create & Select"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -174,16 +174,16 @@ export function ShiftsPage() {
         const shift = row.original;
         return (
           <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(shift.id)}>
+            <Button variant="ghost" size="icon" className="size-8" title="Edit shift" onClick={() => openEdit(shift.id)}>
               <Pencil className="size-3.5" />
             </Button>
             {deleteConfirm === shift.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(shift.id)}>Confirm</Button>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
               </div>
             ) : (
-              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(shift.id)}>
+              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Delete shift" onClick={() => setDeleteConfirm(shift.id)}>
                 <Trash2 className="size-3.5" />
               </Button>
             )}

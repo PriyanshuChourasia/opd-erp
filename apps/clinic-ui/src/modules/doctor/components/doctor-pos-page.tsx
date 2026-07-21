@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  Activity,
+  CalendarDays,
   CheckCircle2,
+  ClipboardList,
   Clock,
+  History,
   Minus,
   Pill,
   Plus,
   Search,
   Stethoscope,
+  StickyNote,
   Trash2,
   UserCheck,
   X,
@@ -31,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
+import { PatientHistorySheet } from "./patient-history-sheet";
 
 interface RxItem {
   tempId: string;
@@ -62,6 +68,15 @@ interface ProcedureItem {
 
 const PROCEDURE_CATEGORIES = ["DIAGNOSTIC", "THERAPEUTIC", "SURGICAL", "PREVENTIVE", "OTHER"];
 
+function calculateAge(dob: string): string {
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+  return `${age} years`;
+}
+
 function parseDailyTablets(dosage: string): number {
   const parts = dosage.split("-").map(Number);
   if (parts.length === 3 && parts.every((n) => !isNaN(n))) {
@@ -87,6 +102,33 @@ const QUEUE_STATUS_STYLES: Record<string, string> = {
   NO_SHOW: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
+/** Small detail row used inside the patient-info card */
+function DetailRow({ label, value, capitalize, fullWidth }: {
+  label: string;
+  value: React.ReactNode;
+  capitalize?: boolean;
+  fullWidth?: boolean;
+}) {
+  return (
+    <div className={cn("flex items-start gap-3 py-2.5", fullWidth ? "flex-col" : "flex-row")}>
+      <span className={cn("shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70", fullWidth ? "" : "w-[88px]")}>
+        {label}
+      </span>
+      <div className={cn("min-w-0", fullWidth ? "w-full" : "flex-1")}>
+        {value !== null && value !== undefined ? (
+          typeof value === 'string' ? (
+            <span className={cn("text-sm", capitalize ? "capitalize" : "")}>{value}</span>
+          ) : (
+            value
+          )
+        ) : (
+          <span className="text-sm italic text-muted-foreground/50">Not recorded</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DoctorPosPage() {
   const queryClient = useQueryClient();
   const user = useAppSelector((state) => state.auth.user);
@@ -101,6 +143,7 @@ export function DoctorPosPage() {
   const [procedureOrders, setProcedureOrders] = useState<ProcedureItem[]>([]);
   const [newProcedureName, setNewProcedureName] = useState("");
   const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["queue", "doctor", doctorId],
@@ -181,6 +224,7 @@ export function DoctorPosPage() {
     setShowMedicineSearch(null);
     setProcedureOrders([]);
     setNewProcedureName("");
+    setHistoryOpen(false);
   }
 
   function clearForm() {
@@ -192,6 +236,7 @@ export function DoctorPosPage() {
     setShowMedicineSearch(null);
     setProcedureOrders([]);
     setNewProcedureName("");
+    setHistoryOpen(false);
   }
 
   function addProcedureOrder() {
@@ -242,22 +287,34 @@ export function DoctorPosPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full flex-col">
+      <div className="flex shrink-0 items-center justify-between pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Patients</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {waiting.length} waiting &middot; {inProgress.length} in progress
           </p>
         </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <CalendarDays className="size-4" />
+          <span>{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="flex min-h-0 flex-1 gap-6 overflow-y-auto">
         {/* Queue list */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Today's Queue</CardTitle>
+        <div className="flex w-2/5 flex-col min-w-0">
+          <Card className="flex flex-col">
+            <CardHeader className="flex-row items-center justify-between border-b py-3 shrink-0">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <span className="flex size-6 items-center justify-center rounded-md bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400">
+                  <Clock className="size-3.5" />
+                </span>
+                Today's Queue
+              </CardTitle>
+              {active.length > 0 && (
+                <Badge variant="outline" className="text-[10px]">{active.length}</Badge>
+              )}
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
@@ -281,12 +338,29 @@ export function DoctorPosPage() {
                         )}
                         onClick={() => selectPatient(entry)}
                       >
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-bold">
-                          {entry.tokenNumber.slice(-4)}
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-none border border-primary/20 bg-primary/5 text-[9px] font-bold font-mono text-primary truncate overflow-hidden px-1">
+                          {entry.tokenNumber}
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{entry.patient.name}</p>
-                          <p className="text-xs text-muted-foreground">{entry.patient.phone}</p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                            <span>{entry.patient.phone}</span>
+                            {entry.patient.bloodGroup && (
+                              <>
+                                <span className="text-[8px]">·</span>
+                                <span className="font-medium text-foreground/70">{entry.patient.bloodGroup}</span>
+                              </>
+                            )}
+                            {(entry.patient.allergies ?? []).length > 0 && (
+                              <>
+                                <span className="text-[8px]">·</span>
+                                <span className="text-amber-600">
+                                  {(entry.patient.allergies ?? []).slice(0, 2).join(", ")}
+                                  {(entry.patient.allergies ?? []).length > 2 && " +" + ((entry.patient.allergies ?? []).length - 2)}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <Badge variant="outline" className={`text-[9px] ${QUEUE_STATUS_STYLES[entry.status] ?? ""}`}>
@@ -294,10 +368,9 @@ export function DoctorPosPage() {
                           </Badge>
                           {entry.status === "WAITING" && (
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-7"
-                              title="Start consultation"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1.5"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 statusMutation.mutate({ id: entry.id, status: "IN_PROGRESS" });
@@ -307,6 +380,7 @@ export function DoctorPosPage() {
                               }}
                             >
                               <UserCheck className="size-3.5 text-blue-600" />
+                              Start Consultation
                             </Button>
                           )}
                         </div>
@@ -320,9 +394,9 @@ export function DoctorPosPage() {
         </div>
 
         {/* Prescription builder */}
-        <div className="lg:col-span-3">
+        <div className="flex flex-1 flex-col">
           {!selectedEntry ? (
-            <Card className="flex items-center justify-center min-h-[400px]">
+            <Card className="flex items-center justify-center">
               <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
                 <Stethoscope className="size-10 text-muted-foreground/40" />
                 <div>
@@ -332,34 +406,130 @@ export function DoctorPosPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {/* Patient header */}
-              <Card>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold">
-                      {selectedEntry.tokenNumber.slice(-4)}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold">{selectedEntry.patient.name}</p>
-                      <p className="text-xs text-muted-foreground">{selectedEntry.patient.phone}</p>
+            <div className="flex flex-col space-y-4 pr-1">
+              {/* Patient header — fixed two-row card */}
+              <Card className="overflow-hidden">
+                {/* Row 1: identity + status/close */}
+                <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex shrink-0 flex-col items-center justify-center border-2 border-primary/15 bg-primary/[0.06] px-2.5 py-1.5">
+                      <span className="text-[10px] font-bold font-mono text-primary tracking-wider leading-none">
+                        {selectedEntry.tokenNumber}
+                      </span>
+                      <span className="mt-0.5 font-mono text-[8px] tracking-wider text-muted-foreground/50 leading-none">
+                        {selectedEntry.patient.id.slice(-8).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold leading-tight truncate">{selectedEntry.patient.name}</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 gap-1 px-1.5 text-[10px]"
+                          onClick={() => setHistoryOpen(true)}
+                        >
+                          <History className="size-3" />
+                          Past Visits
+                        </Button>
+                      </div>
+                      <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground/70">{selectedEntry.patient.phone}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="outline" className={`text-[10px] ${QUEUE_STATUS_STYLES[selectedEntry.status] ?? ""}`}>
                       {selectedEntry.status.replace("_", " ")}
                     </Badge>
-                    <Button variant="ghost" size="icon" className="size-7" onClick={clearForm}>
+                    <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" title="Clear form" onClick={clearForm}>
                       <X className="size-4" />
                     </Button>
                   </div>
-                </CardContent>
+                </div>
+
+                {/* Row 2: clinical facts, fixed grid so height never grows */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 px-4 py-3.5 sm:grid-cols-5">
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">DOB/Age</span>
+                    <p className="truncate text-xs font-medium">
+                      {selectedEntry.patient.dateOfBirth
+                        ? `${new Date(selectedEntry.patient.dateOfBirth).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (${calculateAge(selectedEntry.patient.dateOfBirth)})`
+                        : <span className="italic text-muted-foreground/50">—</span>}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Gender</span>
+                    <p className="truncate text-xs font-medium capitalize">
+                      {selectedEntry.patient.gender ? selectedEntry.patient.gender.toLowerCase() : <span className="italic text-muted-foreground/50 normal-case">—</span>}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Blood Group</span>
+                    <p className="mt-0.5 truncate">
+                      {selectedEntry.patient.bloodGroup ? (
+                        <span className="inline-flex items-center rounded-sm border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+                          {selectedEntry.patient.bloodGroup}
+                        </span>
+                      ) : (
+                        <span className="text-xs italic text-muted-foreground/50">—</span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0 col-span-2 sm:col-span-1">
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Allergies</span>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                      {selectedEntry.patient.allergies && selectedEntry.patient.allergies.length > 0 ? (
+                        <>
+                          {selectedEntry.patient.allergies.slice(0, 2).map((a, i) => (
+                            <span
+                              key={i}
+                              className="inline-flex items-center whitespace-nowrap rounded-sm border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400"
+                            >
+                              {a}
+                            </span>
+                          ))}
+                          {selectedEntry.patient.allergies.length > 2 && (
+                            <span
+                              title={selectedEntry.patient.allergies.slice(2).join(", ")}
+                              className="inline-flex cursor-default items-center whitespace-nowrap rounded-sm border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400"
+                            >
+                              +{selectedEntry.patient.allergies.length - 2}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs italic text-muted-foreground/50">None recorded</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Visit Type</span>
+                    <p className="mt-0.5 truncate">
+                      {selectedEntry.patient.isFollowUp ? (
+                        <span className="inline-flex items-center rounded-sm border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400">
+                          Follow-up
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">New</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
               </Card>
 
               {/* Diagnosis */}
               <Card className="overflow-visible">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Diagnosis</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between border-b py-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <span className="flex size-6 items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                      <ClipboardList className="size-3.5" />
+                    </span>
+                    Diagnosis
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <DiagnosisSelect value={diagnosis} onChange={setDiagnosis} />
@@ -368,10 +538,18 @@ export function DoctorPosPage() {
 
               {/* Medicines */}
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                  <CardTitle className="text-sm">Prescribed Medicines</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between border-b py-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <span className="flex size-6 items-center justify-center rounded-md bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                      <Pill className="size-3.5" />
+                    </span>
+                    Prescribed Medicines
+                    {rxItems.length > 0 && (
+                      <Badge variant="outline" className="text-[10px]">{rxItems.length}</Badge>
+                    )}
+                  </CardTitle>
                   <Button variant="outline" size="sm" onClick={() => setShowMedicineSearch(crypto.randomUUID())}>
-                    <Pill className="mr-1.5 size-3.5" />Add Medicine
+                    <Plus className="mr-1.5 size-3.5" />Add Medicine
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -419,16 +597,19 @@ export function DoctorPosPage() {
 
                   {/* Rx items */}
                   {rxItems.length === 0 && !showMedicineSearch && (
-                    <p className="py-4 text-center text-xs text-muted-foreground">
-                      No medicines added yet. Click "Add Medicine" to search and prescribe.
-                    </p>
+                    <div className="flex flex-col items-center gap-1.5 py-6 text-center">
+                      <Pill className="size-6 text-violet-300 dark:text-violet-700" />
+                      <p className="text-xs text-muted-foreground">
+                        No medicines added yet. Click "Add Medicine" to search and prescribe.
+                      </p>
+                    </div>
                   )}
 
                   {rxItems.map((item) => (
                     <div key={item.tempId} className="rounded-none border p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium">{item.medicineName}</p>
-                        <Button variant="ghost" size="icon" className="size-6 shrink-0" onClick={() => removeRxItem(item.tempId)}>
+                        <Button variant="ghost" size="icon" className="size-6 shrink-0" title="Remove item" onClick={() => removeRxItem(item.tempId)}>
                           <Trash2 className="size-3 text-destructive" />
                         </Button>
                       </div>
@@ -499,8 +680,16 @@ export function DoctorPosPage() {
 
               {/* Procedures */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Procedures</CardTitle>
+                <CardHeader className="border-b py-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <span className="flex size-6 items-center justify-center rounded-md bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                      <Activity className="size-3.5" />
+                    </span>
+                    Procedures
+                    {procedureOrders.length > 0 && (
+                      <Badge variant="outline" className="text-[10px]">{procedureOrders.length}</Badge>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex gap-2">
@@ -522,7 +711,10 @@ export function DoctorPosPage() {
                     </Button>
                   </div>
                   {procedureOrders.length === 0 ? (
-                    <p className="py-2 text-center text-xs text-muted-foreground">No procedures ordered yet.</p>
+                    <div className="flex flex-col items-center gap-1.5 py-4 text-center">
+                      <Activity className="size-6 text-amber-300 dark:text-amber-700" />
+                      <p className="text-xs text-muted-foreground">No procedures ordered yet.</p>
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {procedureOrders.map((p) => (
@@ -531,7 +723,7 @@ export function DoctorPosPage() {
                             <p className="text-sm font-medium">{p.procedureName}</p>
                             <p className="text-[10px] text-muted-foreground">{p.category}</p>
                           </div>
-                          <Button variant="ghost" size="icon" className="size-6" onClick={() => removeProcedureOrder(p.tempId)}>
+                          <Button variant="ghost" size="icon" className="size-6" title="Remove procedure" onClick={() => removeProcedureOrder(p.tempId)}>
                             <Trash2 className="size-3 text-destructive" />
                           </Button>
                         </div>
@@ -543,8 +735,11 @@ export function DoctorPosPage() {
 
               {/* Notes (required) */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-1.5 text-sm">
+                <CardHeader className="border-b py-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <span className="flex size-6 items-center justify-center rounded-md bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+                      <StickyNote className="size-3.5" />
+                    </span>
                     Doctor's Notes
                     <span className="text-xs font-normal text-destructive">* required</span>
                   </CardTitle>
@@ -582,6 +777,13 @@ export function DoctorPosPage() {
           )}
         </div>
       </div>
+
+      <PatientHistorySheet
+        patientId={selectedEntry?.patientId ?? null}
+        patientName={selectedEntry?.patient.name}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+      />
     </div>
   );
 }

@@ -46,15 +46,27 @@ export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelec
 
   return (
     <div className="relative">
-      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        placeholder={placeholder ?? "Search or type a diagnosis..."}
-        className="pl-9"
-        value={value}
-        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 200)}
-      />
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder={placeholder ?? "Search or type a diagnosis..."}
+            className="pl-9"
+            value={value}
+            onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 200)}
+          />
+        </div>
+        <button
+          type="button"
+          className="flex shrink-0 items-center gap-1.5 rounded-none border border-dashed border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+          onClick={() => { onChange(""); setOpen(true); }}
+        >
+          <Plus className="size-3.5" />
+          New
+        </button>
+      </div>
       {open && (
         <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-64 overflow-y-auto">
           {suggestions.length > 0 && (

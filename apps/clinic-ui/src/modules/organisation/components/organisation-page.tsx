@@ -26,6 +26,9 @@ const emptyForm: UpdateOrganisationInput = {
   website: "",
   registrationNumber: "",
   registrationFee: 100,
+  discountEnabled: true,
+  maxDiscountPercent: 50,
+  defaultDiscountType: "percent",
 };
 
 export function OrganisationPage() {
@@ -63,6 +66,9 @@ export function OrganisationPage() {
         website: organisation.website ?? "",
         registrationNumber: organisation.registrationNumber ?? "",
         registrationFee: organisation.registrationFee ?? 0,
+        discountEnabled: organisation.discountEnabled,
+        maxDiscountPercent: organisation.maxDiscountPercent,
+        defaultDiscountType: organisation.defaultDiscountType,
       });
     } else {
       setForm(emptyForm);
@@ -135,6 +141,7 @@ export function OrganisationPage() {
                   { label: "Website", value: organisation.website },
                   { label: "Registration No.", value: organisation.registrationNumber },
                   { label: "Registration Fee", value: organisation.registrationFee ? `₹${organisation.registrationFee}` : null },
+                  { label: "Discounts", value: organisation.discountEnabled ? `Enabled (max ${organisation.maxDiscountPercent}%)` : "Disabled" },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-center justify-between text-sm">
                     <dt className="text-muted-foreground">{label}</dt>
@@ -234,6 +241,65 @@ export function OrganisationPage() {
                 <p className="text-xs text-muted-foreground">Charged once per patient, on their first-ever appointment at this clinic.</p>
               </Field>
             </FieldGroup>
+
+            <div className="border-t pt-4">
+              <h3 className="mb-3 text-sm font-semibold">Discount Settings</h3>
+              <FieldGroup>
+                <Field>
+                  <label className="flex items-center gap-3 rounded-none border px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-primary"
+                      checked={form.discountEnabled ?? true}
+                      onChange={(e) => setForm({ ...form, discountEnabled: e.target.checked })}
+                    />
+                    <div>
+                      <span className="text-sm font-medium">Enable Discounts</span>
+                      <p className="text-xs text-muted-foreground">Allow discount to be applied during billing and checkout</p>
+                    </div>
+                  </label>
+                </Field>
+                {form.discountEnabled && (
+                  <>
+                    <Field>
+                      <FieldLabel htmlFor="org-max-disc">Max Discount (%)</FieldLabel>
+                      <Input
+                        id="org-max-disc"
+                        type="number"
+                        min={0}
+                        max={100}
+                        placeholder="50"
+                        value={form.maxDiscountPercent ?? 50}
+                        onChange={(e) => setForm({ ...form, maxDiscountPercent: Number(e.target.value) || 0 })}
+                      />
+                      <p className="text-xs text-muted-foreground">Maximum discount percentage allowed per bill</p>
+                    </Field>
+                    <Field>
+                      <FieldLabel>Default Discount Type</FieldLabel>
+                      <div className="flex gap-2">
+                        {[
+                          { value: "percent", label: "Percentage (%)" },
+                          { value: "flat", label: "Fixed (₹)" },
+                        ].map(({ value, label }) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setForm({ ...form, defaultDiscountType: value })}
+                            className={`flex-1 rounded-none border px-3 py-2 text-sm font-medium transition-colors ${
+                              form.defaultDiscountType === value
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-input text-muted-foreground hover:border-primary/50"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </Field>
+                  </>
+                )}
+              </FieldGroup>
+            </div>
           </div>
           <SheetFooter>
             <Button variant="outline" onClick={() => setSheetOpen(false)}>Cancel</Button>

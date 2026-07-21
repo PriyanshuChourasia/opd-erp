@@ -30,6 +30,9 @@ export class OrganisationService {
           website: dto.website,
           registrationNumber: dto.registrationNumber,
           registrationFee: dto.registrationFee ?? 100,
+          discountEnabled: dto.discountEnabled ?? true,
+          maxDiscountPercent: dto.maxDiscountPercent ?? 50,
+          defaultDiscountType: dto.defaultDiscountType ?? 'percent',
         },
       });
     }

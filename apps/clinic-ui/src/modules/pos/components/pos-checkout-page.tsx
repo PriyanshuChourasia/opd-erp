@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import { createBill, searchMedicines, searchPatients } from "../data/api";
-import { fetchAppointmentInvoicePreview } from "@/lib/api";
+import { fetchAppointmentInvoicePreview, fetchOrganisation } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { cn } from "@/lib/utils";
@@ -25,8 +25,15 @@ export function PosCheckoutPage() {
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string; phone: string } | null>(null);
   const [itemQuery, setItemQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const { data: organisation } = useQuery({
+    queryKey: ["organisation"],
+    queryFn: fetchOrganisation,
+  });
+
   const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");
   const [discountValue, setDiscountValue] = useState(0);
+  const maxDiscountPct = organisation?.maxDiscountPercent ?? 50;
+  const discountEnabled = organisation?.discountEnabled ?? true;
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [cardName, setCardName] = useState("");
   const [cardStartDate, setCardStartDate] = useState("");
@@ -58,7 +65,10 @@ export function PosCheckoutPage() {
   });
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0), [cart]);
-  const discountAmount = discountMode === "percent" ? (subtotal * discountValue) / 100 : discountValue;
+  const cappedDiscountValue = discountMode === "percent"
+    ? Math.min(discountValue, maxDiscountPct)
+    : Math.min(discountValue, subtotal);
+  const discountAmount = discountMode === "percent" ? (subtotal * cappedDiscountValue) / 100 : cappedDiscountValue;
   const total = Math.max(0, subtotal - discountAmount);
 
   const checkoutMutation = useMutation({
@@ -116,7 +126,7 @@ export function PosCheckoutPage() {
           <CardContent>{selectedPatient ? (
             <div className="flex items-center justify-between rounded-none border px-3 py-2">
               <div className="flex items-center gap-2"><UserRound className="size-4 text-muted-foreground" /><div><p className="text-sm font-medium">{selectedPatient.name}</p><p className="text-xs text-muted-foreground">{selectedPatient.phone}</p></div></div>
-              <Button variant="ghost" size="icon-sm" onClick={() => setSelectedPatient(null)}><X /></Button>
+              <Button variant="ghost" size="icon-sm" title="Clear patient" onClick={() => setSelectedPatient(null)}><X /></Button>
             </div>
           ) : (
             <div className="relative"><Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -164,7 +174,7 @@ export function PosCheckoutPage() {
                   <TableCell><div className="flex items-center justify-center gap-1"><Button type="button" variant="outline" size="icon-sm" onClick={() => updateCartItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}><Minus /></Button><span className="w-6 text-center text-sm">{item.quantity}</span><Button type="button" variant="outline" size="icon-sm" onClick={() => updateCartItem(item.id, { quantity: item.quantity + 1 })}><Plus /></Button></div></TableCell>
                   <TableCell><Input type="number" min={0} className="text-right" value={item.unitPrice} onChange={(e) => updateCartItem(item.id, { unitPrice: Number(e.target.value) || 0 })} /></TableCell>
                   <TableCell className="text-right text-sm font-medium">{currency(item.quantity * item.unitPrice)}</TableCell>
-                  <TableCell><Button type="button" variant="ghost" size="icon-sm" onClick={() => removeCartItem(item.id)}><Trash2 className="text-destructive" /></Button></TableCell>
+                  <TableCell><Button type="button" variant="ghost" size="icon-sm" title="Remove item" onClick={() => removeCartItem(item.id)}><Trash2 className="text-destructive" /></Button></TableCell>
                 </TableRow>))}
               </TableBody>
             </Table>
@@ -179,7 +189,10 @@ export function PosCheckoutPage() {
           <div className="flex flex-col gap-2"><span className="text-sm text-muted-foreground">Discount</span>
             <div className="flex gap-2"><div className="flex rounded-none border p-0.5">{(["percent", "flat"] as const).map((mode) => (
               <button key={mode} type="button" className={cn("rounded px-2 py-1 text-xs font-medium", discountMode === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground")} onClick={() => setDiscountMode(mode)}>{mode === "percent" ? "%" : "Flat"}</button>
-            ))}</div><Input type="number" min={0} value={discountValue} onChange={(e) => setDiscountValue(Number(e.target.value) || 0)} /></div>
+            ))}</div><Input type="number" min={0} max={discountMode === "percent" ? maxDiscountPct : subtotal} value={discountValue} onChange={(e) => setDiscountValue(Number(e.target.value) || 0)} /></div>
+            {discountMode === "percent" && discountEnabled && (
+              <p className="text-[11px] text-muted-foreground">Max {maxDiscountPct}% discount per bill</p>
+            )}
           </div>
           <div className="flex flex-col gap-2"><span className="text-sm text-muted-foreground">Payment method</span>
             <div className="flex gap-2">{paymentMethods.map((method) => (

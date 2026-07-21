@@ -44,10 +44,14 @@ export class PrescriptionsService
     });
   }
 
-  async findAll(query: FindPrescriptionsQueryDto): Promise<PaginatedResult<Prescription>> {
+  async findAll(query: FindPrescriptionsQueryDto, requestingDoctorId?: string): Promise<PaginatedResult<Prescription>> {
     const where: Record<string, unknown> = {};
     if (query.patientId) where.patientId = query.patientId;
-    if (query.doctorId) where.doctorId = query.doctorId;
+    // A doctor is always scoped to their own prescriptions — the query param
+    // is ignored in that case rather than trusted, so a doctor can't page
+    // through another doctor's prescriptions by passing a different doctorId.
+    if (requestingDoctorId) where.doctorId = requestingDoctorId;
+    else if (query.doctorId) where.doctorId = query.doctorId;
     if (query.status) where.status = query.status;
     if (query.date) {
       const dayStart = new Date(query.date);

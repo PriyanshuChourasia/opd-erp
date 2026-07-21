@@ -172,10 +172,10 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
                   {deleteConfirm === address.id ? (
                     <div className="flex items-center gap-0.5">
                       <Button variant="destructive" size="icon-sm" className="size-7" onClick={() => deleteMutation.mutate(address.id)}><Check className="size-3" /></Button>
-                      <Button variant="ghost" size="icon" className="size-7" onClick={() => setDeleteConfirm(null)}><X className="size-3" /></Button>
+                      <Button variant="ghost" size="icon" className="size-7" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3" /></Button>
                     </div>
                   ) : (
-                    <Button variant="ghost" size="icon" className="size-7 text-destructive" onClick={() => setDeleteConfirm(address.id)}>
+                    <Button variant="ghost" size="icon" className="size-7 text-destructive" title="Delete address" onClick={() => setDeleteConfirm(address.id)}>
                       <Trash2 className="size-3" />
                     </Button>
                   )}

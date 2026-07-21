@@ -188,9 +188,11 @@ export class AppointmentsService
   /**
    * General-purpose update for appointment details (fee, type, notes, etc.).
    * Does NOT handle status transitions — use `update()` for that.
+   * If the doctor changes and a linked queue entry is still WAITING,
+   * the queue entry is reassigned to the new doctor as well.
    */
   async updateDetails(id: string, dto: UpdateAppointmentDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
 
     const data: Record<string, unknown> = {};
     if (dto.date !== undefined) data.date = new Date(dto.date);
@@ -200,6 +202,33 @@ export class AppointmentsService
     if (dto.registrationFee !== undefined) data.registrationFee = dto.registrationFee;
     if (dto.reasonForVisit !== undefined) data.reasonForVisit = dto.reasonForVisit;
     if (dto.notes !== undefined) data.notes = dto.notes;
+
+    // If doctor changed, also reassign the linked queue entry regardless of status.
+    // The mismatch between appointment and queue doctors is worse than updating
+    // an in-progress entry.
+    if (dto.doctorId && dto.doctorId !== existing.doctorId) {
+      let queueEntry = await this.prisma.queueEntry.findUnique({ where: { appointmentId: id } });
+      // Fallback: the queue entry may have been created via walk-in flow and linked to
+      // a separate walk-in appointment. Find today's entry for this patient.
+      if (!queueEntry) {
+        const now = new Date();
+        const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        const dayEnd = new Date(dayStart);
+        dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+        queueEntry = await this.prisma.queueEntry.findFirst({
+          where: {
+            patientId: existing.patientId,
+            queueDate: { gte: dayStart, lt: dayEnd },
+          },
+        });
+      }
+      if (queueEntry) {
+        await this.prisma.queueEntry.update({
+          where: { id: queueEntry.id },
+          data: { doctorId: dto.doctorId },
+        });
+      }
+    }
 
     const appointment = await this.prisma.appointment.update({
       where: { id },
@@ -219,6 +248,33 @@ export class AppointmentsService
     const date = new Date(dto.date);
     const doctorId = dto.doctorId ?? existing.doctorId;
     const tokenNumber = this.generateTokenNumber(date, existing.patient.name);
+
+    // If the doctor changed during reschedule, also reassign any linked
+    // queue entry regardless of status so the patient appears under the
+    // correct doctor on the waiting room display.
+    if (doctorId !== existing.doctorId) {
+      let queueEntry = await this.prisma.queueEntry.findUnique({ where: { appointmentId: id } });
+      // Fallback: the queue entry may have been created via walk-in flow and linked to
+      // a separate walk-in appointment. Find today's entry for this patient.
+      if (!queueEntry) {
+        const now = new Date();
+        const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        const dayEnd = new Date(dayStart);
+        dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+        queueEntry = await this.prisma.queueEntry.findFirst({
+          where: {
+            patientId: existing.patientId,
+            queueDate: { gte: dayStart, lt: dayEnd },
+          },
+        });
+      }
+      if (queueEntry) {
+        await this.prisma.queueEntry.update({
+          where: { id: queueEntry.id },
+          data: { doctorId },
+        });
+      }
+    }
 
     const appointment = await this.prisma.appointment.update({
       where: { id },

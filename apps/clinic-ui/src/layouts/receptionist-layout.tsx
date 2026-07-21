@@ -7,6 +7,7 @@ import {
   Receipt,
   Stethoscope,
   User,
+  UserRoundCog,
   Users,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -28,6 +29,7 @@ const receptionistNav = [
   { to: "/receptionist", label: "Dashboard", icon: LayoutDashboard },
   { to: "/receptionist/appointments", label: "Appointments", icon: CalendarClock },
   { to: "/receptionist/patients", label: "Patients", icon: Users },
+  { to: "/receptionist/doctors", label: "Doctors", icon: UserRoundCog },
   { to: "/receptionist/billing", label: "Billing", icon: Receipt },
   { to: "/receptionist/prescriptions", label: "Prescriptions", icon: ClipboardList },
 ];
@@ -53,7 +55,7 @@ export function ReceptionistLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
+    <div className="flex h-screen bg-muted/30">
       <aside className="hidden w-56 shrink-0 flex-col border-r bg-background lg:flex">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <Link to="/receptionist" className="flex items-center gap-2">
@@ -130,7 +132,7 @@ export function ReceptionistLayout() {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+        <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-6">
           <Outlet />
         </main>
       </div>

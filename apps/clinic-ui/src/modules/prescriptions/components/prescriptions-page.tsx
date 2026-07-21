@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, Printer, Pill, Plus, X } from "lucide-react";
@@ -14,8 +14,10 @@ import {
   type BillStatus,
   type Medicine,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
+import { useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,6 +63,11 @@ interface EditRxItem {
 
 export function PrescriptionsPage() {
   const queryClient = useQueryClient();
+  // Doctors only ever see their own prescriptions — the server enforces this
+  // regardless of what's sent, but we also hide the doctor picker so the UI
+  // doesn't imply they could browse other doctors' prescriptions.
+  const user = useAppSelector((state) => state.auth.user);
+  const isDoctor = user?.userableType === "Doctor";
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [invoicesOpen, setInvoicesOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
@@ -72,6 +79,8 @@ export function PrescriptionsPage() {
   const [filterDoctor, setFilterDoctor] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
+  const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -114,6 +123,7 @@ export function PrescriptionsPage() {
   const { data: doctorsResponse } = useQuery({
     queryKey: ["doctors", "prescriptions-filter"],
     queryFn: () => fetchDoctors({ limit: 100 }),
+    enabled: !isDoctor,
   });
   const doctors = doctorsResponse?.data ?? [];
 
@@ -221,18 +231,39 @@ export function PrescriptionsPage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  // ── Print prescription ──
+  // ── Print prescription (generate PDF first) ──
+  const printAreaRef = useRef<HTMLDivElement>(null);
   const [printRx, setPrintRx] = useState<Prescription | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
-  useEffect(() => {
-    function handleAfterPrint() { setPrintRx(null); }
-    window.addEventListener("afterprint", handleAfterPrint);
-    return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, []);
-
-  function openPrint(rx: Prescription) {
+  async function openPrint(rx: Prescription) {
     setPrintRx(rx);
-    setTimeout(() => window.print(), 50);
+    setGeneratingPdf(true);
+    // Wait for React to render the print area
+    await new Promise((r) => setTimeout(r, 100));
+    const element = printAreaRef.current;
+    if (!element) { setGeneratingPdf(false); return; }
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const blob = await html2pdf().set({
+        margin: [0.5, 0.5, 0.5, 0.5],
+        filename: `prescription-${rx.patient?.name?.replace(/\s+/g, '-') ?? rx.id}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, letterRendering: true, useCORS: true },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+      }).from(element).outputPdf('blob');
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, '_blank');
+      // Revoke blob URL after the window has loaded
+      setTimeout(() => { URL.revokeObjectURL(url); }, 10_000);
+    } catch (err) {
+      console.error('PDF generation failed', err);
+      // Fallback: use browser print
+      window.print();
+    } finally {
+      setGeneratingPdf(false);
+      setPrintRx(null);
+    }
   }
 
   const columns = useMemo<ColumnDef<Prescription>[]>(() => [
@@ -297,8 +328,8 @@ export function PrescriptionsPage() {
         const rx = row.original;
         return (
           <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" className="size-8" title="Print prescription" aria-label="Print prescription" onClick={() => openPrint(rx)}>
-              <Printer className="size-4" />
+            <Button variant="ghost" size="icon" className="size-8" title="Print prescription" aria-label="Print prescription" disabled={generatingPdf} onClick={() => openPrint(rx)}>
+              <Printer className={cn("size-4", generatingPdf && "animate-pulse")} />
             </Button>
             <Button variant="ghost" size="icon" className="size-8" title="Edit prescription" aria-label="Edit prescription" onClick={() => openEdit(rx)}>
               <Pencil className="size-4" />
@@ -332,14 +363,66 @@ export function PrescriptionsPage() {
             onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
-        <select
-          className="flex h-9 w-48 rounded-none border border-input bg-background px-3 py-1 text-sm"
-          value={filterDoctor}
-          onChange={(e) => setFilterDoctorAndResetPage(e.target.value)}
-        >
-          <option value="">All doctors</option>
-          {doctors.map((d) => (<option key={d.id} value={d.id}>{d.name ?? d.medicalRegistrationNo}</option>))}
-        </select>
+        {!isDoctor && (
+          <div className="relative">
+            {filterDoctor ? (
+              <div className="flex h-9 w-48 items-center justify-between rounded-none border border-input bg-background px-3 text-sm">
+                <span className="truncate">{doctors.find((d) => d.id === filterDoctor)?.name ?? doctors.find((d) => d.id === filterDoctor)?.medicalRegistrationNo ?? 'Doctor'}</span>
+                <button type="button" className="ml-2 shrink-0 text-muted-foreground hover:text-foreground" title="Clear doctor filter" onClick={() => setFilterDoctorAndResetPage("")}>
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search doctor..."
+                  className="flex h-9 w-48 rounded-none border border-input bg-background pl-9 pr-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={doctorSearchQuery || ""}
+                  onChange={(e) => {
+                    setDoctorSearchQuery(e.target.value);
+                    setDoctorSearchOpen(true);
+                  }}
+                  onFocus={() => setDoctorSearchOpen(true)}
+                  onBlur={() => setTimeout(() => setDoctorSearchOpen(false), 200)}
+                />
+                {doctorSearchOpen && (
+                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-none border bg-popover shadow-md">
+                    {doctors
+                      .filter((d) =>
+                        !(doctorSearchQuery || "").trim() ||
+                        (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes((doctorSearchQuery || "").trim().toLowerCase()) ||
+                        (d.specialization ?? "").toLowerCase().includes((doctorSearchQuery || "").trim().toLowerCase())
+                      )
+                      .map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                          onMouseDown={() => {
+                            setFilterDoctorAndResetPage(d.id);
+                            setDoctorSearchQuery("");
+                            setDoctorSearchOpen(false);
+                          }}
+                        >
+                          <span className="font-medium">{d.name ?? d.medicalRegistrationNo}</span>
+                          {d.specialization && <span className="text-xs text-muted-foreground">{d.specialization}</span>}
+                        </button>
+                      ))}
+                    {doctors.filter((d) =>
+                      !(doctorSearchQuery || "").trim() ||
+                      (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes((doctorSearchQuery || "").trim().toLowerCase()) ||
+                      (d.specialization ?? "").toLowerCase().includes((doctorSearchQuery || "").trim().toLowerCase())
+                    ).length === 0 && (
+                      <p className="p-3 text-center text-sm text-muted-foreground">No doctors found</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <select
           className="flex h-9 w-40 rounded-none border border-input bg-background px-3 py-1 text-sm"
           value={filterStatus}
@@ -424,7 +507,7 @@ export function PrescriptionsPage() {
                   <div key={item.tempId} className="space-y-1.5 rounded-none border px-2 py-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-medium truncate">{item.medicineName}</p>
-                      <Button variant="ghost" size="icon" className="size-5 shrink-0" onClick={() => setEditItems((p) => p.filter((i) => i.tempId !== item.tempId))}>
+                      <Button variant="ghost" size="icon" className="size-5 shrink-0" title="Remove item" onClick={() => setEditItems((p) => p.filter((i) => i.tempId !== item.tempId))}>
                         <X className="size-3 text-destructive" />
                       </Button>
                     </div>
@@ -536,61 +619,126 @@ export function PrescriptionsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Printable area (hidden on screen, shown only by @media print in index.css) ── */}
-      <div id="print-area" className="hidden">
-        {printRx && (
-          <div className="p-8 text-black">
-            <div className="mb-4 border-b-2 border-black pb-3">
-              <h1 className="text-xl font-bold">{organisation?.name ?? "Clinic"}</h1>
-              {organisation?.address && <p className="text-xs">{organisation.address}</p>}
-              {organisation?.phone && <p className="text-xs">Phone: {organisation.phone}</p>}
-            </div>
-            <div className="mb-4 flex justify-between text-sm">
-              <div>
-                <p><strong>Patient:</strong> {printRx.patient?.name}</p>
-                <p><strong>Phone:</strong> {printRx.patient?.phone}</p>
+      {/* ── Official Prescription for PDF generation ── */}
+      <div ref={printAreaRef} className="fixed left-[-9999px] top-0 bg-white text-black" style={{ zIndex: -1 }}>
+        {printRx && (() => {
+          const rxDate = new Date(printRx.createdAt);
+          const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+          return (
+            <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', padding: '0', margin: '0', color: '#000' }}>
+              {/* Outer border frame */}
+              <div style={{ border: '2px solid #1e3a5f', margin: '20px' }}>
+                {/* ── HEADER ── */}
+                <div style={{ background: '#1e3a5f', color: '#fff', padding: '18px 24px', textAlign: 'center' }}>
+                  <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', letterSpacing: '1px' }}>
+                    {organisation?.name ?? "CLINIC"}
+                  </h1>
+                  <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.85 }}>
+                    {[organisation?.address, organisation?.phone].filter(Boolean).join(' | ') || 'Healthcare Centre'}
+                  </p>
+                </div>
+
+                {/* ── TITLE BAR ── */}
+                <div style={{ background: '#e8edf3', padding: '10px 24px', textAlign: 'center', borderBottom: '1px solid #1e3a5f' }}>
+                  <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#1e3a5f', letterSpacing: '2px' }}>
+                    MEDICAL PRESCRIPTION
+                  </h2>
+                </div>
+
+                {/* ── BODY ── */}
+                <div style={{ padding: '20px 24px' }}>
+                  {/* Reference */}
+                  <div style={{ marginBottom: '14px', fontSize: '11px', color: '#666' }}>
+                    Rx No: <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{printRx.id.slice(0, 8).toUpperCase()}</span>
+                    {' | '}Date: {formattedDate}
+                  </div>
+
+                  {/* Patient & Doctor info in two columns */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '13px' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: '50%', verticalAlign: 'top', paddingRight: '12px' }}>
+                          <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', paddingBottom: '4px', fontSize: '11px', letterSpacing: '1px' }}>PATIENT DETAILS</div>
+                          <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '3px' }}>{printRx.patient?.name}</div>
+                          <div style={{ fontSize: '12px', color: '#444', marginBottom: '2px' }}>Phone: {printRx.patient?.phone}</div>
+                          {printRx.patient?.email && <div style={{ fontSize: '12px', color: '#444' }}>Email: {printRx.patient.email}</div>}
+                        </td>
+                        <td style={{ width: '50%', verticalAlign: 'top', paddingLeft: '12px' }}>
+                          <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', paddingBottom: '4px', fontSize: '11px', letterSpacing: '1px' }}>PRESCRIBED BY</div>
+                          <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '3px' }}>Dr. {printRx.doctor?.name ?? printRx.doctor?.medicalRegistrationNo}</div>
+                          {printRx.doctor?.qualification && <div style={{ fontSize: '12px', color: '#444', marginBottom: '2px' }}>{printRx.doctor.qualification}</div>}
+                          {printRx.doctor?.specialization && <div style={{ fontSize: '12px', color: '#444' }}>{printRx.doctor.specialization}</div>}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Diagnosis */}
+                  {printRx.diagnosis && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', fontSize: '11px', letterSpacing: '1px', paddingBottom: '4px' }}>DIAGNOSIS</div>
+                      <p style={{ margin: 0, fontSize: '13px' }}>{printRx.diagnosis}</p>
+                    </div>
+                  )}
+
+                  {/* Medicines Table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ background: '#f0f2f5' }}>
+                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px' }}>#</th>
+                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px', width: '30%' }}>MEDICINE</th>
+                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px', width: '15%' }}>DOSAGE</th>
+                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px', width: '15%' }}>DURATION</th>
+                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px', width: '10%' }}>QTY</th>
+                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px' }}>INSTRUCTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {printRx.items.map((item, idx) => (
+                        <tr key={item.id}>
+                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', textAlign: 'center', fontSize: '11px', color: '#666' }}>{idx + 1}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', fontWeight: 'bold', fontSize: '12px' }}>{item.medicineName}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', fontSize: '12px' }}>{item.dosage}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', fontSize: '12px' }}>{item.duration || '—'}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', textAlign: 'center', fontSize: '12px' }}>{item.quantity}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', fontSize: '11px', color: '#555' }}>{item.instructions || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Notes */}
+                  {printRx.notes && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', fontSize: '11px', letterSpacing: '1px', paddingBottom: '4px' }}>NOTES</div>
+                      <p style={{ margin: 0, fontSize: '12px' }}>{printRx.notes}</p>
+                    </div>
+                  )}
+
+                  {/* Doctor's Signature */}
+                  <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ width: '180px', borderTop: '1px solid #000', marginBottom: '4px', paddingTop: '6px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Dr. {printRx.doctor?.name ?? printRx.doctor?.medicalRegistrationNo}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#666' }}>Doctor's Signature & Stamp</div>
+                    </div>
+                  </div>
+
+                  {/* Disclaimer */}
+                  <div style={{ marginTop: '16px', padding: '8px 12px', background: '#f8f9fa', border: '1px solid #ddd', fontSize: '9px', color: '#888', lineHeight: '1.4' }}>
+                    This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
+                  </div>
+                </div>
+
+                {/* ── FOOTER ── */}
+                <div style={{ background: '#f0f2f5', padding: '8px 24px', textAlign: 'center', fontSize: '10px', color: '#666', borderTop: '1px solid #ddd' }}>
+                  Computer-generated prescription | Generated on {new Date().toLocaleString('en-IN')} | {organisation?.email ? `Email: ${organisation.email}` : ''}
+                </div>
               </div>
-              <div className="text-right">
-                <p><strong>Doctor:</strong> {printRx.doctor?.name ?? printRx.doctor?.medicalRegistrationNo}</p>
-                <p><strong>Date:</strong> {new Date(printRx.createdAt).toLocaleDateString()}</p>
-              </div>
             </div>
-            {printRx.diagnosis && (
-              <p className="mb-3 text-sm"><strong>Diagnosis:</strong> {printRx.diagnosis}</p>
-            )}
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b-2 border-black text-left">
-                  <th className="py-1">Medicine</th>
-                  <th className="py-1">Dosage</th>
-                  <th className="py-1">Duration</th>
-                  <th className="py-1">Qty</th>
-                  <th className="py-1">Instructions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {printRx.items.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-300">
-                    <td className="py-1.5">{item.medicineName}</td>
-                    <td className="py-1.5">{item.dosage}</td>
-                    <td className="py-1.5">{item.duration || "—"}</td>
-                    <td className="py-1.5">{item.quantity}</td>
-                    <td className="py-1.5">{item.instructions || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {printRx.notes && (
-              <p className="mt-4 text-sm"><strong>Notes:</strong> {printRx.notes}</p>
-            )}
-            <div className="mt-16 flex justify-end">
-              <div className="text-center">
-                <div className="mb-1 w-48 border-t border-black" />
-                <p className="text-xs">Doctor&apos;s Signature</p>
-              </div>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       <PatientFormSheet

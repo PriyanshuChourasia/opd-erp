@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdateOrganisationDto {
   @IsOptional()
@@ -29,4 +29,17 @@ export class UpdateOrganisationDto {
   @IsInt()
   @Min(0)
   registrationFee?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  discountEnabled?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  maxDiscountPercent?: number;
+
+  @IsOptional()
+  @IsString()
+  defaultDiscountType?: string;
 }

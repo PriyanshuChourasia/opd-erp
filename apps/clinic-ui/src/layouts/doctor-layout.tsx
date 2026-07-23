@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const doctorNav = [
   { to: "/doctor", label: "My Patients", icon: LayoutDashboard },
@@ -47,6 +48,7 @@ export function DoctorLayout() {
   };
 
   return (
+    <TooltipProvider delayDuration={0}>
     <div className="flex h-screen bg-muted/30">
       <aside className="hidden w-56 shrink-0 flex-col border-r bg-background lg:flex">
         <div className="flex h-14 items-center gap-2 border-b px-4">
@@ -129,5 +131,6 @@ export function DoctorLayout() {
         </main>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

@@ -22,11 +22,18 @@ const HISTORY_STATUSES = ["COMPLETED", "SKIPPED", "NO_SHOW"];
 
 type QueueTab = "ACTIVE" | "HISTORY";
 
+function todayStr() {
+  const d = new Date();
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
 export function QueuePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [filterDoctor, setFilterDoctor] = useState("");
   const [doctorFilterQuery, setDoctorFilterQuery] = useState("");
+  const [filterDate, setFilterDate] = useState(todayStr());
   const [tab, setTab] = useState<QueueTab>("ACTIVE");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -34,10 +41,16 @@ export function QueuePage() {
 
   // Fetch the whole day's queue (a single day's volume is always small) and
   // split/paginate it client-side into the Active / History tabs below.
+  function setFilterDateAndResetPage(date: string) {
+    setFilterDate(date);
+    setPagination((p) => ({ ...p, pageIndex: 0 }));
+  }
+
   const { data: response, isLoading } = useQuery({
-    queryKey: ["queue", filterDoctor],
+    queryKey: ["queue", filterDoctor, filterDate],
     queryFn: () => fetchQueue({
       doctorId: filterDoctor || undefined,
+      date: filterDate || undefined,
       page: 1,
       limit: 100,
     }),
@@ -251,6 +264,14 @@ export function QueuePage() {
               )}
             </>
           )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant={!filterDate ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage("")}>All</Button>
+          <Button variant={filterDate === todayStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(todayStr())}>Today</Button>
+          <Input type="date" className="w-auto" value={filterDate} onChange={(e) => setFilterDateAndResetPage(e.target.value)} />
         </div>
       </div>
 

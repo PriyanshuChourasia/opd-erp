@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, Printer, Pill, Plus, X } from "lucide-react";
+import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, FileDown, FileText, Eye, Pill, Plus, X } from "lucide-react";
 import {
   fetchPrescriptions,
+  createPrescription,
+  fetchPatients,
   fetchBills,
   fetchDoctors,
   fetchMedicines,
@@ -13,6 +15,7 @@ import {
   type Prescription,
   type BillStatus,
   type Medicine,
+  type Patient,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -20,10 +23,18 @@ import { extractApiError } from "@/lib/axios-client";
 import { useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DataTable } from "@/components/data-table/data-table";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 
@@ -151,6 +162,91 @@ export function PrescriptionsPage() {
     setInvoicesOpen(true);
   }
 
+  // ── Create prescription ──
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [createPatientSearch, setCreatePatientSearch] = useState("");
+  const [createPatient, setCreatePatient] = useState<{ id: string; name: string; phone: string } | null>(null);
+  const [createDoctorId, setCreateDoctorId] = useState("");
+  const [createDoctorQuery, setCreateDoctorQuery] = useState("");
+  const [createDoctorSearchOpen, setCreateDoctorSearchOpen] = useState(false);
+  const [createDiagnosis, setCreateDiagnosis] = useState("");
+  const [createNotes, setCreateNotes] = useState("");
+  const [createItems, setCreateItems] = useState<EditRxItem[]>([]);
+  const [createMedicineQuery, setCreateMedicineQuery] = useState("");
+  const [showCreateMedicineSearch, setShowCreateMedicineSearch] = useState(false);
+
+  const createPatientResults = useQuery({
+    queryKey: ["create-rx-patients", createPatientSearch],
+    queryFn: () => fetchPatients({ search: createPatientSearch, limit: 8 }),
+    enabled: createPatientSearch.trim().length >= 1 && !createPatient,
+  });
+
+  const createMedicineResults = useQuery({
+    queryKey: ["medicines", "search", "rx-create", createMedicineQuery],
+    queryFn: () => fetchMedicines({ search: createMedicineQuery, limit: 20 }),
+    enabled: createMedicineQuery.trim().length >= 2,
+  });
+  const createMedicines = createMedicineResults.data?.data ?? [];
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createPrescription({
+        patientId: createPatient!.id,
+        doctorId: createDoctorId,
+        diagnosis: createDiagnosis || undefined,
+        notes: createNotes || undefined,
+        items: createItems.map((item) => ({
+          medicineId: item.medicineId,
+          medicineName: item.medicineName,
+          dosage: item.dosage,
+          duration: item.duration || undefined,
+          instructions: item.instructions || undefined,
+          quantity: item.quantity,
+        })),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
+      setCreateSheetOpen(false);
+      resetCreateForm();
+      toast.success("Prescription created successfully");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  function resetCreateForm() {
+    setCreatePatient(null);
+    setCreatePatientSearch("");
+    // For doctors, always use their own ID so they don't have to search for themselves
+    setCreateDoctorId(isDoctor ? (user?.userableId ?? "") : "");
+    setCreateDoctorQuery("");
+    setCreateDiagnosis("");
+    setCreateNotes("");
+    setCreateItems([]);
+    setCreateMedicineQuery("");
+    setShowCreateMedicineSearch(false);
+  }
+
+  function addMedicineToCreate(med: Medicine) {
+    setCreateItems((prev) => [
+      ...prev,
+      {
+        tempId: crypto.randomUUID(),
+        medicineId: med.id,
+        medicineName: [med.brandName ?? med.name, med.strength].filter(Boolean).join(" "),
+        dosage: "1-0-1",
+        duration: "7 days",
+        instructions: "",
+        quantity: 1,
+      },
+    ]);
+    setCreateMedicineQuery("");
+    setShowCreateMedicineSearch(false);
+  }
+
+  function updateCreateItem(tempId: string, patch: Partial<EditRxItem>) {
+    setCreateItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, ...patch } : i)));
+  }
+
   // ── Edit prescription ──
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editingRx, setEditingRx] = useState<Prescription | null>(null);
@@ -231,19 +327,19 @@ export function PrescriptionsPage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  // ── Print prescription (generate PDF first) ──
-  const printAreaRef = useRef<HTMLDivElement>(null);
-  const [printRx, setPrintRx] = useState<Prescription | null>(null);
+  // ── PDF Preview and Export Word ──
+  const pdfPreviewRef = useRef<HTMLDivElement>(null);
+  const [pdfPreviewRx, setPdfPreviewRx] = useState<Prescription | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
-  async function openPrint(rx: Prescription) {
-    setPrintRx(rx);
+  async function downloadPdfFromPreview() {
+    const rx = pdfPreviewRx;
+    if (!rx) return;
+    const element = pdfPreviewRef.current;
+    if (!element) return;
     setGeneratingPdf(true);
-    // Wait for React to render the print area
-    await new Promise((r) => setTimeout(r, 100));
-    const element = printAreaRef.current;
-    if (!element) { setGeneratingPdf(false); return; }
     try {
+      await new Promise((r) => setTimeout(r, 50));
       const html2pdf = (await import('html2pdf.js')).default;
       const blob = await html2pdf().set({
         margin: [0.5, 0.5, 0.5, 0.5],
@@ -253,16 +349,156 @@ export function PrescriptionsPage() {
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
       }).from(element).outputPdf('blob');
       const url = URL.createObjectURL(blob);
-      const pdfWindow = window.open(url, '_blank');
-      // Revoke blob URL after the window has loaded
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `prescription-${rx.patient?.name?.replace(/\s+/g, '-') ?? rx.id}.pdf`;
+      a.click();
       setTimeout(() => { URL.revokeObjectURL(url); }, 10_000);
+      toast.success('PDF downloaded successfully');
     } catch (err) {
       console.error('PDF generation failed', err);
-      // Fallback: use browser print
-      window.print();
+      toast.error('Failed to generate PDF');
     } finally {
       setGeneratingPdf(false);
-      setPrintRx(null);
+    }
+  }
+
+  function buildPrescriptionHtml(rx: Prescription): string {
+    const rxDate = new Date(rx.createdAt);
+    const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+    const orgName = organisation?.name ?? 'CLINIC';
+    const orgInfo = [organisation?.address, organisation?.phone].filter(Boolean).join(' | ') || 'Healthcare Centre';
+    const rxId = rx.id.slice(0, 8).toUpperCase();
+    const patientName = rx.patient?.name ?? '';
+    const patientPhone = rx.patient?.phone ?? '';
+    const patientEmail = rx.patient?.email ?? '';
+    const doctorName = rx.doctor?.name ?? rx.doctor?.medicalRegistrationNo ?? '';
+    const doctorQual = rx.doctor?.qualification ?? '';
+    const doctorSpec = rx.doctor?.specialization ?? '';
+    const orgEmail = organisation?.email ?? '';
+
+    const medicineRows = rx.items.map((item, idx) => `
+      <tr>
+        <td style="border:1px solid #ddd;padding:6px 8px;text-align:center;font-size:11px;color:#666;">${idx + 1}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;font-weight:bold;font-size:12px;">${item.medicineName}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;font-size:12px;">${item.dosage}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;font-size:12px;">${item.duration || '—'}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;text-align:center;font-size:12px;">${item.quantity}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;font-size:11px;color:#555;">${item.instructions || '—'}</td>
+      </tr>`).join('');
+
+    const diagnosisSection = rx.diagnosis
+      ? `<div style="margin-bottom:16px;">
+           <div style="font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;font-size:11px;letter-spacing:1px;padding-bottom:4px;">DIAGNOSIS</div>
+           <p style="margin:0;font-size:13px;">${rx.diagnosis}</p>
+         </div>`
+      : '';
+
+    const notesSection = rx.notes
+      ? `<div style="margin-bottom:16px;">
+           <div style="font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;font-size:11px;letter-spacing:1px;padding-bottom:4px;">NOTES</div>
+           <p style="margin:0;font-size:12px;">${rx.notes}</p>
+         </div>`
+      : '';
+
+    return `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>Medical Prescription</title>
+<!--[if gte mso 9]>
+<xml>
+  <w:WordDocument>
+    <w:View>Print</w:View>
+  </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 20px; }
+  table { border-collapse: collapse; }
+  @page { size: A4; margin: 1cm; }
+</style>
+</head>
+<body>
+<div style="border:2px solid #1e3a5f;max-width:800px;margin:0 auto;">
+  <div style="background:#1e3a5f;color:#fff;padding:18px 24px;text-align:center;">
+    <h1 style="margin:0;font-size:22px;font-weight:bold;letter-spacing:1px;">${orgName}</h1>
+    <p style="margin:4px 0 0;font-size:11px;opacity:0.85;">${orgInfo}</p>
+  </div>
+  <div style="background:#e8edf3;padding:10px 24px;text-align:center;border-bottom:1px solid #1e3a5f;">
+    <h2 style="margin:0;font-size:16px;font-weight:bold;color:#1e3a5f;letter-spacing:2px;">MEDICAL PRESCRIPTION</h2>
+  </div>
+  <div style="padding:20px 24px;">
+    <div style="margin-bottom:14px;font-size:11px;color:#666;">
+      Rx No: <span style="font-family:monospace;font-weight:bold;">${rxId}</span> | Date: ${formattedDate}
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px;">
+      <tr>
+        <td style="width:50%;vertical-align:top;padding-right:12px;">
+          <div style="font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;padding-bottom:4px;font-size:11px;letter-spacing:1px;">PATIENT DETAILS</div>
+          <div style="font-weight:bold;font-size:13px;margin-bottom:3px;">${patientName}</div>
+          <div style="font-size:12px;color:#444;margin-bottom:2px;">Phone: ${patientPhone}</div>
+          ${patientEmail ? `<div style="font-size:12px;color:#444;">Email: ${patientEmail}</div>` : ''}
+        </td>
+        <td style="width:50%;vertical-align:top;padding-left:12px;">
+          <div style="font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;padding-bottom:4px;font-size:11px;letter-spacing:1px;">PRESCRIBED BY</div>
+          <div style="font-weight:bold;font-size:13px;margin-bottom:3px;">Dr. ${doctorName}</div>
+          ${doctorQual ? `<div style="font-size:12px;color:#444;margin-bottom:2px;">${doctorQual}</div>` : ''}
+          ${doctorSpec ? `<div style="font-size:12px;color:#444;">${doctorSpec}</div>` : ''}
+        </td>
+      </tr>
+    </table>
+    ${diagnosisSection}
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;">
+      <thead>
+        <tr style="background:#f0f2f5;">
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;">#</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:30%;">MEDICINE</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:15%;">DOSAGE</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:15%;">DURATION</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:10%;">QTY</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;">INSTRUCTIONS</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${medicineRows}
+      </tbody>
+    </table>
+    ${notesSection}
+    <div style="margin-top:40px;display:flex;justify-content:flex-end;">
+      <div style="text-align:center;">
+        <div style="width:180px;border-top:1px solid #000;margin-bottom:4px;padding-top:6px;">
+          <span style="font-size:12px;font-weight:bold;">Dr. ${doctorName}</span>
+        </div>
+        <div style="font-size:11px;color:#666;">Doctor's Signature & Stamp</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding:8px 12px;background:#f8f9fa;border:1px solid #ddd;font-size:9px;color:#888;line-height:1.4;">
+      This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
+    </div>
+  </div>
+  <div style="background:#f0f2f5;padding:8px 24px;text-align:center;font-size:10px;color:#666;border-top:1px solid #ddd;">
+    Computer-generated prescription | Generated on ${new Date().toLocaleString('en-IN')} | ${orgEmail ? `Email: ${orgEmail}` : ''}
+  </div>
+</div>
+</body>
+</html>`;
+  }
+
+  function exportWord(rx: Prescription) {
+    try {
+      const html = buildPrescriptionHtml(rx);
+      const blob = new Blob([html], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `prescription-${rx.patient?.name?.replace(/\s+/g, '-') ?? rx.id}.doc`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      toast.success('Word file downloaded successfully');
+    } catch (err) {
+      console.error('Word export failed', err);
+      toast.error('Failed to export Word file');
     }
   }
 
@@ -327,19 +563,43 @@ export function PrescriptionsPage() {
       cell: ({ row }) => {
         const rx = row.original;
         return (
-          <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" className="size-8" title="Print prescription" aria-label="Print prescription" disabled={generatingPdf} onClick={() => openPrint(rx)}>
-              <Printer className={cn("size-4", generatingPdf && "animate-pulse")} />
-            </Button>
-            <Button variant="ghost" size="icon" className="size-8" title="Edit prescription" aria-label="Edit prescription" onClick={() => openEdit(rx)}>
-              <Pencil className="size-4" />
-            </Button>
-            {rx.patient && (
-              <Button variant="ghost" size="sm" onClick={() => openInvoices(rx.patientId, rx.patient.name)}>
-                <Receipt className="mr-1.5 size-3.5" />
-                Invoices
-              </Button>
-            )}
+          <div className="flex justify-end">
+            <Select onValueChange={(value) => {
+              if (value === "pdf-preview") setPdfPreviewRx(rx);
+              else if (value === "export-word") exportWord(rx);
+              else if (value === "edit") openEdit(rx);
+              else if (value === "invoices" && rx.patient) openInvoices(rx.patientId, rx.patient.name);
+            }}>
+              <SelectTrigger className="h-8 w-32 text-xs">
+                <SelectValue placeholder="Actions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pdf-preview">
+                  <FileText className="mr-2 size-3.5" />
+                  PDF Preview
+                </SelectItem>
+                <SelectItem value="export-word">
+                  <FileDown className="mr-2 size-3.5" />
+                  Export Word
+                </SelectItem>
+                {rx.status === "ACTIVE" ? (
+                  <SelectItem value="edit">
+                    <Pencil className="mr-2 size-3.5" />
+                    Edit
+                  </SelectItem>
+                ) : (
+                  <SelectItem value="pdf-preview">
+                    <Eye className="mr-2 size-3.5" />
+                    View
+                  </SelectItem>
+                )}
+                {rx.patient && (
+                  <SelectItem value="invoices">
+                    Invoices
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
         );
       },
@@ -348,9 +608,14 @@ export function PrescriptionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Prescriptions</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Consultation diagnoses and prescribed medicines</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Prescriptions</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Consultation diagnoses and prescribed medicines</p>
+        </div>
+        <Button onClick={() => { resetCreateForm(); setCreateSheetOpen(true); }}>
+          <Plus className="mr-2 size-4" />Create Prescription
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -456,6 +721,188 @@ export function PrescriptionsPage() {
           />
         </CardContent>
       </Card>
+
+      {/* ── Create prescription ── */}
+      <Sheet open={createSheetOpen} onOpenChange={(open) => { if (!open) { setCreateSheetOpen(false); resetCreateForm(); } }}>
+        <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Create Prescription</SheetTitle>
+            <SheetDescription>Search patient, select doctor, add diagnosis and medicines.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4 pb-4">
+            {/* Patient */}
+            <Field>
+              <FieldLabel>Patient *</FieldLabel>
+              {createPatient ? (
+                <div className="flex items-center justify-between rounded-none border px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium">{createPatient.name}</p>
+                    <p className="text-xs text-muted-foreground">{createPatient.phone}</p>
+                  </div>
+                  <Button variant="ghost" size="icon-sm" onClick={() => { setCreatePatient(null); setCreatePatientSearch(""); }}><X className="size-4" /></Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Search patient by name or phone..." className="pl-9" value={createPatientSearch} onChange={(e) => setCreatePatientSearch(e.target.value)} />
+                  {createPatientSearch.trim().length >= 1 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
+                      {createPatientResults.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>}
+                      {!createPatientResults.isLoading && (createPatientResults.data?.data ?? []).length === 0 && (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">No patients found</p>
+                      )}
+                      {(createPatientResults.data?.data ?? []).map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                          onClick={() => { setCreatePatient({ id: p.id, name: p.name, phone: p.phone }); setCreatePatientSearch(""); }}
+                        >
+                          <span className="font-medium">{p.name}</span>
+                          <span className="text-xs text-muted-foreground">{p.phone}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Field>
+
+            {/* Doctor — auto-populated for doctors, shown as a read-only field */}
+            <Field>
+              <FieldLabel>Doctor *</FieldLabel>
+              {isDoctor ? (
+                <div className="flex items-center rounded-none border px-3 py-2 bg-muted/30">
+                  <span className="text-sm font-medium text-muted-foreground">You (auto-assigned)</span>
+                </div>
+              ) : createDoctorId ? (
+                <div className="flex items-center justify-between rounded-none border px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{doctors.find((d) => d.id === createDoctorId)?.name ?? doctors.find((d) => d.id === createDoctorId)?.medicalRegistrationNo ?? 'Doctor'}</span>
+                  </div>
+                  <Button variant="ghost" size="icon-sm" onClick={() => setCreateDoctorId("")}><X className="size-4" /></Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search doctor by name or specialization..."
+                    className="pl-9"
+                    value={createDoctorQuery}
+                    onChange={(e) => { setCreateDoctorQuery(e.target.value); setCreateDoctorSearchOpen(true); }}
+                    onFocus={() => setCreateDoctorSearchOpen(true)}
+                    onBlur={() => setTimeout(() => setCreateDoctorSearchOpen(false), 200)}
+                  />
+                  {createDoctorSearchOpen && (
+                    <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
+                      {doctors
+                        .filter((d) =>
+                          !createDoctorQuery.trim() ||
+                          (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(createDoctorQuery.trim().toLowerCase()) ||
+                          (d.specialization ?? "").toLowerCase().includes(createDoctorQuery.trim().toLowerCase())
+                        )
+                        .length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">No doctors found</p>
+                      ) : (
+                        doctors
+                          .filter((d) =>
+                            !createDoctorQuery.trim() ||
+                            (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(createDoctorQuery.trim().toLowerCase()) ||
+                            (d.specialization ?? "").toLowerCase().includes(createDoctorQuery.trim().toLowerCase())
+                          )
+                          .map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                              onMouseDown={() => { setCreateDoctorId(d.id); setCreateDoctorSearchOpen(false); setCreateDoctorQuery(""); }}
+                            >
+                              <span className="font-medium">{d.name ?? d.medicalRegistrationNo}</span>
+                              {d.specialization && <span className="text-xs text-muted-foreground">{d.specialization}</span>}
+                            </button>
+                          ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Field>
+
+            {/* Diagnosis */}
+            <Field><FieldLabel htmlFor="create-diagnosis">Diagnosis</FieldLabel>
+              <Input id="create-diagnosis" value={createDiagnosis} onChange={(e) => setCreateDiagnosis(e.target.value)} placeholder="e.g. Hypertension, Diabetes..." />
+            </Field>
+
+            {/* Medicines */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <FieldLabel>Medicines</FieldLabel>
+                <Button variant="outline" size="sm" onClick={() => setShowCreateMedicineSearch(true)}>
+                  <Pill className="mr-1 size-3" />Add
+                </Button>
+              </div>
+              {showCreateMedicineSearch && (
+                <div className="rounded-none border p-2 space-y-2">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input placeholder="Search medicine..." className="pl-9 h-8 text-xs" autoFocus value={createMedicineQuery} onChange={(e) => setCreateMedicineQuery(e.target.value)} />
+                  </div>
+                  {createMedicineQuery.trim().length >= 2 && (
+                    <div className="max-h-40 overflow-y-auto rounded-none border bg-popover">
+                      {createMedicines.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">No medicines found</p>
+                      ) : (
+                        createMedicines.map((med) => (
+                          <button key={med.id} type="button" className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-muted"
+                            onClick={() => addMedicineToCreate(med)}>
+                            <span><span className="font-medium">{med.brandName}</span> {med.strength && <span className="text-muted-foreground">{med.strength}</span>}</span>
+                            <Plus className="size-3 text-muted-foreground" />
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setShowCreateMedicineSearch(false); setCreateMedicineQuery(""); }}>Cancel</Button>
+                </div>
+              )}
+              {createItems.length === 0 ? (
+                <p className="py-2 text-center text-xs text-muted-foreground">No medicines added</p>
+              ) : (
+                createItems.map((item) => (
+                  <div key={item.tempId} className="space-y-1.5 rounded-none border px-2 py-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-medium truncate">{item.medicineName}</p>
+                      <Button variant="ghost" size="icon" className="size-5 shrink-0" title="Remove item" onClick={() => setCreateItems((p) => p.filter((i) => i.tempId !== item.tempId))}>
+                        <X className="size-3 text-destructive" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <Input className="h-7 text-[11px]" placeholder="Dosage" value={item.dosage} onChange={(e) => updateCreateItem(item.tempId, { dosage: e.target.value })} />
+                      <Input className="h-7 text-[11px]" placeholder="Duration" value={item.duration} onChange={(e) => updateCreateItem(item.tempId, { duration: e.target.value })} />
+                      <Input className="h-7 text-[11px]" type="number" min={1} placeholder="Qty" value={item.quantity} onChange={(e) => updateCreateItem(item.tempId, { quantity: Number(e.target.value) || 1 })} />
+                    </div>
+                    <Input className="h-7 text-[11px]" placeholder="Instructions (optional)" value={item.instructions} onChange={(e) => updateCreateItem(item.tempId, { instructions: e.target.value })} />
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Notes */}
+            <Field><FieldLabel htmlFor="create-notes">Notes</FieldLabel>
+              <Input id="create-notes" placeholder="Optional" value={createNotes} onChange={(e) => setCreateNotes(e.target.value)} />
+            </Field>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => { setCreateSheetOpen(false); resetCreateForm(); }}>Cancel</Button>
+            <Button
+              disabled={!createPatient || !createDoctorId || createItems.length === 0 || createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            >
+              {createMutation.isPending ? "Creating..." : "Create Prescription"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* ── Edit prescription ── */}
       <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
@@ -619,127 +1066,137 @@ export function PrescriptionsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Official Prescription for PDF generation ── */}
-      <div ref={printAreaRef} className="fixed left-[-9999px] top-0 bg-white text-black" style={{ zIndex: -1 }}>
-        {printRx && (() => {
-          const rxDate = new Date(printRx.createdAt);
-          const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
-          return (
-            <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', padding: '0', margin: '0', color: '#000' }}>
-              {/* Outer border frame */}
-              <div style={{ border: '2px solid #1e3a5f', margin: '20px' }}>
-                {/* ── HEADER ── */}
-                <div style={{ background: '#1e3a5f', color: '#fff', padding: '18px 24px', textAlign: 'center' }}>
-                  <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', letterSpacing: '1px' }}>
-                    {organisation?.name ?? "CLINIC"}
-                  </h1>
-                  <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.85 }}>
-                    {[organisation?.address, organisation?.phone].filter(Boolean).join(' | ') || 'Healthcare Centre'}
-                  </p>
-                </div>
+      {/* ── PDF Preview Dialog ── */}
+      <Dialog open={!!pdfPreviewRx} onOpenChange={(open) => { if (!open) setPdfPreviewRx(null); }}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Prescription Preview</DialogTitle>
+          </DialogHeader>
 
-                {/* ── TITLE BAR ── */}
-                <div style={{ background: '#e8edf3', padding: '10px 24px', textAlign: 'center', borderBottom: '1px solid #1e3a5f' }}>
-                  <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#1e3a5f', letterSpacing: '2px' }}>
-                    MEDICAL PRESCRIPTION
-                  </h2>
-                </div>
-
-                {/* ── BODY ── */}
-                <div style={{ padding: '20px 24px' }}>
-                  {/* Reference */}
-                  <div style={{ marginBottom: '14px', fontSize: '11px', color: '#666' }}>
-                    Rx No: <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{printRx.id.slice(0, 8).toUpperCase()}</span>
-                    {' | '}Date: {formattedDate}
+          <div ref={pdfPreviewRef} className="bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
+            {pdfPreviewRx && (() => {
+              const rxDate = new Date(pdfPreviewRx.createdAt);
+              const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+              return (
+                <>
+                  {/* Header */}
+                  <div className="bg-[#1e3a5f] text-white py-4 px-6 text-center rounded-t">
+                    <h1 className="text-xl font-bold tracking-wide m-0">{organisation?.name ?? "CLINIC"}</h1>
+                    <p className="text-[11px] opacity-85 mt-1 m-0">
+                      {[organisation?.address, organisation?.phone].filter(Boolean).join(" | ") || "Healthcare Centre"}
+                    </p>
                   </div>
 
-                  {/* Patient & Doctor info in two columns */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '13px' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ width: '50%', verticalAlign: 'top', paddingRight: '12px' }}>
-                          <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', paddingBottom: '4px', fontSize: '11px', letterSpacing: '1px' }}>PATIENT DETAILS</div>
-                          <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '3px' }}>{printRx.patient?.name}</div>
-                          <div style={{ fontSize: '12px', color: '#444', marginBottom: '2px' }}>Phone: {printRx.patient?.phone}</div>
-                          {printRx.patient?.email && <div style={{ fontSize: '12px', color: '#444' }}>Email: {printRx.patient.email}</div>}
-                        </td>
-                        <td style={{ width: '50%', verticalAlign: 'top', paddingLeft: '12px' }}>
-                          <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', paddingBottom: '4px', fontSize: '11px', letterSpacing: '1px' }}>PRESCRIBED BY</div>
-                          <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '3px' }}>Dr. {printRx.doctor?.name ?? printRx.doctor?.medicalRegistrationNo}</div>
-                          {printRx.doctor?.qualification && <div style={{ fontSize: '12px', color: '#444', marginBottom: '2px' }}>{printRx.doctor.qualification}</div>}
-                          {printRx.doctor?.specialization && <div style={{ fontSize: '12px', color: '#444' }}>{printRx.doctor.specialization}</div>}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  {/* Title */}
+                  <div className="bg-[#e8edf3] py-2.5 px-6 text-center border-b border-[#1e3a5f]">
+                    <h2 className="m-0 text-sm font-bold text-[#1e3a5f] tracking-[2px]">MEDICAL PRESCRIPTION</h2>
+                  </div>
 
-                  {/* Diagnosis */}
-                  {printRx.diagnosis && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', fontSize: '11px', letterSpacing: '1px', paddingBottom: '4px' }}>DIAGNOSIS</div>
-                      <p style={{ margin: 0, fontSize: '13px' }}>{printRx.diagnosis}</p>
+                  {/* Body */}
+                  <div className="py-5 px-6">
+                    {/* Reference */}
+                    <div className="mb-3.5 text-[11px] text-gray-500">
+                      Rx No: <span className="font-mono font-bold">{pdfPreviewRx.id.slice(0, 8).toUpperCase()}</span>
+                      {" | "}Date: {formattedDate}
                     </div>
-                  )}
 
-                  {/* Medicines Table */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '12px' }}>
-                    <thead>
-                      <tr style={{ background: '#f0f2f5' }}>
-                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px' }}>#</th>
-                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px', width: '30%' }}>MEDICINE</th>
-                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px', width: '15%' }}>DOSAGE</th>
-                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px', width: '15%' }}>DURATION</th>
-                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px', width: '10%' }}>QTY</th>
-                        <th style={{ border: '1px solid #ccc', padding: '7px 8px', textAlign: 'left', fontWeight: 'bold', color: '#1e3a5f', fontSize: '11px', letterSpacing: '0.5px' }}>INSTRUCTIONS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {printRx.items.map((item, idx) => (
-                        <tr key={item.id}>
-                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', textAlign: 'center', fontSize: '11px', color: '#666' }}>{idx + 1}</td>
-                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', fontWeight: 'bold', fontSize: '12px' }}>{item.medicineName}</td>
-                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', fontSize: '12px' }}>{item.dosage}</td>
-                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', fontSize: '12px' }}>{item.duration || '—'}</td>
-                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', textAlign: 'center', fontSize: '12px' }}>{item.quantity}</td>
-                          <td style={{ border: '1px solid #ddd', padding: '6px 8px', fontSize: '11px', color: '#555' }}>{item.instructions || '—'}</td>
+                    {/* Patient & Doctor info */}
+                    <table className="w-full border-collapse mb-4 text-[13px]">
+                      <tbody>
+                        <tr>
+                          <td className="w-1/2 align-top pr-3">
+                            <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PATIENT DETAILS</div>
+                            <div className="font-bold text-[13px] mb-0.5">{pdfPreviewRx.patient?.name}</div>
+                            <div className="text-xs text-gray-600 mb-0.5">Phone: {pdfPreviewRx.patient?.phone}</div>
+                            {pdfPreviewRx.patient?.email && <div className="text-xs text-gray-600">Email: {pdfPreviewRx.patient.email}</div>}
+                          </td>
+                          <td className="w-1/2 align-top pl-3">
+                            <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PRESCRIBED BY</div>
+                            <div className="font-bold text-[13px] mb-0.5">Dr. {pdfPreviewRx.doctor?.name ?? pdfPreviewRx.doctor?.medicalRegistrationNo}</div>
+                            {pdfPreviewRx.doctor?.qualification && <div className="text-xs text-gray-600 mb-0.5">{pdfPreviewRx.doctor.qualification}</div>}
+                            {pdfPreviewRx.doctor?.specialization && <div className="text-xs text-gray-600">{pdfPreviewRx.doctor.specialization}</div>}
+                          </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
 
-                  {/* Notes */}
-                  {printRx.notes && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', fontSize: '11px', letterSpacing: '1px', paddingBottom: '4px' }}>NOTES</div>
-                      <p style={{ margin: 0, fontSize: '12px' }}>{printRx.notes}</p>
-                    </div>
-                  )}
-
-                  {/* Doctor's Signature */}
-                  <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'flex-end' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ width: '180px', borderTop: '1px solid #000', marginBottom: '4px', paddingTop: '6px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Dr. {printRx.doctor?.name ?? printRx.doctor?.medicalRegistrationNo}</span>
+                    {/* Diagnosis */}
+                    {pdfPreviewRx.diagnosis && (
+                      <div className="mb-4">
+                        <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">DIAGNOSIS</div>
+                        <p className="m-0 text-[13px]">{pdfPreviewRx.diagnosis}</p>
                       </div>
-                      <div style={{ fontSize: '11px', color: '#666' }}>Doctor's Signature & Stamp</div>
+                    )}
+
+                    {/* Medicines Table */}
+                    <table className="w-full border-collapse mb-4 text-xs">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px]">#</th>
+                          <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[30%]">MEDICINE</th>
+                          <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[15%]">DOSAGE</th>
+                          <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[15%]">DURATION</th>
+                          <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[10%]">QTY</th>
+                          <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px]">INSTRUCTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pdfPreviewRx.items.map((item, idx) => (
+                          <tr key={item.id}>
+                            <td className="border border-gray-200 p-1.5 text-center text-[11px] text-gray-500">{idx + 1}</td>
+                            <td className="border border-gray-200 p-1.5 font-bold text-xs">{item.medicineName}</td>
+                            <td className="border border-gray-200 p-1.5 text-xs">{item.dosage}</td>
+                            <td className="border border-gray-200 p-1.5 text-xs">{item.duration || '—'}</td>
+                            <td className="border border-gray-200 p-1.5 text-center text-xs">{item.quantity}</td>
+                            <td className="border border-gray-200 p-1.5 text-[11px] text-gray-600">{item.instructions || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* Notes */}
+                    {pdfPreviewRx.notes && (
+                      <div className="mb-4">
+                        <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">NOTES</div>
+                        <p className="m-0 text-xs">{pdfPreviewRx.notes}</p>
+                      </div>
+                    )}
+
+                    {/* Signature */}
+                    <div className="flex justify-end mt-10">
+                      <div className="text-center">
+                        <div className="w-44 border-t border-black mb-1 pt-1.5">
+                          <span className="text-xs font-bold">Dr. {pdfPreviewRx.doctor?.name ?? pdfPreviewRx.doctor?.medicalRegistrationNo}</span>
+                        </div>
+                        <div className="text-[11px] text-gray-600">Doctor's Signature & Stamp</div>
+                      </div>
+                    </div>
+
+                    {/* Disclaimer */}
+                    <div className="mt-4 p-2 bg-gray-50 border border-gray-200 text-[9px] text-gray-500 leading-relaxed">
+                      This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
                     </div>
                   </div>
 
-                  {/* Disclaimer */}
-                  <div style={{ marginTop: '16px', padding: '8px 12px', background: '#f8f9fa', border: '1px solid #ddd', fontSize: '9px', color: '#888', lineHeight: '1.4' }}>
-                    This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
+                  {/* Footer */}
+                  <div className="bg-gray-100 py-2 px-6 text-center text-[10px] text-gray-500 border-t border-gray-200 rounded-b">
+                    Computer-generated prescription | Generated on {new Date().toLocaleString('en-IN')} | {organisation?.email ? `Email: ${organisation.email}` : ''}
                   </div>
-                </div>
+                </>
+              );
+            })()}
+          </div>
 
-                {/* ── FOOTER ── */}
-                <div style={{ background: '#f0f2f5', padding: '8px 24px', textAlign: 'center', fontSize: '10px', color: '#666', borderTop: '1px solid #ddd' }}>
-                  Computer-generated prescription | Generated on {new Date().toLocaleString('en-IN')} | {organisation?.email ? `Email: ${organisation.email}` : ''}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPdfPreviewRx(null)}>Close</Button>
+            <Button disabled={generatingPdf} onClick={downloadPdfFromPreview}>
+              {generatingPdf ? "Generating…" : "Download PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
       <PatientFormSheet
         open={!!editPatientId}

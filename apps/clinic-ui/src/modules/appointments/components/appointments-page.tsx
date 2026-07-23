@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useLocation } from "@tanstack/react-router";
+import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { AlertTriangle, CalendarClock, ClipboardList, Eye, FileText, Plus, Printer, Receipt, Search, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, ClipboardList, Eye, FileText, Plus, Printer, Search, X } from "lucide-react";
 import {
   fetchAppointments,
   updateAppointmentStatus,
   rescheduleAppointment,
   checkoutAppointment,
+  fetchAppointmentInvoicePreview,
   fetchDoctors,
   fetchDoctorSlots,
   fetchUsers,
@@ -17,6 +18,7 @@ import {
   fetchPrescriptions,
   type Appointment,
   type AppointmentStatus,
+  type BillItemInput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -26,9 +28,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
-import {
-  Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DataTable } from "@/components/data-table/data-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,7 +37,7 @@ import { QueuePage } from "@/modules/queue";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
 import { ChevronDown, History } from "lucide-react";
 
-const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CHECKED_IN", "CANCELLED", "RESCHEDULED", "NO_SHOW"];
+const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "CANCELLED", "RESCHEDULED", "NO_SHOW"];
 
 const APPT_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -85,17 +86,13 @@ export function AppointmentsPage() {
   const isReceptionist = location.pathname.startsWith('/receptionist');
   const [filterDoctor, setFilterDoctor] = useState("");
   const [filterDate, setFilterDate] = useState(todayStr());
-  // Appointments always stay visible in this list regardless of status
-  // (booking never removes them) — default to no status filter so
-  // checked-in ("In-Queue") appointments don't silently disappear.
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCreator, setFilterCreator] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 100 });
   const [statusConfirm, setStatusConfirm] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-  const [printAppt, setPrintAppt] = useState<Appointment | null>(null);
   const [activeTab, setActiveTab] = useState<"appointments" | "queue">("appointments");
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -103,6 +100,33 @@ export function AppointmentsPage() {
   const [rescheduleDoctorId, setRescheduleDoctorId] = useState("");
   const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
   const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
+
+  // ── Invoice preview ──
+  const [invoicePreviewAppt, setInvoicePreviewAppt] = useState<Appointment | null>(null);
+  const [invoiceDiscount, setInvoiceDiscount] = useState(0);
+  const [invoiceTax, setInvoiceTax] = useState(0);
+  const [invoicePaymentMethod, setInvoicePaymentMethod] = useState("CASH");
+
+  const { data: invoicePreviewData, isLoading: invoicePreviewLoading } = useQuery({
+    queryKey: ["appointment-invoice-preview", invoicePreviewAppt?.id],
+    queryFn: () => fetchAppointmentInvoicePreview(invoicePreviewAppt!.id),
+    enabled: !!invoicePreviewAppt,
+  });
+
+  const invoiceCheckoutMutation = useMutation({
+    mutationFn: () =>
+      checkoutAppointment(invoicePreviewAppt!.id, {
+        discount: invoiceDiscount,
+        tax: invoiceTax,
+        paymentMethod: invoicePaymentMethod as "CASH" | "CARD" | "UPI",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      setInvoicePreviewAppt(null);
+      toast.success("Invoice generated successfully");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
 
   // ── Prescription creation ──
   const [rxSheetOpen, setRxSheetOpen] = useState(false);
@@ -112,34 +136,51 @@ export function AppointmentsPage() {
   const [rxShowDocs, setRxShowDocs] = useState(false);
   const [rxShowHistory, setRxShowHistory] = useState(false);
 
-  const printAreaRef = useRef<HTMLDivElement>(null);
+  // ── Print preview ──
+  const [printAppt, setPrintAppt] = useState<Appointment | null>(null);
+  const printPreviewRef = useRef<HTMLDivElement>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
-  async function openPrint(appt: Appointment) {
-    setPrintAppt(appt);
+  async function downloadPrintPdf() {
+    const element = printPreviewRef.current;
+    if (!element || !printAppt) return;
     setGeneratingPdf(true);
-    await new Promise((r) => setTimeout(r, 100));
-    const element = printAreaRef.current;
-    if (!element) { setGeneratingPdf(false); return; }
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const blob = await html2pdf().set({
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `appointment-${appt.patient?.name?.replace(/\s+/g, '-') ?? appt.id}.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, letterRendering: true, useCORS: true },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
-      }).from(element).outputPdf('blob');
+      const html2pdf = (await import("html2pdf.js")).default;
+      const blob = await html2pdf()
+        .set({
+          margin: [0.5, 0.5, 0.5, 0.5],
+          filename: `appointment-${printAppt.patient?.name?.replace(/\s+/g, "-") ?? printAppt.id}.pdf`,
+          image: { type: "jpeg", quality: 0.95 },
+          html2canvas: { scale: 2, letterRendering: true, useCORS: true },
+          jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+        })
+        .from(element)
+        .outputPdf("blob");
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      setTimeout(() => { URL.revokeObjectURL(url); }, 10_000);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `appointment-${printAppt.patient?.name?.replace(/\s+/g, "-") ?? printAppt.id}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (err) {
-      console.error('PDF generation failed', err);
-      window.print();
+      console.error("PDF generation failed", err);
+      toast.error("Failed to generate PDF");
     } finally {
       setGeneratingPdf(false);
-      setPrintAppt(null);
     }
+  }
+
+  function browserPrint() {
+    const el = printPreviewRef.current;
+    if (!el) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const html = "<!DOCTYPE html><html><head><title>Print</title><style>@media print{body{margin:0}}</style></head><body>" + el.outerHTML + "</body></html>";
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
   }
 
   const { data: doctorsResponse } = useQuery({
@@ -155,6 +196,27 @@ export function AppointmentsPage() {
   const users = useMemo(() => usersResponse?.data ?? [], [usersResponse]);
 
   const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation });
+
+  // ── Prescriptions lookup (for showing doctor notes on appointment rows) ──
+  const { data: prescriptionsResponse } = useQuery({
+    queryKey: ["prescriptions", "appt-notes-lookup"],
+    queryFn: () => fetchPrescriptions({ limit: 500 }),
+  });
+  const prescriptionNotesMap = useMemo(() => {
+    const map = new Map<string, { notes: string; date: string }>();
+    for (const rx of prescriptionsResponse?.data ?? []) {
+      if (!rx.notes) continue;
+      const key = `${rx.patientId}:${rx.doctorId}`;
+      const existing = map.get(key);
+      if (!existing || new Date(rx.createdAt) > new Date(existing.date)) {
+        map.set(key, { notes: rx.notes, date: rx.createdAt });
+      }
+    }
+    // Strip the date helper — only keep notes
+    const notesOnly = new Map<string, string>();
+    for (const [k, v] of map) notesOnly.set(k, v.notes);
+    return notesOnly;
+  }, [prescriptionsResponse]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -176,7 +238,6 @@ export function AppointmentsPage() {
       limit: pagination.pageSize,
     }),
     placeholderData: (previous) => previous,
-    refetchInterval: 15_000,
   });
   const appointments = useMemo(() => appointmentsResponse?.data ?? [], [appointmentsResponse]);
   const pageCount = appointmentsResponse?.meta?.totalPages ?? 0;
@@ -191,15 +252,6 @@ export function AppointmentsPage() {
   const followUpMutation = useMutation({
     mutationFn: ({ id, isFollowUp }: { id: string; isFollowUp: boolean }) => updatePatient(id, { isFollowUp }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["appointment-patients"] }); },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
-
-  const checkoutMutation = useMutation({
-    mutationFn: (id: string) => checkoutAppointment(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      toast.success("Invoice generated successfully");
-    },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
@@ -323,12 +375,21 @@ export function AppointmentsPage() {
     {
       id: "patient",
       header: "Patient",
-      cell: ({ row }) => (
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{row.original.patient?.name}</p>
-          <p className="text-xs text-muted-foreground">{row.original.patient?.phone}</p>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const appt = row.original;
+        const rxNotes = prescriptionNotesMap.get(`${appt.patientId}:${appt.doctorId}`);
+        return (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{appt.patient?.name}</p>
+            <p className="text-xs text-muted-foreground">{appt.patient?.phone}</p>
+            {rxNotes && (
+              <p className="mt-0.5 text-[11px] text-blue-600 dark:text-blue-400 line-clamp-2 italic" title={rxNotes}>
+                {rxNotes}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "status",
@@ -373,8 +434,8 @@ export function AppointmentsPage() {
             <Button variant="ghost" size="icon" className="size-8" title="View / Edit appointment" aria-label="View or edit appointment" onClick={() => navigate({ to: "/appointments/$appointmentId/edit", params: { appointmentId: appt.id } })}>
               <Eye className="size-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="size-8" title="Print acknowledgement slip" aria-label="Print acknowledgement slip" disabled={generatingPdf} onClick={() => openPrint(appt)}>
-              <Printer className={cn("size-4", generatingPdf && "animate-pulse")} />
+            <Button variant="ghost" size="icon" className="size-8" title="Preview appointment slip" aria-label="Preview appointment slip" onClick={() => setPrintAppt(appt)}>
+              <Printer className="size-4" />
             </Button>
             {appt.status === "COMPLETED" && (
               <>
@@ -402,17 +463,19 @@ export function AppointmentsPage() {
                     <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                       Unpaid
                     </Badge>
-                    <Button variant="ghost" size="icon" className="size-8" title="Generate invoice (direct)" aria-label="Generate invoice directly" onClick={() => checkoutMutation.mutate(appt.id)}>
+                    <Button variant="ghost" size="icon" className="size-8" title="Generate invoice" aria-label="Generate invoice" onClick={() => {
+                      setInvoicePreviewAppt(appt);
+                      setInvoiceDiscount(0);
+                      setInvoiceTax(0);
+                      setInvoicePaymentMethod("CASH");
+                    }}>
                       <FileText className="size-4 text-green-600" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="size-8" title="Generate invoice (POS)" aria-label="Generate invoice via POS checkout" onClick={() => navigate({ to: "/pos", search: { appointmentId: appt.id } })}>
-                      <Receipt className="size-4 text-primary" />
                     </Button>
                   </div>
                 )}
               </>
             )}
-            {statusConfirm === appt.id ? (
+            {appt.status === "COMPLETED" ? null : statusConfirm === appt.id ? (
               <div className="flex items-center gap-1">
                 <Input
                   autoFocus
@@ -463,6 +526,14 @@ export function AppointmentsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Appointment & Queue</h1>
         </div>
         <div className="flex items-center gap-2">
+          {!isReceptionist && (
+            <Button asChild>
+              <Link to="/appointments/new">
+                <Plus className="mr-2 size-4" />
+                Book Appointment
+              </Link>
+            </Button>
+          )}
           {pendingInvoiceAppointments.length > 0 && (
             <Button
               variant="outline"
@@ -473,7 +544,6 @@ export function AppointmentsPage() {
               {bulkCheckoutMutation.isPending ? "Generating..." : `Generate ${pendingInvoiceAppointments.length} invoice${pendingInvoiceAppointments.length === 1 ? "" : "s"}`}
             </Button>
           )}
-        <Button onClick={() => navigate({ to: isReceptionist ? '/receptionist/appointments/new' : '/appointments/new' })}><Plus className="mr-2 size-4" />New Appointment</Button>
           <div className="flex items-center gap-1.5">
             <Button variant={!search && !filterDate ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage("")}>All</Button>
             <Button variant={filterDate === todayStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(todayStr())}>Today</Button>
@@ -481,8 +551,6 @@ export function AppointmentsPage() {
             <Input
               type="date"
               className="w-auto"
-              title={search ? "Date filter is ignored while searching" : undefined}
-              disabled={!!search}
               value={filterDate}
               onChange={(e) => setFilterDateAndResetPage(e.target.value)}
             />
@@ -580,7 +648,7 @@ export function AppointmentsPage() {
           value={filterCreator}
           onChange={(e) => setFilterCreatorAndResetPage(e.target.value)}
         >
-          <option value="">All creators</option>
+          <option value="">All employees</option>
           {users.map((u) => (
             <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
           ))}
@@ -655,6 +723,139 @@ export function AppointmentsPage() {
               disabled={!rescheduleDate || !rescheduleDoctorId || !rescheduleTime || rescheduleMutation.isPending}
             >
               {rescheduleMutation.isPending ? "Rescheduling..." : "Reschedule"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Invoice Preview Sheet ── */}
+      <Sheet open={!!invoicePreviewAppt} onOpenChange={(open) => { if (!open) { setInvoicePreviewAppt(null); } }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Invoice Preview</SheetTitle>
+            <SheetDescription>
+              {invoicePreviewAppt ? `Review invoice for ${invoicePreviewAppt.patient?.name}` : ""}
+            </SheetDescription>
+          </SheetHeader>
+
+          {invoicePreviewLoading ? (
+            <div className="flex-1 px-4 pb-4">
+              <p className="text-sm text-muted-foreground">Loading preview...</p>
+            </div>
+          ) : invoicePreviewData ? (
+            <div className="flex-1 space-y-4 px-4 pb-4">
+              {/* Patient & Doctor info */}
+              <div className="rounded-none border bg-muted/20 p-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Patient</span>
+                  <span className="font-medium">{invoicePreviewAppt?.patient?.name ?? "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Doctor</span>
+                  <span className="font-medium">{invoicePreviewAppt?.doctor?.name ?? invoicePreviewAppt?.doctor?.medicalRegistrationNo ?? "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</span>
+                  <span className="font-medium">{invoicePreviewAppt ? new Date(invoicePreviewAppt.date).toLocaleDateString() : "—"}</span>
+                </div>
+              </div>
+
+              {/* Line items */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Line Items</p>
+                <div className="space-y-1.5">
+                  {invoicePreviewData.items.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-none border px-3 py-2 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{item.itemName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantity ?? 1} × {currency(item.unitPrice)}
+                        </p>
+                      </div>
+                      <span className="ml-3 shrink-0 font-medium">
+                        {currency((item.quantity ?? 1) * item.unitPrice)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-1.5 border-t pt-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">
+                    {currency(invoicePreviewData.items.reduce((sum, item) => sum + (item.quantity ?? 1) * item.unitPrice, 0))}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Discount</span>
+                  <span className="font-medium text-destructive">-{currency(invoiceDiscount)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span className="font-medium">+{currency(invoiceTax)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t pt-1.5 text-base font-semibold">
+                  <span>Total</span>
+                  <span>
+                    {currency(
+                      invoicePreviewData.items.reduce((sum, item) => sum + (item.quantity ?? 1) * item.unitPrice, 0) -
+                        invoiceDiscount +
+                        invoiceTax,
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Discount & Tax inputs */}
+              <div className="grid grid-cols-2 gap-3">
+                <Field>
+                  <FieldLabel htmlFor="inv-discount">Discount (₹)</FieldLabel>
+                  <Input
+                    id="inv-discount"
+                    type="number"
+                    min={0}
+                    value={invoiceDiscount}
+                    onChange={(e) => setInvoiceDiscount(Math.max(0, Number(e.target.value) || 0))}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="inv-tax">Tax (₹)</FieldLabel>
+                  <Input
+                    id="inv-tax"
+                    type="number"
+                    min={0}
+                    value={invoiceTax}
+                    onChange={(e) => setInvoiceTax(Math.max(0, Number(e.target.value) || 0))}
+                  />
+                </Field>
+              </div>
+
+              {/* Payment method */}
+              <Field>
+                <FieldLabel htmlFor="inv-payment">Payment Method</FieldLabel>
+                <select
+                  id="inv-payment"
+                  className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
+                  value={invoicePaymentMethod}
+                  onChange={(e) => setInvoicePaymentMethod(e.target.value)}
+                >
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Card</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </Field>
+            </div>
+          ) : null}
+
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setInvoicePreviewAppt(null)}>Cancel</Button>
+            <Button
+              onClick={() => invoiceCheckoutMutation.mutate()}
+              disabled={!invoicePreviewData || invoiceCheckoutMutation.isPending}
+            >
+              {invoiceCheckoutMutation.isPending ? "Generating..." : "Generate Invoice"}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -799,144 +1000,148 @@ export function AppointmentsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Official Appointment Slip for PDF generation ── */}
-      <div ref={printAreaRef} className="fixed left-[-9999px] top-0 bg-white text-black" style={{ zIndex: -1 }}>
-        {printAppt && (() => {
-          const aptDate = new Date(printAppt.date);
-          const formattedDate = aptDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
-          const formattedTime = aptDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-          const apptId = printAppt.id.slice(0, 8).toUpperCase();
-          const totalFee = printAppt.fee + (printAppt.registrationFee || 0);
-          return (
-            <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', padding: '0', margin: '0', color: '#000' }}>
-              {/* Outer border frame */}
-              <div style={{ border: '2px solid #1e3a5f', margin: '20px' }}>
-                {/* ── HEADER ── */}
-                <div style={{ background: '#1e3a5f', color: '#fff', padding: '18px 24px', textAlign: 'center' }}>
-                  <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', letterSpacing: '1px' }}>
-                    {organisation?.name ?? "CLINIC"}
-                  </h1>
-                  <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.85 }}>
-                    {[organisation?.address, organisation?.phone].filter(Boolean).join(' | ') || 'Healthcare Centre'}
-                  </p>
-                </div>
+      {/* ── Appointment Slip Preview Dialog ── */}
+      <Dialog open={!!printAppt} onOpenChange={(open) => { if (!open) setPrintAppt(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Appointment Slip Preview</DialogTitle>
+          </DialogHeader>
 
-                {/* ── TITLE BAR ── */}
-                <div style={{ background: '#e8edf3', padding: '10px 24px', textAlign: 'center', borderBottom: '1px solid #1e3a5f' }}>
-                  <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#1e3a5f', letterSpacing: '2px' }}>
-                    APPOINTMENT SLIP
-                  </h2>
-                </div>
-
-                {/* ── BODY ── */}
-                <div style={{ padding: '20px 24px' }}>
-                  {/* Token stamp */}
-                  {printAppt.tokenNumber && (
-                    <div style={{ float: 'right', border: '2px solid #1e3a5f', padding: '8px 14px', textAlign: 'center', marginLeft: '12px', marginBottom: '8px' }}>
-                      <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#1e3a5f', letterSpacing: '1px' }}>TOKEN</div>
-                      <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#1e3a5f' }}>#{printAppt.tokenNumber}</div>
-                    </div>
-                  )}
-
-                  {/* Reference number */}
-                  <div style={{ marginBottom: '14px', fontSize: '11px', color: '#666' }}>
-                    Slip No: <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{apptId}</span>
-                    {' | '}Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+          <div ref={printPreviewRef} className="bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
+            {printAppt && (() => {
+              const aptDate = new Date(printAppt.date);
+              const formattedDate = aptDate.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+              const formattedTime = aptDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+              const apptId = printAppt.id.slice(0, 8).toUpperCase();
+              const totalFee = printAppt.fee + (printAppt.registrationFee || 0);
+              return (
+                <>
+                  {/* Header */}
+                  <div className="bg-[#1e3a5f] text-white py-4 px-6 text-center rounded-t">
+                    <h1 className="text-xl font-bold tracking-wide m-0">{organisation?.name ?? "CLINIC"}</h1>
+                    <p className="text-[11px] opacity-85 mt-1 m-0">
+                      {[organisation?.address, organisation?.phone].filter(Boolean).join(" | ") || "Healthcare Centre"}
+                    </p>
                   </div>
 
-                  {/* Patient & Doctor info in two columns */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '13px' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ width: '50%', verticalAlign: 'top', paddingRight: '12px' }}>
-                          <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', paddingBottom: '4px', fontSize: '11px', letterSpacing: '1px' }}>PATIENT DETAILS</div>
-                          <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '3px' }}>{printAppt.patient?.name}</div>
-                          <div style={{ fontSize: '12px', color: '#444', marginBottom: '2px' }}>Phone: {printAppt.patient?.phone}</div>
-                          {printAppt.patient?.email && <div style={{ fontSize: '12px', color: '#444' }}>Email: {printAppt.patient.email}</div>}
-                        </td>
-                        <td style={{ width: '50%', verticalAlign: 'top', paddingLeft: '12px' }}>
-                          <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '1px solid #ddd', marginBottom: '6px', paddingBottom: '4px', fontSize: '11px', letterSpacing: '1px' }}>DOCTOR DETAILS</div>
-                          <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '3px' }}>Dr. {printAppt.doctor?.name ?? printAppt.doctor?.medicalRegistrationNo}</div>
-                          {printAppt.doctor?.specialization && <div style={{ fontSize: '12px', color: '#444', marginBottom: '2px' }}>Specialization: {printAppt.doctor.specialization}</div>}
-                          {printAppt.doctor?.qualification && <div style={{ fontSize: '12px', color: '#444' }}>Qualification: {printAppt.doctor.qualification}</div>}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  {/* Title */}
+                  <div className="bg-[#e8edf3] py-2.5 px-6 text-center border-b border-[#1e3a5f]">
+                    <h2 className="m-0 text-sm font-bold text-[#1e3a5f] tracking-[2px]">APPOINTMENT SLIP</h2>
+                  </div>
 
-                  {/* Appointment Info */}
-                  <div style={{ fontWeight: 'bold', color: '#1e3a5f', borderBottom: '2px solid #1e3a5f', marginBottom: '8px', paddingBottom: '4px', fontSize: '11px', letterSpacing: '1px' }}>APPOINTMENT DETAILS</div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '13px' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding: '8px 6px 4px 0', width: '25%', fontWeight: 'bold', color: '#444', fontSize: '12px' }}>Date</td>
-                        <td style={{ padding: '8px 6px 4px 0', width: '25%', fontSize: '13px', fontWeight: 'bold' }}>{formattedDate}</td>
-                        <td style={{ padding: '8px 6px 4px 0', width: '25%', fontWeight: 'bold', color: '#444', fontSize: '12px' }}>Time</td>
-                        <td style={{ padding: '8px 6px 4px 0', width: '25%', fontSize: '13px', fontWeight: 'bold' }}>{formattedTime}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 6px 4px 0', fontWeight: 'bold', color: '#444', fontSize: '12px' }}>Type</td>
-                        <td style={{ padding: '4px 6px 4px 0', fontSize: '12px' }}>{printAppt.type.replace("_", " ")}</td>
-                        <td style={{ padding: '4px 6px 4px 0', fontWeight: 'bold', color: '#444', fontSize: '12px' }}>Status</td>
-                        <td style={{ padding: '4px 6px 4px 0', fontSize: '12px' }}>{apptStatusLabel(printAppt.status)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  {/* Body */}
+                  <div className="py-5 px-6">
+                    {printAppt.tokenNumber && (
+                      <div className="float-right border-2 border-[#1e3a5f] py-2 px-3.5 text-center ml-3 mb-2">
+                        <div className="text-[9px] font-bold text-[#1e3a5f] tracking-wide">TOKEN</div>
+                        <div className="text-xl font-bold text-[#1e3a5f]">#{printAppt.tokenNumber}</div>
+                      </div>
+                    )}
 
-                  {/* Fee Summary Table */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '13px' }}>
-                    <thead>
-                      <tr>
-                        <th colSpan={2} style={{ padding: '4px 0', fontWeight: 'bold', color: '#1e3a5f', borderBottom: '2px solid #1e3a5f', fontSize: '11px', letterSpacing: '1px', textAlign: 'left' }}>FEE SUMMARY</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr style={{ borderBottom: '1px solid #ddd' }}>
-                        <td style={{ padding: '8px 6px 8px 0', fontSize: '12px' }}>Consultation Fee</td>
-                        <td style={{ padding: '8px 0 8px 6px', textAlign: 'right', fontSize: '12px' }}>₹{printAppt.fee.toFixed(2)}</td>
-                      </tr>
-                      {printAppt.registrationFee > 0 && (
-                        <tr style={{ borderBottom: '1px solid #ddd' }}>
-                          <td style={{ padding: '8px 6px 8px 0', fontSize: '12px' }}>Registration Fee</td>
-                          <td style={{ padding: '8px 0 8px 6px', textAlign: 'right', fontSize: '12px' }}>₹{printAppt.registrationFee.toFixed(2)}</td>
+                    <div className="mb-3.5 text-[11px] text-gray-500">
+                      Slip No: <span className="font-mono font-bold">{apptId}</span>
+                      {" | "}Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                    </div>
+
+                    <table className="w-full border-collapse mb-4 text-[13px]">
+                      <tbody>
+                        <tr>
+                          <td className="w-1/2 align-top pr-3">
+                            <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PATIENT DETAILS</div>
+                            <div className="font-bold text-[13px] mb-0.5">{printAppt.patient?.name}</div>
+                            <div className="text-xs text-gray-600 mb-0.5">Phone: {printAppt.patient?.phone}</div>
+                            {printAppt.patient?.email && <div className="text-xs text-gray-600">Email: {printAppt.patient.email}</div>}
+                          </td>
+                          <td className="w-1/2 align-top pl-3">
+                            <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">DOCTOR DETAILS</div>
+                            <div className="font-bold text-[13px] mb-0.5">Dr. {printAppt.doctor?.name ?? printAppt.doctor?.medicalRegistrationNo}</div>
+                            {printAppt.doctor?.specialization && <div className="text-xs text-gray-600 mb-0.5">Specialization: {printAppt.doctor.specialization}</div>}
+                            {printAppt.doctor?.qualification && <div className="text-xs text-gray-600">Qualification: {printAppt.doctor.qualification}</div>}
+                          </td>
                         </tr>
-                      )}
-                      <tr>
-                        <td style={{ padding: '10px 6px 8px 0', fontSize: '14px', fontWeight: 'bold' }}>Total Amount</td>
-                        <td style={{ padding: '10px 0 8px 6px', textAlign: 'right', fontSize: '14px', fontWeight: 'bold', color: '#1e3a5f' }}>₹{totalFee.toFixed(2)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
 
-                  {/* Instructions */}
-                  <div style={{ background: '#f8f9fa', border: '1px solid #ddd', padding: '10px 14px', marginBottom: '16px', fontSize: '11px', color: '#555' }}>
-                    <strong style={{ color: '#1e3a5f' }}>IMPORTANT:</strong> Please arrive 15 minutes before your scheduled time. Bring this slip, previous medical reports, and insurance documents if applicable.
-                  </div>
+                    {/* Appointment details */}
+                    <div className="font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] mb-2 pb-1 text-[11px] tracking-wide">APPOINTMENT DETAILS</div>
+                    <table className="w-full border-collapse mb-4 text-[13px]">
+                      <tbody>
+                        <tr>
+                          <td className="py-2 pr-1.5 w-1/4 font-bold text-gray-600 text-xs">Date</td>
+                          <td className="py-2 pr-1.5 w-1/4 font-bold">{formattedDate}</td>
+                          <td className="py-2 pr-1.5 w-1/4 font-bold text-gray-600 text-xs">Time</td>
+                          <td className="py-2 pr-1.5 w-1/4 font-bold">{formattedTime}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 pr-1.5 font-bold text-gray-600 text-xs">Type</td>
+                          <td className="py-1 pr-1.5 text-xs">{printAppt.type.replace("_", " ")}</td>
+                          <td className="py-1 pr-1.5 font-bold text-gray-600 text-xs">Status</td>
+                          <td className="py-1 pr-1.5 text-xs">{apptStatusLabel(printAppt.status)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
 
-                  {/* Signature area */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', fontSize: '11px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ width: '140px', borderTop: '1px solid #000', marginBottom: '4px', paddingTop: '6px' }}>
-                        Patient's Signature
+                    {/* Fee summary */}
+                    <table className="w-full border-collapse mb-4 text-[13px]">
+                      <thead>
+                        <tr>
+                          <th colSpan={2} className="py-1 font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] text-[11px] tracking-wide text-left">FEE SUMMARY</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-gray-200">
+                          <td className="py-2 pr-1.5 text-xs">Consultation Fee</td>
+                          <td className="py-2 pl-1.5 text-right text-xs">{currency(printAppt.fee)}</td>
+                        </tr>
+                        {printAppt.registrationFee > 0 && (
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-1.5 text-xs">Registration Fee</td>
+                            <td className="py-2 pl-1.5 text-right text-xs">{currency(printAppt.registrationFee)}</td>
+                          </tr>
+                        )}
+                        <tr>
+                          <td className="py-2.5 pr-1.5 text-sm font-bold">Total Amount</td>
+                          <td className="py-2.5 pl-1.5 text-right text-sm font-bold text-[#1e3a5f]">{currency(totalFee)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {/* Instructions */}
+                    <div className="bg-gray-50 border border-gray-200 py-2.5 px-3.5 mb-4 text-[11px] text-gray-600">
+                      <strong className="text-[#1e3a5f]">IMPORTANT:</strong> Please arrive 15 minutes before your scheduled time. Bring this slip, previous medical reports, and insurance documents if applicable.
+                    </div>
+
+                    {/* Signatures */}
+                    <div className="flex justify-between mt-5 text-[11px]">
+                      <div className="text-center">
+                        <div className="w-36 border-t border-black mb-1 pt-1.5">Patient's Signature</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="w-36 border-t border-black mb-1 pt-1.5">Receptionist's Signature</div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ width: '140px', borderTop: '1px solid #000', marginBottom: '4px', paddingTop: '6px' }}>
-                        Receptionist's Signature
-                      </div>
-                    </div>
                   </div>
-                </div>
 
-                {/* ── FOOTER ── */}
-                <div style={{ background: '#f0f2f5', padding: '8px 24px', textAlign: 'center', fontSize: '10px', color: '#666', borderTop: '1px solid #ddd' }}>
-                  This is a computer-generated slip. Generated on {new Date().toLocaleString('en-IN')} | {organisation?.email ? `Email: ${organisation.email}` : ''} | {organisation?.website ?? 'www.clinic.com'}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-      </div>
+                  {/* Footer */}
+                  <div className="bg-gray-100 py-2 px-6 text-center text-[10px] text-gray-500 border-t border-gray-200 rounded-b">
+                    This is a computer-generated slip. Generated on {new Date().toLocaleString("en-IN")} | {organisation?.email ? `Email: ${organisation.email}` : ""} | {organisation?.website ?? "www.clinic.com"}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintAppt(null)}>Close</Button>
+            <Button variant="outline" disabled={generatingPdf} onClick={browserPrint}>
+              <Printer className="mr-1.5 size-3.5" /> Print
+            </Button>
+            <Button disabled={generatingPdf} onClick={downloadPrintPdf}>
+              {generatingPdf ? "Generating…" : "Download PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -11,7 +11,7 @@ export async function paginate<T>(
   query: PaginationQueryDto,
 ): Promise<PaginatedResult<T>> {
   const page = query.page ?? 1;
-  const limit = query.limit ?? 20;
+  const limit = query.limit ?? 100;
   const skip = (page - 1) * limit;
 
   const [total, data] = await Promise.all([count(), find({ skip, take: limit })]);

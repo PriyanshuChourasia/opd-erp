@@ -324,9 +324,6 @@ export function ReceptionistDashboardPage() {
           <p className="mt-1 text-sm text-muted-foreground">Quick overview of clinic activity</p>
         </div>
         <Sheet open={sheetOpen} onOpenChange={(open) => { if (open) openSheet(); else setSheetOpen(false); }}>
-          <SheetTrigger asChild>
-            <Button onClick={openSheet}><Plus className="mr-2 size-4" />Book Appointment</Button>
-          </SheetTrigger>
           <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>New Appointment</SheetTitle>
@@ -448,15 +445,18 @@ export function ReceptionistDashboardPage() {
               )}
 
               {/* ── Date ── */}
-              <Field><FieldLabel htmlFor="r-date">Date</FieldLabel>
-                <Input
-                  id="r-date"
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value, department: "", doctorId: "", slot: null }))}
-                />
-                <div className="mt-1.5 flex gap-1.5">
-                  {[
+              <Field>
+                <FieldLabel htmlFor="r-date">Date</FieldLabel>
+                <div className="flex flex-col items-end gap-2">
+                  <Input
+                    id="r-date"
+                    type="date"
+                    className="w-auto"
+                    value={form.date}
+                    onChange={(e) => setForm((p) => ({ ...p, date: e.target.value, department: "", doctorId: "", slot: null }))}
+                  />
+                  <div className="flex gap-1.5">
+                    {[
                     { label: new Date(tomorrowStr()).getDate().toString(), value: tomorrowStr() },
                     { label: new Date(dayAfterTomorrowStr()).getDate().toString(), value: dayAfterTomorrowStr() },
                     { label: new Date(twoDaysLaterStr()).getDate().toString(), value: twoDaysLaterStr() },
@@ -475,6 +475,7 @@ export function ReceptionistDashboardPage() {
                       {label}
                     </button>
                   ))}
+                  </div>
                 </div>
               </Field>
 

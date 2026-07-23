@@ -1,0 +1,9 @@
+export { RevenueByCategoryPage } from "./components/revenue-by-category-page";
+export { OutstandingBillsPage } from "./components/outstanding-bills-page";
+export { DoctorPerformancePage } from "./components/doctor-performance-page";
+export { PrescriptionFulfillmentPage } from "./components/prescription-fulfillment-page";
+export { TopMedicinesPage } from "./components/top-medicines-page";
+export { PatientDemographicsPage } from "./components/patient-demographics-page";
+export { InactivePatientsPage } from "./components/inactive-patients-page";
+export { DiagnosticsTurnaroundPage } from "./components/diagnostics-turnaround-page";
+export { AppointmentMixPage } from "./components/appointment-mix-page";

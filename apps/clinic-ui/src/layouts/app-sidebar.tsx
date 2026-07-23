@@ -1,12 +1,16 @@
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import {
+  AlertCircle,
   AlertTriangle,
+  BarChart3,
   Box,
   Building2,
   CalendarClock,
+  ClipboardCheck,
   ClipboardList,
   Clock,
   Cpu,
+  FlaskConical,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -19,6 +23,7 @@ import {
   User,
   UserCog,
   Users,
+  UserX,
   Zap,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -54,6 +59,18 @@ const clinicNav = [
   { to: "/doctors", label: "Doctors", icon: UserCog },
   { to: "/prescriptions", label: "Prescriptions", icon: ClipboardList },
   { to: "/diagnoses", label: "Diagnoses", icon: Stethoscope },
+] as const;
+
+const reportsNav = [
+  { to: "/reports/revenue-by-category", label: "Revenue by Category", icon: BarChart3 },
+  { to: "/reports/outstanding-bills", label: "Outstanding Bills", icon: AlertCircle },
+  { to: "/reports/doctor-performance", label: "Doctor Performance", icon: UserCog },
+  { to: "/reports/prescription-fulfillment", label: "Rx Fulfillment", icon: ClipboardCheck },
+  { to: "/reports/top-medicines", label: "Top Medicines", icon: Pill },
+  { to: "/reports/patient-demographics", label: "Patient Demographics", icon: Users },
+  { to: "/reports/inactive-patients", label: "Inactive Patients", icon: UserX },
+  { to: "/reports/diagnostics-turnaround", label: "Diagnostics TAT", icon: FlaskConical },
+  { to: "/reports/appointment-mix", label: "Appointment Mix", icon: CalendarClock },
 ] as const;
 
 const accountNav = [
@@ -113,6 +130,23 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {clinicNav.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
+                    <Link to={item.to}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Reports</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {reportsNav.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
                     <Link to={item.to}>

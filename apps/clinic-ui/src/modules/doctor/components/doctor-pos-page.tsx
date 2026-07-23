@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Activity,
   CalendarDays,
@@ -22,7 +23,9 @@ import {
   fetchMedicines,
   updateQueueStatus,
   createPrescription,
+  deleteQueueEntry,
   createProcedureOrder,
+  updateAppointmentStatus,
   type QueueEntry,
   type Medicine,
 } from "@/lib/api";
@@ -37,6 +40,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
 import { PatientHistorySheet } from "./patient-history-sheet";
+import { fetchAllergies } from "@/lib/api";
 
 interface RxItem {
   tempId: string;
@@ -130,16 +134,17 @@ function DetailRow({ label, value, capitalize, fullWidth }: {
 }
 
 export function DoctorPosPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAppSelector((state) => state.auth.user);
   const doctorId = user?.userableId ?? "";
 
   const [selectedEntry, setSelectedEntry] = useState<QueueEntry | null>(null);
-  const [diagnosis, setDiagnosis] = useState("");
+  const [diagnoses, setDiagnoses] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [rxItems, setRxItems] = useState<RxItem[]>([]);
   const [medicineQuery, setMedicineQuery] = useState("");
-  const [showMedicineSearch, setShowMedicineSearch] = useState<string | null>(null);
+  const [medicineDropdownOpen, setMedicineDropdownOpen] = useState(false);
   const [procedureOrders, setProcedureOrders] = useState<ProcedureItem[]>([]);
   const [newProcedureName, setNewProcedureName] = useState("");
   const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
@@ -165,6 +170,22 @@ export function DoctorPosPage() {
 
   const medicines = medicineResults.data?.data ?? [];
 
+  // Fetch allergy catalog for severity/category tooltips
+  const { data: allergyCatalogResponse } = useQuery({
+    queryKey: ["allergies", "catalog"],
+    queryFn: () => fetchAllergies({ limit: 100 }),
+  });
+
+  const allergyCatalog = allergyCatalogResponse?.data ?? [];
+
+  const allergyMap = useMemo(() => {
+    const map = new Map<string, { severity: string; category: string }>();
+    for (const a of allergyCatalog) {
+      map.set(a.name.toLowerCase(), { severity: a.severity, category: a.category });
+    }
+    return map;
+  }, [allergyCatalog]);
+
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => updateQueueStatus(id, status),
     onSuccess: () => {
@@ -176,22 +197,24 @@ export function DoctorPosPage() {
 
   const completeMutation = useMutation({
     mutationFn: async () => {
-      if (rxItems.length > 0) {
-        await createPrescription({
-          patientId: selectedEntry!.patientId,
-          doctorId,
-          diagnosis: diagnosis || undefined,
-          notes: notes || undefined,
-          items: rxItems.map((item) => ({
-            medicineId: item.medicineId,
-            medicineName: item.medicineName,
-            dosage: item.dosage,
-            duration: item.duration || undefined,
-            instructions: item.instructions || undefined,
-            quantity: item.quantity,
-          })),
-        });
-      }
+      // Always create a prescription — even without medicines the
+      // doctor's diagnosis and notes need to be recorded.
+      await createPrescription({
+        patientId: selectedEntry!.patientId,
+        doctorId,
+        diagnosis: diagnoses.join(", ") || undefined,
+        notes: notes || undefined,
+        items: rxItems.length > 0
+          ? rxItems.map((item) => ({
+              medicineId: item.medicineId,
+              medicineName: item.medicineName,
+              dosage: item.dosage,
+              duration: item.duration || undefined,
+              instructions: item.instructions || undefined,
+              quantity: item.quantity,
+            }))
+          : [{ medicineId: "remarks", medicineName: "Verbal Instructions", dosage: "As per doctor's advice", quantity: 1 }],
+      });
       if (procedureOrders.length > 0) {
         await Promise.all(
           procedureOrders.map((p) =>
@@ -204,24 +227,33 @@ export function DoctorPosPage() {
           ),
         );
       }
-      // Mark the queue entry as completed
-      await updateQueueStatus(selectedEntry!.id, "COMPLETED");
+      // Update appointment status to COMPLETED
+      const appointmentId = selectedEntry!.appointment?.id;
+      if (appointmentId) {
+        await updateAppointmentStatus(appointmentId, "COMPLETED");
+      }
+      // Delete the queue entry (remove from queue)
+      await deleteQueueEntry(selectedEntry!.id);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["queue"] });
-      toast.success("Saved successfully");
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      // Force-refetch prescriptions so the list page has fresh data on navigation
+      await queryClient.refetchQueries({ queryKey: ["prescriptions"] });
+      toast.success("Consultation completed successfully");
       clearForm();
+      navigate({ to: "/doctor/prescriptions" });
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
 
   function selectPatient(entry: QueueEntry) {
     setSelectedEntry(entry);
-    setDiagnosis("");
+    setDiagnoses([]);
     setNotes("");
     setRxItems([]);
     setMedicineQuery("");
-    setShowMedicineSearch(null);
+    setMedicineDropdownOpen(false);
     setProcedureOrders([]);
     setNewProcedureName("");
     setHistoryOpen(false);
@@ -229,11 +261,11 @@ export function DoctorPosPage() {
 
   function clearForm() {
     setSelectedEntry(null);
-    setDiagnosis("");
+    setDiagnoses([]);
     setNotes("");
     setRxItems([]);
     setMedicineQuery("");
-    setShowMedicineSearch(null);
+    setMedicineDropdownOpen(false);
     setProcedureOrders([]);
     setNewProcedureName("");
     setHistoryOpen(false);
@@ -266,7 +298,7 @@ export function DoctorPosPage() {
       },
     ]);
     setMedicineQuery("");
-    setShowMedicineSearch(null);
+    setMedicineDropdownOpen(false);
   }
 
   function updateRxItem(tempId: string, patch: Partial<RxItem>) {
@@ -355,8 +387,7 @@ export function DoctorPosPage() {
                               <>
                                 <span className="text-[8px]">·</span>
                                 <span className="text-amber-600">
-                                  {(entry.patient.allergies ?? []).slice(0, 2).join(", ")}
-                                  {(entry.patient.allergies ?? []).length > 2 && " +" + ((entry.patient.allergies ?? []).length - 2)}
+                                  {(entry.patient.allergies ?? []).join(", ")}
                                 </span>
                               </>
                             )}
@@ -431,7 +462,7 @@ export function DoctorPosPage() {
                           onClick={() => setHistoryOpen(true)}
                         >
                           <History className="size-3" />
-                          Past Visits
+                          All Prescriptions
                         </Button>
                       </div>
                       <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground/70">{selectedEntry.patient.phone}</p>
@@ -483,22 +514,24 @@ export function DoctorPosPage() {
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
                       {selectedEntry.patient.allergies && selectedEntry.patient.allergies.length > 0 ? (
                         <>
-                          {selectedEntry.patient.allergies.slice(0, 2).map((a, i) => (
-                            <span
-                              key={i}
-                              className="inline-flex items-center whitespace-nowrap rounded-sm border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400"
-                            >
-                              {a}
-                            </span>
-                          ))}
-                          {selectedEntry.patient.allergies.length > 2 && (
-                            <span
-                              title={selectedEntry.patient.allergies.slice(2).join(", ")}
-                              className="inline-flex cursor-default items-center whitespace-nowrap rounded-sm border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400"
-                            >
-                              +{selectedEntry.patient.allergies.length - 2}
-                            </span>
-                          )}
+                          {selectedEntry.patient.allergies.map((a, i) => {
+                            const allergyInfo = allergyMap.get(a.toLowerCase());
+                            return (
+                              <span
+                                key={i}
+                                className={cn(
+                                  "inline-flex items-center whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[10px] font-medium",
+                                  allergyInfo?.severity === "SEVERE" || allergyInfo?.severity === "LIFE_THREATENING"
+                                    ? "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                                    : allergyInfo?.severity === "MODERATE"
+                                      ? "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400"
+                                      : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400"
+                                )}
+                              >
+                                {a}
+                              </span>
+                            );
+                          })}
                         </>
                       ) : (
                         <span className="text-xs italic text-muted-foreground/50">None recorded</span>
@@ -532,12 +565,12 @@ export function DoctorPosPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <DiagnosisSelect value={diagnosis} onChange={setDiagnosis} />
+                  <DiagnosisSelect value={diagnoses} onChange={setDiagnoses} />
                 </CardContent>
               </Card>
 
               {/* Medicines */}
-              <Card>
+              <Card className="overflow-visible">
                 <CardHeader className="flex flex-row items-center justify-between border-b py-3">
                   <CardTitle className="flex items-center gap-2 text-sm">
                     <span className="flex size-6 items-center justify-center rounded-md bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
@@ -548,133 +581,144 @@ export function DoctorPosPage() {
                       <Badge variant="outline" className="text-[10px]">{rxItems.length}</Badge>
                     )}
                   </CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => setShowMedicineSearch(crypto.randomUUID())}>
-                    <Plus className="mr-1.5 size-3.5" />Add Medicine
-                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {/* Medicine search */}
-                  {showMedicineSearch && (
-                    <div className="rounded-none border p-3 space-y-2">
-                      <div className="relative">
-                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          placeholder="Search medicine by brand or generic name..."
-                          className="pl-9"
-                          autoFocus
-                          value={medicineQuery}
-                          onChange={(e) => setMedicineQuery(e.target.value)}
-                        />
-                      </div>
-                      {medicineQuery.trim().length >= 2 && (
-                        <div className="max-h-48 overflow-y-auto rounded-none border bg-popover">
-                          {medicines.length === 0 ? (
-                            <p className="px-3 py-2 text-xs text-muted-foreground">No medicines found</p>
-                          ) : (
-                            medicines.map((med) => (
+                  {/* Always-visible medicine search */}
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search medicine by brand or generic name..."
+                      className="pl-9"
+                      value={medicineQuery}
+                      onChange={(e) => { setMedicineQuery(e.target.value); setMedicineDropdownOpen(true); }}
+                      onFocus={() => setMedicineDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setMedicineDropdownOpen(false), 200)}
+                    />
+                    {medicineDropdownOpen && medicineQuery.trim().length >= 2 && (
+                      <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-52 overflow-y-auto">
+                        {medicines.length === 0 ? (
+                          <p className="px-3 py-2 text-xs text-muted-foreground">No medicines found</p>
+                        ) : (
+                          <div className="divide-y">
+                            {medicines.map((med) => (
                               <button
                                 key={med.id}
                                 type="button"
-                                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted"
+                                className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
                                 onClick={() => addMedicineToRx(med)}
                               >
-                                <div>
+                                <Pill className="size-3.5 shrink-0 text-muted-foreground" />
+                                <div className="flex-1 min-w-0">
                                   <span className="font-medium">{med.brandName}</span>
                                   {med.strength && <span className="ml-1 text-muted-foreground">{med.strength}</span>}
                                   <span className="ml-2 text-xs text-muted-foreground">{med.genericName}</span>
                                 </div>
-                                <Plus className="size-4 text-muted-foreground" />
+                                <span className="shrink-0 text-xs font-medium text-muted-foreground">{med.price ? `₹${med.price}` : ''}</span>
                               </button>
-                            ))
-                          )}
-                        </div>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={() => { setShowMedicineSearch(null); setMedicineQuery(""); }}>
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Rx items */}
-                  {rxItems.length === 0 && !showMedicineSearch && (
+                  {rxItems.length === 0 ? (
                     <div className="flex flex-col items-center gap-1.5 py-6 text-center">
                       <Pill className="size-6 text-violet-300 dark:text-violet-700" />
                       <p className="text-xs text-muted-foreground">
-                        No medicines added yet. Click "Add Medicine" to search and prescribe.
+                        No medicines added yet. Search above to find and prescribe medicines.
                       </p>
                     </div>
-                  )}
-
-                  {rxItems.map((item) => (
-                    <div key={item.tempId} className="rounded-none border p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium">{item.medicineName}</p>
-                        <Button variant="ghost" size="icon" className="size-6 shrink-0" title="Remove item" onClick={() => removeRxItem(item.tempId)}>
-                          <Trash2 className="size-3 text-destructive" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <Field>
-                          <FieldLabel className="text-[10px]">Dosage (daily)</FieldLabel>
-                          <Input
-                            className="h-8 text-xs"
-                            placeholder="1-0-1"
-                            value={item.dosage}
-                            onChange={(e) => updateRxItem(item.tempId, { dosage: e.target.value })}
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel className="text-[10px]">Duration (days)</FieldLabel>
-                          <Input
-                            className="h-8 text-xs"
-                            placeholder="7 days"
-                            value={item.duration}
-                            onChange={(e) => updateRxItem(item.tempId, { duration: e.target.value })}
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel className="text-[10px]">Tablets</FieldLabel>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="size-7"
-                              onClick={() => updateRxItem(item.tempId, { quantity: Math.max(1, item.quantity - 1) })}
-                            >
-                              <Minus className="size-3" />
-                            </Button>
-                            <span className="w-6 text-center text-sm">{item.quantity}</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="size-7"
-                              onClick={() => updateRxItem(item.tempId, { quantity: item.quantity + 1 })}
-                            >
-                              <Plus className="size-3" />
+                  ) : (
+                    <>
+                      {rxItems.map((item) => (
+                        <div key={item.tempId} className="rounded-none border p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium">{item.medicineName}</p>
+                            <Button variant="ghost" size="icon" className="size-6 shrink-0" title="Remove item" onClick={() => removeRxItem(item.tempId)}>
+                              <Trash2 className="size-3 text-destructive" />
                             </Button>
                           </div>
-                        </Field>
+                          <div className="grid grid-cols-3 gap-2">
+                            <Field>
+                              <FieldLabel className="text-[10px]">Dosage (daily)</FieldLabel>
+                              <Input
+                                className="h-8 text-xs"
+                                placeholder="1-0-1"
+                                value={item.dosage}
+                                onChange={(e) => updateRxItem(item.tempId, { dosage: e.target.value })}
+                              />
+                            </Field>
+                            <Field>
+                              <FieldLabel className="text-[10px]">Duration (days)</FieldLabel>
+                              <Input
+                                className="h-8 text-xs"
+                                placeholder="7 days"
+                                value={item.duration}
+                                onChange={(e) => updateRxItem(item.tempId, { duration: e.target.value })}
+                              />
+                            </Field>
+                            <Field>
+                              <FieldLabel className="text-[10px]">Tablets</FieldLabel>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={() => updateRxItem(item.tempId, { quantity: Math.max(1, item.quantity - 1) })}
+                                >
+                                  <Minus className="size-3" />
+                                </Button>
+                                <span className="w-6 text-center text-sm">{item.quantity}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={() => updateRxItem(item.tempId, { quantity: item.quantity + 1 })}
+                                >
+                                  <Plus className="size-3" />
+                                </Button>
+                              </div>
+                            </Field>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span>{parseDailyTablets(item.dosage)} tab/day</span>
+                            <span>&middot;</span>
+                            <span>{parseDays(item.duration)} days</span>
+                            <span>&middot;</span>
+                            <span className="font-medium text-foreground">{totalTablets(item.dosage, item.duration, item.quantity)} tablets total</span>
+                          </div>
+                          <Field>
+                            <FieldLabel className="text-[10px]">Instructions</FieldLabel>
+                            <Input
+                              className="h-8 text-xs"
+                              placeholder="e.g. After meals, Before bed..."
+                              value={item.instructions}
+                              onChange={(e) => updateRxItem(item.tempId, { instructions: e.target.value })}
+                            />
+                          </Field>
+                        </div>
+                      ))}
+                      {/* Add Medicine button in the list */}
+                      <div className="flex justify-center border-t pt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => {
+                            const searchInput = document.querySelector<HTMLInputElement>('input[placeholder*="Search medicine"]');
+                            searchInput?.focus();
+                          }}
+                        >
+                          <Plus className="size-3.5" />
+                          Add Medicine
+                        </Button>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                        <span>{parseDailyTablets(item.dosage)} tab/day</span>
-                        <span>&middot;</span>
-                        <span>{parseDays(item.duration)} days</span>
-                        <span>&middot;</span>
-                        <span className="font-medium text-foreground">{totalTablets(item.dosage, item.duration, item.quantity)} tablets total</span>
-                      </div>
-                      <Field>
-                        <FieldLabel className="text-[10px]">Instructions</FieldLabel>
-                        <Input
-                          className="h-8 text-xs"
-                          placeholder="e.g. After meals, Before bed..."
-                          value={item.instructions}
-                          onChange={(e) => updateRxItem(item.tempId, { instructions: e.target.value })}
-                        />
-                      </Field>
-                    </div>
-                  ))}
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

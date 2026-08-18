@@ -12,6 +12,7 @@ import {
   Cpu,
   FlaskConical,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   MapPin,
   Package,
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
+import { HelpLink } from "@/modules/help/components/help-link";
 
 const clinicNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -75,6 +77,7 @@ const reportsNav = [
 
 const accountNav = [
   { to: "/profile", label: "Profile", icon: User },
+  { to: "/help", label: "Help", icon: LifeBuoy },
 ] as const;
 
 const pharmacyNav = [
@@ -218,10 +221,17 @@ export function AppSidebar() {
               {accountNav.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
-                    <Link to={item.to}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
+                    {item.to === "/help" ? (
+                      <HelpLink>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </HelpLink>
+                    ) : (
+                      <Link to={item.to}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

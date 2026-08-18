@@ -1,20 +1,22 @@
-# Profile — User Profile Management
+# Profile — My Account
 
 ## What is this page?
 
-The Profile page (`/profile`) allows logged-in users to view and manage their personal account information. It displays the user's profile card with their role, permissions, and account details, and provides forms to update personal info and change passwords.
+The Profile page (`/profile`) lets the logged-in user view and update their own account details (first/last name, email) and change their password.
 
-## What actions can be done?
+## Actions & Effects
 
-- **Edit personal information** — Update first name, last name, and email address.
-- **Change password** — Enter current password, new password, and confirmation to update the account password.
-- **View account info** — See role name, number of permissions assigned, and account creation date.
+- **Edit Profile** — Enters edit mode for name/email fields. Effect: saving calls the profile update API; shows a success message on completion.
+- **Change Password** — Opens the password form (current password, new password, confirm). Effect: validates that the new password matches the confirmation; calls the password-change API; shows a success or error message.
+- **Cancel** — Discards unsaved edits and returns to the read-only view.
 
-## What features does it hold?
+## Events
 
-- **Profile header card** — Displays user avatar (initials-based), full name, email, and role badge.
-- **Personal info form** — Editable fields for first name, last name, and email with validation.
-- **Password change form** — Secure password change with current password verification and confirmation.
-- **Account info panel** — Shows role, permission count, and member-since date.
-- **Form validation** — Zod schema validation on all form fields.
-- **Success feedback** — Toast notifications on successful updates.
+- **Profile load** — The form initializes from the logged-in user's stored details.
+- **Validation** — New password must match confirm; API errors surface as inline error messages.
+
+## Features
+
+- Read-only profile summary with an Edit toggle.
+- Separate change-password form with confirmation.
+- Success/error toast or inline message feedback on every save.

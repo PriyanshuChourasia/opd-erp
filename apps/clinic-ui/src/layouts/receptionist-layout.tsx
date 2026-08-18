@@ -3,6 +3,7 @@ import {
   CalendarClock,
   ClipboardList,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Receipt,
   Stethoscope,
@@ -24,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { HelpLink } from "@/modules/help/components/help-link";
 
 const receptionistNav = [
   { to: "/receptionist", label: "Dashboard", icon: LayoutDashboard },
@@ -32,6 +34,7 @@ const receptionistNav = [
   { to: "/receptionist/doctors", label: "Doctors", icon: UserRoundCog },
   { to: "/receptionist/billing", label: "Billing", icon: Receipt },
   { to: "/receptionist/prescriptions", label: "Prescriptions", icon: ClipboardList },
+  { to: "/help", label: "Help", icon: LifeBuoy },
 ];
 
 function initials(name: string) {
@@ -70,15 +73,20 @@ export function ReceptionistLayout() {
             const active = item.to === "/receptionist"
               ? !!matchRoute({ to: item.to, fuzzy: false })
               : !!matchRoute({ to: item.to });
+            const linkClass = cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted",
+              active && "bg-muted text-foreground"
+            );
+            if (item.to === "/help") {
+              return (
+                <HelpLink key={item.to} className={linkClass}>
+                  <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                  {item.label}
+                </HelpLink>
+              );
+            }
             return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted",
-                  active && "bg-muted text-foreground"
-                )}
-              >
+              <Link key={item.to} to={item.to} className={linkClass}>
                 <item.icon className="size-4 shrink-0 text-muted-foreground" />
                 {item.label}
               </Link>

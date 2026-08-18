@@ -1,24 +1,30 @@
-# Doctors — Doctor Management
+# Doctors — Staff Management
 
 ## What is this page?
 
-The Doctors page (`/doctors`) manages the clinic's doctor roster. It allows administrators to register new doctors (optionally with a linked user account), manage professional credentials, set up weekly work schedules, and handle verification status.
+The Doctors page (`/doctors`) manages the clinic's doctors — their professional profile, linked login account, weekly schedule, addresses, documents, and active/dropped status.
 
-## What actions can be done?
+## Actions & Effects
 
-- **Create doctor with user account** — Register a new doctor with professional details (specialization, registration number, qualification, fee) and optionally create a linked login account (username, email, password) in one step.
-- **Edit doctor** — Update professional fields (specialization, fee, qualification, experience, verification status).
-- **Manage weekly schedule** — Open the schedule editor to set working hours for each day of the week with shift presets (Morning 08:00–14:00, Afternoon 14:00–20:00, Full Day 08:00–20:00, Custom).
-- **Manage addresses** — Add, edit, or set primary address for a doctor (clinic address, home address, etc.).
-- **Link to my profile** — A logged-in doctor can link their doctor profile to their user account.
-- **Update verification status** — Change doctor verification from PENDING → VERIFIED, REJECTED, or SUSPENDED.
-- **Search** — Search doctors by specialization, registration number, or name.
+- **Add Doctor** — Opens the add sheet. Effect: creating calls `createDoctorWithUser` (professional fields + login credentials); invalidates `doctors`; toasts "Doctor created successfully".
+- **Edit (pencil)** — Loads the doctor + linked user and opens the sheet pre-filled. Effect: saving calls `updateDoctorWithUser`; invalidates `doctors`; toasts "Doctor updated successfully".
+- **Drop (X + confirm)** — Calls `deleteDoctor` (soft delete). Effect: doctor becomes inactive and moves to the Dropped view; toasts "Doctor dropped — can be restored anytime".
+- **Restore (Dropped view)** — Calls `restoreDoctor`. Effect: reactivates the doctor; toasts "Doctor restored successfully".
+- **Show Dropped toggle** — Switches the list between active and dropped doctors. Effect: refetches with `isActive` filter.
+- **Search** — Filters by name, registration no, or specialization. Effect: refetches and resets pagination.
+- **Weekly schedule (calendar icon)** — Opens the schedule sheet. Effect: per-day enable/start/end times are saved via `createEmployeeSchedule`/`updateEmployeeSchedule`/`deleteEmployeeSchedule` (run sequentially to avoid overlap-validation races); templates and shift presets apply times to all enabled days; invalidates schedules; toasts "Schedule saved successfully".
+- **Addresses (map icon)** — Opens the AddressManager for the doctor. Effect: add/edit/delete/set-primary addresses for the doctor.
+- **Documents (folder icon)** — Opens the document sheet. Effect: upload profile photo/qualification docs; uploads are pending until saved, then attached to the doctor.
 
-## What features does it hold?
+## Events
 
-- **Paginated DataTable** — Doctor ID, specialization, registration number, consultation fee, verification status badge, and action buttons.
-- **Verification status badges** — Color-coded: PENDING (amber), VERIFIED (green), REJECTED (red), SUSPENDED (gray).
-- **Schedule editor sheet** — Day-by-day schedule management with shift presets and custom time ranges.
-- **Address manager sheet** — Polymorphic address management with type selection (CLINIC, HOME, BILLING).
-- **User account linking** — Create a user account linked to the doctor via `userableType: "Doctor"` for login access.
-- **Consultation fee** — Set per-doctor consultation fee used in appointment booking and billing.
+- **Linked user fetch** — Editing loads the doctor's user account (name, email, username, mobile) to pre-fill the form.
+- **Overlap fallback** — If a schedule create fails with a 400 overlap error, the app falls back to updating the existing schedule for that day.
+- **Specialization templates** — Schedule templates matching the doctor's specialization are suggested.
+
+## Features
+
+- Paginated DataTable: doctor, specialization, registration no, verification status, consultation fee, and row actions.
+- Drop/restore lifecycle with a separate dropped view.
+- Weekly schedule editor with day toggles, shift presets, and templates.
+- Address and document management embedded per doctor.

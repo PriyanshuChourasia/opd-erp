@@ -1,22 +1,26 @@
-# Patients — Patient Management
+# Patients — Registry & Records
 
 ## What is this page?
 
-The Patients page (`/patients`) is the patient registry and management hub. It allows clinic staff to view, create, edit, and delete patient records. Each patient record contains demographics, medical information, and contact details.
+The Patients page (`/patients`) is the patient registry — search, register, edit, deactivate, and review patients, including their profile photo, documents, and appointment history.
 
-## What actions can be done?
+## Actions & Effects
 
-- **Add new patient** — Click "New Patient" to open the registration form with fields for name, phone, email, date of birth, gender, blood group, address, emergency contact, and allergies.
-- **Edit patient** — Click the edit button on any row to modify patient details.
-- **Delete patient** — Click the delete button and confirm to remove a patient record.
-- **Search** — Search patients by name, phone number, or email.
-- **View details** — See patient name, gender, contact info, DOB, blood group (color-coded), and allergies (red badges) at a glance.
+- **Register Patient / New Patient** — Opens the PatientFormSheet. Effect: on save, creates the patient and uploads any pending profile photo/documents; invalidates `patients`; toasts success.
+- **Edit (pencil)** — Opens the PatientFormSheet pre-filled from `fetchPatient(id)`. Effect: on save, updates the patient; invalidates `patients`.
+- **Deactivate (X + confirm)** — Calls `deletePatient` (soft delete). Effect: patient is deactivated; toasts "Patient deactivated successfully".
+- **Documents (folder icon)** — Opens the document sheet for the patient. Effect: upload/delete profile photo and other documents.
+- **Search** — Filters by name/phone/email. Effect: refetches the list live and resets pagination.
+- **Appointment history (expand)** — Shows the patient's past appointments with statuses. Effect: fetches appointments for that patient on expand.
 
-## What features does it hold?
+## Events
 
-- **Paginated DataTable** — Sortable table with patient name/gender, phone/email, DOB, blood group, and allergies.
-- **Color-coded blood groups** — Blood group badges are color-coded for quick identification (A+, B+, O+, AB+, etc.).
-- **Allergy badges** — Patient allergies are displayed as red badges for visibility.
-- **Form validation** — Phone number uniqueness is enforced. Required fields are validated.
-- **Search with debounce** — Typing in the search box triggers a debounced API search after 300ms.
-- **Inline edit button** — Quick access to edit any patient record from the table.
+- **Data fetch** — Runs on mount, search change, and pagination change.
+- **Document upload on save** — Pending photo/files are uploaded after the patient record is created (they need the patient ID).
+- **Cross-module effect** — The PatientFormSheet is reused across appointments, queue, POS, and billing pages for inline registration/editing.
+
+## Features
+
+- Paginated DataTable: patient (avatar, name, phone), gender, age/DOB, blood group, allergy count, appointment count, and actions.
+- PatientFormSheet with profile photo upload, allergies, addresses, and documents.
+- Expandable rows for appointment history.

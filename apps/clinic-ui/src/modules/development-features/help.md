@@ -1,23 +1,26 @@
-# Developer Features — Feature Flags & Permissions
+# Application Features — Developer (development-features)
 
 ## What is this page?
 
-The Features page (`/developer/features`) is a feature flag and role-permission configurator. It allows developers and administrators to view and manage feature toggles, their types (core/optional/experimental), and which roles have access to each feature.
+The Application Features page (`/developer/features`) is a feature-flag manager. It lists application features (with status enabled/disabled/beta/dev and type core/optional/experimental) and lets admins configure role-based permissions per feature. Note: the list is currently in-memory UI state, not persisted to the backend.
 
-## What actions can be done?
+## Actions & Effects
 
-- **View all features** — Browse the expandable list of system features with their status and type.
-- **Toggle feature status** — Change a feature's status between enabled, disabled, beta, and dev.
-- **Configure role permissions** — Set which roles (None, Read, Manage) can access each feature.
-- **Add new feature** — Create a new feature with name, description, type, and initial status.
-- **Edit feature** — Modify a feature's name, description, type, or status.
-- **Delete feature** — Remove a feature flag.
+- **Add Feature** — Opens the add sheet. Effect: enter name/description/module/status/type and cycle role permissions; on save the feature is added to the in-memory list (state only).
+- **Edit (pencil)** — Opens the sheet pre-filled. Effect: saving updates the feature in the in-memory list.
+- **Delete (trash + confirm)** — Removes the feature from the in-memory list.
+- **Cycle permission (row)** — Clicking a role chip cycles None → Read → Manage. Effect: updates that feature's rolePermissions immediately.
+- **Search** — Filters features by name, description, or module. Effect: live client-side filter.
+- **Expand a feature** — Shows the Role & Permission Access panel with clickable role chips.
 
-## What features does it hold?
+## Events
 
-- **Feature status indicators** — Visual badges for enabled (green), disabled (gray), beta (amber), and dev (blue) statuses.
-- **Feature type classification** — Core, optional, and experimental types with distinct styling.
-- **Role permission matrix** — Per-feature permission grid showing None/Read/Manage for each role.
-- **Inline permission editing** — Click to cycle through permission levels directly in the list.
-- **Add/edit/delete CRUD** — Full feature flag management with form validation.
-- **Expandable details** — Click a feature to see its full description, type, status, and role permissions.
+- **Permission cycling** — A helper `nextPermission` cycles null → "read" → "manage" → null on each click.
+- **No persistence** — All changes live in React state; a page reload discards them.
+
+## Features
+
+- Feature rows with module badge, type badge, and status badge.
+- Add/Edit sheet with role-permission setup.
+- Inline role-permission cycling per feature.
+- Search and expandable rows.

@@ -1,29 +1,34 @@
-# Point of Sale (POS) — Checkout & Billing
+# POS — Point of Sale
 
-## What is this page?
+## What is this module?
 
-The POS page (`/pos`) is a full-width cashier terminal for processing patient sales. Unlike the dashboard layout, POS has no sidebar — it uses a slim top bar with navigation tabs (POS, Patients, Appointments, Billing) for a focused checkout workflow. This is the primary screen for Receptionist role users.
+The POS module (`/pos`) is the cash-register workspace for the clinic. It combines checkout (cart → bill), billing (invoice list), patient search/registration, and the appointment list in one place, so counter staff can sell medicines and bill consultations without leaving the POS area.
 
-## What actions can be done?
+## Pages (per-page help files)
 
-- **Search and select patient** — Search by name or phone, or use "Walk-in" for unregistered patients.
-- **Add medicines to cart** — Search the medicine catalog by name and add items to the cart with quantity and price.
-- **Add custom items** — Add non-medicine line items (e.g. consultation fee, lab test) with custom names and prices.
-- **Edit cart items** — Change quantity or unit price for any cart line.
-- **Remove items** — Delete items from the cart.
-- **Apply discount** — Toggle between percentage (%) or flat amount discount and enter the value.
-- **Select payment method** — Toggle between CASH, CARD, or UPI.
-- **Complete sale** — Process the payment and generate an invoice.
-- **Pre-fill from appointment** — Access via `/pos?appointmentId=xxx` to auto-populate the checkout from a completed appointment's invoice preview.
+- **POS Checkout** (`/pos`) — `components/pos-checkout-page.help.md` — build a cart, apply discount, choose payment, complete the sale.
+- **POS Billing** (`/pos/billing`) — `components/pos-billing-page.help.md` — invoice list (shared BillingPage).
+- **POS Patients** (`/pos/patients`) — `components/pos-patients-page.help.md` — search/register patients and view appointment history.
+- **POS Appointments** (`/pos/appointments`) — `components/pos-appointments-page.help.md` — appointment list (shared AppointmentsPage).
 
-## What features does it hold?
+## Shared Actions & Effects
 
-- **Full-width layout** — No sidebar; maximizes the cashier workspace.
-- **Patient search** — Real-time search with patient selection.
-- **Medicine catalog search** — Search by name with results showing price, category, and stock info.
-- **Shopping cart** — Editable table with quantity, unit price, line total, and remove buttons.
-- **Discount system** — Toggle between percentage and flat discount with live total calculation.
-- **Order summary sidebar** — Shows subtotal, discount, and grand total in ₹.
-- **Payment method toggle** — Visual CASH/CARD/UPI toggle buttons.
-- **Invoice generation** — Creates a bill with line items, tax, and payment method.
-- **Appointment integration** — Can be launched from an appointment's checkout action to pre-fill patient and consultation fee.
+- **Complete sale** — Creates the bill from the cart; clears the cart; for appointment-driven sales, invalidates appointments and returns to the checkout landing.
+- **Mark paid / refund / cancel** — Bill status transitions in the billing list; each invalidates the bills cache.
+- **Register / edit patient** — PatientFormSheet create/update; the patient list refetches.
+- **Generate invoice from a completed appointment** — Opening `/pos?appointmentId=…` pre-fills patient and line items for immediate checkout.
+
+## Events
+
+- **Auto-refresh** — The billing list refetches every 15 seconds to catch sales made elsewhere.
+- **Invoice pre-fill** — Checkout with an `appointmentId` search param fetches the invoice preview on mount and loads the patient + line items into the cart; already-invoiced appointments are blocked.
+- **Organisation settings** — Discount enablement and max discount percent are read from the organisation profile and cap the discount inputs.
+- **Appointment → POS link** — The Queue page navigates to `/pos?appointmentId=…` to bill a completed appointment.
+
+## Features
+
+- Editable cart table with qty steppers and inline pricing.
+- Walk-in sales (no patient required).
+- Discount modes (% / flat) with organisation caps.
+- Payment methods: CASH, CARD (cardholder + validity fields), UPI (UPI ID field).
+- Shared page implementations reused from the appointments and billing modules.

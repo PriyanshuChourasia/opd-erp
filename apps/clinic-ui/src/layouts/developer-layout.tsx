@@ -3,6 +3,7 @@ import {
   Box,
   Cpu,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Stethoscope,
   User,
@@ -14,6 +15,7 @@ import { useAppSelector } from "@/store/hooks";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { HelpLink } from "@/modules/help/components/help-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,6 +84,12 @@ export function DeveloperLayout() {
               <LayoutDashboard />
               Dashboard
             </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <HelpLink>
+              <LifeBuoy />
+              Help
+            </HelpLink>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

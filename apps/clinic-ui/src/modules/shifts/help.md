@@ -1,22 +1,22 @@
-# Shifts — Work Shift Management
+# Shifts — Work Shift Definitions
 
 ## What is this page?
 
-The Shifts page (`/shifts`) manages work shift definitions used for employee scheduling. Shifts define start/end times, break windows, and whether a shift spans overnight. These shifts can be assigned to EmployeeSchedules for doctors, nurses, receptionists, and other staff.
+The Shifts page (`/organisation/shifts`) manages work-shift definitions (name, start time, end time). Shifts are referenced by the doctor schedule editor, where a shift can be applied to a doctor's weekly timetable.
 
-## What actions can be done?
+## Actions & Effects
 
-- **Create shift** — Add a new shift with name, code (e.g. "MOR", "EVE"), start/end times, optional break window, description, and overnight toggle.
-- **Edit shift** — Modify any shift's details including times, break window, and active status.
-- **Delete shift** — Remove a shift definition (only if not assigned to any schedule).
-- **Toggle active/inactive** — Activate or deactivate a shift without deleting it.
-- **Search** — Search shifts by name, code, or description.
+- **Add Shift** — Opens the add sheet. Effect: calls `createShift`; invalidates `shifts`; toasts "Shift created successfully".
+- **Edit (pencil)** — Opens the sheet pre-filled from `fetchShift`. Effect: saving calls `updateShift`; invalidates `shifts`; toasts "Shift updated successfully".
+- **Delete (X + confirm)** — Calls `deleteShift`. Effect: invalidates `shifts`; toasts "Shift deleted successfully".
+- **Search** — Filters shifts by name. Effect: refetches and resets pagination.
 
-## What features does it hold?
+## Events
 
-- **Paginated DataTable** — Shift name/code, start/end times, break window, overnight indicator, active status badge.
-- **Code-based identification** — Each shift has a unique short code (MOR, AFT, FUL, EVE) for quick reference.
-- **Break time management** — Optional break start/end times within the shift.
-- **Overnight flag** — Indicates whether a shift spans midnight (e.g. 22:00–06:00).
-- **Active/inactive toggle** — Disable shifts without deleting them.
-- **Form validation** — Zod schema validation ensuring required fields and valid time ranges.
+- **Data fetch** — Runs on mount, search change, and pagination change.
+- **Cross-module effect** — Shifts appear in the Doctors page schedule editor; "apply shift to all days" copies a shift's times onto every enabled day.
+
+## Features
+
+- Paginated DataTable: shift name, start time, end time, actions.
+- Add/Edit slide-over sheet.

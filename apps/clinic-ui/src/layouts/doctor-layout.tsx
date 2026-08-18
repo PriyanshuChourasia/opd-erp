@@ -2,6 +2,7 @@ import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router
 import {
   ClipboardList,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Pill,
   Stethoscope,
@@ -21,10 +22,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelpLink } from "@/modules/help/components/help-link";
 
 const doctorNav = [
   { to: "/doctor", label: "My Patients", icon: LayoutDashboard },
   { to: "/doctor/prescriptions", label: "Prescriptions", icon: ClipboardList },
+  { to: "/help", label: "Help", icon: LifeBuoy },
 ];
 
 function initials(name: string) {
@@ -64,15 +67,20 @@ export function DoctorLayout() {
             const active = item.to === "/doctor"
               ? !!matchRoute({ to: item.to, fuzzy: false })
               : !!matchRoute({ to: item.to });
+            const linkClass = cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted",
+              active && "bg-muted text-foreground"
+            );
+            if (item.to === "/help") {
+              return (
+                <HelpLink key={item.to} className={linkClass}>
+                  <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                  {item.label}
+                </HelpLink>
+              );
+            }
             return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted",
-                  active && "bg-muted text-foreground"
-                )}
-              >
+              <Link key={item.to} to={item.to} className={linkClass}>
                 <item.icon className="size-4 shrink-0 text-muted-foreground" />
                 {item.label}
               </Link>

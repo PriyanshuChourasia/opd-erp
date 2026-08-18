@@ -2,25 +2,25 @@
 
 ## What is this page?
 
-The Roles & Permissions page (`/organisation/roles`) is the RBAC (Role-Based Access Control) management hub. It allows administrators to define roles, assign permissions to roles, and view the complete permission matrix. This controls what each user role can access and modify in the system.
+The Roles & Permissions page (`/organisation/roles`) manages role-based access control: define roles, assign permissions to them, and maintain the permission list itself. A permission matrix shows which role has which permission.
 
-## What actions can be done?
+## Actions & Effects
 
-- **Create role** — Define a new role with a name, description, and set of permissions.
-- **Edit role** — Modify a role's name, description, and assigned permissions.
-- **Delete role** — Remove a non-system role (system roles like Super Admin cannot be deleted).
-- **View permission matrix** — See a grid of resources × roles with permission levels (manage/read/none).
-- **Create permission** — Define a new permission with a resource and action (e.g. "patients" + "create").
-- **Delete permission** — Remove a custom permission.
-- **Seed permissions** — Click "Seed Permissions" to generate the default set of 60 permissions (12 resources × 5 actions).
-- **View role details** — See which permissions are assigned to each role and how many users have that role.
+- **Create Role** — Opens the add sheet. Effect: calls `createRole` with name, description, and selected permission IDs; invalidates `roles`; toasts "Role created successfully".
+- **Edit role (pencil)** — Opens the sheet pre-filled with the role's permissions. Effect: saving calls `updateRole`; invalidates `roles`; toasts "Role updated successfully".
+- **Delete role (X + confirm)** — Calls `deleteRole`. Effect: invalidates `roles`; toasts "Role deleted successfully".
+- **Delete permission (X + confirm)** — Calls `deletePermission`. Effect: invalidates `permissions`; toasts "Permission deleted".
+- **Seed default permissions** — Button to seed the default permission set. Effect: calls the seed endpoint if permissions are empty; invalidates `permissions`; toasts "Default permissions seeded".
+- **Permission matrix** — Read-only view of role × permission access (or interactive in the feature-flag UI).
 
-## What features does it hold?
+## Events
 
-- **3-tab layout** — Roles list, Permissions matrix, and Permissions list.
-- **Permission matrix table** — Visual grid showing resource × role with manage (green), read (blue), or none indicators.
-- **Role cards** — Each role shows name, description, permission count, user count, and system badge.
-- **Permission picker** — Grouped by resource when editing a role, with checkboxes for each action.
-- **System role protection** — Roles with `isSystem: true` cannot be deleted.
-- **Permission count per role** — Quick indicator of how many permissions each role has.
-- **User count per role** — Shows how many users are assigned to each role.
+- **Data fetch** — Roles and permissions are fetched with a large limit (only a handful exist) to power the matrix and the permission picker without pagination.
+- **Cross-module effect** — Role changes affect which screens and actions each logged-in user can access on next load.
+
+## Features
+
+- Roles list with permission counts.
+- Permission list with delete actions and a seed action.
+- Permission-picker inside the role sheet.
+- Permission matrix across roles.

@@ -1,11 +1,12 @@
 import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { CalendarClock, LayoutDashboard, LogOut, Receipt, ShoppingCart, Stethoscope, User, Users } from "lucide-react";
+import { CalendarClock, LayoutDashboard, LifeBuoy, LogOut, Receipt, ShoppingCart, Stethoscope, User, Users } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
 import { useAppSelector } from "@/store/hooks";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { HelpLink } from "@/modules/help/components/help-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +74,12 @@ export function PosLayout() {
               <LayoutDashboard />
               Dashboard
             </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <HelpLink>
+              <LifeBuoy />
+              Help
+            </HelpLink>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

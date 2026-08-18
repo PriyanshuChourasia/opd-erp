@@ -2,19 +2,25 @@
 
 ## What is this page?
 
-The Organisation page (`/organisation`) displays and manages the clinic's organisation-level settings. It shows an overview of the clinic's profile, user/role statistics, and provides quick links to manage users, roles, and addresses. There is typically only one organisation record in the system.
+The Organisation page (`/organisation`) manages the clinic's profile (name, address, contact, registration number), the one-time patient registration fee, discount rules, and quick links to users, roles, and permissions. It also embeds the clinic's addresses.
 
-## What actions can be done?
+## Actions & Effects
 
-- **Edit organisation details** — Update the clinic name, address, phone, email, website, and registration number.
-- **Manage addresses** — Add or edit organisation addresses (clinic location, billing address, etc.).
-- **Quick navigation** — Links to manage Users, Roles & Permissions, and Addresses.
-- **View stats** — See total users and active roles at a glance.
+- **Edit Profile / Set Up Organisation** — Opens the settings sheet. Effect: on save calls `updateOrganisation`; invalidates `organisation`; toasts "Organisation updated successfully".
+- **Registration fee** — Sets the one-time fee charged per patient on their first appointment. Effect: the default registration fee shown in booking forms updates everywhere (appointments, receptionist).
+- **Discount settings** — Toggle discounts on/off, set max discount %, and default type (% or flat). Effect: caps the discount inputs in POS checkout and controls whether discount is shown.
+- **Manage addresses** — Embedded AddressManager. Effect: add/edit/delete/set-primary addresses for the organisation.
+- **Quick actions** — Navigate to Users, Roles & Permissions, or the organisation profile. Effect: route navigation only.
+- **Stat cards** — Total users and active roles counts. Effect: informational.
 
-## What features does it hold?
+## Events
 
-- **Organisation profile card** — Displays clinic name, contact info, and registration number.
-- **Stats cards** — Total users and active roles counts.
-- **Address manager** — Embedded address management for organisation addresses.
-- **Quick action links** — One-click access to Users, Roles, and Addresses modules.
-- **Singleton record** — Only one organisation record exists; the form edits the existing record.
+- **Data fetch** — Organisation, user count, and role count queries run on mount.
+- **Cross-module effect** — Organisation settings (name/address/phone, registration fee, discount rules) are consumed by billing (invoice header), appointments (registration fee default), and POS (discount caps).
+
+## Features
+
+- Organisation details card with all key fields.
+- Users and Roles stat cards.
+- Settings sheet with registration fee and discount configuration.
+- Embedded address management.

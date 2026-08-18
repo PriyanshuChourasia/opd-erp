@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as DisplayRouteImport } from './routes/display'
 import { Route as ReceptionistRouteImport } from './routes/_receptionist'
 import { Route as PosRouteImport } from './routes/_pos'
@@ -73,6 +74,11 @@ import { Route as AppointmentsAppointmentsAppointmentIdEditRouteImport } from '.
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DisplayRoute = DisplayRouteImport.update({
@@ -396,6 +402,7 @@ const AppointmentsAppointmentsAppointmentIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/display': typeof DisplayRoute
+  '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/addresses': typeof DashboardAddressesRoute
   '/allergies': typeof DashboardAllergiesRoute
@@ -451,6 +458,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/display': typeof DisplayRoute
+  '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/addresses': typeof DashboardAddressesRoute
   '/allergies': typeof DashboardAllergiesRoute
@@ -514,6 +522,7 @@ export interface FileRoutesById {
   '/_pos': typeof PosRouteWithChildren
   '/_receptionist': typeof ReceptionistRouteWithChildren
   '/display': typeof DisplayRoute
+  '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/_dashboard/addresses': typeof DashboardAddressesRoute
   '/_dashboard/allergies': typeof DashboardAllergiesRoute
@@ -571,6 +580,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/display'
+    | '/help'
     | '/login'
     | '/addresses'
     | '/allergies'
@@ -626,6 +636,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/display'
+    | '/help'
     | '/login'
     | '/addresses'
     | '/allergies'
@@ -688,6 +699,7 @@ export interface FileRouteTypes {
     | '/_pos'
     | '/_receptionist'
     | '/display'
+    | '/help'
     | '/login'
     | '/_dashboard/addresses'
     | '/_dashboard/allergies'
@@ -751,6 +763,7 @@ export interface RootRouteChildren {
   PosRoute: typeof PosRouteWithChildren
   ReceptionistRoute: typeof ReceptionistRouteWithChildren
   DisplayRoute: typeof DisplayRoute
+  HelpRoute: typeof HelpRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -761,6 +774,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/display': {
@@ -1364,6 +1384,7 @@ const rootRouteChildren: RootRouteChildren = {
   PosRoute: PosRouteWithChildren,
   ReceptionistRoute: ReceptionistRouteWithChildren,
   DisplayRoute: DisplayRoute,
+  HelpRoute: HelpRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

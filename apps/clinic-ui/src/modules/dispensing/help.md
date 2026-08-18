@@ -1,20 +1,19 @@
-# Dispensing — Pharmacy Dispensing Records
+# Dispensing — Pharmacy Records
 
 ## What is this page?
 
-The Dispensing page (`/dispensing`) shows a read-only log of all medicines that have been dispensed to patients. Each record tracks which medicine was given, the quantity, batch number, expiry date, and who dispensed it. This serves as the pharmacy's dispensing audit trail.
+The Dispensing page (`/dispensing`) shows the pharmacy's dispensing records — every medicine dispensed, with quantity, batch number, expiry date, who dispensed it, and when. It is a read-only audit trail for batch tracking.
 
-## What actions can be done?
+## Actions & Effects
 
-- **View dispensing records** — Browse the paginated list of all dispensed medicines.
-- **Search** — Search by medicine name, patient name, or batch number.
-- **Filter by date** — View dispensing records for a specific date range.
+- **Browse records** — Read-only. Effect: none.
+- **Pagination** — 20 rows per page; changing pages refetches.
 
-## What features does it hold?
+## Events
 
-- **Paginated DataTable** — Medicine name, quantity dispensed, batch number, expiry date, dispensed timestamp, and dispensed-by staff member.
-- **Read-only** — Dispensing records are created automatically when prescriptions with DISPENSED status are processed.
-- **Batch tracking** — Each dispensing record includes the medicine batch number for traceability.
-- **Expiry tracking** — Expiry dates are recorded for inventory management.
-- **Audit trail** — Records which staff member dispensed each medication.
-- **Linked to prescriptions** — Each dispensing record is linked to the source prescription for full traceability.
+- **Data fetch** — Runs on mount and on pagination change (`fetchDispensings`).
+
+## Features
+
+- Paginated DataTable: medicine, quantity, batch #, expiry date, dispensed-at timestamp, dispensed-by.
+- Batch/expiry tracking for recalls and stock audits.

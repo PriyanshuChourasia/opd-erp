@@ -5,6 +5,7 @@ import {
   FileText,
   FlaskConical,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Receipt,
   Stethoscope,
@@ -16,6 +17,7 @@ import { useAppSelector } from "@/store/hooks";
 import { cn, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { HelpLink } from "@/modules/help/components/help-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +72,12 @@ export function PatientLayout() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <HelpLink>
+              <LifeBuoy />
+              Help
+            </HelpLink>
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2">

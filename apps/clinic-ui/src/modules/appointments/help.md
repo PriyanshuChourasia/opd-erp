@@ -1,30 +1,37 @@
 # Appointments — Booking & Scheduling
 
-## What is this page?
+## What is this module?
 
-The Appointments page (`/appointments`) handles the full appointment lifecycle — from booking new appointments to tracking their status through check-in, consultation, and completion. It is the central scheduling hub for the clinic.
+The Appointments module handles the full appointment lifecycle — booking, rescheduling, status tracking (SCHEDULED → CONFIRMED → CHECKED_IN → IN_PROGRESS → COMPLETED), invoicing, and slip printing. It is the central scheduling hub of the clinic and is shared by the dashboard (`/appointments`), receptionist, and POS workspaces.
 
-## What actions can be done?
+## Pages (per-page help files)
 
-- **Book new appointment** — Click "New Appointment" to open the booking sheet. Search and select a patient, choose a department and doctor, pick a consultation type, select an available time slot, set the fee, and confirm.
-- **Create new patient inline** — From the booking sheet, click "New patient" to open the patient registration form without leaving the page.
-- **Advance appointment status** — Move through the workflow: SCHEDULED → CONFIRMED → CHECKED_IN → IN_PROGRESS → COMPLETED.
-- **Cancel appointment** — Cancel with an optional reason.
-- **Mark no-show** — Mark a patient who didn't arrive as NO_SHOW.
-- **Generate invoice (direct)** — For completed appointments, generate a bill directly.
-- **Generate invoice (POS)** — Redirect to the POS screen with the appointment pre-filled for checkout.
-- **Bulk invoice generation** — Select multiple completed appointments without bills and generate all invoices at once.
-- **Filter by doctor** — Click doctor filter chips to view appointments for a specific doctor.
-- **Filter by date** — Use Today/Tomorrow buttons or a date picker to filter.
-- **Search** — Search by patient name, phone, or token number.
+- **Appointments List** (`/appointments`) — `components/appointments-page.help.md` — the operational list with filters, status actions, invoice generation, rescheduling, prescriptions, and printing.
+- **New Appointment** (`/appointments/new`) — `components/new-appointment-page.help.md` — the full booking form.
+- **Edit Appointment** (`/appointments/$appointmentId/edit`) — `components/edit-appointment-page.help.md` — update an existing booking.
 
-## What features does it hold?
+## Shared Actions & Effects
 
-- **Paginated DataTable** — Token #, patient, status, doctor, type, time, fee, and action buttons.
-- **6 consultation types** — Walk-in (₹100), Consultation (₹300), Specialist (₹500), Emergency (₹800), Follow-up (₹150), Teleconsultation (₹250).
-- **Smart slot picker** — Time slots are generated from the doctor's EmployeeSchedule. Only shows slots when the doctor is scheduled. Unavailable slots are grayed out.
-- **Department/doctor cascade** — Selecting a department filters the doctor list. Selecting a doctor loads available slots.
-- **Fee auto-fill** — Consultation fee auto-fills based on consultation type or doctor's configured fee.
-- **Status workflow badges** — Color-coded badges for each status.
-- **Auto-refresh** — Appointments refresh every 15 seconds.
-- **Token auto-numbering** — Tokens are automatically assigned per doctor per day.
+- **Book** — Creates the appointment (token auto-assigned per doctor per day), invalidates the appointments + slot caches, toasts success, navigates to the list.
+- **Book & Pay** — Creates the appointment then checkouts it with the payment method; additionally invalidates the billing cache.
+- **Advance status** — Changing status calls `updateAppointmentStatus`; CHECKED_IN also refreshes the live queue; CANCELLED optionally records a reason; RESCHEDULED opens the reschedule flow.
+- **Generate invoice** — Checkout of a completed appointment creates the bill; the row then shows a Paid badge with the invoice number.
+- **Create prescription** — Records diagnosis + doctor's remarks as a prescription (with a "Verbal Instructions" item when no medicines are added).
+- **Reschedule** — Changes date/doctor/slot and reloads slot availability.
+- **Print slip** — Generates an appointment slip PDF (html2pdf) or prints via the browser.
+
+## Events
+
+- **Auto-refresh** — Appointment lists refresh on data mutations; the receptionist dashboard refreshes every 15 seconds.
+- **Search debounce** — 300 ms after typing before refetching.
+- **Slot availability** — `fetchDoctorSlots(doctorId, date)` runs whenever doctor or date changes; unavailable/past/booked slots are disabled.
+- **Doctor schedule awareness** — Doctors only appear for days they are scheduled (EmployeeSchedule); the doctor's hours are shown in the picker.
+- **Prescription notes lookup** — The list shows the latest doctor notes per patient+doctor.
+
+## Features
+
+- Paginated DataTable with token #, patient, status, doctor, type, time, fee, and row actions.
+- 6 consultation types: Walk-in (₹100), Consultation (₹300), Specialist (₹500), Emergency (₹800), Follow-up (₹150), Teleconsultation (₹250).
+- Fee auto-fill from consultation type or the doctor's configured fee; registration fee preset chips (₹50–₹500) with organisation default.
+- Patient info card with allergies and past-visit history.
+- Bulk invoice generation for completed, unpaid appointments.

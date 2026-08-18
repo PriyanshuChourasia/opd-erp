@@ -2,20 +2,22 @@
 
 ## What is this page?
 
-The Developer Overview page (`/developer`) is a system-level dashboard for developers and administrators to monitor the backend's registered modules, features, API actions, and health status. It provides a bird's-eye view of the entire backend architecture.
+The Developer Overview (`/developer`) is the landing page of the developer area. It shows system-wide statistics from the backend module registry — total modules, features, API actions, and API health — plus the module dependency graph and quick links to the deeper developer pages.
 
-## What actions can be done?
+## Actions & Effects
 
-- **View system stats** — See total modules, features, API actions, and health status at a glance.
-- **Browse module list** — View all registered backend modules with their versions and feature counts.
-- **Quick navigation** — Links to the Modules browser and Features configurator.
-- **Check API status** — Verify the backend API is healthy and responsive.
-- **View module dependencies** — See which modules depend on which other modules.
+- **Quick actions** — Buttons to Application Modules (`/developer/modules`), Application Features (`/developer/features`), System Health, and API Documentation. Effect: route navigation.
+- **Browse modules list** — Read-only list of all registered modules with version and action counts. Effect: informational.
+- **Browse dependency graph** — Read-only list of modules and their cross-module dependencies. Effect: informational.
 
-## What features does it hold?
+## Events
 
-- **4 stat cards** — Total modules, total features, total API actions, and system health.
-- **Module list** — Cards showing each registered module with name, version, and feature/action counts.
-- **System overview panel** — API status, registered modules count, total actions, and backend prefix.
-- **Module dependency graph** — Visual representation of module interdependencies.
-- **Quick action links** — One-click access to Modules browser and Features configurator.
+- **Data fetch** — The module registry (`fetchModules`) loads on mount; the "Health" stat reads "…" while loading, then "OK" when the registry responds.
+- **Action counting** — Total actions/features are computed by walking each module's features → capabilities → actions.
+
+## Features
+
+- 4 stat cards: Total Modules, Features, API Actions, Health.
+- Application Modules list with versions and action counts.
+- Module Dependencies card (or "No cross-module dependencies").
+- System Overview card: API status, modules registered, total actions, backend prefix (/api).

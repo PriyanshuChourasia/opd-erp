@@ -1,23 +1,23 @@
-# Addresses — Global Address Directory
+# Addresses — Address Book Component
 
-## What is this page?
+## What is this module?
 
-The Addresses page (`/addresses`) is a global directory of all addresses in the system. Addresses are polymorphic — they can belong to Users, Doctors, Organisations, or any other entity. Each address has a type (CLINIC, HOME, BILLING, OTHER) and can be marked as primary.
+The Addresses module is not a standalone page — it provides the **AddressManager** component embedded in records that have addresses (patients, doctors, organisation). It manages multiple addresses per entity with a primary address concept.
 
-## What actions can be done?
+## Actions & Effects
 
-- **Add new address** — Create an address for any entity (Doctor, Patient, Organisation, User) with address type, line 1/2, landmark, city, district, state, country, postal code, and coordinates.
-- **Edit address** — Modify any address details.
-- **Delete address** — Remove an address record.
-- **Set as primary** — Mark an address as the primary address for its entity (unsets any previous primary).
-- **Filter by type** — Filter addresses by type: CLINIC, HOME, BILLING, or OTHER.
-- **Filter by entity** — Filter addresses by entity type: Doctor, Patient, Organisation, or User.
+- **Add address** — Opens the address form. Effect: calls `createAddress` for the entity; invalidates the address list; toasts success.
+- **Edit address (pencil)** — Opens the form pre-filled. Effect: calls `updateAddress`; invalidates the list; toasts success.
+- **Set as primary (star)** — Calls `setPrimaryAddress`. Effect: that address becomes the entity's primary address; invalidates the list; toasts success.
+- **Delete address (trash + confirm)** — Calls `deleteAddress`. Effect: removes the address; invalidates the list; toasts success.
 
-## What features does it hold?
+## Events
 
-- **Paginated DataTable** — Address type icon, address lines, entity type/ID, primary flag, active status.
-- **Type icons** — Visual icons for CLINIC (building), HOME (house), BILLING (receipt), OTHER.
-- **Primary address swap** — Setting a new primary automatically unsets the previous primary for that entity.
-- **Polymorphic association** — Addresses can belong to any entity type via `addressableType`/`addressableId`.
-- **Geolocation support** — Optional latitude/longitude fields for mapping.
-- **Entity type filter** — Quick filter chips for Doctor, Patient, Organisation, User.
+- **Data fetch** — Addresses for an entity load on mount (`fetchAddressesByEntity`).
+- **Cross-module usage** — Embedded in the Organisation page (clinic addresses), doctor sheets, and patient records.
+
+## Features
+
+- Multiple addresses per entity with type labels.
+- Primary-address highlighting.
+- Add/Edit/Delete/Set-primary actions with confirmation.

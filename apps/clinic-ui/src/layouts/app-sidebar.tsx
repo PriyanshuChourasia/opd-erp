@@ -53,6 +53,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { HelpLink } from "@/modules/help/components/help-link";
+import { BrandMark } from "@/components/brand-mark";
 
 const clinicNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -118,9 +119,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link to="/dashboard">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <LayoutDashboard className="size-4" />
-                </span>
+                <BrandMark />
                 <span className="min-w-0 truncate text-sm font-semibold">OPD ERP</span>
               </Link>
             </SidebarMenuButton>

@@ -6,11 +6,11 @@ import {
   LifeBuoy,
   LogOut,
   Receipt,
-  Stethoscope,
   User,
   UserRoundCog,
   Users,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
 import { useAppSelector } from "@/store/hooks";
@@ -63,9 +63,7 @@ export function ReceptionistLayout() {
       <aside className="hidden w-56 shrink-0 flex-col border-r bg-background lg:flex">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <Link to="/receptionist" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Stethoscope className="size-4" />
-            </span>
+            <BrandMark />
             <span className="text-sm font-semibold">Receptionist</span>
           </Link>
           <HelpTip className="ml-auto" />
@@ -119,9 +117,7 @@ export function ReceptionistLayout() {
       <div className="flex flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:hidden">
           <Link to="/receptionist" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Stethoscope className="size-4" />
-            </span>
+            <BrandMark />
             <span className="text-sm font-semibold">Receptionist</span>
           </Link>
           <HelpTip className="ml-auto" />

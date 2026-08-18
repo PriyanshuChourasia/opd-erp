@@ -4,7 +4,6 @@ import { Link } from "@tanstack/react-router";
 import {
   CalendarClock,
   ClipboardList,
-  Hospital,
   LogIn,
   Pill,
   Receipt,
@@ -12,6 +11,7 @@ import {
   Stethoscope,
   Users,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,9 +66,7 @@ export function LoginPage() {
       <div className="hidden flex-col justify-between bg-muted/30 px-16 py-16 ring-1 ring-border lg:flex">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center bg-primary">
-              <Hospital className="size-6 text-primary-foreground" />
-            </div>
+            <BrandMark size="lg" />
             <div>
               <h1 className="text-xl font-bold tracking-tight">OPD ERP</h1>
               <p className="text-sm text-muted-foreground">Clinic Management System</p>
@@ -105,9 +103,7 @@ export function LoginPage() {
         <div className="mx-auto w-full max-w-sm">
           {/* Mobile-only logo */}
           <div className="mb-10 flex items-center gap-2.5 lg:hidden">
-            <span className="flex size-9 items-center justify-center bg-primary text-primary-foreground">
-              <Hospital className="size-5" />
-            </span>
+            <BrandMark size="md" />
             <span className="text-lg font-semibold tracking-tight">OPD ERP</span>
           </div>
 

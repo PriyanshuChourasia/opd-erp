@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   LogOut,
   Receipt,
-  Stethoscope,
   User,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -17,6 +16,7 @@ import { cn, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { HelpTip } from "@/modules/help/components/help-tip";
+import { BrandMark } from "@/components/brand-mark";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,9 +49,7 @@ export function PatientLayout() {
     <div className="flex h-screen flex-col bg-muted/30">
       <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-background px-4">
         <Link to="/patient" className="flex shrink-0 items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Stethoscope className="size-4" />
-          </span>
+          <BrandMark />
           <span className="text-sm font-semibold">Patient Portal</span>
         </Link>
         <nav className="flex items-center gap-1">

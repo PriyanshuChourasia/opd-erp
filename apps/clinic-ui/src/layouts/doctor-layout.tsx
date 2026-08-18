@@ -5,7 +5,6 @@ import {
   LifeBuoy,
   LogOut,
   Pill,
-  Stethoscope,
   User,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -24,6 +23,7 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HelpLink } from "@/modules/help/components/help-link";
 import { HelpTip } from "@/modules/help/components/help-tip";
+import { BrandMark } from "@/components/brand-mark";
 
 const doctorNav = [
   { to: "/doctor", label: "My Patients", icon: LayoutDashboard },
@@ -57,9 +57,7 @@ export function DoctorLayout() {
       <aside className="hidden w-56 shrink-0 flex-col border-r bg-background lg:flex">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <Link to="/doctor" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Stethoscope className="size-4" />
-            </span>
+            <BrandMark />
             <span className="text-sm font-semibold">Doctor</span>
           </Link>
           <HelpTip className="ml-auto" />
@@ -113,9 +111,7 @@ export function DoctorLayout() {
       <div className="flex flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:hidden">
           <Link to="/doctor" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Stethoscope className="size-4" />
-            </span>
+            <BrandMark />
             <span className="text-sm font-semibold">Doctor</span>
           </Link>
           <HelpTip className="ml-auto" />

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HelpLink } from "@/modules/help/components/help-link";
+import { HelpTip } from "@/modules/help/components/help-tip";
 
 const doctorNav = [
   { to: "/doctor", label: "My Patients", icon: LayoutDashboard },
@@ -61,6 +62,7 @@ export function DoctorLayout() {
             </span>
             <span className="text-sm font-semibold">Doctor</span>
           </Link>
+          <HelpTip className="ml-auto" />
         </div>
         <nav className="flex-1 space-y-1 p-2">
           {doctorNav.map((item) => {
@@ -109,13 +111,14 @@ export function DoctorLayout() {
         </div>
       </aside>
       <div className="flex flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4 lg:hidden">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:hidden">
           <Link to="/doctor" className="flex items-center gap-2">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Stethoscope className="size-4" />
             </span>
             <span className="text-sm font-semibold">Doctor</span>
           </Link>
+          <HelpTip className="ml-auto" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" className="flex items-center gap-2 rounded-md p-1 hover:bg-muted">

@@ -13,6 +13,7 @@ import {
 import { useAppDispatch } from "@/store/hooks";
 import { clearCredentials } from "@/store/auth-slice";
 import { fetchProfile } from "@/lib/api";
+import { HelpTip } from "@/modules/help/components/help-tip";
 
 export function DashboardLayout() {
   const matches = useMatches();
@@ -59,6 +60,7 @@ export function DashboardLayout() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
+            <HelpTip className="ml-auto" />
           </header>
           <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-6">
             <Outlet />

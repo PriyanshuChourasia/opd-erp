@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { HelpLink } from "@/modules/help/components/help-link";
+import { HelpTip } from "@/modules/help/components/help-tip";
 
 const receptionistNav = [
   { to: "/receptionist", label: "Dashboard", icon: LayoutDashboard },
@@ -67,6 +68,7 @@ export function ReceptionistLayout() {
             </span>
             <span className="text-sm font-semibold">Receptionist</span>
           </Link>
+          <HelpTip className="ml-auto" />
         </div>
         <nav className="flex-1 space-y-1 p-2">
           {receptionistNav.map((item) => {
@@ -115,13 +117,14 @@ export function ReceptionistLayout() {
         </div>
       </aside>
       <div className="flex flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4 lg:hidden">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:hidden">
           <Link to="/receptionist" className="flex items-center gap-2">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Stethoscope className="size-4" />
             </span>
             <span className="text-sm font-semibold">Receptionist</span>
           </Link>
+          <HelpTip className="ml-auto" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2">

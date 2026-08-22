@@ -7,7 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -17,9 +20,10 @@ import { FindPatientsQueryDto } from './dto/find-patients-query.dto';
 export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() dto: CreatePatientDto) {
-    return this.patientsService.create(dto);
+  create(@Body() dto: CreatePatientDto, @Req() req: { user: { id: string } }) {
+    return this.patientsService.create(dto, req.user.id);
   }
 
   @Get()
@@ -32,9 +36,10 @@ export class PatientsController {
     return this.patientsService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePatientDto) {
-    return this.patientsService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdatePatientDto, @Req() req: { user: { id: string } }) {
+    return this.patientsService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

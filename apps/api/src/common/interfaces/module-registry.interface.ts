@@ -6,9 +6,13 @@ export interface ModuleAction {
   name: string;
   description: string;
   /** HTTP method or internal trigger */
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   /** Route path relative to the module prefix */
   path?: string;
+  /** Human-readable description of the expected request (params/body shape). */
+  request?: string;
+  /** Human-readable description of the response payload shape. */
+  response?: string;
 }
 
 /**

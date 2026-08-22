@@ -21,7 +21,7 @@ export class DispensingService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateDispensingDto) {
+  async create(dto: CreateDispensingDto, userId?: string) {
     return this.prisma.dispensing.create({
       data: {
         prescriptionId: dto.prescriptionId,
@@ -32,6 +32,7 @@ export class DispensingService
         expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
         notes: dto.notes,
         dispensedBy: dto.dispensedBy,
+        createdById: userId ?? null,
       },
       include: { prescription: true },
     });
@@ -63,13 +64,14 @@ export class DispensingService
     return dispensing;
   }
 
-  async update(id: string, dto: UpdateDispensingDto) {
+  async update(id: string, dto: UpdateDispensingDto, userId?: string) {
     await this.findOne(id);
     return this.prisma.dispensing.update({
       where: { id },
       data: {
         ...dto,
         expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+        updatedById: userId ?? null,
       },
     });
   }

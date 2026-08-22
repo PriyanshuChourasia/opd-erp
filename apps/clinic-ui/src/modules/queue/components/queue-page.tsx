@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -122,7 +123,7 @@ export function QueuePage() {
     {
       id: "patient",
       header: "Patient",
-      cell: ({ row }) => <p className="text-sm font-medium">{row.original.patient.name}</p>,
+      cell: ({ row }) => <p className="text-sm font-medium">{getPatientName(row.original.patient)}</p>,
     },
     {
       accessorKey: "status",

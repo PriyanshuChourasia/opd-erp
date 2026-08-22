@@ -22,8 +22,8 @@ export class MedicineCatalogService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateMedicineDto) {
-    return this.prisma.medicine.create({ data: dto });
+  async create(dto: CreateMedicineDto, userId?: string) {
+    return this.prisma.medicine.create({ data: { ...dto, createdById: userId ?? null } });
   }
 
   async findAll(query: FindMedicinesQueryDto): Promise<PaginatedResult<Medicine>> {
@@ -41,9 +41,9 @@ export class MedicineCatalogService
     return medicine;
   }
 
-  async update(id: string, dto: UpdateMedicineDto) {
+  async update(id: string, dto: UpdateMedicineDto, userId?: string) {
     await this.findOne(id);
-    return this.prisma.medicine.update({ where: { id }, data: dto });
+    return this.prisma.medicine.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
   async remove(id: string) {

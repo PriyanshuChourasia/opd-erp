@@ -120,7 +120,7 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <Link to="/dashboard">
                 <BrandMark />
-                <span className="min-w-0 truncate text-sm font-semibold">OPD ERP</span>
+                <span className="min-w-0 truncate text-sm font-semibold">MyClinic</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

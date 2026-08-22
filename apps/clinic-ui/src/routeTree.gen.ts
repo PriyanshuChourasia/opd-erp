@@ -68,7 +68,9 @@ import { Route as DashboardOrganisationUsersRouteImport } from './routes/_dashbo
 import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
 import { Route as AppointmentsAppointmentsNewRouteImport } from './routes/_appointments/appointments/new'
 import { Route as ReceptionistReceptionistAppointmentsIndexRouteImport } from './routes/_receptionist/receptionist/appointments/index'
+import { Route as DeveloperDeveloperSchemaIndexRouteImport } from './routes/_developer/developer/schema/index'
 import { Route as ReceptionistReceptionistAppointmentsNewRouteImport } from './routes/_receptionist/receptionist/appointments/new'
+import { Route as DeveloperDeveloperSchemaModelRouteImport } from './routes/_developer/developer/schema/$model'
 import { Route as AppointmentsAppointmentsAppointmentIdEditRouteImport } from './routes/_appointments/appointments/$appointmentId.edit'
 
 const LoginRoute = LoginRouteImport.update({
@@ -386,11 +388,23 @@ const ReceptionistReceptionistAppointmentsIndexRoute =
     path: '/receptionist/appointments/',
     getParentRoute: () => ReceptionistRoute,
   } as any)
+const DeveloperDeveloperSchemaIndexRoute =
+  DeveloperDeveloperSchemaIndexRouteImport.update({
+    id: '/developer/schema/',
+    path: '/developer/schema/',
+    getParentRoute: () => DeveloperRoute,
+  } as any)
 const ReceptionistReceptionistAppointmentsNewRoute =
   ReceptionistReceptionistAppointmentsNewRouteImport.update({
     id: '/receptionist/appointments/new',
     path: '/receptionist/appointments/new',
     getParentRoute: () => ReceptionistRoute,
+  } as any)
+const DeveloperDeveloperSchemaModelRoute =
+  DeveloperDeveloperSchemaModelRouteImport.update({
+    id: '/developer/schema/$model',
+    path: '/developer/schema/$model',
+    getParentRoute: () => DeveloperRoute,
   } as any)
 const AppointmentsAppointmentsAppointmentIdEditRoute =
   AppointmentsAppointmentsAppointmentIdEditRouteImport.update({
@@ -452,7 +466,9 @@ export interface FileRoutesByFullPath {
   '/pos/': typeof PosPosIndexRoute
   '/receptionist/': typeof ReceptionistReceptionistIndexRoute
   '/appointments/$appointmentId/edit': typeof AppointmentsAppointmentsAppointmentIdEditRoute
+  '/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
+  '/developer/schema/': typeof DeveloperDeveloperSchemaIndexRoute
   '/receptionist/appointments/': typeof ReceptionistReceptionistAppointmentsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -508,7 +524,9 @@ export interface FileRoutesByTo {
   '/pos': typeof PosPosIndexRoute
   '/receptionist': typeof ReceptionistReceptionistIndexRoute
   '/appointments/$appointmentId/edit': typeof AppointmentsAppointmentsAppointmentIdEditRoute
+  '/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
+  '/developer/schema': typeof DeveloperDeveloperSchemaIndexRoute
   '/receptionist/appointments': typeof ReceptionistReceptionistAppointmentsIndexRoute
 }
 export interface FileRoutesById {
@@ -572,7 +590,9 @@ export interface FileRoutesById {
   '/_pos/pos/': typeof PosPosIndexRoute
   '/_receptionist/receptionist/': typeof ReceptionistReceptionistIndexRoute
   '/_appointments/appointments/$appointmentId/edit': typeof AppointmentsAppointmentsAppointmentIdEditRoute
+  '/_developer/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/_receptionist/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
+  '/_developer/developer/schema/': typeof DeveloperDeveloperSchemaIndexRoute
   '/_receptionist/receptionist/appointments/': typeof ReceptionistReceptionistAppointmentsIndexRoute
 }
 export interface FileRouteTypes {
@@ -630,7 +650,9 @@ export interface FileRouteTypes {
     | '/pos/'
     | '/receptionist/'
     | '/appointments/$appointmentId/edit'
+    | '/developer/schema/$model'
     | '/receptionist/appointments/new'
+    | '/developer/schema/'
     | '/receptionist/appointments/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -686,7 +708,9 @@ export interface FileRouteTypes {
     | '/pos'
     | '/receptionist'
     | '/appointments/$appointmentId/edit'
+    | '/developer/schema/$model'
     | '/receptionist/appointments/new'
+    | '/developer/schema'
     | '/receptionist/appointments'
   id:
     | '__root__'
@@ -749,7 +773,9 @@ export interface FileRouteTypes {
     | '/_pos/pos/'
     | '/_receptionist/receptionist/'
     | '/_appointments/appointments/$appointmentId/edit'
+    | '/_developer/developer/schema/$model'
     | '/_receptionist/receptionist/appointments/new'
+    | '/_developer/developer/schema/'
     | '/_receptionist/receptionist/appointments/'
   fileRoutesById: FileRoutesById
 }
@@ -1182,12 +1208,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceptionistReceptionistAppointmentsIndexRouteImport
       parentRoute: typeof ReceptionistRoute
     }
+    '/_developer/developer/schema/': {
+      id: '/_developer/developer/schema/'
+      path: '/developer/schema'
+      fullPath: '/developer/schema/'
+      preLoaderRoute: typeof DeveloperDeveloperSchemaIndexRouteImport
+      parentRoute: typeof DeveloperRoute
+    }
     '/_receptionist/receptionist/appointments/new': {
       id: '/_receptionist/receptionist/appointments/new'
       path: '/receptionist/appointments/new'
       fullPath: '/receptionist/appointments/new'
       preLoaderRoute: typeof ReceptionistReceptionistAppointmentsNewRouteImport
       parentRoute: typeof ReceptionistRoute
+    }
+    '/_developer/developer/schema/$model': {
+      id: '/_developer/developer/schema/$model'
+      path: '/developer/schema/$model'
+      fullPath: '/developer/schema/$model'
+      preLoaderRoute: typeof DeveloperDeveloperSchemaModelRouteImport
+      parentRoute: typeof DeveloperRoute
     }
     '/_appointments/appointments/$appointmentId/edit': {
       id: '/_appointments/appointments/$appointmentId/edit'
@@ -1283,12 +1323,16 @@ interface DeveloperRouteChildren {
   DeveloperDeveloperFeaturesRoute: typeof DeveloperDeveloperFeaturesRoute
   DeveloperDeveloperModulesRoute: typeof DeveloperDeveloperModulesRoute
   DeveloperDeveloperIndexRoute: typeof DeveloperDeveloperIndexRoute
+  DeveloperDeveloperSchemaModelRoute: typeof DeveloperDeveloperSchemaModelRoute
+  DeveloperDeveloperSchemaIndexRoute: typeof DeveloperDeveloperSchemaIndexRoute
 }
 
 const DeveloperRouteChildren: DeveloperRouteChildren = {
   DeveloperDeveloperFeaturesRoute: DeveloperDeveloperFeaturesRoute,
   DeveloperDeveloperModulesRoute: DeveloperDeveloperModulesRoute,
   DeveloperDeveloperIndexRoute: DeveloperDeveloperIndexRoute,
+  DeveloperDeveloperSchemaModelRoute: DeveloperDeveloperSchemaModelRoute,
+  DeveloperDeveloperSchemaIndexRoute: DeveloperDeveloperSchemaIndexRoute,
 }
 
 const DeveloperRouteWithChildren = DeveloperRoute._addFileChildren(

@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -112,8 +113,8 @@ export class DocumentsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateDocumentDto) {
-    return this.documentsService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateDocumentDto, @Req() req: { user: { id: string } }) {
+    return this.documentsService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

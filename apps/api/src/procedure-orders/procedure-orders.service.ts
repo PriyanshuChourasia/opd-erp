@@ -15,9 +15,9 @@ import { UpdateProcedureOrderDto } from './dto/update-procedure-order.dto';
 export class ProcedureOrdersService implements IBaseService<ProcedureOrder, CreateProcedureOrderDto, UpdateProcedureOrderDto> {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateProcedureOrderDto) {
+  async create(dto: CreateProcedureOrderDto, userId?: string) {
     return this.prisma.procedureOrder.create({
-      data: dto,
+      data: { ...dto, createdById: userId ?? null },
       include: { patient: true, doctor: true },
     });
   }
@@ -42,9 +42,9 @@ export class ProcedureOrdersService implements IBaseService<ProcedureOrder, Crea
     return order;
   }
 
-  async update(id: string, dto: UpdateProcedureOrderDto) {
+  async update(id: string, dto: UpdateProcedureOrderDto, userId?: string) {
     await this.findOne(id);
-    const data: Record<string, unknown> = { ...dto };
+    const data: Record<string, unknown> = { ...dto, updatedById: userId ?? null };
     if (dto.resultDate) data.resultDate = new Date(dto.resultDate);
     return this.prisma.procedureOrder.update({
       where: { id },

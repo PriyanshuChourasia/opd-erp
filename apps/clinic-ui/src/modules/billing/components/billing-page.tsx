@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
@@ -64,7 +65,7 @@ export function BillingPage() {
       header: "Patient",
       cell: ({ row }) => (
         <div className="group flex items-center gap-2">
-          <span className="text-sm">{row.original.patient ? row.original.patient.name : "Walk-in customer"}</span>
+          <span className="text-sm">{row.original.patient ? getPatientName(row.original.patient) : "Walk-in customer"}</span>
           {row.original.patient && (
             <button
               type="button"
@@ -189,8 +190,8 @@ export function BillingPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Bill to</p>
-                  <p className="font-medium">{viewBill.patient ? viewBill.patient.name : "Walk-in customer"}</p>
-                  {viewBill.patient?.phone && <p className="text-xs text-muted-foreground">{viewBill.patient.phone}</p>}
+                  <p className="font-medium">{viewBill.patient ? getPatientName(viewBill.patient) : "Walk-in customer"}</p>
+                  {viewBill.patient?.contactNo && <p className="text-xs text-muted-foreground">{viewBill.patient?.contactNo}</p>}
                   {viewBill.patient?.address && <p className="text-xs text-muted-foreground">{viewBill.patient.address}</p>}
                 </div>
                 <div className="text-right">

@@ -61,7 +61,8 @@ export class AppointmentsService
     const date = new Date(dto.date);
 
     const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
-    const tokenNumber = this.generateTokenNumber(date, patient?.name ?? 'PTNT');
+    const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'PTNT';
+    const tokenNumber = this.generateTokenNumber(date, patientName);
 
     let registrationFee = dto.registrationFee;
     if (registrationFee === undefined) {
@@ -150,13 +151,14 @@ export class AppointmentsService
     return withDoctorName(this.prisma, appointment);
   }
 
-  async update(id: string, dto: UpdateAppointmentStatusDto) {
+  async update(id: string, dto: UpdateAppointmentStatusDto, userId?: string) {
     const existing = await this.findOne(id);
     const appointment = await this.prisma.appointment.update({
       where: { id },
       data: {
         status: dto.status,
         cancellationReason: dto.status === 'CANCELLED' ? (dto.cancellationReason ?? null) : undefined,
+        updatedById: userId ?? null,
       },
       include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
     });
@@ -167,7 +169,8 @@ export class AppointmentsService
       const alreadyQueued = await this.prisma.queueEntry.findUnique({ where: { appointmentId: id } });
       if (!alreadyQueued) {
         const checkedInAt = new Date();
-        const tokenNumber = this.generateTokenNumber(checkedInAt, appointment.patient.name);
+        const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+        const tokenNumber = this.generateTokenNumber(checkedInAt, patientName);
         await this.prisma.queueEntry.create({
           data: {
             patientId: appointment.patientId,
@@ -191,7 +194,7 @@ export class AppointmentsService
    * If the doctor changes and a linked queue entry is still WAITING,
    * the queue entry is reassigned to the new doctor as well.
    */
-  async updateDetails(id: string, dto: UpdateAppointmentDto) {
+  async updateDetails(id: string, dto: UpdateAppointmentDto, userId?: string) {
     const existing = await this.findOne(id);
 
     const data: Record<string, unknown> = {};
@@ -202,6 +205,7 @@ export class AppointmentsService
     if (dto.registrationFee !== undefined) data.registrationFee = dto.registrationFee;
     if (dto.reasonForVisit !== undefined) data.reasonForVisit = dto.reasonForVisit;
     if (dto.notes !== undefined) data.notes = dto.notes;
+    data.updatedById = userId ?? null;
 
     // If doctor changed, also reassign the linked queue entry regardless of status.
     // The mismatch between appointment and queue doctors is worse than updating
@@ -247,7 +251,8 @@ export class AppointmentsService
     const existing = await this.findOne(id);
     const date = new Date(dto.date);
     const doctorId = dto.doctorId ?? existing.doctorId;
-    const tokenNumber = this.generateTokenNumber(date, existing.patient.name);
+    const patientName = `${existing.patient.firstName} ${existing.patient.lastName}`;
+    const tokenNumber = this.generateTokenNumber(date, patientName);
 
     // If the doctor changed during reschedule, also reassign any linked
     // queue entry regardless of status so the patient appears under the
@@ -307,7 +312,7 @@ export class AppointmentsService
         {
           itemType: 'CONSULTATION',
           itemId: appointment.id,
-          itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.name}`,
+          itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
           quantity: 1,
           unitPrice: appointment.fee,
         },
@@ -316,7 +321,7 @@ export class AppointmentsService
               {
                 itemType: 'REGISTRATION',
                 itemId: appointment.id,
-                itemName: `Registration Fee — ${appointment.patient.name}`,
+                itemName: `Registration Fee — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
                 quantity: 1,
                 unitPrice: appointment.registrationFee,
               },
@@ -362,7 +367,7 @@ export class AppointmentsService
             {
               itemType: 'CONSULTATION',
               itemId: appointment.id,
-              itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.name}`,
+              itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
               quantity: 1,
               unitPrice: appointment.fee,
               amount: consultationAmount,
@@ -372,7 +377,7 @@ export class AppointmentsService
                   {
                     itemType: 'REGISTRATION',
                     itemId: appointment.id,
-                    itemName: `Registration Fee — ${appointment.patient.name}`,
+                    itemName: `Registration Fee — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
                     quantity: 1,
                     unitPrice: appointment.registrationFee,
                     amount: registrationAmount,

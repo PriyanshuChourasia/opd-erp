@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddressesService } from './addresses.service';
 import { CreateAddressDto } from './dto/create-address.dto';
@@ -11,8 +11,8 @@ export class AddressesController {
   constructor(private readonly addressesService: AddressesService) {}
 
   @Post()
-  create(@Body() dto: CreateAddressDto) {
-    return this.addressesService.create(dto);
+  create(@Body() dto: CreateAddressDto, @Req() req: { user: { id: string } }) {
+    return this.addressesService.create(dto, req.user.id);
   }
 
   @Get()
@@ -39,8 +39,8 @@ export class AddressesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateAddressDto) {
-    return this.addressesService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateAddressDto, @Req() req: { user: { id: string } }) {
+    return this.addressesService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

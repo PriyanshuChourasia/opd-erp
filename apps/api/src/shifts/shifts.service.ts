@@ -22,8 +22,8 @@ export class ShiftsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateShiftDto) {
-    return this.prisma.shift.create({ data: dto });
+  async create(dto: CreateShiftDto, userId?: string) {
+    return this.prisma.shift.create({ data: { ...dto, createdById: userId ?? null } });
   }
 
   async findAll(query: FindShiftsQueryDto): Promise<PaginatedResult<Shift>> {
@@ -51,9 +51,9 @@ export class ShiftsService
     return shift;
   }
 
-  async update(id: string, dto: UpdateShiftDto) {
+  async update(id: string, dto: UpdateShiftDto, userId?: string) {
     await this.findOne(id);
-    return this.prisma.shift.update({ where: { id }, data: dto });
+    return this.prisma.shift.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
   async remove(id: string) {

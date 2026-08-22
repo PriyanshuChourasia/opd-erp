@@ -1,3 +1,4 @@
+import { getPatientName, createPatientVitals } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
@@ -85,7 +86,17 @@ export function PatientsPage() {
   const docInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<CreatePatientInput>({
-    name: "", phone: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [], isFollowUp: false,
+    firstName: "", middleName: "", lastName: "", contactNo: "", altContactNo: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [],
+  });
+  const [vitals, setVitals] = useState({
+    heightCm: "",
+    weightKg: "",
+    temperatureC: "",
+    pulseBpm: "",
+    systolicBp: "",
+    diastolicBp: "",
+    spo2Percent: "",
+    respiratoryRate: "",
   });
 
   const { data: response, isLoading } = useQuery({
@@ -103,7 +114,30 @@ export function PatientsPage() {
 
   const createMutation = useMutation({
     mutationFn: createPatient,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); closeSheet(); toast.success("Patient created successfully"); },
+    onSuccess: async (patient: any) => {
+      const saved: Patient = patient?.data ?? patient;
+      // Submit vitals if any field has a value
+      const hasVitals = Object.values(vitals).some((v) => v !== "");
+      if (hasVitals) {
+        try {
+          const payload: Record<string, string | number> = { patientId: saved.id };
+          if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
+          if (vitals.weightKg) payload.weightKg = parseFloat(vitals.weightKg);
+          if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
+          if (vitals.pulseBpm) payload.pulseBpm = parseInt(vitals.pulseBpm, 10);
+          if (vitals.systolicBp) payload.systolicBp = parseInt(vitals.systolicBp, 10);
+          if (vitals.diastolicBp) payload.diastolicBp = parseInt(vitals.diastolicBp, 10);
+          if (vitals.spo2Percent) payload.spo2Percent = parseFloat(vitals.spo2Percent);
+          if (vitals.respiratoryRate) payload.respiratoryRate = parseInt(vitals.respiratoryRate, 10);
+          await createPatientVitals(payload as any);
+        } catch {
+          // vitals failure shouldn't block patient creation
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["patients"] });
+      closeSheet();
+      toast.success("Patient created successfully");
+    },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
@@ -122,7 +156,8 @@ export function PatientsPage() {
   function openAdd() {
     setEditingId(null);
     setPendingFiles([]);
-    setForm({ name: "", phone: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [], isFollowUp: false });
+    setForm({ firstName: "", middleName: "", lastName: "", contactNo: "", altContactNo: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [] });
+    setVitals({ heightCm: "", weightKg: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
     setSheetOpen(true);
   }
 
@@ -131,9 +166,10 @@ export function PatientsPage() {
     setPendingFiles([]);
     const patient = await queryClient.fetchQuery({ queryKey: ["patient", id], queryFn: () => fetchPatient(id) });
     setForm({
-      name: patient.name, phone: patient.phone, email: patient.email ?? "", dateOfBirth: patient.dateOfBirth ? patient.dateOfBirth.split("T")[0] ?? "" : "",
+      firstName: patient.firstName, middleName: patient.middleName ?? "", lastName: patient.lastName, contactNo: patient.contactNo, altContactNo: patient.altContactNo ?? "",
+      email: patient.email ?? "", dateOfBirth: patient.dateOfBirth ? patient.dateOfBirth.split("T")[0] ?? "" : "",
       gender: patient.gender ?? "", bloodGroup: patient.bloodGroup ?? "", address: patient.address ?? "", emergencyContact: patient.emergencyContact ?? "",
-      allergies: patient.allergies ?? [], isFollowUp: patient.isFollowUp ?? false,
+      allergies: patient.allergies ?? [],
     });
     setSheetOpen(true);
   }
@@ -158,7 +194,7 @@ export function PatientsPage() {
   };
 
   function handleSave() {
-    if (!form.name.trim() || !form.phone.trim()) return;
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.contactNo.trim()) return;
     if (editingId) {
       updateMutation.mutate({ id: editingId, data: form });
     } else {
@@ -210,19 +246,20 @@ export function PatientsPage() {
 
   const columns = useMemo<ColumnDef<Patient>[]>(() => [
     {
-      accessorKey: "name",
+      accessorKey: "patientCode",
       header: "Patient",
       cell: ({ row }) => {
         const patient = row.original;
+        const fullName = `${patient.firstName} ${patient.middleName ? patient.middleName + ' ' : ''}${patient.lastName}`;
         return (
           <div className="flex items-center gap-3">
-            <PatientAvatar patientId={patient.id} name={patient.name} />
+            <PatientAvatar patientId={patient.id} name={fullName} />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <p className="truncate font-medium">{patient.name}</p>
-                {patient.isFollowUp && <Badge variant="outline" className="shrink-0 text-[10px] text-blue-700 dark:text-blue-400">Follow-up</Badge>}
+                <p className="truncate font-medium">{fullName}</p>
+            
               </div>
-              {patient.gender && <p className="text-xs text-muted-foreground">{patient.gender}</p>}
+              <p className="text-xs text-muted-foreground">{patient.patientCode}</p>
             </div>
           </div>
         );
@@ -235,7 +272,8 @@ export function PatientsPage() {
         const patient = row.original;
         return (
           <div className="text-xs text-muted-foreground">
-            <p>{patient.phone}</p>
+            <p>{patient.contactNo}</p>
+            {patient.altContactNo && <p>{patient.altContactNo}</p>}
             {patient.email && <p>{patient.email}</p>}
           </div>
         );
@@ -318,98 +356,109 @@ export function PatientsPage() {
           <SheetTrigger asChild>
             <Button onClick={openAdd}><Plus className="mr-2 size-4" />Add Patient</Button>
           </SheetTrigger>
-          <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetContent side="right" className="w-[90vw] max-w-[1200px] overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{editingId ? "Edit Patient" : "Add Patient"}</SheetTitle>
               <SheetDescription>{editingId ? "Update patient details, photo, and documents." : "Register a new patient. Add photo and documents below (optional)."}</SheetDescription>
             </SheetHeader>
             <div className="flex-1 space-y-4 px-4 pb-4">
               <FieldGroup>
-                {/* ── Photo & Documents ── */}
+                {/* ── Photo & Names in same row ── */}
+                <div className="flex gap-4 items-start border-t pt-3 mt-2">
+                  {/* Profile Photo */}
+                  <div className="shrink-0">
+                    {editingId ? (
+                      <DocumentManager documentableType="Patient" documentableId={editingId} documentType="PROFILE_PHOTO" label="Profile Photo" />
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <button type="button" onClick={() => photoInputRef.current?.click()}
+                          className="flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors hover:border-primary/50 hover:bg-muted shrink-0">
+                          {photoPending[0]?.preview ? (
+                            <img src={photoPending[0].preview} alt="Photo" className="size-full object-cover" />
+                          ) : (
+                            <Camera className="size-6 text-muted-foreground/50" />
+                          )}
+                        </button>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">Profile Photo</p>
+                          <p className="text-xs text-muted-foreground">{photoPending[0] ? photoPending[0].file.name : "Click to select a photo"}</p>
+                        </div>
+                        <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handlePhotoSelect} />
+                      </div>
+                    )}
+                  </div>
+                  {/* Name fields */}
+                  <div className="flex-1 grid grid-cols-3 gap-3">
+                    <Field><FieldLabel htmlFor="p-firstName">First Name *</FieldLabel><Input id="p-firstName" placeholder="John" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="p-middleName">Middle Name</FieldLabel><Input id="p-middleName" placeholder="M" value={form.middleName} onChange={(e) => setForm({ ...form, middleName: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="p-lastName">Last Name *</FieldLabel><Input id="p-lastName" placeholder="Doe" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></Field>
+                  </div>
+                </div>
+                {/* ── Documents ── */}
                 {editingId ? (
-                  <div className="border-t pt-3 mt-2 space-y-4">
-                    <DocumentManager documentableType="Patient" documentableId={editingId} documentType="PROFILE_PHOTO" label="Profile Photo" />
-                    <div className="border-t pt-3">
-                      <p className="text-sm font-medium mb-2">Documents & Images <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
-                      <DocumentUploaderInline patientId={editingId} />
-                    </div>
+                  <div className="border-t pt-3">
+                    <p className="text-sm font-medium mb-2">Documents & Images <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
+                    <DocumentUploaderInline patientId={editingId} />
                   </div>
                 ) : (
-                  <div className="border-t pt-3 mt-2 space-y-3">
-                    {/* Photo preview */}
-                    <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => photoInputRef.current?.click()}
-                        className="flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors hover:border-primary/50 hover:bg-muted shrink-0">
-                        {photoPending[0]?.preview ? (
-                          <img src={photoPending[0].preview} alt="Photo" className="size-full object-cover" />
-                        ) : (
-                          <Camera className="size-6 text-muted-foreground/50" />
-                        )}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">Profile Photo</p>
-                        <p className="text-xs text-muted-foreground">{photoPending[0] ? photoPending[0].file.name : "Click to select a photo"}</p>
-                      </div>
-                      <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handlePhotoSelect} />
+                  <div className="border-t pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium">Documents & Images <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
+                      <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}>
+                        <FileUp className="mr-1.5 size-3.5" /> Add File
+                      </Button>
+                      <input ref={docInputRef} type="file" accept="image/*,application/pdf,.doc,.docx" multiple className="hidden" onChange={handleDocSelect} />
                     </div>
-                    {/* Documents */}
-                    <div className="border-t pt-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium">Documents & Images <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
-                        <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}>
-                          <FileUp className="mr-1.5 size-3.5" /> Add File
-                        </Button>
-                        <input ref={docInputRef} type="file" accept="image/*,application/pdf,.doc,.docx" multiple className="hidden" onChange={handleDocSelect} />
-                      </div>
-                      {otherPending.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No documents added yet. You can add them now or later.</p>
-                      )}
-                      <div className="space-y-2">
-                        {otherPending.map((pf) => {
-                          const realIdx = pendingFiles.indexOf(pf);
-                          const isImage = pf.file.type.startsWith("image/");
-                          return (
-                            <div key={realIdx} className="flex items-center gap-2 rounded-none border p-2">
-                              {isImage && pf.preview ? (
-                                <img src={pf.preview} alt="" className="size-10 shrink-0 rounded object-cover" />
-                              ) : (
-                                <span className="flex size-10 shrink-0 items-center justify-center rounded bg-muted">
-                                  <FileUp className="size-5 text-muted-foreground" />
-                                </span>
-                              )}
-                              <div className="flex-1 min-w-0 space-y-1">
-                                <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
-                                <Input placeholder="Label (e.g. Aadhaar Card, Prescription)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(realIdx, e.target.value)} />
-                              </div>
-                              <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => removePending(realIdx)}>
-                                <X className="size-3.5" />
-                              </Button>
+                    {otherPending.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No documents added yet. You can add them now or later.</p>
+                    )}
+                    <div className="space-y-2">
+                      {otherPending.map((pf) => {
+                        const realIdx = pendingFiles.indexOf(pf);
+                        const isImage = pf.file.type.startsWith("image/");
+                        return (
+                          <div key={realIdx} className="flex items-center gap-2 rounded-none border p-2">
+                            {isImage && pf.preview ? (
+                              <img src={pf.preview} alt="" className="size-10 shrink-0 rounded object-cover" />
+                            ) : (
+                              <span className="flex size-10 shrink-0 items-center justify-center rounded bg-muted">
+                                <FileUp className="size-5 text-muted-foreground" />
+                              </span>
+                            )}
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
+                              <Input placeholder="Label (e.g. Aadhaar Card, Prescription)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(realIdx, e.target.value)} />
                             </div>
-                          );
-                        })}
-                      </div>
+                            <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => removePending(realIdx)}>
+                              <X className="size-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
-                <Field><FieldLabel htmlFor="p-name">Full Name *</FieldLabel><Input id="p-name" placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-                <Field><FieldLabel htmlFor="p-phone">Phone *</FieldLabel><Input id="p-phone" placeholder="+1 555-000-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
-                <Field><FieldLabel htmlFor="p-email">Email</FieldLabel><Input id="p-email" type="email" placeholder="john@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-                <div className="flex gap-3">
-                  <Field className="flex-1"><FieldLabel htmlFor="p-dob">Date of Birth</FieldLabel><Input id="p-dob" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} /></Field>
-                  <Field className="flex-1"><FieldLabel htmlFor="p-gender">Gender</FieldLabel>
+                <div className="grid grid-cols-4 gap-3">
+                  <Field><FieldLabel htmlFor="p-contactNo">Contact No *</FieldLabel><Input id="p-contactNo" placeholder="+1 555-000-0000" value={form.contactNo} onChange={(e) => setForm({ ...form, contactNo: e.target.value })} /></Field>
+                  <Field><FieldLabel htmlFor="p-altContactNo">Alt Contact No</FieldLabel><Input id="p-altContactNo" placeholder="+1 555-000-0001" value={form.altContactNo} onChange={(e) => setForm({ ...form, altContactNo: e.target.value })} /></Field>
+                  <Field><FieldLabel htmlFor="p-email">Email</FieldLabel><Input id="p-email" type="email" placeholder="john@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+                  <Field><FieldLabel htmlFor="p-emergency">Emergency Contact</FieldLabel><Input id="p-emergency" placeholder="+1 555-000-0001" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} /></Field>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <Field><FieldLabel htmlFor="p-dob">Date of Birth</FieldLabel><Input id="p-dob" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} /></Field>
+                  <Field><FieldLabel htmlFor="p-gender">Gender</FieldLabel>
                     <select id="p-gender" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
                       <option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
                     </select>
                   </Field>
+                  <Field><FieldLabel htmlFor="p-blood">Blood Group</FieldLabel>
+                    <select id="p-blood" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.bloodGroup} onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}>
+                      <option value="">Select</option>
+                      {Object.keys(bloodGroupColors).map((bg) => (<option key={bg} value={bg}>{bg}</option>))}
+                    </select>
+                  </Field>
                 </div>
-                <Field><FieldLabel htmlFor="p-blood">Blood Group</FieldLabel>
-                  <select id="p-blood" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.bloodGroup} onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}>
-                    <option value="">Select</option>
-                    {Object.keys(bloodGroupColors).map((bg) => (<option key={bg} value={bg}>{bg}</option>))}
-                  </select>
-                </Field>
-                <Field><FieldLabel htmlFor="p-emergency">Emergency Contact</FieldLabel><Input id="p-emergency" placeholder="+1 555-000-0001" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} /></Field>
                 {editingId ? (
                   <div className="border-t pt-3 mt-2">
                     <AddressManager addressableType="Patient" addressableId={editingId} />
@@ -420,17 +469,26 @@ export function PatientsPage() {
                   </div>
                 )}
                 <Field><FieldLabel htmlFor="p-allergies">Allergies</FieldLabel><AllergySelect value={form.allergies ?? []} onChange={(allergies) => setForm({ ...form, allergies })} /></Field>
-                <Field>
-                  <label htmlFor="p-follow-up" className="flex w-fit items-center gap-2 text-sm">
-                    <input id="p-follow-up" type="checkbox" className="size-4" checked={form.isFollowUp ?? false} onChange={(e) => setForm({ ...form, isFollowUp: e.target.checked })} />
-                    Follow-up patient
-                  </label>
-                </Field>
+                {/* ── Patient Vitals (create only — immutable once created) ── */}
+                {!editingId && (
+                <div className="border-t pt-3 mt-2">
+                  <p className="text-base font-semibold mb-3">Patient Vitals <span className="text-xs font-normal text-muted-foreground">(optional)</span></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field><FieldLabel htmlFor="v-height">Height (cm) <span className="text-[10px] font-normal text-muted-foreground">(1 ft = 30.48 cm)</span></FieldLabel><Input id="v-height" type="number" step="0.1" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals({ ...vitals, heightCm: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="v-weight">Weight (kg)</FieldLabel><Input id="v-weight" type="number" step="0.1" placeholder="65" value={vitals.weightKg} onChange={(e) => setVitals({ ...vitals, weightKg: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="v-temp">Temperature (°C)</FieldLabel><Input id="v-temp" type="number" step="0.1" placeholder="36.5" value={vitals.temperatureC} onChange={(e) => setVitals({ ...vitals, temperatureC: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="v-pulse">Pulse (bpm)</FieldLabel><Input id="v-pulse" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals({ ...vitals, pulseBpm: e.target.value })} /></Field><Field><FieldLabel htmlFor="v-systolic">Systolic BP <span className="text-[10px] font-normal text-muted-foreground">(heart contracts)</span></FieldLabel><Input id="v-systolic" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals({ ...vitals, systolicBp: e.target.value })} /></Field><Field><FieldLabel htmlFor="v-diastolic">Diastolic BP <span className="text-[10px] font-normal text-muted-foreground">(heart relaxes)</span></FieldLabel><Input id="v-diastolic" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals({ ...vitals, diastolicBp: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="v-spo2">SpO₂ (%)</FieldLabel><Input id="v-spo2" type="number" step="0.1" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals({ ...vitals, spo2Percent: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="v-rr">Respiratory Rate</FieldLabel><Input id="v-rr" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })} /></Field>
+                  </div>
+                </div>
+                )}
+
               </FieldGroup>
             </div>
             <SheetFooter>
               <Button variant="outline" onClick={closeSheet}>Cancel</Button>
-              <Button onClick={handleSave} disabled={!form.name.trim() || !form.phone.trim() || createMutation.isPending || updateMutation.isPending}>
+              <Button onClick={handleSave} disabled={!form.firstName.trim() || !form.lastName.trim() || !form.contactNo.trim() || createMutation.isPending || updateMutation.isPending}>
                 {editingId ? "Save Changes" : "Create Patient"}
               </Button>
             </SheetFooter>
@@ -476,7 +534,7 @@ export function PatientsPage() {
       <Sheet open={docSheetOpen} onOpenChange={setDocSheetOpen}>
         <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Documents — {docSheetPatient?.name}</SheetTitle>
+            <SheetTitle>Documents — {docSheetPatient ? getPatientName(docSheetPatient) : ""}</SheetTitle>
             <SheetDescription>Upload, view, and manage documents for this patient.</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-4 space-y-4">

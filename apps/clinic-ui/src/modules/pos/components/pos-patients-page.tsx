@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Cake, ChevronDown, ChevronRight, Droplet, Mail, Pencil, Phone, Plus, Search, Users } from "lucide-react";
@@ -39,8 +40,8 @@ export function PosPatientsPage() {
               <button type="button" className="group flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-muted/50" onClick={() => setExpandedId(expanded ? null : patient.id)}>
                 {expanded ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10"><Users className="size-4 text-primary" /></span>
-                <div className="min-w-0 flex-1"><p className="text-sm font-medium">{patient.name}</p><div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Phone className="size-3" />{patient.phone}</span>
+                <div className="min-w-0 flex-1"><p className="text-sm font-medium">{getPatientName(patient)}</p><div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><Phone className="size-3" />{patient.contactNo}</span>
                   {patient.email && <span className="flex items-center gap-1"><Mail className="size-3" />{patient.email}</span>}
                   {patient.dateOfBirth && <span className="flex items-center gap-1"><Cake className="size-3" />{new Date(patient.dateOfBirth).toLocaleDateString()}</span>}
                   {patient.bloodGroup && <span className="flex items-center gap-1"><Droplet className="size-3" />{patient.bloodGroup}</span>}

@@ -27,6 +27,10 @@ import { DocumentsModule } from './documents/documents.module';
 import { AllergiesModule } from './allergies/allergies.module';
 import { DiagnosesModule } from './diagnoses/diagnoses.module';
 import { ReportsModule } from './reports/reports.module';
+import { PatientVitalsModule } from './patient-vitals/patient-vitals.module';
+import { PatientAllergyRecordsModule } from './patient-allergy-records/patient-allergy-records.module';
+import { DiagnosisSystemsModule } from './diagnosis-systems/diagnosis-systems.module';
+import { DatabaseSchemaModule } from './database-schema/database-schema.module';
 
 @Module({
   imports: [
@@ -57,7 +61,11 @@ import { ReportsModule } from './reports/reports.module';
     DocumentsModule,
     AllergiesModule,
     DiagnosesModule,
+    DiagnosisSystemsModule,
     ReportsModule,
+    PatientVitalsModule,
+    PatientAllergyRecordsModule,
+    DatabaseSchemaModule,
   ],
 })
 export class AppModule {}

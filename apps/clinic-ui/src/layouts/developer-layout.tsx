@@ -2,6 +2,7 @@ import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router
 import {
   Box,
   Cpu,
+  Database,
   LayoutDashboard,
   LogOut,
   User,
@@ -28,6 +29,7 @@ const devNav = [
   { to: "/developer", label: "Overview", icon: Cpu },
   { to: "/developer/modules", label: "Modules", icon: Box },
   { to: "/developer/features", label: "Features", icon: Zap },
+  { to: "/developer/schema", label: "Schema", icon: Database },
 ] as const;
 
 function initials(name: string) {

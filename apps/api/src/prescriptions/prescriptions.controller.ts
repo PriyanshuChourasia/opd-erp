@@ -15,13 +15,13 @@ export class PrescriptionsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() dto: CreatePrescriptionDto, @Req() req: AuthedRequest) {
+  create(@Body() dto: CreatePrescriptionDto, @Req() req: AuthedRequest & { user: { id: string } }) {
     // When the authenticated user is a doctor, always use their own ID
     // so they cannot create prescriptions under another doctor's name.
     if (req.user.userableType === 'Doctor' && req.user.userableId) {
       dto.doctorId = req.user.userableId;
     }
-    return this.service.create(dto);
+    return this.service.create(dto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -36,9 +36,10 @@ export class PrescriptionsController {
     return this.service.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePrescriptionDto) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdatePrescriptionDto, @Req() req: { user: { id: string } }) {
+    return this.service.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

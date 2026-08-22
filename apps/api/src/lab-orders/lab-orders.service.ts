@@ -17,9 +17,9 @@ import { UpdateLabOrderDto } from './dto/update-lab-order.dto';
 export class LabOrdersService implements IBaseService<LabOrder, CreateLabOrderDto, UpdateLabOrderDto> {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateLabOrderDto) {
+  async create(dto: CreateLabOrderDto, userId?: string) {
     return this.prisma.labOrder.create({
-      data: dto,
+      data: { ...dto, createdById: userId ?? null },
       include: { patient: true, doctor: true },
     });
   }
@@ -44,9 +44,9 @@ export class LabOrdersService implements IBaseService<LabOrder, CreateLabOrderDt
     return order;
   }
 
-  async update(id: string, dto: UpdateLabOrderDto) {
+  async update(id: string, dto: UpdateLabOrderDto, userId?: string) {
     await this.findOne(id);
-    const data: Record<string, unknown> = { ...dto };
+    const data: Record<string, unknown> = { ...dto, updatedById: userId ?? null };
     if (dto.resultDate) data.resultDate = new Date(dto.resultDate);
     return this.prisma.labOrder.update({
       where: { id },

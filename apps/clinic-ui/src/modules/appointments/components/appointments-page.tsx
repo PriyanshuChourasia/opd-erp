@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
+import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { AlertTriangle, CalendarClock, ClipboardList, Eye, FileText, Plus, Printer, Search, X } from "lucide-react";
 import {
@@ -150,7 +151,7 @@ export function AppointmentsPage() {
       const blob = await html2pdf()
         .set({
           margin: [0.5, 0.5, 0.5, 0.5],
-          filename: `appointment-${printAppt.patient?.name?.replace(/\s+/g, "-") ?? printAppt.id}.pdf`,
+          filename: `appointment-${getPatientName(printAppt.patient!).replace(/\s+/g, "-") ?? printAppt.id}.pdf`,
           image: { type: "jpeg", quality: 0.95 },
           html2canvas: { scale: 2, letterRendering: true, useCORS: true },
           jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
@@ -160,7 +161,7 @@ export function AppointmentsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `appointment-${printAppt.patient?.name?.replace(/\s+/g, "-") ?? printAppt.id}.pdf`;
+      a.download = `appointment-${getPatientName(printAppt.patient!).replace(/\s+/g, "-") ?? printAppt.id}.pdf`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (err) {
@@ -380,8 +381,8 @@ export function AppointmentsPage() {
         const rxNotes = prescriptionNotesMap.get(`${appt.patientId}:${appt.doctorId}`);
         return (
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{appt.patient?.name}</p>
-            <p className="text-xs text-muted-foreground">{appt.patient?.phone}</p>
+            <p className="truncate text-sm font-medium">{appt.patient ? getPatientName(appt.patient) : null}</p>
+            <p className="text-xs text-muted-foreground">{appt.patient?.contactNo}</p>
             {rxNotes && (
               <p className="mt-0.5 text-[11px] text-blue-600 dark:text-blue-400 line-clamp-2 italic" title={rxNotes}>
                 {rxNotes}
@@ -685,7 +686,7 @@ export function AppointmentsPage() {
         <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Reschedule Appointment</SheetTitle>
-            <SheetDescription>{rescheduleTarget?.patient?.name} — pick a new date, doctor, and slot.</SheetDescription>
+            <SheetDescription>{rescheduleTarget?.patient ? getPatientName(rescheduleTarget.patient) : null} — pick a new date, doctor, and slot.</SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-4 px-4 pb-4">
             <Field><FieldLabel htmlFor="r-date">Date</FieldLabel>
@@ -734,7 +735,7 @@ export function AppointmentsPage() {
           <SheetHeader>
             <SheetTitle>Invoice Preview</SheetTitle>
             <SheetDescription>
-              {invoicePreviewAppt ? `Review invoice for ${invoicePreviewAppt.patient?.name}` : ""}
+              {invoicePreviewAppt ? `Review invoice for ${invoicePreviewAppt.patient ? getPatientName(invoicePreviewAppt.patient) : ""}` : ""}
             </SheetDescription>
           </SheetHeader>
 
@@ -748,7 +749,7 @@ export function AppointmentsPage() {
               <div className="rounded-none border bg-muted/20 p-3 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Patient</span>
-                  <span className="font-medium">{invoicePreviewAppt?.patient?.name ?? "—"}</span>
+                  <span className="font-medium">{invoicePreviewAppt?.patient ? getPatientName(invoicePreviewAppt.patient) : "—"}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Doctor</span>
@@ -867,7 +868,7 @@ export function AppointmentsPage() {
           <SheetHeader>
             <SheetTitle>Create Prescription</SheetTitle>
             <SheetDescription>
-              {rxAppointment ? `Record doctor's remarks for ${rxAppointment.patient?.name}` : ""}
+              {rxAppointment ? `Record doctor's remarks for ${rxAppointment.patient ? getPatientName(rxAppointment.patient) : ""}` : ""}
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-4 px-4 pb-4">
@@ -875,7 +876,7 @@ export function AppointmentsPage() {
             <div className="rounded-none border bg-muted/20 p-3 space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Patient</span>
-                <span className="font-medium">{rxAppointment?.patient?.name ?? "—"}</span>
+                <span className="font-medium">{rxAppointment?.patient ? getPatientName(rxAppointment.patient) : "—"}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Doctor</span>
@@ -1048,8 +1049,8 @@ export function AppointmentsPage() {
                         <tr>
                           <td className="w-1/2 align-top pr-3">
                             <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PATIENT DETAILS</div>
-                            <div className="font-bold text-[13px] mb-0.5">{printAppt.patient?.name}</div>
-                            <div className="text-xs text-gray-600 mb-0.5">Phone: {printAppt.patient?.phone}</div>
+                            <div className="font-bold text-[13px] mb-0.5">{printAppt.patient ? getPatientName(printAppt.patient) : null}</div>
+                            <div className="text-xs text-gray-600 mb-0.5">Phone: {printAppt.patient?.contactNo}</div>
                             {printAppt.patient?.email && <div className="text-xs text-gray-600">Email: {printAppt.patient.email}</div>}
                           </td>
                           <td className="w-1/2 align-top pl-3">

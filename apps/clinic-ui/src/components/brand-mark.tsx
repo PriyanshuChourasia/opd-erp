@@ -20,7 +20,7 @@ export function BrandMark({ size = "sm", className }: BrandMarkProps) {
         className,
       )}
     >
-      <img src="/opdlogo.png" alt="OPD ERP" className="size-full object-contain p-1" />
+      <img src="/opdlogo.png" alt="MyClinic" className="size-full object-contain p-1" />
     </span>
   );
 }

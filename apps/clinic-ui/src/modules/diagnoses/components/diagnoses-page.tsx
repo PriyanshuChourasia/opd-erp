@@ -8,6 +8,7 @@ import {
   createDiagnosis,
   updateDiagnosis,
   deleteDiagnosis,
+  fetchDiagnosisSystems,
   type Diagnosis,
   type CreateDiagnosisInput,
 } from "@/lib/api";
@@ -37,7 +38,7 @@ import {
 import { DataTable } from "@/components/data-table/data-table";
 
 function emptyForm(): CreateDiagnosisInput {
-  return { name: "", icdCode: "", description: "" };
+  return { code: "", name: "", description: "", diagnosisSystemId: undefined };
 }
 
 export function DiagnosesPage() {
@@ -65,6 +66,12 @@ export function DiagnosesPage() {
 
   const diagnoses = response?.data ?? [];
   const pageCount = response?.meta?.totalPages ?? 0;
+
+  const { data: systemsResponse } = useQuery({
+    queryKey: ["diagnosis-systems"],
+    queryFn: () => fetchDiagnosisSystems({ limit: 100 }),
+  });
+  const systems = systemsResponse?.data ?? [];
 
   const createMutation = useMutation({
     mutationFn: createDiagnosis,
@@ -110,10 +117,11 @@ export function DiagnosesPage() {
       queryFn: () => fetchDiagnosis(id),
     });
     setForm({
+      code: diagnosis.code,
       name: diagnosis.name,
-      icdCode: diagnosis.icdCode ?? undefined,
       description: diagnosis.description ?? undefined,
-      isActive: diagnosis.isActive,
+      diagnosisSystemId: diagnosis.diagnosisSystemId ?? undefined,
+      status: diagnosis.status,
     });
     setSheetOpen(true);
   }
@@ -124,7 +132,7 @@ export function DiagnosesPage() {
   }
 
   function handleSave() {
-    if (!form.name.trim()) return;
+    if (!form.code.trim() || !form.name.trim()) return;
     if (editingId) updateMutation.mutate({ id: editingId, data: form });
     else createMutation.mutate(form);
   }
@@ -154,22 +162,31 @@ export function DiagnosesPage() {
         },
       },
       {
-        accessorKey: "icdCode",
-        header: "ICD Code",
+        accessorKey: "code",
+        header: "Code",
+        cell: ({ row }) => (
+          <Badge variant="outline" className="text-[10px]">
+            {row.original.code}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "diagnosisSystem",
+        header: "System",
         cell: ({ row }) =>
-          row.original.icdCode ? (
+          row.original.diagnosisSystem ? (
             <Badge variant="outline" className="text-[10px]">
-              {row.original.icdCode}
+              {row.original.diagnosisSystem.name}
             </Badge>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
       },
       {
-        accessorKey: "isActive",
+        accessorKey: "status",
         header: "Status",
         cell: ({ row }) =>
-          row.original.isActive ? (
+          row.original.status === "ACTIVE" ? (
             <Badge
               className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]"
               variant="outline"
@@ -244,7 +261,7 @@ export function DiagnosesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Diagnoses</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage the diagnosis master catalog used when recording prescriptions
+            Manage the diagnosis catalog organized by classification systems
           </p>
         </div>
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -267,6 +284,37 @@ export function DiagnosesPage() {
             <div className="flex-1 space-y-4 px-4 pb-4">
               <FieldGroup>
                 <Field>
+                  <FieldLabel htmlFor="d-system">Diagnosis System</FieldLabel>
+                  <Select
+                    value={form.diagnosisSystemId ?? ""}
+                    onValueChange={(v) =>
+                      setForm({ ...form, diagnosisSystemId: v || undefined })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select system (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {systems.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} ({s.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="d-code">Code *</FieldLabel>
+                  <Input
+                    id="d-code"
+                    placeholder="e.g. I10, E11"
+                    value={form.code}
+                    onChange={(e) =>
+                      setForm({ ...form, code: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field>
                   <FieldLabel htmlFor="d-name">Name *</FieldLabel>
                   <Input
                     id="d-name"
@@ -274,17 +322,6 @@ export function DiagnosesPage() {
                     value={form.name}
                     onChange={(e) =>
                       setForm({ ...form, name: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="d-icd">ICD Code</FieldLabel>
-                  <Input
-                    id="d-icd"
-                    placeholder="e.g. I10"
-                    value={form.icdCode ?? ""}
-                    onChange={(e) =>
-                      setForm({ ...form, icdCode: e.target.value || undefined })
                     }
                   />
                 </Field>
@@ -305,17 +342,17 @@ export function DiagnosesPage() {
                 <Field>
                   <FieldLabel>Status</FieldLabel>
                   <Select
-                    value={form.isActive !== false ? "true" : "false"}
+                    value={form.status ?? "ACTIVE"}
                     onValueChange={(v) =>
-                      setForm({ ...form, isActive: v === "true" })
+                      setForm({ ...form, status: v })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true">Active</SelectItem>
-                      <SelectItem value="false">Inactive</SelectItem>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="INACTIVE">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
@@ -328,6 +365,7 @@ export function DiagnosesPage() {
               <Button
                 onClick={handleSave}
                 disabled={
+                  !form.code.trim() ||
                   !form.name.trim() ||
                   createMutation.isPending ||
                   updateMutation.isPending

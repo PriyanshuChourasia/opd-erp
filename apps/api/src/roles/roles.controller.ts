@@ -7,19 +7,23 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { FindRolesQueryDto } from './dto/find-roles-query.dto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Post()
-  create(@Body() dto: CreateRoleDto) {
-    return this.rolesService.create(dto);
+  create(@Body() dto: CreateRoleDto, @Req() req: { user: { id: string } }) {
+    return this.rolesService.create(dto, req.user.id);
   }
 
   @Get()
@@ -33,8 +37,8 @@ export class RolesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
-    return this.rolesService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateRoleDto, @Req() req: { user: { id: string } }) {
+    return this.rolesService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

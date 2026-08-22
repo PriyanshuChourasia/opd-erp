@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -29,14 +29,14 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
+  create(@Body() dto: CreateUserDto, @Req() req: { user: { id: string } }) {
+    return this.usersService.create(dto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.usersService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req: { user: { id: string } }) {
+    return this.usersService.update(id, dto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)

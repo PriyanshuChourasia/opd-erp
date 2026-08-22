@@ -52,7 +52,7 @@ export class BillingService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateBillDto) {
+  async create(dto: CreateBillDto, userId?: string) {
     if (dto.appointmentId) {
       const appointment = await this.prisma.appointment.findUnique({
         where: { id: dto.appointmentId },
@@ -87,6 +87,7 @@ export class BillingService
         total,
         paymentMethod: dto.paymentMethod ?? 'CASH',
         notes: dto.notes,
+        createdById: userId ?? null,
         items: { create: items },
       },
       include: { items: true, patient: true },
@@ -120,11 +121,11 @@ export class BillingService
     return withDoctorName(this.prisma, bill);
   }
 
-  async update(id: string, dto: UpdateBillStatusDto) {
+  async update(id: string, dto: UpdateBillStatusDto, userId?: string) {
     await this.findOne(id);
     return this.prisma.bill.update({
       where: { id },
-      data: { status: dto.status },
+      data: { status: dto.status, updatedById: userId ?? null },
       include: { items: true, patient: true },
     });
   }

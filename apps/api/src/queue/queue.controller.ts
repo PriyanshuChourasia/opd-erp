@@ -7,7 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { QueueService } from './queue.service';
 import { CreateQueueEntryDto } from './dto/create-queue-entry.dto';
 import { UpdateQueueStatusDto } from './dto/update-queue-status.dto';
@@ -17,9 +20,10 @@ import { FindQueueQueryDto } from './dto/find-queue-query.dto';
 export class QueueController {
   constructor(private readonly queueService: QueueService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() dto: CreateQueueEntryDto) {
-    return this.queueService.create(dto);
+  create(@Body() dto: CreateQueueEntryDto, @Req() req: { user: { id: string } }) {
+    return this.queueService.create(dto, req.user.id);
   }
 
   @Get()
@@ -39,9 +43,10 @@ export class QueueController {
     return this.queueService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateQueueStatusDto) {
-    return this.queueService.update(id, dto);
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateQueueStatusDto, @Req() req: { user: { id: string } }) {
+    return this.queueService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

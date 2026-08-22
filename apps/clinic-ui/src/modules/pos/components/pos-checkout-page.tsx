@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
@@ -22,7 +23,7 @@ export function PosCheckoutPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [patientQuery, setPatientQuery] = useState("");
-  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string; phone: string } | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
   const [itemQuery, setItemQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const { data: organisation } = useQuery({
@@ -49,7 +50,7 @@ export function PosCheckoutPage() {
   useEffect(() => {
     if (!invoicePreview.data || invoicePreview.data.alreadyInvoiced) return;
     const { appointment, items } = invoicePreview.data;
-    setSelectedPatient({ id: appointment.patient.id, name: appointment.patient.name, phone: appointment.patient.phone });
+    setSelectedPatient({ id: appointment.patient.id, firstName: appointment.patient.firstName, middleName: appointment.patient.middleName, lastName: appointment.patient.lastName, contactNo: appointment.patient.contactNo });
     setCart(items.map((item) => ({ id: crypto.randomUUID(), itemType: item.itemType, itemId: item.itemId, description: item.itemName, quantity: item.quantity ?? 1, unitPrice: item.unitPrice })));
   }, [invoicePreview.data]);
 
@@ -125,7 +126,7 @@ export function PosCheckoutPage() {
         <Card className="overflow-visible"><CardHeader><CardTitle className="text-sm">Patient</CardTitle></CardHeader>
           <CardContent>{selectedPatient ? (
             <div className="flex items-center justify-between rounded-none border px-3 py-2">
-              <div className="flex items-center gap-2"><UserRound className="size-4 text-muted-foreground" /><div><p className="text-sm font-medium">{selectedPatient.name}</p><p className="text-xs text-muted-foreground">{selectedPatient.phone}</p></div></div>
+              <div className="flex items-center gap-2"><UserRound className="size-4 text-muted-foreground" /><div><p className="text-sm font-medium">{getPatientName(selectedPatient)}</p><p className="text-xs text-muted-foreground">{selectedPatient.contactNo}</p></div></div>
               <Button variant="ghost" size="icon-sm" title="Clear patient" onClick={() => setSelectedPatient(null)}><X /></Button>
             </div>
           ) : (
@@ -135,7 +136,7 @@ export function PosCheckoutPage() {
                 <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md">
                   {patientResults.data?.map((patient: any) => (
                     <button key={patient.id} type="button" className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => { setSelectedPatient(patient); setPatientQuery(""); }}>
-                      <span className="font-medium">{patient.name}</span><span className="text-xs text-muted-foreground">{patient.phone}</span>
+                      <span className="font-medium">{getPatientName(patient)}</span><span className="text-xs text-muted-foreground">{patient.contactNo}</span>
                     </button>
                   ))}
                 </div>
@@ -212,7 +213,7 @@ export function PosCheckoutPage() {
             )}
           </div>
           <div className="flex items-center justify-between border-t pt-4 text-base font-semibold"><span>Total</span><span>{currency(total)}</span></div>
-          {selectedPatient ? <Badge variant="outline" className="w-fit">{selectedPatient.name}</Badge> : <Badge variant="outline" className="w-fit text-muted-foreground">Walk-in customer</Badge>}
+          {selectedPatient ? <Badge variant="outline" className="w-fit">{getPatientName(selectedPatient)}</Badge> : <Badge variant="outline" className="w-fit text-muted-foreground">Walk-in customer</Badge>}
           {checkoutMutation.isError && <p className="text-sm text-destructive">{(checkoutMutation.error as Error).message}</p>}
           {checkoutMutation.isSuccess && <p className="text-sm text-primary">Sale completed.</p>}
         </CardContent>

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ShiftsService } from './shifts.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
@@ -11,8 +11,8 @@ export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 
   @Post()
-  create(@Body() dto: CreateShiftDto) {
-    return this.shiftsService.create(dto);
+  create(@Body() dto: CreateShiftDto, @Req() req: { user: { id: string } }) {
+    return this.shiftsService.create(dto, req.user.id);
   }
 
   @Get()
@@ -26,8 +26,8 @@ export class ShiftsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateShiftDto) {
-    return this.shiftsService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateShiftDto, @Req() req: { user: { id: string } }) {
+    return this.shiftsService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

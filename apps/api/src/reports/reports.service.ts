@@ -67,7 +67,7 @@ export class ReportsService {
   async getOutstandingBills() {
     const bills = await this.prisma.bill.findMany({
       where: { status: { in: ['PENDING', 'PARTIAL'] } },
-      include: { patient: { select: { name: true, phone: true } } },
+      include: { patient: { select: { firstName: true, lastName: true, contactNo: true } } },
       orderBy: { createdAt: 'asc' },
     });
 
@@ -91,8 +91,8 @@ export class ReportsService {
       return {
         id: bill.id,
         invoiceNo: bill.invoiceNo,
-        patientName: bill.patient?.name ?? 'Unknown',
-        patientPhone: bill.patient?.phone ?? '',
+        patientName: bill.patient ? `${bill.patient.firstName} ${bill.patient.lastName}` : 'Unknown',
+        patientPhone: bill.patient?.contactNo ?? '',
         total: bill.total,
         status: bill.status,
         ageDays,
@@ -174,7 +174,7 @@ export class ReportsService {
     const prescriptions = await this.prisma.prescription.findMany({
       where: { createdAt: { gte: start, lt: end } },
       include: {
-        patient: { select: { name: true } },
+        patient: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -194,7 +194,7 @@ export class ReportsService {
       .filter((rx) => rx.status === 'ACTIVE' && rx.createdAt < threeDaysAgo)
       .map((rx) => ({
         prescriptionId: rx.id,
-        patientName: rx.patient.name,
+        patientName: `${rx.patient.firstName} ${rx.patient.lastName}`,
         doctorId: rx.doctorId,
         daysPending: Math.floor((Date.now() - rx.createdAt.getTime()) / 86400000),
       }))
@@ -333,7 +333,7 @@ export class ReportsService {
 
     const activePatients = await this.prisma.patient.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, phone: true, createdAt: true },
+      select: { id: true, firstName: true, lastName: true, contactNo: true, createdAt: true },
     });
 
     // For each patient, find their most recent appointment date
@@ -351,7 +351,7 @@ export class ReportsService {
       .map((p) => {
         const lastVisitDate = lastVisitMap.get(p.id) ?? p.createdAt;
         const daysSince = Math.floor((now - lastVisitDate.getTime()) / 86400000);
-        return { patientId: p.id, name: p.name, phone: p.phone, lastVisitDate: lastVisitDate.toISOString(), daysSinceLastVisit: daysSince };
+        return { patientId: p.id, firstName: p.firstName, lastName: p.lastName, contactNo: p.contactNo, lastVisitDate: lastVisitDate.toISOString(), daysSinceLastVisit: daysSince };
       })
       .filter((p) => p.daysSinceLastVisit >= daysSinceLastVisit)
       .sort((a, b) => b.daysSinceLastVisit - a.daysSinceLastVisit);

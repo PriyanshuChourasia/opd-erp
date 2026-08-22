@@ -23,11 +23,12 @@ export class PrescriptionsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreatePrescriptionDto) {
+  async create(dto: CreatePrescriptionDto, userId?: string) {
     const { items, ...data } = dto;
     return this.prisma.prescription.create({
       data: {
         ...data,
+        createdById: userId ?? null,
         items: {
           create: items.map((item) => ({
             medicineId: item.medicineId,
@@ -91,9 +92,10 @@ export class PrescriptionsService
     return prescription;
   }
 
-  async update(id: string, dto: UpdatePrescriptionDto) {
+  async update(id: string, dto: UpdatePrescriptionDto, userId?: string) {
     await this.findOne(id);
     const { items, ...data } = dto;
+    const updateData: Record<string, unknown> = { ...data, updatedById: userId ?? null };
 
     if (items) {
       // Atomic replace: delete existing items and recreate in a single transaction
@@ -114,8 +116,8 @@ export class PrescriptionsService
       ]);
     }
 
-    if (Object.keys(data).length > 0) {
-      await this.prisma.prescription.update({ where: { id }, data });
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.prescription.update({ where: { id }, data: updateData });
     }
 
     return this.findOne(id);

@@ -28,7 +28,7 @@ export class DoctorsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateDoctorDto) {
+  async create(dto: CreateDoctorDto, userId?: string) {
     return this.prisma.doctor.create({
       data: {
         qualification: dto.qualification,
@@ -45,6 +45,7 @@ export class DoctorsService
         governmentIdUrl: dto.governmentIdUrl,
         verificationStatus: dto.verificationStatus ?? 'PENDING',
         isActive: dto.isActive ?? true,
+        createdById: userId ?? null,
       },
     });
   }
@@ -81,9 +82,9 @@ export class DoctorsService
     return { ...doctor, name: nameMap.get(doctor.id) ?? null };
   }
 
-  async update(id: string, dto: UpdateDoctorDto) {
+  async update(id: string, dto: UpdateDoctorDto, userId?: string) {
     await this.findOne(id);
-    return this.prisma.doctor.update({ where: { id }, data: dto });
+    return this.prisma.doctor.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
   async updateVerificationStatus(id: string, dto: UpdateVerificationStatusDto) {

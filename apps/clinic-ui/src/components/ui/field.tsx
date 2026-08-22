@@ -98,8 +98,20 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
 
 function FieldLabel({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof Label>) {
+  // Auto-wrap trailing asterisk in a red span
+  const renderedChildren = typeof children === 'string'
+    ? (() => {
+        const match = children.match(/^(.*?)(\s*\*+\s*)$/);
+        if (match) {
+          return <>{match[1] ?? ''}<span className="text-destructive ml-0.5">{match[2]?.trim()}</span></>;
+        }
+        return children;
+      })()
+    : children;
+
   return (
     <Label
       data-slot="field-label"
@@ -109,7 +121,9 @@ function FieldLabel({
         className
       )}
       {...props}
-    />
+    >
+      {renderedChildren}
+    </Label>
   )
 }
 

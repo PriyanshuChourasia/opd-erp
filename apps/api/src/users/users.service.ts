@@ -78,7 +78,7 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
     return user;
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, userId?: string) {
     // Check email uniqueness
     const existingEmail = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existingEmail) {
@@ -113,7 +113,7 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
     });
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto, userId?: string) {
     await this.findOne(id);
 
     // Check email uniqueness if changing

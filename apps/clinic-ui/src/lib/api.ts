@@ -54,7 +54,7 @@ export async function apiFetch<T>(
  * containing the HTTP status and a human-readable message.
  */
 async function request<T>(config: {
-  method: "GET" | "POST" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   path: string;
   params?: Record<string, string | undefined>;
   body?: unknown;
@@ -102,8 +102,12 @@ export interface PaginationParams {
 
 export interface Patient {
   id: string;
-  name: string;
-  phone: string;
+  patientCode: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  contactNo: string;
+  altContactNo?: string | null;
   email?: string | null;
   dateOfBirth?: string | null;
   gender?: string | null;
@@ -113,13 +117,17 @@ export interface Patient {
   allergies: string[];
   patientAllergies?: PatientAllergy[];
   isFollowUp: boolean;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreatePatientInput {
-  name: string;
-  phone: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  contactNo: string;
+  altContactNo?: string;
   email?: string;
   dateOfBirth?: string;
   gender?: string;
@@ -128,6 +136,11 @@ export interface CreatePatientInput {
   emergencyContact?: string;
   allergies?: string[];
   isFollowUp?: boolean;
+}
+
+/** Get the full display name of a patient */
+export function getPatientName(patient: { firstName: string; middleName?: string | null; lastName: string }): string {
+  return `${patient.firstName} ${patient.middleName ? patient.middleName + " " : ""}${patient.lastName}`;
 }
 
 export interface Doctor {
@@ -723,33 +736,85 @@ export function deleteAllergy(id: string) {
   return request<void>({ method: "DELETE", path: `/allergies/${id}` });
 }
 
+// ─── Diagnosis System Types ─────────────────────────────────
+
+export interface DiagnosisSystem {
+  id: string;
+  code: string;
+  name: string;
+  version?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDiagnosisSystemInput {
+  code: string;
+  name: string;
+  version?: string;
+  status?: string;
+}
+
+export function fetchDiagnosisSystems(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<DiagnosisSystem>>({
+    method: "GET",
+    path: "/diagnosis-systems",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchDiagnosisSystem(id: string) {
+  return request<DiagnosisSystem>({ method: "GET", path: `/diagnosis-systems/${id}` });
+}
+
+export function createDiagnosisSystem(input: CreateDiagnosisSystemInput) {
+  return request<DiagnosisSystem>({ method: "POST", path: "/diagnosis-systems", body: input });
+}
+
+export function updateDiagnosisSystem(id: string, input: Partial<CreateDiagnosisSystemInput>) {
+  return request<DiagnosisSystem>({ method: "PATCH", path: `/diagnosis-systems/${id}`, body: input });
+}
+
+export function deleteDiagnosisSystem(id: string) {
+  return request<void>({ method: "DELETE", path: `/diagnosis-systems/${id}` });
+}
+
 // ─── Diagnosis Types ────────────────────────────────────────
 
 export interface Diagnosis {
   id: string;
+  diagnosisSystemId?: string | null;
+  diagnosisSystem?: DiagnosisSystem | null;
+  code: string;
   name: string;
-  icdCode?: string | null;
   description?: string | null;
-  isActive: boolean;
+  status: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateDiagnosisInput {
+  diagnosisSystemId?: string;
+  code: string;
   name: string;
-  icdCode?: string;
   description?: string;
-  isActive?: boolean;
+  status?: string;
 }
 
 // ─── Diagnosis API ──────────────────────────────────────────
 
-export function fetchDiagnoses(params: { search?: string } & PaginationParams = {}) {
+export function fetchDiagnoses(params: { search?: string; diagnosisSystemId?: string; status?: string } & PaginationParams = {}) {
   return request<PaginatedResult<Diagnosis>>({
     method: "GET",
     path: "/diagnoses",
     params: {
       search: params.search,
+      diagnosisSystemId: params.diagnosisSystemId,
+      status: params.status,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -770,6 +835,44 @@ export function updateDiagnosis(id: string, input: Partial<CreateDiagnosisInput>
 
 export function deleteDiagnosis(id: string) {
   return request<void>({ method: "DELETE", path: `/diagnoses/${id}` });
+}
+
+// ─── Patient Vitals Types & API ──────────────────────────────
+
+export interface PatientVitals {
+  id: string;
+  patientId: string;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  bmi?: number | null;
+  temperatureC?: number | null;
+  pulseBpm?: number | null;
+  systolicBp?: number | null;
+  diastolicBp?: number | null;
+  spo2Percent?: number | null;
+  respiratoryRate?: number | null;
+  recordedAt: string;
+  createdAt: string;
+}
+
+export interface CreatePatientVitalsInput {
+  patientId: string;
+  heightCm?: number;
+  weightKg?: number;
+  temperatureC?: number;
+  pulseBpm?: number;
+  systolicBp?: number;
+  diastolicBp?: number;
+  spo2Percent?: number;
+  respiratoryRate?: number;
+}
+
+export function createPatientVitals(input: CreatePatientVitalsInput) {
+  return request<PatientVitals>({ method: "POST", path: "/patient-vitals", body: input });
+}
+
+export function fetchPatientVitalsLatest(patientId: string) {
+  return request<PatientVitals | null>({ method: "GET", path: `/patient-vitals/latest/${patientId}` });
 }
 
 // ─── Patient API ──────────────────────────────────────────────
@@ -1478,8 +1581,12 @@ export interface ModuleAction {
   id: string;
   name: string;
   description: string;
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   path?: string;
+  /** Human-readable description of the expected request (params/body shape). */
+  request?: string;
+  /** Human-readable description of the response payload shape. */
+  response?: string;
 }
 
 export interface ModuleCapability {
@@ -1525,6 +1632,134 @@ export function fetchModule(id: string) {
   return request<{ data: AppModule }>({
     method: "GET",
     path: `/modules/${id}`,
+  });
+}
+
+export type ModuleUpsertInput = Partial<Omit<AppModule, "features">> & {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  /** Loose feature tree — mirrors IModuleRegistry on the backend. */
+  features?: unknown[];
+};
+
+export function createModule(definition: ModuleUpsertInput) {
+  return request<{ data: AppModule }>({
+    method: "POST",
+    path: "/modules",
+    body: definition,
+  });
+}
+
+export function updateModule(id: string, definition: ModuleUpsertInput) {
+  return request<{ data: AppModule }>({
+    method: "PATCH",
+    path: `/modules/${id}`,
+    body: definition,
+  });
+}
+
+export function deleteModule(id: string) {
+  return request<{ message: string }>({
+    method: "DELETE",
+    path: `/modules/${id}`,
+  });
+}
+
+// ─── Schema API ──────────────────────────────────────────────
+
+export interface SchemaField {
+  name: string;
+  type: string;
+  kind: "scalar" | "object" | "enum" | "unsupported";
+  isRequired: boolean;
+  isList: boolean;
+  isId: boolean;
+  isUnique: boolean;
+  hasDefault: boolean;
+  isUpdatedAt: boolean;
+  /** For relations: FK columns on THIS model ([] = back-relation, FK lives on the other side). */
+  relationFromFields: string[];
+  /** For relations: the referenced columns on the other model (usually ["id"]). */
+  relationToFields: string[];
+}
+
+export interface SchemaModel {
+  name: string;
+  fields: SchemaField[];
+  relations: string[];
+  uniqueFields: string[][];
+}
+
+export interface SchemaEnum {
+  name: string;
+  values: string[];
+}
+
+export interface DatabaseSchema {
+  models: SchemaModel[];
+  enums: SchemaEnum[];
+}
+
+export function fetchSchema() {
+  return request<{ data: DatabaseSchema; total: number }>({
+    method: "GET",
+    path: "/database-schema",
+  });
+}
+
+export function fetchSchemaModel(name: string) {
+  return request<{ data: SchemaModel }>({
+    method: "GET",
+    path: `/database-schema/${name}`,
+  });
+}
+
+export type SchemaChangeKind = "REMARK" | "REMOVE" | "EDIT" | "ADD";
+
+export interface SchemaFieldChange {
+  id: string;
+  modelName: string;
+  fieldName: string;
+  kind: SchemaChangeKind;
+  remark?: string | null;
+  editedName?: string | null;
+  editedType?: string | null;
+  fieldType?: string | null;
+  /** For ADD rows representing a foreign key: target Prisma model. */
+  targetModel?: string | null;
+  isRequired: boolean;
+  isList: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SchemaChangeInput {
+  fieldName: string;
+  kind: SchemaChangeKind;
+  remark?: string;
+  editedName?: string;
+  editedType?: string;
+  fieldType?: string;
+  /** For ADD rows representing a foreign key: target Prisma model. */
+  targetModel?: string;
+  isRequired?: boolean;
+  isList?: boolean;
+}
+
+export function fetchSchemaChanges(modelName: string) {
+  return request<{ data: SchemaFieldChange[] }>({
+    method: "GET",
+    path: `/database-schema/${modelName}/changes`,
+  });
+}
+
+export function saveSchemaChanges(modelName: string, changes: SchemaChangeInput[]) {
+  return request<{ data: SchemaFieldChange[] }>({
+    method: "PUT",
+    path: `/database-schema/${modelName}/changes`,
+    body: { changes },
   });
 }
 

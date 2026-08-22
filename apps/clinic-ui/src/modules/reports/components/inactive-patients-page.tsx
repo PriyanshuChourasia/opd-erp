@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -81,8 +82,8 @@ export function InactivePatientsPage() {
                     <TableBody>
                       {query.data.data.map((patient) => (
                         <TableRow key={patient.patientId}>
-                          <TableCell className="font-medium">{patient.name}</TableCell>
-                          <TableCell className="font-mono text-xs">{patient.phone}</TableCell>
+                          <TableCell className="font-medium">{getPatientName(patient)}</TableCell>
+                          <TableCell className="font-mono text-xs">{patient.contactNo}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {new Date(patient.lastVisitDate).toLocaleDateString()}
                           </TableCell>

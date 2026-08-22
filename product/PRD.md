@@ -1,4 +1,4 @@
-# Product Requirements Document — Doctor ERP (OPD ERP)
+# Product Requirements Document — MyClinic
 
 | | |
 |---|---|

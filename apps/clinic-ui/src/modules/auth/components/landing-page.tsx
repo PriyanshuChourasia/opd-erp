@@ -189,7 +189,7 @@ function Navbar() {
           <span className="flex size-9 items-center justify-center bg-primary text-primary-foreground">
             <Hospital className="size-5" />
           </span>
-          <span className="text-lg font-semibold tracking-tight">OPD ERP</span>
+          <span className="text-lg font-semibold tracking-tight">MyClinic</span>
         </Link>
         <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
           <a href="#features" className="transition-colors hover:text-foreground">
@@ -505,7 +505,7 @@ function WorkflowSection() {
             One visit, one record, six steps
           </h2>
           <p className="mt-4 text-muted-foreground">
-            A patient moves through the same six stages every visit. OPD ERP
+            A patient moves through the same six stages every visit. MyClinic
             keeps them attached to a single record the whole way through.
           </p>
         </div>
@@ -549,7 +549,7 @@ function AboutSection() {
             </h2>
             <div className="mt-6 space-y-4 leading-relaxed text-muted-foreground">
               <p>
-                OPD ERP replaces the patchwork most clinics run on — paper
+                MyClinic replaces the patchwork most clinics run on — paper
                 registers, a separate billing tool, and prescriptions that
                 never make it into a searchable record — with a single
                 system built around the actual sequence of a visit.
@@ -654,7 +654,7 @@ function Footer() {
               <span className="flex size-8 items-center justify-center bg-primary text-primary-foreground">
                 <Hospital className="size-4" />
               </span>
-              <span className="text-sm font-semibold">OPD ERP</span>
+              <span className="text-sm font-semibold">MyClinic</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
               A unified clinic management system — registration to pharmacy
@@ -705,7 +705,7 @@ function Footer() {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} OPD ERP.
+          &copy; {new Date().getFullYear()} MyClinic.
         </div>
       </div>
     </footer>

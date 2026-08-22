@@ -147,9 +147,12 @@ function permissionName(action: string, resource: string) {
 async function wipeAll() {
   console.log('⚠️  --fresh mode: wiping all tables...');
   // Order matters: children first (FK-safe)
+  await prisma.patientVitals.deleteMany();
+  await prisma.patientAllergyRecord.deleteMany();
   await prisma.patientAllergy.deleteMany();
   await prisma.allergy.deleteMany();
   await prisma.diagnosis.deleteMany();
+  await prisma.diagnosisSystem.deleteMany();
   await prisma.dispensing.deleteMany();
   await prisma.prescriptionItem.deleteMany();
   await prisma.prescription.deleteMany();
@@ -381,6 +384,28 @@ const diagnosisData = [
   { name: 'Somatic Symptom Disorder', icdCode: 'F45.0', description: 'Physical symptoms with disproportionate thoughts and distress' },
 ];
 
+async function seedDiagnosisSystems() {
+  const existing = await prisma.diagnosisSystem.count();
+  if (existing > 0 && !FRESH) {
+    console.log('Diagnosis systems already seeded, skipping.');
+    return;
+  }
+  const systems = [
+    { code: 'ICD10', name: 'International Classification of Diseases', version: '10th Revision', status: 'ACTIVE' },
+    { code: 'ICD11', name: 'International Classification of Diseases', version: '11th Revision', status: 'ACTIVE' },
+    { code: 'SNOMED', name: 'SNOMED CT', version: '2024-09', status: 'ACTIVE' },
+    { code: 'ICPC2', name: 'International Classification of Primary Care', version: '2', status: 'ACTIVE' },
+  ];
+  for (const s of systems) {
+    await prisma.diagnosisSystem.upsert({
+      where: { code: s.code },
+      update: {},
+      create: s,
+    });
+  }
+  console.log(`Seeded ${systems.length} diagnosis systems.`);
+}
+
 async function seedDiagnoses() {
   const existing = await prisma.diagnosis.count();
   if (existing > 0 && !FRESH) {
@@ -388,15 +413,17 @@ async function seedDiagnoses() {
     return;
   }
   for (const d of diagnosisData) {
-    await prisma.diagnosis.upsert({
-      where: { name: d.name },
-      update: {},
-      create: {
-        name: d.name,
-        icdCode: d.icdCode,
-        description: d.description,
-      },
-    });
+    const existingDx = await prisma.diagnosis.findFirst({ where: { name: d.name } });
+    if (!existingDx) {
+      await prisma.diagnosis.create({
+        data: {
+          name: d.name,
+          code: d.icdCode,
+          description: d.description,
+          status: 'ACTIVE',
+        },
+      });
+    }
   }
   console.log(`Seeded ${diagnosisData.length} diagnoses in the catalog.`);
 }
@@ -490,6 +517,7 @@ async function seedPermissions(): Promise<Permission[]> {
 
 async function seedRoles(permissions: Permission[]) {
   const superAdminPerms = permissions.filter((p) => p.resource !== 'developer');
+  const developerPerms = permissions.filter((p) => p.resource === 'developer');
 
   const receptionistResources = new Set(['patients', 'appointments', 'queue', 'billing']);
   const receptionistPerms = permissions.filter(
@@ -534,9 +562,10 @@ async function seedRoles(permissions: Permission[]) {
   const receptionist = await upsertRoleWithPermissions('Receptionist', 'Front-desk access to patients, appointments, queue, and billing', receptionistPerms);
   const doctor = await upsertRoleWithPermissions('Doctor', 'Clinical staff: manage prescriptions, lab orders, and radiology orders', doctorPerms);
   const assistant = await upsertRoleWithPermissions('Assistant', 'Support staff: manage queue and view basic patient info', assistantPerms);
+  const developer = await upsertRoleWithPermissions('Developer', 'Developer tools: inspect modules, features, and API surface', developerPerms);
 
-  console.log(`Seeded roles: Super Admin (${superAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Assistant (${assistantPerms.length}).`);
-  return { superAdmin, receptionist, doctor, assistant };
+  console.log(`Seeded roles: Super Admin (${superAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Assistant (${assistantPerms.length}), Developer (${developerPerms.length}).`);
+  return { superAdmin, receptionist, doctor, assistant, developer };
 }
 
 async function seedUsers(
@@ -545,6 +574,7 @@ async function seedUsers(
   doctorRoleId: string,
   assistantRoleId: string,
   doctorRows: Doctor[],
+  developerRoleId: string,
 ) {
   const password = await bcrypt.hash('Password@123', 10);
   const doctorPassword = await bcrypt.hash('Doctor@123', 10);
@@ -554,6 +584,7 @@ async function seedUsers(
     { username: 'superadmin', firstName: 'Super', lastName: 'Admin', email: 'superadmin@clinic.com', password, roleId: superAdminRoleId },
     { username: 'admin', firstName: 'Admin', lastName: 'User', email: 'admin@clinic.com', password, roleId: superAdminRoleId },
     { username: 'anitapatel', firstName: 'Anita', lastName: 'Patel', email: 'assistant@clinic.com', password, roleId: assistantRoleId },
+    { username: 'developer', firstName: 'Dev', lastName: 'Team', email: 'developer@clinic.com', password, roleId: developerRoleId },
   ];
 
   for (const u of systemUsers) {
@@ -630,6 +661,7 @@ async function seedUsers(
   console.log('  raj@clinic.com / Password@123 (Receptionist — Raj Kumar)');
   console.log('  rajesh.sharma@clinic.com / Doctor@123 (Doctor)');
   console.log('  assistant@clinic.com / Password@123 (Assistant)');
+  console.log('  developer@clinic.com / Password@123 (Developer)');
 }
 
 // ─── Medicine Catalog ──────────────────────────────────────
@@ -782,11 +814,21 @@ async function seedMedicines() {
 const PATIENT_DEMOS = [
   {
     patient: {
-      name: 'Ravi Kumar', phone: '9876543210', email: 'ravi.kumar@example.com',
+      firstName: 'Ravi', middleName: 'Kumar', lastName: 'Sharma',
+      patientCode: 'RAVIKSHARMA-19920615',
+      contactNo: '9876543210', email: 'ravi.sharma@example.com',
       dateOfBirth: new Date('1992-06-15'), gender: 'Male', bloodGroup: 'O+',
-      address: '42 Lake View Apartments, MG Road', emergencyContact: '9876543211',
+      address: '42 Lake View Apartments, MG Road, Delhi', emergencyContact: '9876543211',
       allergies: ['Pollen', 'Dust'], isFollowUp: true,
     },
+    vitals: {
+      heightCm: 172, weightKg: 75, temperatureC: 98.4, pulseBpm: 74,
+      systolicBp: 130, diastolicBp: 85, spo2Percent: 97, respiratoryRate: 16,
+    },
+    vitalsHistory: [
+      { heightCm: 172, weightKg: 73, temperatureC: 99.1, pulseBpm: 80, systolicBp: 135, diastolicBp: 88, spo2Percent: 96, respiratoryRate: 17, daysAgo: 30 },
+      { heightCm: 172, weightKg: 74, temperatureC: 98.6, pulseBpm: 76, systolicBp: 132, diastolicBp: 86, spo2Percent: 97, respiratoryRate: 16, daysAgo: 14 },
+    ],
     appointments: [
       { daysAgo: 21, doctorIndex: 0, type: 'WALK_IN', fee: 0, time: '09:30', status: 'COMPLETED', notes: 'General check-up — mild fever' },
       { daysAgo: 14, doctorIndex: 1, type: 'CONSULTATION', fee: 600, time: '10:15', status: 'COMPLETED', notes: 'Pediatric follow-up for child' },
@@ -797,11 +839,21 @@ const PATIENT_DEMOS = [
   },
   {
     patient: {
-      name: 'Meena Sharma', phone: '9876543212', email: 'meena.sharma@example.com',
+      firstName: 'Sunita', middleName: 'Devi', lastName: 'Sharma',
+      patientCode: 'SUNITADEVI-19551120',
+      contactNo: '9876543212', email: 'sunita.sharma@example.com',
       dateOfBirth: new Date('1955-11-20'), gender: 'Female', bloodGroup: 'B+',
-      address: '12A Sunrise Colony, Sector 7', emergencyContact: '9876543213',
+      address: '12A Sunrise Colony, Sector 7, Noida', emergencyContact: '9876543213',
       allergies: ['Aspirin', 'Penicillin'], isFollowUp: true,
     },
+    vitals: {
+      heightCm: 155, weightKg: 68, temperatureC: 98.6, pulseBpm: 78,
+      systolicBp: 145, diastolicBp: 92, spo2Percent: 96, respiratoryRate: 18,
+    },
+    vitalsHistory: [
+      { heightCm: 155, weightKg: 70, temperatureC: 99.2, pulseBpm: 82, systolicBp: 152, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 45 },
+      { heightCm: 155, weightKg: 69, temperatureC: 98.8, pulseBpm: 80, systolicBp: 148, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 18 },
+    ],
     appointments: [
       { daysAgo: 30, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '09:00', status: 'COMPLETED', notes: 'Orthopedic consult — chronic knee pain' },
       { daysAgo: 18, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '14:00', status: 'COMPLETED', notes: 'Cardiology follow-up — hypertension' },
@@ -810,11 +862,20 @@ const PATIENT_DEMOS = [
   },
   {
     patient: {
-      name: 'Baby Aarav', phone: '9876543214', email: null,
+      firstName: 'Aarav', middleName: null, lastName: 'Mehta',
+      patientCode: 'AARAVMEHTA-20230802',
+      contactNo: '9876543214', email: null,
       dateOfBirth: new Date('2023-08-02'), gender: 'Male', bloodGroup: 'A+',
-      address: '7/22 Green Park, East Wing', emergencyContact: '9876543215',
+      address: '7/22 Green Park, East Wing, Mumbai', emergencyContact: '9876543215',
       allergies: ['Milk', 'Eggs'], isFollowUp: false,
     },
+    vitals: {
+      heightCm: 85, weightKg: 12, temperatureC: 98.8, pulseBpm: 100,
+      systolicBp: 85, diastolicBp: 55, spo2Percent: 98, respiratoryRate: 24,
+    },
+    vitalsHistory: [
+      { heightCm: 80, weightKg: 10.5, temperatureC: 99.0, pulseBpm: 105, systolicBp: 82, diastolicBp: 52, spo2Percent: 98, respiratoryRate: 26, daysAgo: 60 },
+    ],
     appointments: [
       { daysAgo: 45, doctorIndex: 1, type: 'WALK_IN', fee: 0, time: '10:00', status: 'COMPLETED', notes: 'Newborn check-up — weight & vaccinations' },
       { daysAgo: 28, doctorIndex: 1, type: 'CONSULTATION', fee: 600, time: '10:30', status: 'COMPLETED', notes: 'Routine vaccination visit' },
@@ -823,11 +884,20 @@ const PATIENT_DEMOS = [
   },
   {
     patient: {
-      name: 'Priya Patel', phone: '9876543216', email: 'priya.patel@example.com',
+      firstName: 'Priya', middleName: 'Anand', lastName: 'Patel',
+      patientCode: 'PRIYAANAND-19880310',
+      contactNo: '9876543216', email: 'priya.patel@example.com',
       dateOfBirth: new Date('1988-03-10'), gender: 'Female', bloodGroup: 'AB+',
-      address: '55 Lake Gardens, B Block', emergencyContact: '9876543217',
+      address: '55 Lake Gardens, B Block, Bangalore', emergencyContact: '9876543217',
       allergies: ['Sulfa', 'Dust'], isFollowUp: false,
     },
+    vitals: {
+      heightCm: 163, weightKg: 58, temperatureC: 98.2, pulseBpm: 70,
+      systolicBp: 118, diastolicBp: 76, spo2Percent: 99, respiratoryRate: 15,
+    },
+    vitalsHistory: [
+      { heightCm: 163, weightKg: 60, temperatureC: 98.4, pulseBpm: 72, systolicBp: 120, diastolicBp: 78, spo2Percent: 99, respiratoryRate: 16, daysAgo: 35 },
+    ],
     appointments: [
       { daysAgo: 35, doctorIndex: 5, type: 'CONSULTATION', fee: 600, time: '11:00', status: 'COMPLETED', notes: 'Skin rash — diagnosed as eczema' },
       { daysAgo: 20, doctorIndex: 5, type: 'FOLLOW_UP', fee: 300, time: '14:30', status: 'COMPLETED', notes: 'Dermatology follow-up — improved' },
@@ -836,16 +906,128 @@ const PATIENT_DEMOS = [
   },
   {
     patient: {
-      name: 'Abdul Khan', phone: '9876543218', email: 'abdul.khan@example.com',
+      firstName: 'Abdul', middleName: 'Rahman', lastName: 'Khan',
+      patientCode: 'ABDULRAHMAN-19621205',
+      contactNo: '9876543218', email: 'abdul.khan@example.com',
       dateOfBirth: new Date('1962-12-05'), gender: 'Male', bloodGroup: 'O-',
-      address: '33 Hill Road, Near Mosque', emergencyContact: '9876543219',
+      address: '33 Hill Road, Near Mosque, Hyderabad', emergencyContact: '9876543219',
       allergies: ['Codeine'], isFollowUp: true,
     },
+    vitals: {
+      heightCm: 178, weightKg: 88, temperatureC: 98.6, pulseBpm: 82,
+      systolicBp: 150, diastolicBp: 95, spo2Percent: 95, respiratoryRate: 19,
+    },
+    vitalsHistory: [
+      { heightCm: 178, weightKg: 90, temperatureC: 98.8, pulseBpm: 85, systolicBp: 155, diastolicBp: 98, spo2Percent: 94, respiratoryRate: 20, daysAgo: 40 },
+      { heightCm: 178, weightKg: 89, temperatureC: 98.4, pulseBpm: 83, systolicBp: 152, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 10 },
+    ],
     appointments: [
       { daysAgo: 40, doctorIndex: 8, type: 'SPECIALIST', fee: 1200, time: '09:00', status: 'COMPLETED', notes: 'Neurology consult — chronic headaches' },
       { daysAgo: 25, doctorIndex: 6, type: 'CONSULTATION', fee: 550, time: '15:00', status: 'COMPLETED', notes: 'ENT check — hearing difficulty' },
       { daysAgo: 10, doctorIndex: 8, type: 'FOLLOW_UP', fee: 600, time: '11:00', status: 'COMPLETED', notes: 'Headache follow-up — MRI reports normal' },
       { daysAgo: 2, doctorIndex: 6, type: 'FOLLOW_UP', fee: 300, time: '14:00', status: 'COMPLETED', notes: 'ENT follow-up — hearing aid trial' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Ananya', middleName: 'Lakshmi', lastName: 'Iyer',
+      patientCode: 'ANANYALAKSHMI-19950722',
+      contactNo: '9876543220', email: 'ananya.iyer@example.com',
+      dateOfBirth: new Date('1995-07-22'), gender: 'Female', bloodGroup: 'A-',
+      address: '8 Park Street, Adyar, Chennai', emergencyContact: '9876543221',
+      allergies: ['Peanuts', 'Shellfish'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 160, weightKg: 52, temperatureC: 98.0, pulseBpm: 68,
+      systolicBp: 110, diastolicBp: 70, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 15, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'Regular gynecology check-up' },
+      { daysAgo: 5, doctorIndex: 5, type: 'SPECIALIST', fee: 600, time: '14:00', status: 'COMPLETED', notes: 'Acne treatment follow-up' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Vikram', middleName: null, lastName: 'Singh',
+      patientCode: 'VIKRAMSINGH-19800315',
+      contactNo: '9876543222', email: 'vikram.singh@example.com',
+      dateOfBirth: new Date('1980-03-15'), gender: 'Male', bloodGroup: 'B-',
+      address: '15 Rajouri Garden, Block C, New Delhi', emergencyContact: '9876543223',
+      allergies: ['Bee Sting', 'Latex'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 180, weightKg: 82, temperatureC: 98.2, pulseBpm: 72,
+      systolicBp: 125, diastolicBp: 80, spo2Percent: 98, respiratoryRate: 15,
+    },
+    vitalsHistory: [
+      { heightCm: 180, weightKg: 84, temperatureC: 98.4, pulseBpm: 74, systolicBp: 128, diastolicBp: 82, spo2Percent: 98, respiratoryRate: 16, daysAgo: 20 },
+    ],
+    appointments: [
+      { daysAgo: 20, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '09:00', status: 'COMPLETED', notes: 'Sports injury — ankle sprain' },
+      { daysAgo: 8, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '11:00', status: 'COMPLETED', notes: 'Ankle healing well, physiotherapy advised' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Lakshmi', middleName: 'Priya', lastName: 'Nair',
+      patientCode: 'LAKSHMIPRIYA-19750912',
+      contactNo: '9876543224', email: 'lakshmi.nair@example.com',
+      dateOfBirth: new Date('1975-09-12'), gender: 'Female', bloodGroup: 'O+',
+      address: '23 MG Road, Ernakulam, Kochi', emergencyContact: '9876543225',
+      allergies: ['Soy', 'Wheat'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 158, weightKg: 64, temperatureC: 98.4, pulseBpm: 76,
+      systolicBp: 138, diastolicBp: 88, spo2Percent: 97, respiratoryRate: 17,
+    },
+    vitalsHistory: [
+      { heightCm: 158, weightKg: 66, temperatureC: 98.6, pulseBpm: 78, systolicBp: 142, diastolicBp: 90, spo2Percent: 97, respiratoryRate: 18, daysAgo: 60 },
+      { heightCm: 158, weightKg: 65, temperatureC: 98.2, pulseBpm: 77, systolicBp: 140, diastolicBp: 89, spo2Percent: 97, respiratoryRate: 17, daysAgo: 30 },
+    ],
+    appointments: [
+      { daysAgo: 60, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:30', status: 'COMPLETED', notes: 'Diabetes screening — borderline' },
+      { daysAgo: 30, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'HbA1c results reviewed — lifestyle changes advised' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Arjun', middleName: 'Reddy', lastName: 'Kapoor',
+      patientCode: 'ARJUNREDDY-20010518',
+      contactNo: '9876543226', email: 'arjun.kapoor@example.com',
+      dateOfBirth: new Date('2001-05-18'), gender: 'Male', bloodGroup: 'AB-',
+      address: '9 Jubilee Hills, Hyderabad', emergencyContact: '9876543227',
+      allergies: [], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 175, weightKg: 68, temperatureC: 98.0, pulseBpm: 70,
+      systolicBp: 115, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 10, doctorIndex: 7, type: 'CONSULTATION', fee: 600, time: '11:00', status: 'COMPLETED', notes: 'Vision check — mild myopia detected' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Fatima', middleName: 'Begum', lastName: 'Sheikh',
+      patientCode: 'FATIMABEGUM-19680228',
+      contactNo: '9876543228', email: 'fatima.sheikh@example.com',
+      dateOfBirth: new Date('1968-02-28'), gender: 'Female', bloodGroup: 'B+',
+      address: '31 Chowringhee Lane, Kolkata', emergencyContact: '9876543229',
+      allergies: ['Iodine'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 152, weightKg: 72, temperatureC: 98.8, pulseBpm: 80,
+      systolicBp: 155, diastolicBp: 100, spo2Percent: 95, respiratoryRate: 20,
+    },
+    vitalsHistory: [
+      { heightCm: 152, weightKg: 74, temperatureC: 99.0, pulseBpm: 82, systolicBp: 160, diastolicBp: 102, spo2Percent: 94, respiratoryRate: 21, daysAgo: 45 },
+      { heightCm: 152, weightKg: 73, temperatureC: 98.6, pulseBpm: 81, systolicBp: 158, diastolicBp: 100, spo2Percent: 95, respiratoryRate: 20, daysAgo: 15 },
+    ],
+    appointments: [
+      { daysAgo: 45, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Cardiology consult — uncontrolled hypertension' },
+      { daysAgo: 15, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '11:00', status: 'COMPLETED', notes: 'BP medication adjusted — monitor weekly' },
     ],
   },
 ];
@@ -856,52 +1038,119 @@ const PATIENT_DEMOS = [
 // "patient history" feature can still be tested by booking real
 // appointments for them through the app.
 const PRESCRIPTION_DEMOS = [
-  // Patient: Ravi Kumar (9876543210)
+  // Patient: Ravi Kumar Sharma (9876543210)
   { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Follow up in 2 weeks. Reduce salt intake.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
   { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 7, diagnosis: 'Upper Respiratory Tract Infection', notes: 'Complete the full course of antibiotics.', status: 'DISPENSED' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
   { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 30, diagnosis: 'Vitamin D Deficiency', notes: 'Sun exposure 15 min daily.', status: 'DISPENSED' as const, items: [{ medicineName: 'Vitamin D3', dosage: '1-0-0', duration: '60 days', qty: 1 }] },
-  // Patient: Meena Sharma (9876543212)
-  { patientPhone: '9876543212', doctorIdx: 1, daysAgo: 0, diagnosis: 'Acute Bronchitis', notes: 'Use inhaler as needed for wheezing.', status: 'ACTIVE' as const, items: [{ medicineName: 'Salbutamol Inhaler', dosage: '1 puff SOS', duration: '15 days', qty: 2 }, { medicineName: 'Montelukast', dosage: '0-0-1', duration: '15 days', qty: 1 }] },
-  { patientPhone: '9876543212', doctorIdx: 1, daysAgo: 14, diagnosis: 'Pediatric Asthma', notes: 'Mild intermittent — use only when symptomatic.', status: 'DISPENSED' as const, items: [{ medicineName: 'Salbutamol', dosage: '0-0-1', duration: '10 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '10 days', qty: 1 }] },
-  { patientPhone: '9876543212', doctorIdx: 1, daysAgo: 60, diagnosis: 'Chickenpox', notes: 'Keep hydrated. Isolate until all lesions crust over.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Calamine Lotion', dosage: 'Apply topically TID', duration: '7 days', qty: 1 }] },
-  // Patient: Baby Aarav (9876543214)
-  { patientPhone: '9876543214', doctorIdx: 2, daysAgo: 0, diagnosis: 'Low Back Pain', notes: 'Bed rest advised. Avoid heavy lifting.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Pregabalin', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  { patientPhone: '9876543214', doctorIdx: 2, daysAgo: 21, diagnosis: 'Plantar Fasciitis', notes: 'Stretching exercises and supportive footwear.', status: 'DISPENSED' as const, items: [{ medicineName: 'Ibuprofen', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Betamethasone Cream', dosage: 'Apply locally BD', duration: '14 days', qty: 1 }] },
-  // Patient: Priya Patel (9876543216)
+  // Patient: Sunita Devi Sharma (9876543212)
+  { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Monitor BP daily. Low-salt diet.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543212', doctorIdx: 2, daysAgo: 30, diagnosis: 'Osteoarthritis - Knee', notes: 'Weight reduction and physiotherapy.', status: 'DISPENSED' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
+  // Patient: Aarav Mehta (9876543214)
+  { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 0, diagnosis: 'Pediatric Asthma', notes: 'Mild intermittent — use only when symptomatic.', status: 'ACTIVE' as const, items: [{ medicineName: 'Salbutamol Inhaler', dosage: '1 puff SOS', duration: '15 days', qty: 1 }] },
+  { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 28, diagnosis: 'Chickenpox', notes: 'Keep hydrated. Isolate until all lesions crust over.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Calamine Lotion', dosage: 'Apply topically TID', duration: '7 days', qty: 1 }] },
+  // Patient: Priya Anand Patel (9876543216)
   { patientPhone: '9876543216', doctorIdx: 3, daysAgo: 0, diagnosis: 'Menorrhagia', notes: 'Monitor Hb levels. Consider iron supplementation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Tranexamic Acid', dosage: '1-0-0', duration: '5 days', qty: 1 }, { medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543216', doctorIdx: 3, daysAgo: 45, diagnosis: 'Dysmenorrhea', notes: 'NSAIDs as needed during periods.', status: 'DISPENSED' as const, items: [{ medicineName: 'Mefenamic Acid', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
-  { patientPhone: '9876543216', doctorIdx: 7, daysAgo: 120, diagnosis: 'Dry Eye Syndrome', notes: 'Use artificial tears regularly.', status: 'DISPENSED' as const, items: [{ medicineName: 'Artificial Tears', dosage: '1 gtt QID PRN', duration: '30 days', qty: 2 }] },
-  // Patient: Abdul Khan (9876543218)
+  { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 5, diagnosis: 'Eczema / Atopic Dermatitis', notes: 'Moisturize regularly. Avoid harsh soaps.', status: 'DISPENSED' as const, items: [{ medicineName: 'Mometasone 0.1% Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
+  // Patient: Abdul Rahman Khan (9876543218)
   { patientPhone: '9876543218', doctorIdx: 4, daysAgo: 2, diagnosis: 'Type 2 Diabetes Mellitus', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Glimepiride', dosage: '1-0-0', duration: '90 days', qty: 2 }] },
-  { patientPhone: '9876543218', doctorIdx: 4, daysAgo: 90, diagnosis: 'Dyslipidemia', notes: 'Dietary modifications and exercise.', status: 'DISPENSED' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  { patientPhone: '9876543218', doctorIdx: 5, daysAgo: 1, diagnosis: 'Acne Vulgaris', notes: 'Avoid oily foods and excessive sun exposure.', status: 'ACTIVE' as const, items: [{ medicineName: 'Isotretinoin', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Clotrimazole 1% Cream', dosage: 'Apply locally HS', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 3, diagnosis: 'Allergic Rhinitis', status: 'ACTIVE' as const, items: [{ medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Montelukast', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 60, diagnosis: 'Tonsillitis', notes: 'Gargle with warm saline. Complete antibiotics.', status: 'DISPENSED' as const, items: [{ medicineName: 'Azithromycin', dosage: '1-0-0', duration: '3 days', qty: 1 }, { medicineName: 'Paracetamol', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
   { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 0, diagnosis: 'Migraine', notes: 'Avoid triggers. Maintain sleep schedule.', status: 'ACTIVE' as const, items: [{ medicineName: 'Naproxen', dosage: '1-0-0', duration: '5 days', qty: 1 }] },
-  { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 45, diagnosis: 'Tension Type Headache', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
+  { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 3, diagnosis: 'Allergic Rhinitis', status: 'ACTIVE' as const, items: [{ medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Montelukast', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
   { patientPhone: '9876543218', doctorIdx: 9, daysAgo: 1, diagnosis: 'Generalized Anxiety Disorder', notes: 'Continue therapy. Follow up in 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Clonazepam', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
-  { patientPhone: '9876543218', doctorIdx: 9, daysAgo: 30, diagnosis: 'Insomnia', notes: 'Sleep hygiene practices advised.', status: 'DISPENSED' as const, items: [{ medicineName: 'Diazepam', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
+  // Patient: Ananya Lakshmi Iyer (9876543220)
+  { patientPhone: '9876543220', doctorIdx: 3, daysAgo: 0, diagnosis: 'Dysmenorrhea', notes: 'NSAIDs as needed during periods.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mefenamic Acid', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
+  { patientPhone: '9876543220', doctorIdx: 5, daysAgo: 5, diagnosis: 'Acne Vulgaris', notes: 'Avoid oily foods. Use sunscreen.', status: 'DISPENSED' as const, items: [{ medicineName: 'Isotretinoin', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Clotrimazole 1% Cream', dosage: 'Apply locally HS', duration: '30 days', qty: 1 }] },
+  // Patient: Vikram Singh (9876543222)
+  { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 0, diagnosis: 'Ankle Sprain', notes: 'RICE protocol. Follow up in 1 week.', status: 'ACTIVE' as const, items: [{ medicineName: 'Ibuprofen', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Betamethasone Cream', dosage: 'Apply locally BD', duration: '10 days', qty: 1 }] },
+  { patientPhone: '9876543222', doctorIdx: 8, daysAgo: 10, diagnosis: 'Tension Type Headache', notes: 'Stress management. Regular exercise.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '3 days', qty: 1 }, { medicineName: 'Ibuprofen', dosage: '1-0-0', duration: '5 days', qty: 1 }] },
+  // Patient: Lakshmi Priya Nair (9876543224)
+  { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 0, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'Diet control and regular exercise. Recheck HbA1c in 3 months.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
+  { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 30, diagnosis: 'Dyslipidemia', notes: 'Low-fat diet. Walk 30 min daily.', status: 'DISPENSED' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
+  // Patient: Arjun Reddy Kapoor (9876543226)
+  { patientPhone: '9876543226', doctorIdx: 7, daysAgo: 10, diagnosis: 'Refractive Error', notes: 'Power -1.25 both eyes. Use glasses.', status: 'DISPENSED' as const, items: [] },
+  // Patient: Fatima Begum Sheikh (9876543228)
+  { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Stage 2 hypertension. Increase medication dose. Follow up in 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 15, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'Diet + exercise. Monitor fasting glucose.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543228', doctorIdx: 6, daysAgo: 45, diagnosis: 'Chronic Sinusitis', notes: 'Nasal saline irrigation. Complete antibiotic course.', status: 'DISPENSED' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '10 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
 ];
 
 async function seedPatientsWithHistory(doctorRows: Doctor[]) {
   let totalPatients = 0;
+  let totalVitals = 0;
   let totalRx = 0;
+  // Look up superadmin user for createdById
+  const superadmin = await prisma.user.findFirst({ where: { email: 'superadmin@clinic.com' } });
+  const userId = superadmin?.id ?? null;
   for (const demo of PATIENT_DEMOS) {
-    await prisma.patient.upsert({
-      where: { phone: demo.patient.phone },
+    const patient = await prisma.patient.upsert({
+      where: { contactNo: demo.patient.contactNo },
       update: {},
       create: demo.patient,
     });
     totalPatients++;
+
+    // Seed vitals for this patient
+    const existingVitals = await prisma.patientVitals.findFirst({
+      where: { patientId: patient.id },
+    });
+    if (!existingVitals) {
+      // Seed historical vitals first (older records)
+      if (demo.vitalsHistory && demo.vitalsHistory.length > 0) {
+        for (const vh of demo.vitalsHistory) {
+          const bmi = vh.heightCm && vh.weightKg
+            ? Math.round((vh.weightKg / ((vh.heightCm / 100) ** 2)) * 10) / 10
+            : null;
+          await prisma.patientVitals.create({
+            data: {
+              patientId: patient.id,
+              heightCm: vh.heightCm,
+              weightKg: vh.weightKg,
+              bmi,
+              temperatureC: vh.temperatureC,
+              pulseBpm: vh.pulseBpm,
+              systolicBp: vh.systolicBp,
+              diastolicBp: vh.diastolicBp,
+              spo2Percent: vh.spo2Percent,
+              respiratoryRate: vh.respiratoryRate,
+              recordedAt: new Date(Date.now() - (vh as any).daysAgo * 24 * 60 * 60 * 1000),
+              createdById: userId,
+            },
+          });
+          totalVitals++;
+        }
+      }
+      // Seed latest vitals
+      if (demo.vitals) {
+        const v = demo.vitals;
+        const bmi = v.heightCm && v.weightKg
+          ? Math.round((v.weightKg / ((v.heightCm / 100) ** 2)) * 10) / 10
+          : null;
+        await prisma.patientVitals.create({
+          data: {
+            patientId: patient.id,
+            heightCm: v.heightCm,
+            weightKg: v.weightKg,
+            bmi,
+            temperatureC: v.temperatureC,
+            pulseBpm: v.pulseBpm,
+            systolicBp: v.systolicBp,
+            diastolicBp: v.diastolicBp,
+            spo2Percent: v.spo2Percent,
+            respiratoryRate: v.respiratoryRate,
+            createdById: userId,
+          },
+        });
+        totalVitals++;
+      }
+    }
   }
-  console.log(`Seeded ${totalPatients} demo patients.`);
+  console.log(`Seeded ${totalPatients} demo patients with ${totalVitals} vitals records.`);
 
   // Seed demo prescriptions for those patients
   const medicines = await prisma.medicine.findMany({ take: 100 });
   const medicineByName = new Map(medicines.map((m) => [m.name, m]));
 
   for (const rx of PRESCRIPTION_DEMOS) {
-    const patient = await prisma.patient.findUnique({ where: { phone: rx.patientPhone } });
+    const patient = await prisma.patient.findUnique({ where: { contactNo: rx.patientPhone } });
     if (!patient) {
       console.warn(`Patient not found for phone ${rx.patientPhone}, skipping prescription.`);
       continue;
@@ -951,6 +1200,7 @@ async function main() {
   await seedOrganisation();
   await seedShifts();
   await seedAllergies();
+  await seedDiagnosisSystems();
   await seedDiagnoses();
   await seedMedicines();
   const doctors = await seedDoctors();
@@ -958,7 +1208,7 @@ async function main() {
 
   const permissions = await seedPermissions();
   const roles = await seedRoles(permissions);
-  await seedUsers(roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors);
+  await seedUsers(roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors, roles.developer.id);
 
   if (FRESH) {
     await seedPatientsWithHistory(doctors);

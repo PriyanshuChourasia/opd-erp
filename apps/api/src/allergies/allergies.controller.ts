@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AllergiesService } from './allergies.service';
 import { CreateAllergyDto } from './dto/create-allergy.dto';
@@ -11,8 +11,8 @@ export class AllergiesController {
   constructor(private readonly allergiesService: AllergiesService) {}
 
   @Post()
-  create(@Body() dto: CreateAllergyDto) {
-    return this.allergiesService.create(dto);
+  create(@Body() dto: CreateAllergyDto, @Req() req: { user: { id: string } }) {
+    return this.allergiesService.create(dto, req.user.id);
   }
 
   @Get()
@@ -26,8 +26,8 @@ export class AllergiesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateAllergyDto) {
-    return this.allergiesService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateAllergyDto, @Req() req: { user: { id: string } }) {
+    return this.allergiesService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

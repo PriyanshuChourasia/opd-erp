@@ -21,8 +21,8 @@ export class PermissionsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreatePermissionDto) {
-    return this.prisma.permission.create({ data: dto });
+  create(dto: CreatePermissionDto, userId?: string) {
+    return this.prisma.permission.create({ data: { ...dto, createdById: userId ?? null } });
   }
 
   findAll(query: FindPermissionsQueryDto): Promise<PaginatedResult<Permission>> {
@@ -40,9 +40,9 @@ export class PermissionsService
     return permission;
   }
 
-  async update(id: string, dto: UpdatePermissionDto) {
+  async update(id: string, dto: UpdatePermissionDto, userId?: string) {
     await this.findOne(id);
-    return this.prisma.permission.update({ where: { id }, data: dto });
+    return this.prisma.permission.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
   async remove(id: string) {

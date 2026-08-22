@@ -110,7 +110,7 @@ export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelec
                 >
                   <Stethoscope className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex-1">{d.name}</span>
-                  {d.icdCode && <span className="text-[10px] text-muted-foreground">{d.icdCode}</span>}
+                  {d.code && <span className="text-[10px] text-muted-foreground">{d.code}</span>}
                 </button>
               ))}
             </div>
@@ -119,7 +119,7 @@ export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelec
             <button
               type="button"
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-primary hover:bg-muted"
-              onClick={() => createMutation.mutate({ name: query.trim() })}
+              onClick={() => createMutation.mutate({ code: query.trim(), name: query.trim() })}
               disabled={createMutation.isPending}
             >
               <Plus className="size-3.5" /> Add "{query.trim()}" to catalog

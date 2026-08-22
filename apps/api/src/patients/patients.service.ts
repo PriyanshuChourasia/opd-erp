@@ -22,13 +22,22 @@ export class PatientsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreatePatientDto) {
-    const existing = await this.prisma.patient.findUnique({ where: { phone: dto.phone } });
-    if (existing) throw new ConflictException(`A patient with phone number "${dto.phone}" is already registered`);
+  async create(dto: CreatePatientDto, userId?: string) {
+    // Check contact number uniqueness
+    const existingContact = await this.prisma.patient.findUnique({ where: { contactNo: dto.contactNo } });
+    if (existingContact) throw new ConflictException(`A patient with contact number "${dto.contactNo}" is already registered`);
+
+    // Generate patientCode: FIRSTNAMELASTNAME-YYMMDD
+    const patientCode = await this.generatePatientCode(dto.firstName, dto.lastName, dto.dateOfBirth);
+
     return this.prisma.patient.create({
       data: {
-        name: dto.name,
-        phone: dto.phone,
+        patientCode,
+        firstName: dto.firstName,
+        middleName: dto.middleName,
+        lastName: dto.lastName,
+        contactNo: dto.contactNo,
+        altContactNo: dto.altContactNo,
         email: dto.email,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
         gender: dto.gender,
@@ -37,12 +46,13 @@ export class PatientsService
         emergencyContact: dto.emergencyContact,
         allergies: dto.allergies ?? [],
         isFollowUp: dto.isFollowUp ?? false,
+        createdById: userId ?? null,
       },
     });
   }
 
   async findAll(query: FindPatientsQueryDto): Promise<PaginatedResult<Patient>> {
-    const where: Record<string, unknown> = { ...SearchQueryBuilder.search(query.search, ['name', 'phone', 'email']) };
+    const where: Record<string, unknown> = { ...SearchQueryBuilder.search(query.search, ['firstName', 'lastName', 'contactNo', 'email', 'patientCode']) };
     // Soft-delete: only show active patients by default
     where.isActive = true;
     return paginate(
@@ -65,17 +75,18 @@ export class PatientsService
     return patient;
   }
 
-  async update(id: string, dto: UpdatePatientDto) {
+  async update(id: string, dto: UpdatePatientDto, userId?: string) {
     await this.findOne(id);
-    if (dto.phone) {
-      const existing = await this.prisma.patient.findFirst({ where: { phone: dto.phone, NOT: { id } } });
-      if (existing) throw new ConflictException(`A patient with phone number "${dto.phone}" is already registered`);
+    if (dto.contactNo) {
+      const existing = await this.prisma.patient.findFirst({ where: { contactNo: dto.contactNo, NOT: { id } } });
+      if (existing) throw new ConflictException(`A patient with contact number "${dto.contactNo}" is already registered`);
     }
     return this.prisma.patient.update({
       where: { id },
       data: {
         ...dto,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+        updatedById: userId ?? null,
       },
     });
   }
@@ -88,5 +99,37 @@ export class PatientsService
   async restore(id: string) {
     await this.findOne(id);
     return this.prisma.patient.update({ where: { id }, data: { isActive: true } });
+  }
+
+  /**
+   * Generate patientCode in format: FIRSTNAMELASTNAME-YYMMDD
+   * If a collision exists, append a suffix (e.g., -01, -02).
+   */
+  private async generatePatientCode(firstName: string, lastName: string, dateOfBirth?: string): Promise<string> {
+    const cleanFirst = firstName.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    const cleanLast = lastName.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    
+    let dateStr = '000000';
+    if (dateOfBirth) {
+      const dob = new Date(dateOfBirth);
+      const yy = dob.getFullYear().toString().slice(-2);
+      const mm = (dob.getMonth() + 1).toString().padStart(2, '0');
+      const dd = dob.getDate().toString().padStart(2, '0');
+      dateStr = `${yy}${mm}${dd}`;
+    }
+    
+    const baseCode = `${cleanFirst}${cleanLast}-${dateStr}`;
+    
+    // Check for existing codes with this base
+    const existingCount = await this.prisma.patient.count({
+      where: { patientCode: { startsWith: baseCode } },
+    });
+    
+    if (existingCount === 0) {
+      return baseCode;
+    }
+    
+    // Append suffix to make it unique
+    return `${baseCode}-${existingCount.toString().padStart(2, '0')}`;
   }
 }

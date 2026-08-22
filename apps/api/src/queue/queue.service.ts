@@ -39,7 +39,7 @@ export class QueueService
 
   private readonly billSelect = { select: { id: true, invoiceNo: true, status: true } };
 
-  async create(dto: CreateQueueEntryDto) {
+  async create(dto: CreateQueueEntryDto, userId?: string) {
     const today = new Date();
     const checkedInAt = new Date();
 
@@ -47,7 +47,8 @@ export class QueueService
       this.prisma.patient.findUnique({ where: { id: dto.patientId } }),
       this.prisma.doctor.findUnique({ where: { id: dto.doctorId } }),
     ]);
-    const tokenNumber = this.generateTokenNumber(today, patient?.name ?? 'PTNT');
+    const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'PTNT';
+    const tokenNumber = this.generateTokenNumber(today, patientName);
 
     // Pair the queue entry with a lightweight walk-in appointment so it can
     // be invoiced through the same checkout flow as scheduled appointments.
@@ -60,6 +61,7 @@ export class QueueService
           type: 'WALK_IN',
           fee: doctor?.consultationFee ?? 0,
           tokenNumber,
+          createdById: userId ?? null,
         },
       });
 
@@ -72,6 +74,7 @@ export class QueueService
           checkedInAt,
           status: 'WAITING',
           appointmentId: appointment.id,
+          createdById: userId ?? null,
         },
         include: { patient: true, doctor: true, appointment: { select: { id: true, fee: true, bill: this.billSelect } } },
       });
@@ -160,11 +163,11 @@ export class QueueService
     return entry;
   }
 
-  async update(id: string, dto: UpdateQueueStatusDto) {
+  async update(id: string, dto: UpdateQueueStatusDto, userId?: string) {
     await this.findOne(id);
     return this.prisma.queueEntry.update({
       where: { id },
-      data: { status: dto.status },
+      data: { status: dto.status, updatedById: userId ?? null },
       include: { patient: true, doctor: true, appointment: { select: { id: true, fee: true, bill: this.billSelect } } },
     });
   }

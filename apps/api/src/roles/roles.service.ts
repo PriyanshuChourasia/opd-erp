@@ -22,11 +22,12 @@ export class RolesService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateRoleDto) {
+  async create(dto: CreateRoleDto, userId?: string) {
     const { permissionIds, ...data } = dto;
     return this.prisma.role.create({
       data: {
         ...data,
+        createdById: userId ?? null,
         rolePermissions: permissionIds?.length
           ? { create: permissionIds.map((permissionId) => ({ permissionId })) }
           : undefined,
@@ -64,9 +65,10 @@ export class RolesService
     return role;
   }
 
-  async update(id: string, dto: UpdateRoleDto) {
+  async update(id: string, dto: UpdateRoleDto, userId?: string) {
     await this.findOne(id);
     const { permissionIds, ...data } = dto;
+    const updateData: Record<string, unknown> = { ...data, updatedById: userId ?? null };
 
     if (permissionIds !== undefined) {
       await this.prisma.rolePermission.deleteMany({ where: { roleId: id } });
@@ -77,8 +79,8 @@ export class RolesService
       }
     }
 
-    if (Object.keys(data).length > 0) {
-      await this.prisma.role.update({ where: { id }, data });
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.role.update({ where: { id }, data: updateData });
     }
 
     return this.findOne(id);

@@ -15,9 +15,9 @@ import { UpdateRadiologyOrderDto } from './dto/update-radiology-order.dto';
 export class RadiologyOrdersService implements IBaseService<RadiologyOrder, CreateRadiologyOrderDto, UpdateRadiologyOrderDto> {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateRadiologyOrderDto) {
+  async create(dto: CreateRadiologyOrderDto, userId?: string) {
     return this.prisma.radiologyOrder.create({
-      data: dto,
+      data: { ...dto, createdById: userId ?? null },
       include: { patient: true, doctor: true },
     });
   }
@@ -42,9 +42,9 @@ export class RadiologyOrdersService implements IBaseService<RadiologyOrder, Crea
     return order;
   }
 
-  async update(id: string, dto: UpdateRadiologyOrderDto) {
+  async update(id: string, dto: UpdateRadiologyOrderDto, userId?: string) {
     await this.findOne(id);
-    const data: Record<string, unknown> = { ...dto };
+    const data: Record<string, unknown> = { ...dto, updatedById: userId ?? null };
     if (dto.resultDate) data.resultDate = new Date(dto.resultDate);
     return this.prisma.radiologyOrder.update({
       where: { id },

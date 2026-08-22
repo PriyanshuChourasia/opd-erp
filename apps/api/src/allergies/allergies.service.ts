@@ -15,10 +15,10 @@ export class AllergiesService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateAllergyDto) {
+  async create(dto: CreateAllergyDto, userId?: string) {
     const existing = await this.prisma.allergy.findUnique({ where: { name: dto.name } });
     if (existing) throw new ConflictException(`Allergy "${dto.name}" already exists`);
-    return this.prisma.allergy.create({ data: dto });
+    return this.prisma.allergy.create({ data: { ...dto, createdById: userId ?? null } });
   }
 
   async findAll(query: FindAllergiesQueryDto): Promise<PaginatedResult<Allergy>> {
@@ -48,7 +48,7 @@ export class AllergiesService
     return allergy;
   }
 
-  async update(id: string, dto: UpdateAllergyDto) {
+  async update(id: string, dto: UpdateAllergyDto, userId?: string) {
     await this.findOne(id);
     if (dto.name) {
       const existing = await this.prisma.allergy.findFirst({
@@ -56,7 +56,7 @@ export class AllergiesService
       });
       if (existing) throw new ConflictException(`Allergy "${dto.name}" already exists`);
     }
-    return this.prisma.allergy.update({ where: { id }, data: dto });
+    return this.prisma.allergy.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
   async remove(id: string) {

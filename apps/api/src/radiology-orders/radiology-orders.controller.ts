@@ -1,15 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RadiologyOrdersService } from './radiology-orders.service';
 import { CreateRadiologyOrderDto } from './dto/create-radiology-order.dto';
 import { UpdateRadiologyOrderDto } from './dto/update-radiology-order.dto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('radiology-orders')
 export class RadiologyOrdersController {
   constructor(private readonly service: RadiologyOrdersService) {}
 
   @Post()
-  create(@Body() dto: CreateRadiologyOrderDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateRadiologyOrderDto, @Req() req: { user: { id: string } }) {
+    return this.service.create(dto, req.user.id);
   }
 
   @Get()
@@ -23,8 +25,8 @@ export class RadiologyOrdersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateRadiologyOrderDto) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateRadiologyOrderDto, @Req() req: { user: { id: string } }) {
+    return this.service.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

@@ -34,6 +34,11 @@ export class ModuleRegistryService {
     return Array.from(this.registries.values());
   }
 
+  /** Remove a registered module (used by developer module management). */
+  unregister(id: string): boolean {
+    return this.registries.delete(id);
+  }
+
   /** Count of registered modules. */
   get count(): number {
     return this.registries.size;

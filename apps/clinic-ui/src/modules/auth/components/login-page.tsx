@@ -32,6 +32,7 @@ const testAccounts: TestAccount[] = [
   { role: "Doctor", email: "rajesh.sharma@clinic.com", password: "Doctor@123" },
   { role: "Receptionist", email: "receptionist@clinic.com", password: "Password@123" },
   { role: "Assistant", email: "assistant@clinic.com", password: "Password@123" },
+  { role: "Developer", email: "developer@clinic.com", password: "Password@123" },
 ];
 
 const workflowSteps = [
@@ -68,7 +69,7 @@ export function LoginPage() {
           <div className="flex items-center gap-3">
             <BrandMark size="lg" />
             <div>
-              <h1 className="text-xl font-bold tracking-tight">OPD ERP</h1>
+              <h1 className="text-xl font-bold tracking-tight">MyClinic</h1>
               <p className="text-sm text-muted-foreground">Clinic Management System</p>
             </div>
           </div>
@@ -104,7 +105,7 @@ export function LoginPage() {
           {/* Mobile-only logo */}
           <div className="mb-10 flex items-center gap-2.5 lg:hidden">
             <BrandMark size="md" />
-            <span className="text-lg font-semibold tracking-tight">OPD ERP</span>
+            <span className="text-lg font-semibold tracking-tight">MyClinic</span>
           </div>
 
           <div className="mb-8">

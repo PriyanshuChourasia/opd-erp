@@ -17,7 +17,7 @@ export class OrganisationService {
     return this.prisma.organisation.findFirst();
   }
 
-  async upsert(dto: UpdateOrganisationDto): Promise<Organisation> {
+  async upsert(dto: UpdateOrganisationDto, userId?: string): Promise<Organisation> {
     const existing = await this.prisma.organisation.findFirst();
 
     if (!existing) {
@@ -33,13 +33,14 @@ export class OrganisationService {
           discountEnabled: dto.discountEnabled ?? true,
           maxDiscountPercent: dto.maxDiscountPercent ?? 50,
           defaultDiscountType: dto.defaultDiscountType ?? 'percent',
+          createdById: userId ?? null,
         },
       });
     }
 
     return this.prisma.organisation.update({
       where: { id: existing.id },
-      data: dto,
+      data: { ...dto, updatedById: userId ?? null },
     });
   }
 }

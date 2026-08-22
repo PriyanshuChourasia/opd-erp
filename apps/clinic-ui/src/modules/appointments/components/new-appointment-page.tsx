@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "@tanstack/react-router";
@@ -14,6 +15,7 @@ import {
   fetchAppointments,
   updatePatient,
   fetchEmployeeSchedules,
+  fetchPatientVitalsLatest,
   type AppointmentType,
   type CreateDoctorWithUserInput,
 } from "@/lib/api";
@@ -89,7 +91,7 @@ function twoDaysLaterStr() {
 }
 
 interface BookingForm {
-  patient: { id: string; name: string; phone: string } | null;
+  patient: { id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null;
   doctorId: string;
   type: string;
   fee: number;
@@ -137,6 +139,13 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const { data: selectedPatient } = useQuery({
     queryKey: ["patient", form.patient?.id],
     queryFn: () => fetchPatient(form.patient!.id),
+    enabled: !!form.patient?.id,
+  });
+
+  // Fetch latest vitals for selected patient
+  const { data: patientVitals } = useQuery({
+    queryKey: ["patientVitals", "latest", form.patient?.id],
+    queryFn: () => fetchPatientVitalsLatest(form.patient!.id),
     enabled: !!form.patient?.id,
   });
 
@@ -353,7 +362,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
               <Field><FieldLabel>Patient</FieldLabel>
                 {form.patient && selectedPatient ? (
                   <div className="flex items-center justify-between rounded-none border border-input bg-background px-3 py-1.5">
-                    <span className="truncate text-sm font-medium">{selectedPatient.name}</span>
+                    <span className="truncate text-sm font-medium">{getPatientName(selectedPatient)}</span>
                     <Button variant="ghost" size="icon-sm" title="Clear patient" aria-label="Clear patient" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}>
                       <X className="size-3.5" />
                     </Button>
@@ -380,10 +389,10 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                             <button
                               type="button"
                               className="flex flex-1 flex-col items-start py-0.5 text-left"
-                              onClick={() => { setForm((prev) => ({ ...prev, patient: { id: patient.id, name: patient.name, phone: patient.phone }, isNewPatient: false, registrationFee: null })); setPatientQuery(""); setPatientDropdownOpen(false); }}
+                              onClick={() => { setForm((prev) => ({ ...prev, patient: { id: patient.id, firstName: patient.firstName, middleName: patient.middleName, lastName: patient.lastName, contactNo: patient.contactNo }, isNewPatient: false, registrationFee: null })); setPatientQuery(""); setPatientDropdownOpen(false); }}
                             >
-                              <span className="font-medium">{patient.name}</span>
-                              <span className="text-xs text-muted-foreground">{patient.phone}</span>
+                              <span className="font-medium">{getPatientName(patient)}</span>
+                              <span className="text-xs text-muted-foreground">{patient.contactNo}</span>
                             </button>
                             <button
                               type="button"
@@ -665,14 +674,14 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                       "flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold",
                       selectedPatient ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     )}>
-                      {selectedPatient ? selectedPatient.name.charAt(0).toUpperCase() : "?"}
+                      {selectedPatient ? getPatientName(selectedPatient).charAt(0).toUpperCase() : "?"}
                     </div>
                     <div>
                       <p className={cn("text-sm font-semibold", !selectedPatient && "text-muted-foreground")}>
-                        {selectedPatient ? selectedPatient.name : "Patient Name"}
+                        {selectedPatient ? getPatientName(selectedPatient) : "Patient Name"}
                       </p>
                       <p className={cn("text-xs", selectedPatient ? "text-muted-foreground" : "text-muted-foreground/50")}>
-                        {selectedPatient ? selectedPatient.phone : "Phone number"}
+                        {selectedPatient ? selectedPatient.contactNo : "Phone number"}
                       </p>
                     </div>
                   </div>
@@ -745,6 +754,39 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                     )}
                   </div>
                 </div>
+
+                {/* Patient Vitals — latest record */}
+                {patientVitals && (
+                  <div className="border-t px-4 py-3">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Patient Vitals</span>
+                    <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
+                      {patientVitals.heightCm != null && (
+                        <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
+                      )}
+                      {patientVitals.weightKg != null && (
+                        <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{patientVitals.weightKg} kg</p></div>
+                      )}
+                      {patientVitals.bmi != null && (
+                        <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{patientVitals.bmi}</p></div>
+                      )}
+                      {patientVitals.temperatureC != null && (
+                        <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{patientVitals.temperatureC}°C</p></div>
+                      )}
+                      {patientVitals.pulseBpm != null && (
+                        <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{patientVitals.pulseBpm} bpm</p></div>
+                      )}
+                      {patientVitals.systolicBp != null && patientVitals.diastolicBp != null && (
+                        <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
+                      )}
+                      {patientVitals.spo2Percent != null && (
+                        <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{patientVitals.spo2Percent}%</p></div>
+                      )}
+                      {patientVitals.respiratoryRate != null && (
+                        <div><span className="text-[10px] text-muted-foreground">Resp Rate</span><p className="font-medium">{patientVitals.respiratoryRate}/min</p></div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Past visits — collapsible accordion */}
                 <div className="border-t">
@@ -902,7 +944,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         editingPatient={editPatientId ? (patientResults.data?.data ?? []).find((p) => p.id === editPatientId) ?? null : null}
         onSaved={(patient) => {
           if (!editPatientId) {
-            setForm((prev) => ({ ...prev, patient: { id: patient.id, name: patient.name, phone: patient.phone }, isNewPatient: true, registrationFee: null }));
+            setForm((prev) => ({ ...prev, patient: { id: patient.id, firstName: patient.firstName, middleName: patient.middleName, lastName: patient.lastName, contactNo: patient.contactNo }, isNewPatient: true, registrationFee: null }));
             setPatientQuery("");
           }
           setPatientSheetOpen(false);

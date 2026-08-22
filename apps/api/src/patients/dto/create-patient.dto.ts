@@ -1,20 +1,20 @@
 import { IsArray, IsBoolean, IsEmail, IsISO8601, IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-/** Blank strings from optional form fields mean "not provided" — treat them as absent. */
+/** Blank strings from optional form fields mean \"not provided\" — treat them as absent. */
 const emptyToUndefined = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
 
 export class CreatePatientDto {
   @IsString()
-  name!: string;
-
-  @IsString()
-  phone!: string;
+  firstName!: string;
 
   @IsOptional()
   @Transform(emptyToUndefined)
-  @IsEmail()
-  email?: string;
+  @IsString()
+  middleName?: string;
+
+  @IsString()
+  lastName!: string;
 
   @IsOptional()
   @Transform(emptyToUndefined)
@@ -24,6 +24,19 @@ export class CreatePatientDto {
   @IsOptional()
   @IsString()
   gender?: string;
+
+  @IsString()
+  contactNo!: string;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  altContactNo?: string;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsEmail()
+  email?: string;
 
   @IsOptional()
   @IsString()

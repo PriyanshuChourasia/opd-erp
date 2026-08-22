@@ -1,4 +1,4 @@
-import { IsBooleanString, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 export class FindDiagnosesQueryDto extends PaginationQueryDto {
@@ -7,6 +7,10 @@ export class FindDiagnosesQueryDto extends PaginationQueryDto {
   search?: string;
 
   @IsOptional()
-  @IsBooleanString()
-  isActive?: string;
+  @IsString()
+  diagnosisSystemId?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

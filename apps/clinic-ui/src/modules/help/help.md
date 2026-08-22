@@ -2,7 +2,7 @@
 
 ## What is this page?
 
-The Help Simulator (`/help`) is the built-in documentation center of the OPD ERP UI. It renders every module's `help.md` and every page's `*.help.md` file — 28 modules and their individual pages — in a searchable, navigable interface, so staff can look up what any screen does, which actions are available, and what each action affects.
+The Help Simulator (`/help`) is the built-in documentation center of the MyClinic UI. It renders every module's `help.md` and every page's `*.help.md` file — 28 modules and their individual pages — in a searchable, navigable interface, so staff can look up what any screen does, which actions are available, and what each action affects.
 
 ## Actions & Effects
 

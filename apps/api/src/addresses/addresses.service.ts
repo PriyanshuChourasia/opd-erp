@@ -21,7 +21,7 @@ export class AddressesService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateAddressDto) {
+  async create(dto: CreateAddressDto, userId?: string) {
     // If this is the first address for the entity, or isPrimary is explicitly true,
     // ensure it becomes the primary by unsetting any existing primary.
     if (dto.isPrimary) {
@@ -35,7 +35,7 @@ export class AddressesService
       });
     }
 
-    return this.prisma.address.create({ data: dto });
+    return this.prisma.address.create({ data: { ...dto, createdById: userId ?? null } });
   }
 
   async findAll(query: FindAddressesQueryDto): Promise<PaginatedResult<Address>> {
@@ -91,7 +91,7 @@ export class AddressesService
     return address;
   }
 
-  async update(id: string, dto: UpdateAddressDto) {
+  async update(id: string, dto: UpdateAddressDto, userId?: string) {
     await this.findOne(id);
 
     // If promoting to primary, unset existing primary for the entity
@@ -110,7 +110,7 @@ export class AddressesService
       }
     }
 
-    return this.prisma.address.update({ where: { id }, data: dto });
+    return this.prisma.address.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
   async remove(id: string) {

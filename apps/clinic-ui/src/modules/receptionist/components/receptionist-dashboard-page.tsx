@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -90,7 +91,7 @@ const statTiles = [
 ] as const;
 
 interface BookingForm {
-  patient: { id: string; name: string; phone: string } | null;
+  patient: { id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null;
   type: string;
   doctorId: string;
   fee: number;
@@ -158,17 +159,19 @@ export function ReceptionistDashboardPage() {
     specialization: "",
     consultationFee: 0,
   });
-  const [newPatientName, setNewPatientName] = useState("");
+  const [newPatientFirstName, setNewPatientFirstName] = useState("");
+  const [newPatientLastName, setNewPatientLastName] = useState("");
   const [newPatientPhone, setNewPatientPhone] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const createPatientMutation = useMutation({
-    mutationFn: (data: { name: string; phone: string; email?: string }) => createPatient(data),
+    mutationFn: (data: { firstName: string; lastName: string; contactNo: string; email?: string }) => createPatient(data),
     onSuccess: (patient: any) => {
       const saved = patient?.data ?? patient;
-      setForm((prev) => ({ ...prev, patient: { id: saved.id, name: saved.name, phone: saved.phone }, registrationFee: null }));
+      setForm((prev) => ({ ...prev, patient: { id: saved.id, firstName: saved.firstName, middleName: saved.middleName, lastName: saved.lastName, contactNo: saved.contactNo }, registrationFee: null }));
       setShowRegisterForm(false);
-      setNewPatientName("");
+      setNewPatientFirstName("");
+      setNewPatientLastName("");
       setNewPatientPhone("");
       setRegisterEmail("");
       setPatientQuery("");
@@ -314,7 +317,7 @@ export function ReceptionistDashboardPage() {
   function openSheet() { setForm(emptyForm()); setPatientQuery(""); setSheetOpen(true); }
 
   // Only patient name, phone & doctor are required
-  const canBook = !!form.patient?.name.trim() && !!form.patient?.phone.trim() && !!form.doctorId;
+  const canBook = !!form.patient?.firstName.trim() && !!form.patient?.lastName.trim() && !!form.patient?.contactNo.trim() && !!form.doctorId;
 
   return (
     <div className="space-y-6">
@@ -336,8 +339,8 @@ export function ReceptionistDashboardPage() {
                 {form.patient ? (
                   <div className="flex items-center justify-between rounded-none border px-3 py-2">
                     <div>
-                      <p className="text-sm font-medium">{form.patient.name}</p>
-                      <p className="text-xs text-muted-foreground">{form.patient.phone}</p>
+                      <p className="text-sm font-medium">{getPatientName(form.patient)}</p>
+                      <p className="text-xs text-muted-foreground">{form.patient.contactNo}</p>
                     </div>
                     <Button variant="ghost" size="icon-sm" title="Clear patient" onClick={() => setForm((p) => ({ ...p, patient: null, registrationFee: null }))}><X className="size-4" /></Button>
                   </div>
@@ -356,10 +359,10 @@ export function ReceptionistDashboardPage() {
                             <button
                               type="button"
                               className="flex flex-1 flex-col items-start py-0.5 text-left"
-                              onClick={() => { setForm((prev) => ({ ...prev, patient: { id: p.id, name: p.name, phone: p.phone }, registrationFee: null })); setPatientQuery(""); }}
+                              onClick={() => { setForm((prev) => ({ ...prev, patient: { id: p.id, firstName: p.firstName, middleName: p.middleName, lastName: p.lastName, contactNo: p.contactNo }, registrationFee: null })); setPatientQuery(""); }}
                             >
-                              <span className="font-medium">{p.name}</span>
-                              <span className="text-xs text-muted-foreground">{p.phone}</span>
+                              <span className="font-medium">{getPatientName(p)}</span>
+                              <span className="text-xs text-muted-foreground">{p.contactNo}</span>
                             </button>
                             <button
                               type="button"
@@ -374,7 +377,7 @@ export function ReceptionistDashboardPage() {
                         <button
                           type="button"
                           className="flex w-full items-center justify-center gap-2 border-t px-3 py-2 text-sm font-medium text-primary hover:bg-muted transition-colors"
-                          onClick={() => { setNewPatientName(patientQuery.trim()); setNewPatientPhone(""); setRegisterEmail(""); setShowRegisterForm(true); }}
+                          onClick={() => { setNewPatientFirstName(patientQuery.trim()); setNewPatientLastName(""); setNewPatientPhone(""); setRegisterEmail(""); setShowRegisterForm(true); }}
                         >
                           <Plus className="size-4" /> Register Patient
                         </button>
@@ -395,23 +398,33 @@ export function ReceptionistDashboardPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-medium text-teal-700">Full Name *</label>
+                      <label className="text-xs font-medium text-teal-700">First Name *</label>
                       <Input
                         className="border-teal-300 bg-white focus-visible:ring-teal-500"
-                        placeholder="Jane Doe"
-                        value={newPatientName}
-                        onChange={(e) => setNewPatientName(e.target.value)}
+                        placeholder="Jane"
+                        value={newPatientFirstName}
+                        onChange={(e) => setNewPatientFirstName(e.target.value)}
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-teal-700">Phone *</label>
+                      <label className="text-xs font-medium text-teal-700">Last Name *</label>
                       <Input
                         className="border-teal-300 bg-white focus-visible:ring-teal-500"
-                        placeholder="+1 555-000-0000"
-                        value={newPatientPhone}
-                        onChange={(e) => setNewPatientPhone(e.target.value)}
+                        placeholder="Doe"
+                        value={newPatientLastName}
+                        onChange={(e) => setNewPatientLastName(e.target.value)}
                       />
                     </div>
+
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-teal-700">Phone *</label>
+                    <Input
+                      className="border-teal-300 bg-white focus-visible:ring-teal-500"
+                      placeholder="+1 555-000-0000"
+                      value={newPatientPhone}
+                      onChange={(e) => setNewPatientPhone(e.target.value)}
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-teal-700">Email</label>
@@ -425,7 +438,7 @@ export function ReceptionistDashboardPage() {
                   </div>
                   <div className="flex items-center justify-between border-t border-teal-200 pt-3">
                     <p className="text-[11px] text-teal-600">
-                      Name &amp; phone are required. Email is optional.
+                      First name, last name, and phone are required. Email is optional.
                     </p>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => setShowRegisterForm(false)}>
@@ -434,8 +447,8 @@ export function ReceptionistDashboardPage() {
                       <Button
                         size="sm"
                         className="bg-teal-600 text-white hover:bg-teal-700"
-                        disabled={!newPatientName.trim() || !newPatientPhone.trim() || createPatientMutation.isPending}
-                        onClick={() => createPatientMutation.mutate({ name: newPatientName.trim(), phone: newPatientPhone.trim(), email: registerEmail.trim() || undefined })}
+                        disabled={!newPatientFirstName.trim() || !newPatientLastName.trim() || !newPatientPhone.trim() || createPatientMutation.isPending}
+                        onClick={() => createPatientMutation.mutate({ firstName: newPatientFirstName.trim(), lastName: newPatientLastName.trim(), contactNo: newPatientPhone.trim(), email: registerEmail.trim() || undefined })}
                       >
                         {createPatientMutation.isPending ? "Saving..." : "Save & Select"}
                       </Button>
@@ -492,7 +505,7 @@ export function ReceptionistDashboardPage() {
                 <div className="rounded-none border p-3 space-y-2">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <History className="size-3.5" />
-                    <span>Visit history for {form.patient.name}</span>
+                    <span>Visit history for {getPatientName(form.patient)}</span>
                   </div>
                   {patientHistory.isLoading ? (
                     <div className="space-y-1.5">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
@@ -915,7 +928,7 @@ export function ReceptionistDashboardPage() {
                       #{appt.tokenNumber ?? "—"}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{appt.patient?.name}</p>
+                      <p className="truncate font-medium">{getPatientName(appt.patient)}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {appt.doctor?.name ?? appt.doctor?.medicalRegistrationNo ?? "Doctor"}
                       </p>
@@ -992,7 +1005,7 @@ export function ReceptionistDashboardPage() {
                       {entry.tokenNumber}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{entry.patient?.name}</p>
+                      <p className="truncate font-medium">{entry.patient ? getPatientName(entry.patient) : ""}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {entry.doctor?.name ?? entry.doctor?.medicalRegistrationNo ?? "Doctor"}
                       </p>

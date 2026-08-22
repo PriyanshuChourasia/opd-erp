@@ -1,5 +1,5 @@
 {
-  "name": "opd-erp",
+  "name": "my-clinic",
   "private": true,
   "scripts": {
     "build": "turbo run build",

@@ -38,14 +38,16 @@ export class AppointmentsController {
     return this.appointmentsService.checkout(id, dto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateAppointmentStatusDto) {
-    return this.appointmentsService.update(id, dto);
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateAppointmentStatusDto, @Req() req: { user: { id: string } }) {
+    return this.appointmentsService.update(id, dto, req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateAppointmentDto) {
-    return this.appointmentsService.updateDetails(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateAppointmentDto, @Req() req: { user: { id: string } }) {
+    return this.appointmentsService.updateDetails(id, dto, req.user.id);
   }
 
   @Patch(':id/reschedule')

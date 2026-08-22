@@ -72,7 +72,7 @@ export function RegisterPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col justify-center gap-8 bg-muted px-8 py-16 lg:px-16">
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight">OPD ERP</h1>
+          <h1 className="text-4xl font-semibold tracking-tight">MyClinic</h1>
           <p className="mt-3 max-w-md text-lg text-muted-foreground">
             One system for the full clinic workflow — from the front desk to the pharmacy counter.
           </p>
@@ -93,7 +93,7 @@ export function RegisterPage() {
         <Card className="w-full max-w-sm">
           <CardHeader>
             <CardTitle>Create an account</CardTitle>
-            <CardDescription>Register to get started with OPD ERP</CardDescription>
+            <CardDescription>Register to get started with MyClinic</CardDescription>
           </CardHeader>
           <CardContent>
             <form

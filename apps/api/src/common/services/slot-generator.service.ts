@@ -76,7 +76,7 @@ export class SlotGeneratorService {
     nextDay.setDate(nextDay.getDate() + 1);
 
     // Query appointments for the doctor (when employee type is Doctor)
-    let bookedAppointments: { date: Date; patient?: { name: string } | null }[] = [];
+    let bookedAppointments: { date: Date; patient?: { firstName: string; lastName: string } | null }[] = [];
     if (employeeSchedulableType === 'Doctor') {
       bookedAppointments = await this.prisma.appointment.findMany({
         where: {
@@ -84,7 +84,7 @@ export class SlotGeneratorService {
           date: { gte: date, lt: nextDay },
           status: { not: 'CANCELLED' },
         },
-        select: { date: true, patient: { select: { name: true } } },
+        select: { date: true, patient: { select: { firstName: true, lastName: true } } },
       });
     }
 
@@ -96,7 +96,7 @@ export class SlotGeneratorService {
         .padStart(2, '0')}`;
       const entry = bookedByTime.get(time) ?? { count: 0, patients: [] };
       entry.count++;
-      if (appt.patient?.name) entry.patients.push(appt.patient.name);
+      if (appt.patient) entry.patients.push(`${appt.patient.firstName} ${appt.patient.lastName}`);
       bookedByTime.set(time, entry);
     }
 

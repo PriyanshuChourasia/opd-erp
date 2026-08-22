@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -374,9 +375,9 @@ export function DoctorPosPage() {
                           {entry.tokenNumber}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{entry.patient.name}</p>
+                          <p className="text-sm font-medium truncate">{getPatientName(entry.patient)}</p>
                           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-                            <span>{entry.patient.phone}</span>
+                            <span>{entry.patient?.contactNo}</span>
                             {entry.patient.bloodGroup && (
                               <>
                                 <span className="text-[8px]">·</span>
@@ -453,7 +454,7 @@ export function DoctorPosPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold leading-tight truncate">{selectedEntry.patient.name}</p>
+                        <p className="text-sm font-semibold leading-tight truncate">{selectedEntry.patient ? getPatientName(selectedEntry.patient) : "—"}</p>
                         <Button
                           type="button"
                           variant="outline"
@@ -465,7 +466,7 @@ export function DoctorPosPage() {
                           All Prescriptions
                         </Button>
                       </div>
-                      <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground/70">{selectedEntry.patient.phone}</p>
+                      <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground/70">{selectedEntry.patient?.contactNo}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -824,7 +825,7 @@ export function DoctorPosPage() {
 
       <PatientHistorySheet
         patientId={selectedEntry?.patientId ?? null}
-        patientName={selectedEntry?.patient.name}
+        patientName={selectedEntry?.patient ? getPatientName(selectedEntry.patient) : ""}
         open={historyOpen}
         onOpenChange={setHistoryOpen}
       />

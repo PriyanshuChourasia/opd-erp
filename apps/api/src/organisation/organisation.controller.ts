@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
 import { OrganisationService } from './organisation.service';
 import { UpdateOrganisationDto } from './dto/update-organisation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,7 +14,7 @@ export class OrganisationController {
   }
 
   @Patch()
-  update(@Body() dto: UpdateOrganisationDto) {
-    return this.organisationService.upsert(dto);
+  update(@Body() dto: UpdateOrganisationDto, @Req() req: { user: { id: string } }) {
+    return this.organisationService.upsert(dto, req.user.id);
   }
 }

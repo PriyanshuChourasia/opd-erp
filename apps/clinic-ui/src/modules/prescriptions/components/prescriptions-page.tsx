@@ -1,3 +1,4 @@
+import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
@@ -81,7 +82,7 @@ export function PrescriptionsPage() {
   const isDoctor = user?.userableType === "Doctor";
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [invoicesOpen, setInvoicesOpen] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
   const [editPatientId, setEditPatientId] = useState<string | null>(null);
 
   // ── Search / filters ──
@@ -157,15 +158,15 @@ export function PrescriptionsPage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  function openInvoices(patientId: string, patientName: string) {
-    setSelectedPatient({ id: patientId, name: patientName });
+  function openInvoices(patientId: string, patient: { firstName: string; middleName?: string | null; lastName: string; contactNo: string }) {
+    setSelectedPatient({ id: patientId, firstName: patient.firstName, middleName: patient.middleName, lastName: patient.lastName, contactNo: patient.contactNo });
     setInvoicesOpen(true);
   }
 
   // ── Create prescription ──
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [createPatientSearch, setCreatePatientSearch] = useState("");
-  const [createPatient, setCreatePatient] = useState<{ id: string; name: string; phone: string } | null>(null);
+  const [createPatient, setCreatePatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
   const [createDoctorId, setCreateDoctorId] = useState("");
   const [createDoctorQuery, setCreateDoctorQuery] = useState("");
   const [createDoctorSearchOpen, setCreateDoctorSearchOpen] = useState(false);
@@ -343,7 +344,7 @@ export function PrescriptionsPage() {
       const html2pdf = (await import('html2pdf.js')).default;
       const blob = await html2pdf().set({
         margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `prescription-${rx.patient?.name?.replace(/\s+/g, '-') ?? rx.id}.pdf`,
+        filename: `prescription-${rx.patient ? getPatientName(rx.patient).replace(/\s+/g, '-') : rx.id}.pdf`,
         image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { scale: 2, letterRendering: true, useCORS: true },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
@@ -351,7 +352,7 @@ export function PrescriptionsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `prescription-${rx.patient?.name?.replace(/\s+/g, '-') ?? rx.id}.pdf`;
+      a.download = `prescription-${rx.patient ? getPatientName(rx.patient).replace(/\s+/g, '-') : rx.id}.pdf`;
       a.click();
       setTimeout(() => { URL.revokeObjectURL(url); }, 10_000);
       toast.success('PDF downloaded successfully');
@@ -369,8 +370,8 @@ export function PrescriptionsPage() {
     const orgName = organisation?.name ?? 'CLINIC';
     const orgInfo = [organisation?.address, organisation?.phone].filter(Boolean).join(' | ') || 'Healthcare Centre';
     const rxId = rx.id.slice(0, 8).toUpperCase();
-    const patientName = rx.patient?.name ?? '';
-    const patientPhone = rx.patient?.phone ?? '';
+    const patientName = rx.patient ? getPatientName(rx.patient) : '';
+    const patientPhone = rx.patient?.contactNo ?? '';
     const patientEmail = rx.patient?.email ?? '';
     const doctorName = rx.doctor?.name ?? rx.doctor?.medicalRegistrationNo ?? '';
     const doctorQual = rx.doctor?.qualification ?? '';
@@ -492,7 +493,7 @@ export function PrescriptionsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `prescription-${rx.patient?.name?.replace(/\s+/g, '-') ?? rx.id}.doc`;
+      a.download = `prescription-${rx.patient ? getPatientName(rx.patient).replace(/\s+/g, '-') : rx.id}.doc`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       toast.success('Word file downloaded successfully');
@@ -510,7 +511,7 @@ export function PrescriptionsPage() {
         const rx = row.original;
         return (
           <div className="group flex items-center gap-2">
-            <span>{rx.patient?.name ?? <span className="text-muted-foreground">—</span>}</span>
+            <span>{rx.patient ? getPatientName(rx.patient) : <span className="text-muted-foreground">—</span>}</span>
             {rx.patient && (
               <button
                 type="button"
@@ -568,7 +569,7 @@ export function PrescriptionsPage() {
               if (value === "pdf-preview") setPdfPreviewRx(rx);
               else if (value === "export-word") exportWord(rx);
               else if (value === "edit") openEdit(rx);
-              else if (value === "invoices" && rx.patient) openInvoices(rx.patientId, rx.patient.name);
+              else if (value === "invoices" && rx.patient) openInvoices(rx.patientId, rx.patient);
             }}>
               <SelectTrigger className="h-8 w-32 text-xs">
                 <SelectValue placeholder="Actions" />
@@ -736,8 +737,8 @@ export function PrescriptionsPage() {
               {createPatient ? (
                 <div className="flex items-center justify-between rounded-none border px-3 py-2">
                   <div>
-                    <p className="text-sm font-medium">{createPatient.name}</p>
-                    <p className="text-xs text-muted-foreground">{createPatient.phone}</p>
+                    <p className="text-sm font-medium">{getPatientName(createPatient)}</p>
+                    <p className="text-xs text-muted-foreground">{createPatient.contactNo}</p>
                   </div>
                   <Button variant="ghost" size="icon-sm" onClick={() => { setCreatePatient(null); setCreatePatientSearch(""); }}><X className="size-4" /></Button>
                 </div>
@@ -756,10 +757,10 @@ export function PrescriptionsPage() {
                           key={p.id}
                           type="button"
                           className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-                          onClick={() => { setCreatePatient({ id: p.id, name: p.name, phone: p.phone }); setCreatePatientSearch(""); }}
+                          onClick={() => { setCreatePatient({ id: p.id, firstName: p.firstName, middleName: p.middleName, lastName: p.lastName, contactNo: p.contactNo }); setCreatePatientSearch(""); }}
                         >
-                          <span className="font-medium">{p.name}</span>
-                          <span className="text-xs text-muted-foreground">{p.phone}</span>
+                          <span className="font-medium">{getPatientName(p)}</span>
+                          <span className="text-xs text-muted-foreground">{p.contactNo}</span>
                         </button>
                       ))}
                     </div>
@@ -908,7 +909,7 @@ export function PrescriptionsPage() {
       <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
         <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Edit Prescription{editingRx ? ` — ${editingRx.patient?.name}` : ""}</SheetTitle>
+            <SheetTitle>Edit Prescription{editingRx ? ` — ${editingRx.patient ? getPatientName(editingRx.patient) : null}` : ""}</SheetTitle>
             <SheetDescription>Update diagnosis, notes, and prescribed medicines.</SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-4 px-4 pb-4">
@@ -985,7 +986,7 @@ export function PrescriptionsPage() {
       <Sheet open={invoicesOpen} onOpenChange={setInvoicesOpen}>
         <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Invoices{selectedPatient ? ` — ${selectedPatient.name}` : ""}</SheetTitle>
+            <SheetTitle>Invoices{selectedPatient ? ` — ${getPatientName(selectedPatient)}` : ""}</SheetTitle>
             <SheetDescription>Bills and payment status for this patient.</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-4">
@@ -1106,8 +1107,8 @@ export function PrescriptionsPage() {
                         <tr>
                           <td className="w-1/2 align-top pr-3">
                             <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PATIENT DETAILS</div>
-                            <div className="font-bold text-[13px] mb-0.5">{pdfPreviewRx.patient?.name}</div>
-                            <div className="text-xs text-gray-600 mb-0.5">Phone: {pdfPreviewRx.patient?.phone}</div>
+                            <div className="font-bold text-[13px] mb-0.5">{pdfPreviewRx.patient ? getPatientName(pdfPreviewRx.patient) : null}</div>
+                            <div className="text-xs text-gray-600 mb-0.5">Phone: {pdfPreviewRx.patient?.contactNo}</div>
                             {pdfPreviewRx.patient?.email && <div className="text-xs text-gray-600">Email: {pdfPreviewRx.patient.email}</div>}
                           </td>
                           <td className="w-1/2 align-top pl-3">

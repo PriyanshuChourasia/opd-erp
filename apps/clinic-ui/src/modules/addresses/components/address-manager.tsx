@@ -139,7 +139,12 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
       {isLoading && <p className="text-xs text-muted-foreground py-2">Loading addresses...</p>}
 
       {!isLoading && addresses.length === 0 && (
-        <p className="py-4 text-center text-xs text-muted-foreground">No addresses added yet.</p>
+        <div className="py-4 text-center space-y-2">
+          <p className="text-xs text-muted-foreground">No addresses added yet.</p>
+          <Button variant="outline" size="sm" onClick={openAdd}>
+            <Plus className="mr-1 size-3.5" />Add Address
+          </Button>
+        </div>
       )}
 
       {addresses.length > 0 && (

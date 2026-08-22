@@ -1,16 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BillingService } from './billing.service';
 import { CreateBillDto } from './dto/create-bill.dto';
 import { UpdateBillStatusDto } from './dto/update-bill-status.dto';
 import { FindBillsQueryDto } from './dto/find-bills-query.dto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('billing')
 export class BillingController {
   constructor(private readonly service: BillingService) {}
 
   @Post()
-  create(@Body() dto: CreateBillDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateBillDto, @Req() req: { user: { id: string } }) {
+    return this.service.create(dto, req.user.id);
   }
 
   @Get()
@@ -24,8 +26,8 @@ export class BillingController {
   }
 
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateBillStatusDto) {
-    return this.service.update(id, dto);
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateBillStatusDto, @Req() req: { user: { id: string } }) {
+    return this.service.update(id, dto, req.user.id);
   }
 
   @Delete(':id')

@@ -20,7 +20,7 @@ export class DocumentsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateDocumentDto) {
+  async create(dto: CreateDocumentDto, userId?: string) {
     // If marking as primary, unset existing primary for the same entity
     if (dto.isPrimary) {
       await this.prisma.document.updateMany({
@@ -33,7 +33,7 @@ export class DocumentsService
       });
     }
 
-    return this.prisma.document.create({ data: dto });
+    return this.prisma.document.create({ data: { ...dto, createdById: userId ?? null } });
   }
 
   async findAll(query: FindDocumentsQueryDto): Promise<PaginatedResult<Document>> {
@@ -89,7 +89,7 @@ export class DocumentsService
     return doc;
   }
 
-  async update(id: string, dto: UpdateDocumentDto) {
+  async update(id: string, dto: UpdateDocumentDto, userId?: string) {
     await this.findOne(id);
 
     // If promoting to primary, unset existing primary for the entity
@@ -108,7 +108,7 @@ export class DocumentsService
       }
     }
 
-    return this.prisma.document.update({ where: { id }, data: dto });
+    return this.prisma.document.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
   async remove(id: string) {

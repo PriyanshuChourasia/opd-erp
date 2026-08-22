@@ -1,6 +1,6 @@
 # Doctor ERP — Complete Clinic & Hospital Management System
 
-![OPD ERP Dashboard](</images/opd.png>)
+![MyClinic Dashboard](</images/opd.png>)
 
 **One platform. Every patient touchpoint. Zero duplication.**
 

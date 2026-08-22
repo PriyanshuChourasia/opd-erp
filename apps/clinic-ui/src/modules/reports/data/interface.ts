@@ -109,8 +109,9 @@ export interface PatientDemographicsData {
 // ─── 7. Inactive Patients ───────────────────────────
 export interface InactivePatient {
   patientId: string;
-  name: string;
-  phone: string;
+  firstName: string;
+  lastName: string;
+  contactNo: string;
   lastVisitDate: string;
   daysSinceLastVisit: number;
 }

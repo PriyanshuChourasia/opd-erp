@@ -63,7 +63,7 @@ export class DashboardService {
         this.prisma.appointment.findMany({
           take: 5,
           orderBy: { createdAt: 'desc' },
-          select: { id: true, createdAt: true, status: true, patient: { select: { name: true } } },
+          select: { id: true, createdAt: true, status: true, patient: { select: { firstName: true, lastName: true } } },
         }),
         this.prisma.bill.findMany({
           take: 5,
@@ -73,7 +73,7 @@ export class DashboardService {
         this.prisma.prescription.findMany({
           take: 5,
           orderBy: { createdAt: 'desc' },
-          select: { id: true, createdAt: true, status: true, patient: { select: { name: true } } },
+          select: { id: true, createdAt: true, status: true, patient: { select: { firstName: true, lastName: true } } },
         }),
       ]);
 
@@ -124,7 +124,7 @@ export class DashboardService {
       ...recentAppointments.map((a) => ({
         id: `appt-${a.id}`,
         type: 'appointment',
-        description: `${a.patient.name} — appointment ${a.status.toLowerCase().replace(/_/g, ' ')}`,
+        description: `${a.patient.firstName} ${a.patient.lastName} — appointment ${a.status.toLowerCase().replace(/_/g, ' ')}`,
         timestamp: a.createdAt.toISOString(),
       })),
       ...recentBills.map((b) => ({
@@ -136,7 +136,7 @@ export class DashboardService {
       ...recentPrescriptions.map((p) => ({
         id: `rx-${p.id}`,
         type: 'prescription',
-        description: `${p.patient.name} — prescription ${p.status.toLowerCase()}`,
+        description: `${p.patient.firstName} ${p.patient.lastName} — prescription ${p.status.toLowerCase()}`,
         timestamp: p.createdAt.toISOString(),
       })),
     ]

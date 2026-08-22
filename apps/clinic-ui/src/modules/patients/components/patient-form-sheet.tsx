@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCreatePatient, useUpdatePatient } from "../data/hooks";
 import type { Patient } from "../data/interface";
-import { uploadDocument } from "@/lib/api";
+import { uploadDocument, createPatientVitals } from "@/lib/api";
 import {
   Sheet,
   SheetContent,
@@ -27,28 +27,43 @@ interface PendingFile {
 }
 
 const emptyForm = {
-  name: "",
-  phone: "",
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  contactNo: "",
+  altContactNo: "",
   email: "",
   dateOfBirth: "",
   gender: "",
   bloodGroup: "",
   address: "",
   emergencyContact: "",
-  isFollowUp: false,
+};
+
+const emptyVitals = {
+  heightCm: "",
+  weightKg: "",
+  temperatureC: "",
+  pulseBpm: "",
+  systolicBp: "",
+  diastolicBp: "",
+  spo2Percent: "",
+  respiratoryRate: "",
 };
 
 interface PatientFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingPatient?: Patient | null;
-  defaultName?: string;
-  defaultPhone?: string;
+  defaultFirstName?: string;
+  defaultLastName?: string;
+  defaultContactNo?: string;
   onSaved?: (patient: Patient) => void;
 }
 
-export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultName, defaultPhone, onSaved }: PatientFormSheetProps) {
+export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFirstName, defaultLastName, defaultContactNo, onSaved }: PatientFormSheetProps) {
   const [form, setForm] = useState(emptyForm);
+  const [vitals, setVitals] = useState(emptyVitals);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -57,22 +72,25 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultNa
   useEffect(() => {
     if (!open) return;
     setPendingFiles([]);
+    setVitals(emptyVitals);
     setForm(
       editingPatient
         ? {
-            name: editingPatient.name,
-            phone: editingPatient.phone,
+            firstName: editingPatient.firstName,
+            middleName: editingPatient.middleName ?? "",
+            lastName: editingPatient.lastName,
+            contactNo: editingPatient.contactNo,
+            altContactNo: editingPatient.altContactNo ?? "",
             email: editingPatient.email ?? "",
             dateOfBirth: editingPatient.dateOfBirth?.slice(0, 10) ?? "",
             gender: editingPatient.gender ?? "",
             bloodGroup: editingPatient.bloodGroup ?? "",
             address: editingPatient.address ?? "",
             emergencyContact: editingPatient.emergencyContact ?? "",
-            isFollowUp: editingPatient.isFollowUp ?? false,
           }
-        : { ...emptyForm, name: defaultName ?? "", phone: defaultPhone ?? "" },
+        : { ...emptyForm, firstName: defaultFirstName ?? "", lastName: defaultLastName ?? "", contactNo: defaultContactNo ?? "" },
     );
-  }, [open, editingPatient, defaultName, defaultPhone]);
+  }, [open, editingPatient, defaultFirstName, defaultLastName, defaultContactNo]);
 
   const createMutation = useCreatePatient();
   const updateMutation = useUpdatePatient();
@@ -90,8 +108,30 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultNa
     }
   };
 
+  async function submitVitals(patientId: string) {
+    // Only submit if at least one vitals field has a value
+    const hasVitals = Object.values(vitals).some((v) => v !== "");
+    if (!hasVitals) return;
+
+    const payload: Record<string, string | number> = { patientId };
+    if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
+    if (vitals.weightKg) payload.weightKg = parseFloat(vitals.weightKg);
+    if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
+    if (vitals.pulseBpm) payload.pulseBpm = parseInt(vitals.pulseBpm, 10);
+    if (vitals.systolicBp) payload.systolicBp = parseInt(vitals.systolicBp, 10);
+    if (vitals.diastolicBp) payload.diastolicBp = parseInt(vitals.diastolicBp, 10);
+    if (vitals.spo2Percent) payload.spo2Percent = parseFloat(vitals.spo2Percent);
+    if (vitals.respiratoryRate) payload.respiratoryRate = parseInt(vitals.respiratoryRate, 10);
+
+    try {
+      await createPatientVitals(payload as any);
+    } catch {
+      // vitals submission failure shouldn't block patient save
+    }
+  }
+
   function handleSave() {
-    if (!form.name.trim() || !form.phone.trim()) return;
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.contactNo.trim()) return;
     if (editingPatient) {
       updateMutation.mutate(
         { id: editingPatient.id, data: form },
@@ -102,8 +142,9 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultNa
         onSuccess: async (patient: any) => {
           const saved: Patient = patient?.data ?? patient;
           await uploadPendingDocs(saved.id);
+          await submitVitals(saved.id);
           onOpenChange(false);
-          onSaved?.({ ...saved, name: form.name, phone: form.phone });
+          onSaved?.({ ...saved, firstName: form.firstName, lastName: form.lastName, contactNo: form.contactNo });
         },
       });
     }
@@ -145,7 +186,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultNa
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+      <SheetContent side="right" className="w-[90vw] max-w-[1200px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{editingPatient ? "Edit Patient" : "Register Patient"}</SheetTitle>
           <SheetDescription>
@@ -154,50 +195,67 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultNa
         </SheetHeader>
         <div className="flex-1 space-y-4 px-4 pb-4">
           <FieldGroup>
-            {/* Profile Photo & Documents */}
-            {editingPatient?.id ? (
-              <div className="border-t pt-3 mt-2 space-y-4">
-                <DocumentManager
-                  documentableType="Patient"
-                  documentableId={editingPatient.id}
-                  documentType="PROFILE_PHOTO"
-                  label="Profile Photo"
-                />
-                <DocumentUploader
-                  documentableType="Patient"
-                  documentableId={editingPatient.id}
-                />
+            {/* Profile Photo + Name in same row */}
+            <div className="flex gap-4 items-start border-t pt-3 mt-2">
+              <div className="shrink-0">
+                {editingPatient?.id ? (
+                  <DocumentManager
+                    documentableType="Patient"
+                    documentableId={editingPatient.id}
+                    documentType="PROFILE_PHOTO"
+                    label="Profile Photo"
+                  />
+                ) : (
+                  <PendingDocumentSection
+                    pendingFiles={pendingFiles}
+                    fileInputRef={fileInputRef}
+                    docInputRef={docInputRef}
+                    onPhotoSelect={handlePhotoSelect}
+                    onDocSelect={handleDocSelect}
+                    onRemove={removePending}
+                    onUpdateLabel={updatePendingLabel}
+                  />
+                )}
               </div>
-            ) : (
-              <PendingDocumentSection
-                pendingFiles={pendingFiles}
-                fileInputRef={fileInputRef}
-                docInputRef={docInputRef}
-                onPhotoSelect={handlePhotoSelect}
-                onDocSelect={handleDocSelect}
-                onRemove={removePending}
-                onUpdateLabel={updatePendingLabel}
-              />
-            )}
-
-            <Field>
-              <FieldLabel htmlFor="p-name">Full Name *</FieldLabel>
-              <Input id="p-name" placeholder="Jane Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="p-phone">Phone *</FieldLabel>
-              <Input id="p-phone" placeholder="+1 555-000-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="p-email">Email</FieldLabel>
-              <Input id="p-email" type="email" placeholder="jane@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            </Field>
-            <div className="flex gap-3">
-              <Field className="flex-1">
+              <div className="flex-1 grid grid-cols-3 gap-3">
+                <Field>
+                  <FieldLabel htmlFor="p-firstName">First Name *</FieldLabel>
+                  <Input id="p-firstName" placeholder="Jane" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="p-middleName">Middle</FieldLabel>
+                  <Input id="p-middleName" placeholder="M" value={form.middleName} onChange={(e) => setForm({ ...form, middleName: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="p-lastName">Last Name *</FieldLabel>
+                  <Input id="p-lastName" placeholder="Doe" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                </Field>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              <Field>
+                <FieldLabel htmlFor="p-contactNo">Contact No *</FieldLabel>
+                <Input id="p-contactNo" placeholder="+1 555-000-0000" value={form.contactNo} onChange={(e) => setForm({ ...form, contactNo: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="p-altContactNo">Alt Contact</FieldLabel>
+                <Input id="p-altContactNo" placeholder="+1 555-000-0001" value={form.altContactNo} onChange={(e) => setForm({ ...form, altContactNo: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="p-email">Email</FieldLabel>
+                <Input id="p-email" type="email" placeholder="jane@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="p-emergency">Emergency Contact</FieldLabel>
+                <Input id="p-emergency" placeholder="+1 555-000-0000" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Field>
                 <FieldLabel htmlFor="p-dob">Date of Birth</FieldLabel>
                 <Input id="p-dob" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
               </Field>
-              <Field className="flex-1">
+              <Field>
                 <FieldLabel htmlFor="p-gender">Gender</FieldLabel>
                 <select
                   id="p-gender"
@@ -211,22 +269,22 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultNa
                   <option value="Other">Other</option>
                 </select>
               </Field>
+              <Field>
+                <FieldLabel htmlFor="p-blood">Blood Group</FieldLabel>
+                <select
+                  id="p-blood"
+                  className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
+                  value={form.bloodGroup}
+                  onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}
+                >
+                  <option value="">Select...</option>
+                  <option value="A+">A+</option><option value="A-">A-</option>
+                  <option value="B+">B+</option><option value="B-">B-</option>
+                  <option value="O+">O+</option><option value="O-">O-</option>
+                  <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                </select>
+              </Field>
             </div>
-            <Field>
-              <FieldLabel htmlFor="p-blood">Blood Group</FieldLabel>
-              <select
-                id="p-blood"
-                className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
-                value={form.bloodGroup}
-                onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}
-              >
-                <option value="">Select...</option>
-                <option value="A+">A+</option><option value="A-">A-</option>
-                <option value="B+">B+</option><option value="B-">B-</option>
-                <option value="O+">O+</option><option value="O-">O-</option>
-                <option value="AB+">AB+</option><option value="AB-">AB-</option>
-              </select>
-            </Field>
             {editingPatient?.id ? (
               <div className="border-t pt-3 mt-2">
                 <AddressManager addressableType="Patient" addressableId={editingPatient.id} />
@@ -236,21 +294,53 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultNa
                 <p className="text-xs text-muted-foreground">Save the patient first to add addresses.</p>
               </div>
             )}
-            <Field>
-              <FieldLabel htmlFor="p-emergency">Emergency Contact</FieldLabel>
-              <Input id="p-emergency" placeholder="+1 555-000-0000" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} />
-            </Field>
-            <Field>
-              <label htmlFor="p-follow-up" className="flex w-fit items-center gap-2 text-sm">
-                <input id="p-follow-up" type="checkbox" className="size-4" checked={form.isFollowUp} onChange={(e) => setForm({ ...form, isFollowUp: e.target.checked })} />
-                Follow-up patient
-              </label>
-            </Field>
+
+
+            {/* ── Patient Vitals (create only — immutable once created) ── */}
+            {!editingPatient && (
+            <div className="border-t pt-3 mt-2">
+              <p className="text-base font-semibold mb-3">Patient Vitals <span className="text-xs font-normal text-muted-foreground">(optional)</span></p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field>                  <FieldLabel htmlFor="v-height">Height (cm) <span className="text-[10px] font-normal text-muted-foreground">(1 ft = 30.48 cm)</span></FieldLabel>
+                   <Input id="v-height" type="number" step="0.1" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals({ ...vitals, heightCm: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-weight">Weight (kg)</FieldLabel>
+                  <Input id="v-weight" type="number" step="0.1" placeholder="65" value={vitals.weightKg} onChange={(e) => setVitals({ ...vitals, weightKg: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-temp">Temperature (°C)</FieldLabel>
+                  <Input id="v-temp" type="number" step="0.1" placeholder="36.5" value={vitals.temperatureC} onChange={(e) => setVitals({ ...vitals, temperatureC: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-pulse">Pulse (bpm)</FieldLabel>
+                  <Input id="v-pulse" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals({ ...vitals, pulseBpm: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-systolic">Systolic BP <span className="text-[10px] font-normal text-muted-foreground">(heart contracts)</span></FieldLabel>
+                  <Input id="v-systolic" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals({ ...vitals, systolicBp: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-diastolic">Diastolic BP <span className="text-[10px] font-normal text-muted-foreground">(heart relaxes)</span></FieldLabel>
+                  <Input id="v-diastolic" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals({ ...vitals, diastolicBp: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-spo2">SpO₂ (%)</FieldLabel>
+                  <Input id="v-spo2" type="number" step="0.1" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals({ ...vitals, spo2Percent: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-rr">Respiratory Rate</FieldLabel>
+                  <Input id="v-rr" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })} />
+                </Field>
+              </div>
+            </div>
+            )}
+
           </FieldGroup>
         </div>
         <SheetFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!form.name.trim() || !form.phone.trim() || isPending}>
+          <Button onClick={handleSave} disabled={!form.firstName.trim() || !form.lastName.trim() || !form.contactNo.trim() || isPending}>
             {editingPatient ? "Save Changes" : "Register Patient"}
           </Button>
         </SheetFooter>
@@ -260,6 +350,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultNa
 }
 
 // ─── Pending files section (add mode — no patient ID yet) ───
+
 
 function PendingDocumentSection({
   pendingFiles,
@@ -278,124 +369,46 @@ function PendingDocumentSection({
   onRemove: (index: number) => void;
   onUpdateLabel: (index: number, label: string) => void;
 }) {
-  const photoPending = pendingFiles.filter((f) => f.documentType === "PROFILE_PHOTO");
-  const otherPending = pendingFiles.filter((f) => f.documentType !== "PROFILE_PHOTO");
-
   return (
     <div className="border-t pt-3 mt-2 space-y-3">
-      {/* Profile Photo */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors hover:border-primary/50 hover:bg-muted shrink-0"
-        >
-          {photoPending[0]?.preview ? (
-            <img src={photoPending[0].preview} alt="Photo" className="size-full object-cover" />
-          ) : (
-            <Camera className="size-6 text-muted-foreground/50" />
-          )}
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">Profile Photo</p>
-          <p className="text-xs text-muted-foreground">
-            {photoPending[0] ? photoPending[0].file.name : "Click to select a photo"}
-          </p>
-        </div>
-        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={onPhotoSelect} />
-      </div>
-
-      {/* Other Documents */}
-        <div className="border-t pt-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium">Documents & Images <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
-            <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}>
-              <FileUp className="mr-1.5 size-3.5" /> Add File
-            </Button>
-            <input ref={docInputRef} type="file" accept="image/*,application/pdf,.doc,.docx" multiple className="hidden" onChange={onDocSelect} />
-          </div>
-
-          {otherPending.length === 0 && (
-            <p className="text-xs text-muted-foreground">No documents added yet. You can add them now or later.</p>
-          )}
-
-        <div className="space-y-2">
-          {otherPending.map((pf, idx) => {
-            const realIdx = pendingFiles.indexOf(pf);
-            const isImage = pf.file.type.startsWith("image/");
-            return (
-              <div key={realIdx} className="flex items-center gap-2 rounded-none border p-2">
-                {isImage && pf.preview ? (
-                  <img src={pf.preview} alt="" className="size-10 shrink-0 rounded object-cover" />
-                ) : (
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded bg-muted">
-                    <File className="size-5 text-muted-foreground" />
-                  </span>
-                )}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
-                  <Input
-                    placeholder="Add a label (e.g. Aadhaar Card, Prescription)"
-                    className="h-7 text-xs"
-                    value={pf.label}
-                    onChange={(e) => onUpdateLabel(realIdx, e.target.value)}
-                  />
-                </div>
-                <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => onRemove(realIdx)}>
-                  <X className="size-3.5" />
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Document uploader (edit mode — has patient ID) ─────────
-
-function DocumentUploader({ documentableType, documentableId }: { documentableType: string; documentableId: string }) {
-  const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [label, setLabel] = useState("");
-
-  const uploadMutation = useMutation({
-    mutationFn: (file: File) =>
-      uploadDocument(file, file.type.startsWith("image/") ? "OTHER" : "MEDICAL_RECORD", documentableType, documentableId, { caption: label || undefined }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents", documentableType, documentableId] });
-      setLabel("");
-      toast.success("Document uploaded");
-    },
-  });
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error("File must be under 10 MB"); return; }
-    uploadMutation.mutate(file);
-    e.target.value = "";
-  }
-
-  return (
-    <div className="border-t pt-3">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-medium">Documents & Images <span className="text-xs font-normal text-muted-foreground">(Optional)</span></p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Input
-          placeholder="Label (e.g. Aadhaar Card, Prescription)"
-          className="flex-1 h-8 text-xs"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-        />
-        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
-          <FileUp className="mr-1.5 size-3.5" />
-          {uploadMutation.isPending ? "Uploading..." : "Upload"}
+      <p className="text-xs font-medium text-muted-foreground">Profile Photo & Documents</p>
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()}>
+          <Camera className="size-3.5" /> Photo
         </Button>
-        <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx" className="hidden" onChange={handleChange} />
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => docInputRef.current?.click()}>
+          <FileUp className="size-3.5" /> Document
+        </Button>
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPhotoSelect} />
+        <input ref={docInputRef} type="file" accept="image/*,.pdf,.doc,.docx" multiple className="hidden" onChange={onDocSelect} />
       </div>
+      {pendingFiles.length > 0 && (
+        <div className="space-y-2">
+          {pendingFiles.map((pf, i) => (
+            <div key={i} className="flex items-center gap-2 rounded-none border px-3 py-2 text-sm">
+              {pf.preview ? (
+                <img src={pf.preview} alt="" className="size-8 rounded object-cover" />
+              ) : pf.file.type.startsWith("image/") ? (
+                <ImageIcon className="size-4 text-muted-foreground" />
+              ) : (
+                <File className="size-4 text-muted-foreground" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-xs">{pf.file.name}</p>
+                <Input
+                  placeholder="Label (optional)"
+                  className="mt-1 h-7 text-xs"
+                  value={pf.label}
+                  onChange={(e) => onUpdateLabel(i, e.target.value)}
+                />
+              </div>
+              <button type="button" onClick={() => onRemove(i)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

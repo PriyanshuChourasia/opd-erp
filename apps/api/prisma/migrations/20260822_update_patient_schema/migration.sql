@@ -11,15 +11,24 @@ ALTER TABLE "Patient" ADD COLUMN "altContactNo" TEXT;
 ALTER TABLE "Patient" RENAME COLUMN "name" TO "firstName_old";
 ALTER TABLE "Patient" RENAME COLUMN "phone" TO "contactNo";
 
--- Copy data from old name field to firstName (assuming name contains first name or full name)
-UPDATE "Patient" SET "firstName" = "firstName_old";
+-- Split old full name into firstName/lastName (first word = firstName, remainder = lastName)
+UPDATE "Patient" SET
+  "firstName" = split_part(trim("firstName_old"), ' ', 1),
+  "lastName" = NULLIF(trim(substring(trim("firstName_old") from length(split_part(trim("firstName_old"), ' ', 1)) + 1)), '');
+
+-- Fall back to a placeholder where no last name could be derived
+UPDATE "Patient" SET "lastName" = 'Unknown' WHERE "lastName" IS NULL;
+
+-- Backfill patientCode for pre-existing rows so the NOT NULL/unique constraints below hold
+UPDATE "Patient" SET "patientCode" = 'LEGACY-' || substring(id from 1 for 8) WHERE "patientCode" IS NULL;
 
 -- Drop old name column
 ALTER TABLE "Patient" DROP COLUMN "firstName_old";
 
--- Make firstName and lastName required (they should have data now)
+-- Make firstName, lastName and patientCode required (they should have data now)
 ALTER TABLE "Patient" ALTER COLUMN "firstName" SET NOT NULL;
 ALTER TABLE "Patient" ALTER COLUMN "lastName" SET NOT NULL;
+ALTER TABLE "Patient" ALTER COLUMN "patientCode" SET NOT NULL;
 
 -- Make contactNo required (it was already unique)
 ALTER TABLE "Patient" ALTER COLUMN "contactNo" SET NOT NULL;

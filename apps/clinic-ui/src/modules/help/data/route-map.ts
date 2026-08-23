@@ -41,6 +41,7 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/medicine-catalog": { module: "medicine-catalog" },
   "/organisation": { module: "organisation" },
   "/organisation/financial-years": { module: "organisation" },
+  "/organisation/prescription-templates": { module: "prescription-templates" },
   "/organisation/roles": { module: "roles-permissions" },
   "/organisation/users": { module: "users" },
   "/patients": { module: "patients" },
@@ -49,13 +50,8 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/shifts": { module: "shifts" },
 
   // Reports
-  "/reports/appointment-mix": { module: "reports", page: "appointment-mix-page" },
-  "/reports/diagnostics-turnaround": { module: "reports", page: "diagnostics-turnaround-page" },
   "/reports/doctor-performance": { module: "reports", page: "doctor-performance-page" },
-  "/reports/inactive-patients": { module: "reports", page: "inactive-patients-page" },
   "/reports/outstanding-bills": { module: "reports", page: "outstanding-bills-page" },
-  "/reports/patient-demographics": { module: "reports", page: "patient-demographics-page" },
-  "/reports/prescription-fulfillment": { module: "reports", page: "prescription-fulfillment-page" },
   "/reports/revenue-by-category": { module: "reports", page: "revenue-by-category-page" },
   "/reports/top-medicines": { module: "reports", page: "top-medicines-page" },
 

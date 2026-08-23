@@ -102,9 +102,12 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
     enabled: open && !!editingPatient?.id,
   });
 
-  // Pre-fill vitals when existing vitals are loaded
+  // Pre-fill vitals when the sheet opens or fresh vitals arrive.
+  // `open` must be a dependency: the doctor page often has these exact
+  // query results already cached, so existingVitals.id won't change when
+  // the sheet opens — without this the fields would stay blank.
   useEffect(() => {
-    if (existingVitals && editingPatient) {
+    if (!open || !existingVitals || !editingPatient) return;
       setVitals({
         heightCm: existingVitals.heightCm?.toString() ?? "",
         weightKg: existingVitals.weightKg?.toString() ?? "",
@@ -115,8 +118,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
         spo2Percent: existingVitals.spo2Percent?.toString() ?? "",
         respiratoryRate: existingVitals.respiratoryRate?.toString() ?? "",
       });
-    }
-  }, [existingVitals?.id]);
+  }, [open, existingVitals?.id]);
 
   const uploadPendingDocs = async (patientId: string) => {
     for (const pf of pendingFiles) {

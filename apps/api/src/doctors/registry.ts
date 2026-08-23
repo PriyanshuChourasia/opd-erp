@@ -3,19 +3,19 @@ import type { IModuleRegistry } from '../common/interfaces/module-registry.inter
 export const registry: IModuleRegistry = {
   id: 'doctors',
   name: 'Doctors Module',
-  description: 'Doctor professional profile management, verification workflow, and credentials',
-  version: '2.0.0',
+  description: 'Doctor profiles, credentials, verification workflow, and schedule management',
+  version: '3.0.0',
   routePrefix: 'doctors',
   features: [
     {
       id: 'doctor-crud',
-      name: 'Doctor CRUD',
+      name: 'Doctor Management',
       description: 'Manage doctor professional profiles and credentials',
       capabilities: [
         {
           id: 'doctor-profiles',
           name: 'Doctor Profiles',
-          description: 'Create and manage doctor professional data (personal info via User entity)',
+          description: 'Create and manage doctor professional data',
           actions: [
             { id: 'create-doctor', name: 'Create Doctor', description: 'Register a new doctor profile', method: 'POST', path: '/doctors' },
             { id: 'list-doctors', name: 'List Doctors', description: 'List all doctors with search and pagination', method: 'GET', path: '/doctors' },
@@ -30,6 +30,24 @@ export const registry: IModuleRegistry = {
           description: 'Manage doctor verification workflow',
           actions: [
             { id: 'update-verification', name: 'Update Verification', description: 'Update doctor verification status', method: 'PATCH', path: '/doctors/:id/verification' },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'doctor-schedules',
+      name: 'Doctor Schedules',
+      description: 'Manage weekly working schedules for doctors',
+      capabilities: [
+        {
+          id: 'schedule-crud',
+          name: 'Schedule CRUD',
+          description: 'Create, update, and delete doctor weekly schedules',
+          actions: [
+            { id: 'create-schedule', name: 'Create Schedule', description: 'Add a working day schedule for a doctor', method: 'POST', path: '/employee-schedules' },
+            { id: 'list-schedules', name: 'List Schedules', description: 'List all schedules for a doctor', method: 'GET', path: '/employee-schedules' },
+            { id: 'update-schedule', name: 'Update Schedule', description: 'Update a schedule entry', method: 'PATCH', path: '/employee-schedules/:id' },
+            { id: 'delete-schedule', name: 'Delete Schedule', description: 'Remove a schedule entry', method: 'DELETE', path: '/employee-schedules/:id' },
           ],
         },
       ],

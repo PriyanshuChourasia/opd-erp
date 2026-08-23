@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  HeartPulse,
   History,
   Minus,
   Pencil,
@@ -29,6 +30,7 @@ import {
   deleteQueueEntry,
   createProcedureOrder,
   updateAppointmentStatus,
+  createPatientVitals,
   type QueueEntry,
   type Medicine,
 } from "@/lib/api";
@@ -41,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
 import { PatientHistorySheet } from "./patient-history-sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
@@ -154,6 +157,13 @@ export function DoctorPosPage() {
   const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editPatientOpen, setEditPatientOpen] = useState(false);
+  // ── Vitals entry ──
+  const [vitalsOpen, setVitalsOpen] = useState(false);
+  const [vitalsTarget, setVitalsTarget] = useState<QueueEntry | null>(null);
+  const [vitals, setVitals] = useState<Record<string, string>>({
+    heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
+    systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "",
+  });
 
   // Fetch patient vitals when a patient is selected
   const { data: patientVitals } = useQuery({
@@ -206,6 +216,38 @@ export function DoctorPosPage() {
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
+
+  // ── Vitals mutation ──
+  const vitalsMutation = useMutation({
+    mutationFn: async () => {
+      if (!vitalsTarget) return;
+      const payload: Record<string, string | number> = { patientId: vitalsTarget.patientId };
+      if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
+      if (vitals.weightCm) payload.weightKg = parseFloat(vitals.weightCm);
+      if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
+      if (vitals.pulseBpm) payload.pulseBpm = parseInt(vitals.pulseBpm, 10);
+      if (vitals.systolicBp) payload.systolicBp = parseInt(vitals.systolicBp, 10);
+      if (vitals.diastolicBp) payload.diastolicBp = parseInt(vitals.diastolicBp, 10);
+      if (vitals.spo2Percent) payload.spo2Percent = parseFloat(vitals.spo2Percent);
+      if (vitals.respiratoryRate) payload.respiratoryRate = parseInt(vitals.respiratoryRate, 10);
+      await createPatientVitals(payload as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
+      toast.success("Vitals recorded successfully");
+      setVitalsOpen(false);
+      setVitalsTarget(null);
+      setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  function openVitals(entry: QueueEntry) {
+    setVitalsTarget(entry);
+    // Pre-fill from latest vitals if available
+    setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
+    setVitalsOpen(true);
+  }
 
   const completeMutation = useMutation({
     mutationFn: async () => {
@@ -405,12 +447,24 @@ export function DoctorPosPage() {
                             )}
                           </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-1.5">
                           {isSelected && (
                             <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-white">
                               <Check className="size-3" />
                             </span>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 shrink-0"
+                            title="Record vitals"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openVitals(entry);
+                            }}
+                          >
+                            <HeartPulse className="size-3.5 text-rose-500" />
+                          </Button>
                           <Badge variant="outline" className={`text-[9px] ${QUEUE_STATUS_STYLES[entry.status] ?? ""}`}>
                             {entry.status.replace("_", " ")}
                           </Badge>
@@ -900,6 +954,70 @@ export function DoctorPosPage() {
           toast.success("Patient updated successfully");
         }}
       />
+
+      {/* ── Record Vitals Sheet ── */}
+      <Sheet open={vitalsOpen} onOpenChange={(open) => { if (!open) { setVitalsOpen(false); setVitalsTarget(null); } }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <HeartPulse className="size-5 text-rose-500" />
+              Record Vitals
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 py-4">
+            {vitalsTarget && (
+              <div className="rounded-none border bg-muted/20 p-3 text-sm">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Patient</span>
+                <p className="mt-0.5 font-medium">{vitalsTarget.patient ? getPatientName(vitalsTarget.patient) : "—"}</p>
+                <p className="text-xs text-muted-foreground">{vitalsTarget.patient?.contactNo}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals((v) => ({ ...v, heightCm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Weight (kg)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="70" value={vitals.weightCm} onChange={(e) => setVitals((v) => ({ ...v, weightCm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Temperature (°C)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.4" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Pulse (bpm)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals((v) => ({ ...v, pulseBpm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Systolic BP</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals((v) => ({ ...v, systolicBp: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Diastolic BP</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals((v) => ({ ...v, diastolicBp: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">SpO₂ (%)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals((v) => ({ ...v, spo2Percent: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Resp. Rate (/min)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals((v) => ({ ...v, respiratoryRate: e.target.value }))} />
+              </Field>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => { setVitalsOpen(false); setVitalsTarget(null); }}>Cancel</Button>
+            <Button
+              onClick={() => vitalsMutation.mutate()}
+              disabled={!Object.values(vitals).some((v) => v !== "") || vitalsMutation.isPending}
+            >
+              {vitalsMutation.isPending ? "Saving..." : "Save Vitals"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -57,15 +57,11 @@ import { Route as DeveloperDeveloperModulesRouteImport } from './routes/_develop
 import { Route as DeveloperDeveloperFeaturesRouteImport } from './routes/_developer/developer/features'
 import { Route as DashboardReportsTopMedicinesRouteImport } from './routes/_dashboard/reports/top-medicines'
 import { Route as DashboardReportsRevenueByCategoryRouteImport } from './routes/_dashboard/reports/revenue-by-category'
-import { Route as DashboardReportsPrescriptionFulfillmentRouteImport } from './routes/_dashboard/reports/prescription-fulfillment'
-import { Route as DashboardReportsPatientDemographicsRouteImport } from './routes/_dashboard/reports/patient-demographics'
 import { Route as DashboardReportsOutstandingBillsRouteImport } from './routes/_dashboard/reports/outstanding-bills'
-import { Route as DashboardReportsInactivePatientsRouteImport } from './routes/_dashboard/reports/inactive-patients'
 import { Route as DashboardReportsDoctorPerformanceRouteImport } from './routes/_dashboard/reports/doctor-performance'
-import { Route as DashboardReportsDiagnosticsTurnaroundRouteImport } from './routes/_dashboard/reports/diagnostics-turnaround'
-import { Route as DashboardReportsAppointmentMixRouteImport } from './routes/_dashboard/reports/appointment-mix'
 import { Route as DashboardOrganisationUsersRouteImport } from './routes/_dashboard/organisation/users'
 import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
+import { Route as DashboardOrganisationPrescriptionTemplatesRouteImport } from './routes/_dashboard/organisation/prescription-templates'
 import { Route as DashboardOrganisationFinancialYearsRouteImport } from './routes/_dashboard/organisation/financial-years'
 import { Route as AppointmentsAppointmentsNewRouteImport } from './routes/_appointments/appointments/new'
 import { Route as ReceptionistReceptionistAppointmentsIndexRouteImport } from './routes/_receptionist/receptionist/appointments/index'
@@ -323,46 +319,16 @@ const DashboardReportsRevenueByCategoryRoute =
     path: '/reports/revenue-by-category',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DashboardReportsPrescriptionFulfillmentRoute =
-  DashboardReportsPrescriptionFulfillmentRouteImport.update({
-    id: '/reports/prescription-fulfillment',
-    path: '/reports/prescription-fulfillment',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardReportsPatientDemographicsRoute =
-  DashboardReportsPatientDemographicsRouteImport.update({
-    id: '/reports/patient-demographics',
-    path: '/reports/patient-demographics',
-    getParentRoute: () => DashboardRoute,
-  } as any)
 const DashboardReportsOutstandingBillsRoute =
   DashboardReportsOutstandingBillsRouteImport.update({
     id: '/reports/outstanding-bills',
     path: '/reports/outstanding-bills',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DashboardReportsInactivePatientsRoute =
-  DashboardReportsInactivePatientsRouteImport.update({
-    id: '/reports/inactive-patients',
-    path: '/reports/inactive-patients',
-    getParentRoute: () => DashboardRoute,
-  } as any)
 const DashboardReportsDoctorPerformanceRoute =
   DashboardReportsDoctorPerformanceRouteImport.update({
     id: '/reports/doctor-performance',
     path: '/reports/doctor-performance',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardReportsDiagnosticsTurnaroundRoute =
-  DashboardReportsDiagnosticsTurnaroundRouteImport.update({
-    id: '/reports/diagnostics-turnaround',
-    path: '/reports/diagnostics-turnaround',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardReportsAppointmentMixRoute =
-  DashboardReportsAppointmentMixRouteImport.update({
-    id: '/reports/appointment-mix',
-    path: '/reports/appointment-mix',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardOrganisationUsersRoute =
@@ -375,6 +341,12 @@ const DashboardOrganisationRolesRoute =
   DashboardOrganisationRolesRouteImport.update({
     id: '/organisation/roles',
     path: '/organisation/roles',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardOrganisationPrescriptionTemplatesRoute =
+  DashboardOrganisationPrescriptionTemplatesRouteImport.update({
+    id: '/organisation/prescription-templates',
+    path: '/organisation/prescription-templates',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardOrganisationFinancialYearsRoute =
@@ -439,15 +411,11 @@ export interface FileRoutesByFullPath {
   '/shifts': typeof DashboardShiftsRoute
   '/appointments/new': typeof AppointmentsAppointmentsNewRoute
   '/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
+  '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
-  '/reports/appointment-mix': typeof DashboardReportsAppointmentMixRoute
-  '/reports/diagnostics-turnaround': typeof DashboardReportsDiagnosticsTurnaroundRoute
   '/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
-  '/reports/inactive-patients': typeof DashboardReportsInactivePatientsRoute
   '/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
-  '/reports/patient-demographics': typeof DashboardReportsPatientDemographicsRoute
-  '/reports/prescription-fulfillment': typeof DashboardReportsPrescriptionFulfillmentRoute
   '/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
   '/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
   '/developer/features': typeof DeveloperDeveloperFeaturesRoute
@@ -498,15 +466,11 @@ export interface FileRoutesByTo {
   '/shifts': typeof DashboardShiftsRoute
   '/appointments/new': typeof AppointmentsAppointmentsNewRoute
   '/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
+  '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
-  '/reports/appointment-mix': typeof DashboardReportsAppointmentMixRoute
-  '/reports/diagnostics-turnaround': typeof DashboardReportsDiagnosticsTurnaroundRoute
   '/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
-  '/reports/inactive-patients': typeof DashboardReportsInactivePatientsRoute
   '/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
-  '/reports/patient-demographics': typeof DashboardReportsPatientDemographicsRoute
-  '/reports/prescription-fulfillment': typeof DashboardReportsPrescriptionFulfillmentRoute
   '/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
   '/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
   '/developer/features': typeof DeveloperDeveloperFeaturesRoute
@@ -565,15 +529,11 @@ export interface FileRoutesById {
   '/_dashboard/shifts': typeof DashboardShiftsRoute
   '/_appointments/appointments/new': typeof AppointmentsAppointmentsNewRoute
   '/_dashboard/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
+  '/_dashboard/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/_dashboard/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/_dashboard/organisation/users': typeof DashboardOrganisationUsersRoute
-  '/_dashboard/reports/appointment-mix': typeof DashboardReportsAppointmentMixRoute
-  '/_dashboard/reports/diagnostics-turnaround': typeof DashboardReportsDiagnosticsTurnaroundRoute
   '/_dashboard/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
-  '/_dashboard/reports/inactive-patients': typeof DashboardReportsInactivePatientsRoute
   '/_dashboard/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
-  '/_dashboard/reports/patient-demographics': typeof DashboardReportsPatientDemographicsRoute
-  '/_dashboard/reports/prescription-fulfillment': typeof DashboardReportsPrescriptionFulfillmentRoute
   '/_dashboard/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
   '/_dashboard/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
   '/_developer/developer/features': typeof DeveloperDeveloperFeaturesRoute
@@ -626,15 +586,11 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/appointments/new'
     | '/organisation/financial-years'
+    | '/organisation/prescription-templates'
     | '/organisation/roles'
     | '/organisation/users'
-    | '/reports/appointment-mix'
-    | '/reports/diagnostics-turnaround'
     | '/reports/doctor-performance'
-    | '/reports/inactive-patients'
     | '/reports/outstanding-bills'
-    | '/reports/patient-demographics'
-    | '/reports/prescription-fulfillment'
     | '/reports/revenue-by-category'
     | '/reports/top-medicines'
     | '/developer/features'
@@ -685,15 +641,11 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/appointments/new'
     | '/organisation/financial-years'
+    | '/organisation/prescription-templates'
     | '/organisation/roles'
     | '/organisation/users'
-    | '/reports/appointment-mix'
-    | '/reports/diagnostics-turnaround'
     | '/reports/doctor-performance'
-    | '/reports/inactive-patients'
     | '/reports/outstanding-bills'
-    | '/reports/patient-demographics'
-    | '/reports/prescription-fulfillment'
     | '/reports/revenue-by-category'
     | '/reports/top-medicines'
     | '/developer/features'
@@ -751,15 +703,11 @@ export interface FileRouteTypes {
     | '/_dashboard/shifts'
     | '/_appointments/appointments/new'
     | '/_dashboard/organisation/financial-years'
+    | '/_dashboard/organisation/prescription-templates'
     | '/_dashboard/organisation/roles'
     | '/_dashboard/organisation/users'
-    | '/_dashboard/reports/appointment-mix'
-    | '/_dashboard/reports/diagnostics-turnaround'
     | '/_dashboard/reports/doctor-performance'
-    | '/_dashboard/reports/inactive-patients'
     | '/_dashboard/reports/outstanding-bills'
-    | '/_dashboard/reports/patient-demographics'
-    | '/_dashboard/reports/prescription-fulfillment'
     | '/_dashboard/reports/revenue-by-category'
     | '/_dashboard/reports/top-medicines'
     | '/_developer/developer/features'
@@ -1144,20 +1092,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardReportsRevenueByCategoryRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/reports/prescription-fulfillment': {
-      id: '/_dashboard/reports/prescription-fulfillment'
-      path: '/reports/prescription-fulfillment'
-      fullPath: '/reports/prescription-fulfillment'
-      preLoaderRoute: typeof DashboardReportsPrescriptionFulfillmentRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/reports/patient-demographics': {
-      id: '/_dashboard/reports/patient-demographics'
-      path: '/reports/patient-demographics'
-      fullPath: '/reports/patient-demographics'
-      preLoaderRoute: typeof DashboardReportsPatientDemographicsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/_dashboard/reports/outstanding-bills': {
       id: '/_dashboard/reports/outstanding-bills'
       path: '/reports/outstanding-bills'
@@ -1165,32 +1099,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardReportsOutstandingBillsRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/reports/inactive-patients': {
-      id: '/_dashboard/reports/inactive-patients'
-      path: '/reports/inactive-patients'
-      fullPath: '/reports/inactive-patients'
-      preLoaderRoute: typeof DashboardReportsInactivePatientsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/_dashboard/reports/doctor-performance': {
       id: '/_dashboard/reports/doctor-performance'
       path: '/reports/doctor-performance'
       fullPath: '/reports/doctor-performance'
       preLoaderRoute: typeof DashboardReportsDoctorPerformanceRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/reports/diagnostics-turnaround': {
-      id: '/_dashboard/reports/diagnostics-turnaround'
-      path: '/reports/diagnostics-turnaround'
-      fullPath: '/reports/diagnostics-turnaround'
-      preLoaderRoute: typeof DashboardReportsDiagnosticsTurnaroundRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/reports/appointment-mix': {
-      id: '/_dashboard/reports/appointment-mix'
-      path: '/reports/appointment-mix'
-      fullPath: '/reports/appointment-mix'
-      preLoaderRoute: typeof DashboardReportsAppointmentMixRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/organisation/users': {
@@ -1205,6 +1118,13 @@ declare module '@tanstack/react-router' {
       path: '/organisation/roles'
       fullPath: '/organisation/roles'
       preLoaderRoute: typeof DashboardOrganisationRolesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/organisation/prescription-templates': {
+      id: '/_dashboard/organisation/prescription-templates'
+      path: '/organisation/prescription-templates'
+      fullPath: '/organisation/prescription-templates'
+      preLoaderRoute: typeof DashboardOrganisationPrescriptionTemplatesRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/organisation/financial-years': {
@@ -1290,15 +1210,11 @@ interface DashboardRouteChildren {
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardShiftsRoute: typeof DashboardShiftsRoute
   DashboardOrganisationFinancialYearsRoute: typeof DashboardOrganisationFinancialYearsRoute
+  DashboardOrganisationPrescriptionTemplatesRoute: typeof DashboardOrganisationPrescriptionTemplatesRoute
   DashboardOrganisationRolesRoute: typeof DashboardOrganisationRolesRoute
   DashboardOrganisationUsersRoute: typeof DashboardOrganisationUsersRoute
-  DashboardReportsAppointmentMixRoute: typeof DashboardReportsAppointmentMixRoute
-  DashboardReportsDiagnosticsTurnaroundRoute: typeof DashboardReportsDiagnosticsTurnaroundRoute
   DashboardReportsDoctorPerformanceRoute: typeof DashboardReportsDoctorPerformanceRoute
-  DashboardReportsInactivePatientsRoute: typeof DashboardReportsInactivePatientsRoute
   DashboardReportsOutstandingBillsRoute: typeof DashboardReportsOutstandingBillsRoute
-  DashboardReportsPatientDemographicsRoute: typeof DashboardReportsPatientDemographicsRoute
-  DashboardReportsPrescriptionFulfillmentRoute: typeof DashboardReportsPrescriptionFulfillmentRoute
   DashboardReportsRevenueByCategoryRoute: typeof DashboardReportsRevenueByCategoryRoute
   DashboardReportsTopMedicinesRoute: typeof DashboardReportsTopMedicinesRoute
   DashboardOrganisationIndexRoute: typeof DashboardOrganisationIndexRoute
@@ -1319,19 +1235,13 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardShiftsRoute: DashboardShiftsRoute,
   DashboardOrganisationFinancialYearsRoute:
     DashboardOrganisationFinancialYearsRoute,
+  DashboardOrganisationPrescriptionTemplatesRoute:
+    DashboardOrganisationPrescriptionTemplatesRoute,
   DashboardOrganisationRolesRoute: DashboardOrganisationRolesRoute,
   DashboardOrganisationUsersRoute: DashboardOrganisationUsersRoute,
-  DashboardReportsAppointmentMixRoute: DashboardReportsAppointmentMixRoute,
-  DashboardReportsDiagnosticsTurnaroundRoute:
-    DashboardReportsDiagnosticsTurnaroundRoute,
   DashboardReportsDoctorPerformanceRoute:
     DashboardReportsDoctorPerformanceRoute,
-  DashboardReportsInactivePatientsRoute: DashboardReportsInactivePatientsRoute,
   DashboardReportsOutstandingBillsRoute: DashboardReportsOutstandingBillsRoute,
-  DashboardReportsPatientDemographicsRoute:
-    DashboardReportsPatientDemographicsRoute,
-  DashboardReportsPrescriptionFulfillmentRoute:
-    DashboardReportsPrescriptionFulfillmentRoute,
   DashboardReportsRevenueByCategoryRoute:
     DashboardReportsRevenueByCategoryRoute,
   DashboardReportsTopMedicinesRoute: DashboardReportsTopMedicinesRoute,

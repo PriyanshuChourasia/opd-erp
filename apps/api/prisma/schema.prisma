@@ -792,6 +792,7 @@ model FinancialYear {
 model PrescriptionTemplate {
   id              String   @id @default(uuid())
   name            String
+  type            String   @default("prescription") // prescription | diagnosis | test
   description     String?
   isDefault       Boolean  @default(false)
 

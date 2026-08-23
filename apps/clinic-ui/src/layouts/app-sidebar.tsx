@@ -12,6 +12,7 @@ import {
   Clock,
   Cpu,
   FlaskConical,
+  FileText,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
@@ -69,12 +70,7 @@ const reportsNav = [
   { to: "/reports/revenue-by-category", label: "Revenue by Category", icon: BarChart3 },
   { to: "/reports/outstanding-bills", label: "Outstanding Bills", icon: AlertCircle },
   { to: "/reports/doctor-performance", label: "Doctor Performance", icon: UserCog },
-  { to: "/reports/prescription-fulfillment", label: "Rx Fulfillment", icon: ClipboardCheck },
   { to: "/reports/top-medicines", label: "Top Medicines", icon: Pill },
-  { to: "/reports/patient-demographics", label: "Patient Demographics", icon: Users },
-  { to: "/reports/inactive-patients", label: "Inactive Patients", icon: UserX },
-  { to: "/reports/diagnostics-turnaround", label: "Diagnostics TAT", icon: FlaskConical },
-  { to: "/reports/appointment-mix", label: "Appointment Mix", icon: CalendarClock },
 ] as const;
 
 const accountNav = [
@@ -97,6 +93,7 @@ const devNav = [
 const orgNav = [
   { to: "/organisation", label: "Overview", icon: Building2 },
   { to: "/organisation/financial-years", label: "Financial Years", icon: CalendarRange },
+  { to: "/organisation/prescription-templates", label: "Rx Templates", icon: FileText },
   { to: "/shifts", label: "Shifts", icon: Clock },
   { to: "/addresses", label: "Addresses", icon: MapPin },
   { to: "/organisation/users", label: "Users", icon: UserCog },

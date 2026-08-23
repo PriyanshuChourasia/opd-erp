@@ -2,30 +2,39 @@ import type { IModuleRegistry } from '../common/interfaces/module-registry.inter
 
 export const registry: IModuleRegistry = {
   id: 'queue',
-  name: 'Queue Management Module',
-  description: 'Live token queue with status tracking, check-in, and priority management',
-  version: '1.0.0',
+  name: 'Queue Module',
+  description: 'Patient queue management — add, call, complete, and display queue status',
+  version: '2.0.0',
   routePrefix: 'queue',
   features: [
     {
       id: 'queue-management',
       name: 'Queue Management',
-      description: 'Real-time patient queue with token system',
+      description: 'Manage patient queues for doctors and display screens',
       capabilities: [
         {
-          id: 'queue-entries',
-          name: 'Queue Entries',
-          description: 'Manage individual queue entries',
+          id: 'queue-operations',
+          name: 'Queue Operations',
+          description: 'Add, call, complete, and cancel queue entries',
           actions: [
-            { id: 'add-to-queue', name: 'Add to Queue', description: 'Create a new queue entry with auto token', method: 'POST', path: '/queue' },
-            { id: 'list-queue', name: 'List Queue', description: 'View queue filtered by doctor and date', method: 'GET', path: '/queue' },
-            { id: 'get-queue-entry', name: 'Get Queue Entry', description: 'View queue entry details', method: 'GET', path: '/queue/:id' },
-            { id: 'update-status', name: 'Update Status', description: 'Advance queue status (WAITING→IN_PROGRESS→COMPLETED)', method: 'PATCH', path: '/queue/:id/status' },
-            { id: 'remove-queue-entry', name: 'Remove Entry', description: 'Delete a queue entry', method: 'DELETE', path: '/queue/:id' },
+            { id: 'add-to-queue', name: 'Add to Queue', description: 'Add a patient appointment to the doctor queue', method: 'POST', path: '/queue' },
+            { id: 'get-queue', name: 'Get Queue', description: 'Get current queue for a doctor or all doctors', method: 'GET', path: '/queue' },
+            { id: 'get-queue-entry', name: 'Get Queue Entry', description: 'Get a specific queue entry with patient details', method: 'GET', path: '/queue/:id' },
+            { id: 'call-next', name: 'Call Next', description: 'Mark the next patient as IN_PROGRESS', method: 'PATCH', path: '/queue/:id/call' },
+            { id: 'complete-visit', name: 'Complete Visit', description: 'Mark a queue entry as COMPLETED', method: 'PATCH', path: '/queue/:id/complete' },
+            { id: 'cancel-queue', name: 'Cancel Queue Entry', description: 'Remove a patient from the queue', method: 'DELETE', path: '/queue/:id' },
+          ],
+        },
+        {
+          id: 'queue-display',
+          name: 'Queue Display',
+          description: 'Public display queue for waiting areas',
+          actions: [
+            { id: 'get-display-queue', name: 'Get Display Queue', description: 'Get queue status for public display screens', method: 'GET', path: '/queue/display' },
           ],
         },
       ],
     },
   ],
-  dependencies: [{ name: 'Prisma' }, { name: 'Patients' }, { name: 'Doctors' }],
+  dependencies: [{ name: 'Prisma' }, { name: 'Appointments' }],
 };

@@ -1508,6 +1508,79 @@ export function deleteFinancialYear(id: string) {
   return request<void>({ method: "DELETE", path: `/financial-years/${id}` });
 }
 
+// ─── Prescription Template API ───────────────────────────────
+
+export type TemplateType = "prescription" | "diagnosis" | "test";
+
+export interface PrescriptionTemplate {
+  id: string;
+  name: string;
+  type: TemplateType;
+  description?: string | null;
+  isDefault: boolean;
+  logoUrl?: string | null;
+  clinicName?: string | null;
+  doctorName?: string | null;
+  doctorSpecialization?: string | null;
+  doctorQualification?: string | null;
+  doctorRegNo?: string | null;
+  clinicAddress?: string | null;
+  clinicPhone?: string | null;
+  clinicEmail?: string | null;
+  clinicWebsite?: string | null;
+  layout: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePrescriptionTemplateInput {
+  name: string;
+  type?: TemplateType;
+  description?: string;
+  isDefault?: boolean;
+  logoUrl?: string;
+  clinicName?: string;
+  doctorName?: string;
+  doctorSpecialization?: string;
+  doctorQualification?: string;
+  doctorRegNo?: string;
+  clinicAddress?: string;
+  clinicPhone?: string;
+  clinicEmail?: string;
+  clinicWebsite?: string;
+  layout?: Record<string, any>;
+}
+
+export interface UpdatePrescriptionTemplateInput extends Partial<CreatePrescriptionTemplateInput> {}
+
+export function fetchPrescriptionTemplates() {
+  return request<PrescriptionTemplate[]>({ method: "GET", path: "/prescription-templates" });
+}
+
+export function fetchDefaultPrescriptionTemplate() {
+  return request<PrescriptionTemplate | null>({ method: "GET", path: "/prescription-templates/default" });
+}
+
+export function fetchPrescriptionTemplate(id: string) {
+  return request<PrescriptionTemplate>({ method: "GET", path: `/prescription-templates/${id}` });
+}
+
+export function createPrescriptionTemplate(data: CreatePrescriptionTemplateInput) {
+  return request<PrescriptionTemplate>({ method: "POST", path: "/prescription-templates", body: data });
+}
+
+export function updatePrescriptionTemplate(id: string, data: UpdatePrescriptionTemplateInput) {
+  return request<PrescriptionTemplate>({ method: "PATCH", path: `/prescription-templates/${id}`, body: data });
+}
+
+export function setDefaultPrescriptionTemplate(id: string) {
+  return request<PrescriptionTemplate>({ method: "PATCH", path: `/prescription-templates/${id}/default` });
+}
+
+export function deletePrescriptionTemplate(id: string) {
+  return request<void>({ method: "DELETE", path: `/prescription-templates/${id}` });
+}
+
 // ─── Search helpers ───────────────────────────────────────────
 
 export async function searchPatients(query: string) {

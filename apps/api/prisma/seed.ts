@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 const FRESH = process.argv.includes('--fresh');
+const DAY = 24 * 60 * 60 * 1000; // ms in a day
 
 const doctorData = [
   { firstName: 'Rajesh', lastName: 'Sharma', specialization: 'General Medicine', medicalRegistrationNo: 'MCI-10001', consultationFee: 500, qualification: 'MBBS, MD', yearsOfExperience: 15 },
@@ -131,9 +132,18 @@ const shiftData = [
 ];
 
 const RESOURCES = [
+  // Core clinical
   'patients', 'appointments', 'doctors', 'prescriptions',
   'medicine-catalog', 'queue', 'billing', 'dispensing',
-  'users', 'roles', 'settings', 'developer',
+  // Diagnostics & orders
+  'lab-orders', 'radiology-orders', 'procedure-orders', 'diagnoses', 'diagnosis-systems',
+  // Patient data
+  'allergies', 'patient-allergy-records', 'patient-vitals', 'addresses',
+  // Organisation & HR
+  'organisation', 'financial-years', 'prescription-templates',
+  'users', 'roles', 'permissions', 'shifts', 'employee-schedules',
+  // System
+  'documents', 'settings', 'dashboard', 'reports', 'developer', 'health',
 ];
 const ACTIONS = ['read', 'create', 'update', 'delete', 'manage'];
 
@@ -165,15 +175,29 @@ async function wipeAll() {
   await prisma.procedureOrder.deleteMany();
   await prisma.employeeSchedule.deleteMany();
   await prisma.shift.deleteMany();
+  await prisma.dispensing.deleteMany();
+  await prisma.billItem.deleteMany();
+  await prisma.bill.deleteMany();
+  await prisma.prescriptionItem.deleteMany();
+  await prisma.prescription.deleteMany();
+  await prisma.labOrder.deleteMany();
+  await prisma.radiologyOrder.deleteMany();
+  await prisma.procedureOrder.deleteMany();
+  await prisma.queueEntry.deleteMany();
+  await prisma.appointment.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.rolePermission.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.patientAllergyRecord.deleteMany();
+  await prisma.patientAllergy.deleteMany();
   await prisma.patient.deleteMany();
   await prisma.doctor.deleteMany();
   await prisma.medicine.deleteMany();
   await prisma.permission.deleteMany();
   await prisma.role.deleteMany();
   await prisma.address.deleteMany();
+  await prisma.prescriptionTemplate.deleteMany();
+  await prisma.financialYear.deleteMany();
   await prisma.organisation.deleteMany();
   console.log('✅ All tables wiped.');
 }
@@ -513,21 +537,35 @@ async function seedPermissions(): Promise<Permission[]> {
   }
   console.log(`Seeded ${permissions.length} permissions.`);
   return permissions;
-}
-
-async function seedRoles(permissions: Permission[]) {
+}async function seedRoles(permissions: Permission[]) {
+  // ── Super Admin: everything except developer ──
   const superAdminPerms = permissions.filter((p) => p.resource !== 'developer');
-  const developerPerms = permissions.filter((p) => p.resource === 'developer');
 
-  const receptionistResources = new Set(['patients', 'appointments', 'queue', 'billing']);
+  // ── Developer: developer tools + read-only on everything ──
+  const developerPerms = permissions.filter((p) => p.resource === 'developer' || p.action === 'read');
+
+  // ── Receptionist: front-desk operations ──
+  const receptionistResources = new Set([
+    'patients', 'appointments', 'queue', 'billing',
+    'prescriptions', 'dispensing', 'documents',
+  ]);
+  const receptionistReadResources = new Set(['doctors', 'medicine-catalog', 'lab-orders', 'radiology-orders', 'procedure-orders']);
   const receptionistPerms = permissions.filter(
     (p) =>
       receptionistResources.has(p.resource) ||
-      ((p.resource === 'doctors' || p.resource === 'medicine-catalog') && p.action === 'read'),
+      (receptionistReadResources.has(p.resource) && p.action === 'read'),
   );
 
-  const doctorReadResources = new Set(['patients', 'appointments', 'queue', 'medicine-catalog']);
-  const doctorWriteResources = new Set(['prescriptions', 'lab-orders', 'radiology-orders', 'procedure-orders']);
+  // ── Doctor: clinical operations ──
+  const doctorReadResources = new Set([
+    'patients', 'appointments', 'queue', 'medicine-catalog',
+    'allergies', 'patient-allergy-records', 'patient-vitals',
+    'diagnoses', 'diagnosis-systems', 'addresses',
+  ]);
+  const doctorWriteResources = new Set([
+    'prescriptions', 'lab-orders', 'radiology-orders', 'procedure-orders',
+    'patient-vitals', 'patient-allergy-records',
+  ]);
   const doctorPerms = permissions.filter(
     (p) =>
       (doctorReadResources.has(p.resource) && p.action === 'read') ||
@@ -535,13 +573,53 @@ async function seedRoles(permissions: Permission[]) {
         (p.action === 'create' || p.action === 'update' || p.action === 'read')),
   );
 
-  const assistantReadResources = new Set(['patients', 'appointments', 'medicine-catalog']);
+  // ── Nurse: patient vitals, allergies, queue ──
+  const nurseReadResources = new Set([
+    'patients', 'appointments', 'queue', 'medicine-catalog',
+    'allergies', 'patient-allergy-records', 'patient-vitals',
+    'diagnoses', 'addresses',
+  ]);
+  const nurseWriteResources = new Set(['patient-vitals', 'patient-allergy-records', 'queue']);
+  const nursePerms = permissions.filter(
+    (p) =>
+      (nurseReadResources.has(p.resource) && p.action === 'read') ||
+      (nurseWriteResources.has(p.resource) &&
+        (p.action === 'create' || p.action === 'update' || p.action === 'read')),
+  );
+
+  // ── Assistant: basic support ──
+  const assistantReadResources = new Set(['patients', 'appointments', 'medicine-catalog', 'doctors']);
   const assistantWriteResources = new Set(['queue']);
   const assistantPerms = permissions.filter(
     (p) =>
       (assistantReadResources.has(p.resource) && p.action === 'read') ||
       (assistantWriteResources.has(p.resource) &&
         (p.action === 'read' || p.action === 'update')),
+  );
+
+  // ── Pharmacist: dispensing, prescriptions, medicine catalog ──
+  const pharmacistReadResources = new Set([
+    'patients', 'prescriptions', 'medicine-catalog', 'dispensing', 'billing',
+  ]);
+  const pharmacistWriteResources = new Set(['dispensing', 'billing']);
+  const pharmacistPerms = permissions.filter(
+    (p) =>
+      (pharmacistReadResources.has(p.resource) && p.action === 'read') ||
+      (pharmacistWriteResources.has(p.resource) &&
+        (p.action === 'create' || p.action === 'update' || p.action === 'read')),
+  );
+
+  // ── Lab Technician: lab orders, radiology ──
+  const labTechReadResources = new Set([
+    'patients', 'lab-orders', 'radiology-orders', 'procedure-orders',
+    'appointments', 'diagnoses',
+  ]);
+  const labTechWriteResources = new Set(['lab-orders', 'radiology-orders', 'procedure-orders']);
+  const labTechPerms = permissions.filter(
+    (p) =>
+      (labTechReadResources.has(p.resource) && p.action === 'read') ||
+      (labTechWriteResources.has(p.resource) &&
+        (p.action === 'create' || p.action === 'update' || p.action === 'read')),
   );
 
   async function upsertRoleWithPermissions(name: string, description: string, perms: Permission[]) {
@@ -558,14 +636,18 @@ async function seedRoles(permissions: Permission[]) {
     return role;
   }
 
+
   const superAdmin = await upsertRoleWithPermissions('Super Admin', 'Full access to every module except Developer tools', superAdminPerms);
-  const receptionist = await upsertRoleWithPermissions('Receptionist', 'Front-desk access to patients, appointments, queue, and billing', receptionistPerms);
-  const doctor = await upsertRoleWithPermissions('Doctor', 'Clinical staff: manage prescriptions, lab orders, and radiology orders', doctorPerms);
-  const assistant = await upsertRoleWithPermissions('Assistant', 'Support staff: manage queue and view basic patient info', assistantPerms);
+  const receptionist = await upsertRoleWithPermissions('Receptionist', 'Front-desk: patients, appointments, queue, billing, prescriptions, dispensing', receptionistPerms);
+  const doctor = await upsertRoleWithPermissions('Doctor', 'Clinical: prescriptions, vitals, allergies, lab/radiology/procedure orders', doctorPerms);
+  const nurse = await upsertRoleWithPermissions('Nurse', 'Patient vitals, allergies, queue management', nursePerms);
+  const assistant = await upsertRoleWithPermissions('Assistant', 'Support: view patients, manage queue', assistantPerms);
+  const pharmacist = await upsertRoleWithPermissions('Pharmacist', 'Dispensing, prescriptions, medicine catalog, billing', pharmacistPerms);
+  const labTech = await upsertRoleWithPermissions('Lab Technician', 'Lab orders, radiology orders, procedure orders', labTechPerms);
   const developer = await upsertRoleWithPermissions('Developer', 'Developer tools: inspect modules, features, and API surface', developerPerms);
 
-  console.log(`Seeded roles: Super Admin (${superAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Assistant (${assistantPerms.length}), Developer (${developerPerms.length}).`);
-  return { superAdmin, receptionist, doctor, assistant, developer };
+  console.log(`Seeded roles: Super Admin (${superAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}), Developer (${developerPerms.length}).`);
+  return { superAdmin, receptionist, doctor, nurse, assistant, pharmacist, labTech, developer };
 }
 
 async function seedUsers(
@@ -575,6 +657,9 @@ async function seedUsers(
   assistantRoleId: string,
   doctorRows: Doctor[],
   developerRoleId: string,
+  nurseRoleId?: string,
+  pharmacistRoleId?: string,
+  labTechRoleId?: string,
 ) {
   const password = await bcrypt.hash('Password@123', 10);
   const doctorPassword = await bcrypt.hash('Doctor@123', 10);
@@ -652,7 +737,83 @@ async function seedUsers(
     }
   }
 
-  console.log(`Seeded ${systemUsers.length} system users + ${receptionistUsers.length} receptionists + ${doctorRows.length} doctor users.`);
+  // Nurse users
+  if (nurseRoleId) {
+    const nurseUsers = [
+      { username: 'nursemeera', firstName: 'Meera', lastName: 'Nair', email: 'meera@clinic.com', gender: 'FEMALE' },
+      { username: 'nursedeepak', firstName: 'Deepak', lastName: 'Yadav', email: 'deepak@clinic.com', gender: 'MALE' },
+    ];
+    for (const u of nurseUsers) {
+      const existing = await prisma.user.findFirst({ where: { email: u.email } });
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            username: u.username,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            password,
+            roleId: nurseRoleId,
+            userableType: 'Nurse',
+            gender: u.gender,
+          },
+        });
+      }
+    }
+  }
+
+  // Pharmacist users
+  if (pharmacistRoleId) {
+    const pharmacistUsers = [
+      { username: 'pharmrakesh', firstName: 'Rakesh', lastName: 'Joshi', email: 'rakesh@clinic.com', gender: 'MALE' },
+      { username: 'pharmneha', firstName: 'Neha', lastName: 'Gupta', email: 'neha@clinic.com', gender: 'FEMALE' },
+    ];
+    for (const u of pharmacistUsers) {
+      const existing = await prisma.user.findFirst({ where: { email: u.email } });
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            username: u.username,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            password,
+            roleId: pharmacistRoleId,
+            userableType: 'Pharmacist',
+            gender: u.gender,
+          },
+        });
+      }
+    }
+  }
+
+  // Lab Technician users
+  if (labTechRoleId) {
+    const labTechUsers = [
+      { username: 'labkiran', firstName: 'Kiran', lastName: 'Patil', email: 'kiran@clinic.com', gender: 'MALE' },
+      { username: 'labsunita', firstName: 'Sunita', lastName: 'Rao', email: 'sunita.l@clinic.com', gender: 'FEMALE' },
+    ];
+    for (const u of labTechUsers) {
+      const existing = await prisma.user.findFirst({ where: { email: u.email } });
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            username: u.username,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            password,
+            roleId: labTechRoleId,
+            userableType: 'LabStaff',
+            gender: u.gender,
+          },
+        });
+      }
+    }
+  }
+
+  const extraCount = (nurseRoleId ? 2 : 0) + (pharmacistRoleId ? 2 : 0) + (labTechRoleId ? 2 : 0);
+  console.log(`Seeded ${systemUsers.length} system users + ${receptionistUsers.length} receptionists + ${doctorRows.length} doctor users + ${extraCount} staff users.`);
   console.log('Login credentials:');
   console.log('  superadmin@clinic.com / Password@123 (Super Admin)');
   console.log('  admin@clinic.com / Password@123 (Super Admin)');
@@ -662,6 +823,12 @@ async function seedUsers(
   console.log('  rajesh.sharma@clinic.com / Doctor@123 (Doctor)');
   console.log('  assistant@clinic.com / Password@123 (Assistant)');
   console.log('  developer@clinic.com / Password@123 (Developer)');
+  console.log('  meera@clinic.com / Password@123 (Nurse — Meera Nair)');
+  console.log('  deepak@clinic.com / Password@123 (Nurse — Deepak Yadav)');
+  console.log('  rakesh@clinic.com / Password@123 (Pharmacist — Rakesh Joshi)');
+  console.log('  neha@clinic.com / Password@123 (Pharmacist — Neha Gupta)');
+  console.log('  kiran@clinic.com / Password@123 (Lab Tech — Kiran Patil)');
+  console.log('  sunita.l@clinic.com / Password@123 (Lab Tech — Sunita Rao)');
 }
 
 // ─── Medicine Catalog ──────────────────────────────────────
@@ -1145,47 +1312,1290 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
   }
   console.log(`Seeded ${totalPatients} demo patients with ${totalVitals} vitals records.`);
 
-  // Seed demo prescriptions for those patients
-  const medicines = await prisma.medicine.findMany({ take: 100 });
-  const medicineByName = new Map(medicines.map((m) => [m.name, m]));
+  // Seed demo prescriptions for those patients (only if none exist yet)
+  const existingRxCount = await prisma.prescription.count();
+  if (existingRxCount === 0) {
+    const medicines = await prisma.medicine.findMany({ take: 100 });
+    const medicineByName = new Map(medicines.map((m) => [m.name, m]));
 
-  for (const rx of PRESCRIPTION_DEMOS) {
-    const patient = await prisma.patient.findUnique({ where: { contactNo: rx.patientPhone } });
-    if (!patient) {
-      console.warn(`Patient not found for phone ${rx.patientPhone}, skipping prescription.`);
-      continue;
+    for (const rx of PRESCRIPTION_DEMOS) {
+      const patient = await prisma.patient.findUnique({ where: { contactNo: rx.patientPhone } });
+      if (!patient) {
+        console.warn(`Patient not found for phone ${rx.patientPhone}, skipping prescription.`);
+        continue;
+      }
+      const doctor = doctorRows[rx.doctorIdx];
+      if (!doctor) continue;
+
+      const createdAt = new Date(Date.now() - rx.daysAgo * 24 * 60 * 60 * 1000);
+
+      await prisma.prescription.create({
+        data: {
+          patientId: patient.id,
+          doctorId: doctor.id,
+          diagnosis: rx.diagnosis,
+          notes: rx.notes ?? null,
+          status: rx.status,
+          createdAt,
+          updatedAt: createdAt,
+          items: {
+            create: rx.items.map((item) => {
+              const medicine = medicineByName.get(item.medicineName);
+              return {
+                medicineId: medicine?.id ?? 'unknown',
+                medicineName: item.medicineName,
+                dosage: item.dosage,
+                duration: item.duration,
+                quantity: item.qty,
+              };
+            }),
+          },
+        },
+      });
+      totalRx++;
     }
-    const doctor = doctorRows[rx.doctorIdx];
+  }
+  console.log(`Seeded ${totalRx} demo prescriptions with items.`);
+}
+
+// ─── Main ───────────────────────────────────────────────────
+
+// ─── Prescription Templates ───────────────────────────────
+
+const prescriptionTemplateData = [
+  // ═══════════════════════════════════════════════════════════
+  // PRESCRIPTION TEMPLATES
+  // ═══════════════════════════════════════════════════════════
+
+  // ── 1. Classic — Traditional formal layout ──
+  {
+    name: 'Classic Clinic Rx',
+    type: 'prescription',
+    description: 'Traditional Rx with clean lines and formal structure — the standard clinic prescription',
+    isDefault: true,
+    headerTitle: 'City Clinic — OPD',
+    headerSubtitle: 'Department of Ophthalmology & General Medicine',
+    clinicPhone: '022-25551234',
+    clinicEmail: 'info@cityclinic.com',
+    clinicWebsite: 'https://cityclinic.com',
+    doctorName: 'Dr. Rajesh Sharma',
+    doctorSpecialization: 'General Medicine',
+    doctorQualification: 'MBBS, MD',
+    doctorRegistrationNo: 'MCI-10001',
+    layout: {
+      layoutStyle: 'classic',
+      headerStyle: 'centered',
+      fontFamily: 'serif',
+      paperSize: 'A4',
+      fontSize: 'medium',
+      showRxSymbol: true,
+      showPatientFields: true,
+      showMedicineTable: true,
+      showRecommendations: false,
+      showFooter: true,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: true,
+      showNotes: true,
+      primaryColor: '#2563eb',
+      secondaryColor: '#dbeafe',
+      headerBgColor: '#2563eb',
+      recommendations: [],
+      footerText: '',
+      footerColumns: ['address', 'phone', 'email'],
+    },
+  },
+  // ── 2. Modern — Contemporary with colored header banner ──
+  {
+    name: 'Modern Clinic Rx',
+    type: 'prescription',
+    description: 'Contemporary design with gradient header banner, rounded elements, and color accents',
+    isDefault: false,
+    headerTitle: 'City Heart Clinic',
+    headerSubtitle: 'Cardiology & Cardiovascular Medicine',
+    clinicPhone: '022-25551235',
+    clinicEmail: 'heart@cityclinic.com',
+    clinicWebsite: 'https://cityclinic.com/heart',
+    doctorName: 'Dr. Arun Singh',
+    doctorSpecialization: 'Cardiology',
+    doctorQualification: 'MBBS, DM Cardiology',
+    doctorRegistrationNo: 'MCI-10005',
+    layout: {
+      layoutStyle: 'modern',
+      headerStyle: 'banner',
+      fontFamily: 'sans',
+      paperSize: 'A4',
+      fontSize: 'medium',
+      showRxSymbol: true,
+      showPatientFields: true,
+      showMedicineTable: true,
+      showRecommendations: false,
+      showFooter: true,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: true,
+      showNotes: true,
+      primaryColor: '#dc2626',
+      secondaryColor: '#fef2f2',
+      headerBgColor: '#dc2626',
+      recommendations: [],
+      footerText: '',
+      footerColumns: ['address', 'phone'],
+    },
+  },
+  // ── 3. Minimal — Stripped-down, quick prescriptions ──
+  {
+    name: 'Minimal Rx',
+    type: 'prescription',
+    description: 'Clean, minimal template without branding — ideal for quick prescriptions',
+    isDefault: false,
+    headerTitle: '',
+    headerSubtitle: '',
+    clinicPhone: '',
+    clinicEmail: '',
+    clinicWebsite: '',
+    doctorName: '',
+    doctorSpecialization: '',
+    doctorQualification: '',
+    doctorRegistrationNo: '',
+    layout: {
+      layoutStyle: 'minimal',
+      headerStyle: 'left',
+      fontFamily: 'sans',
+      paperSize: 'A4',
+      fontSize: 'small',
+      showRxSymbol: true,
+      showPatientFields: true,
+      showMedicineTable: true,
+      showRecommendations: false,
+      showFooter: false,
+      showQRCode: false,
+      showBorder: false,
+      showClinicAddress: false,
+      showRegistrationNo: false,
+      showWatermark: false,
+      showDiagnosis: false,
+      showNotes: false,
+      primaryColor: '#000000',
+      secondaryColor: '#ffffff',
+      headerBgColor: '#000000',
+      recommendations: [],
+      footerText: '',
+      footerColumns: [],
+    },
+  },
+  // ── 4. Two-Column — Split layout for dense prescriptions ──
+  {
+    name: 'Two-Column Rx',
+    type: 'prescription',
+    description: 'Split layout: patient info on left, medicines on right — great for detailed prescriptions',
+    isDefault: false,
+    headerTitle: 'City Clinic — OPD',
+    headerSubtitle: 'Multi-Specialty Clinic',
+    clinicPhone: '022-25551234',
+    clinicEmail: 'info@cityclinic.com',
+    clinicWebsite: 'https://cityclinic.com',
+    doctorName: 'Dr. Lakshmi Iyer',
+    doctorSpecialization: 'Gynecology',
+    doctorQualification: 'MBBS, MS OBG',
+    doctorRegistrationNo: 'MCI-10004',
+    layout: {
+      layoutStyle: 'two-column',
+      headerStyle: 'split',
+      fontFamily: 'sans',
+      paperSize: 'A4',
+      fontSize: 'small',
+      showRxSymbol: true,
+      showPatientFields: true,
+      showMedicineTable: true,
+      showRecommendations: true,
+      showFooter: true,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: true,
+      showNotes: true,
+      primaryColor: '#7c3aed',
+      secondaryColor: '#ede9fe',
+      headerBgColor: '#7c3aed',
+      recommendations: [
+        'Continue Breastfeeding',
+        'Vaccination Schedule',
+        'Growth Monitoring',
+        'Nutrition Advice',
+        'Iron Supplements',
+      ],
+      footerText: '',
+      footerColumns: ['address', 'phone', 'email'],
+    },
+  },
+  // ── 5. Compact — Dense layout for high-volume clinics ──
+  {
+    name: 'Compact Rx',
+    type: 'prescription',
+    description: 'Dense layout fitting more info in less space — perfect for high-volume OPD',
+    isDefault: false,
+    headerTitle: 'City Clinic — Express',
+    headerSubtitle: 'Quick Consultation Desk',
+    clinicPhone: '022-25551234',
+    clinicEmail: 'express@cityclinic.com',
+    clinicWebsite: '',
+    doctorName: 'Dr. Vivek Mehta',
+    doctorSpecialization: 'Orthopedics',
+    doctorQualification: 'MBBS, MS Ortho',
+    doctorRegistrationNo: 'MCI-10003',
+    layout: {
+      layoutStyle: 'compact',
+      headerStyle: 'left',
+      fontFamily: 'sans',
+      paperSize: 'A5',
+      fontSize: 'small',
+      showRxSymbol: true,
+      showPatientFields: true,
+      showMedicineTable: true,
+      showRecommendations: false,
+      showFooter: true,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: true,
+      showNotes: false,
+      primaryColor: '#059669',
+      secondaryColor: '#d1fae5',
+      headerBgColor: '#059669',
+      recommendations: [],
+      footerText: '',
+      footerColumns: ['address', 'phone'],
+    },
+  },
+  // ── 6. Banner — Full-width header with centered content ──
+  {
+    name: 'Banner Rx',
+    type: 'prescription',
+    description: 'Full-width header banner with centered content — premium clinic look',
+    isDefault: false,
+    headerTitle: 'City Eye Centre',
+    headerSubtitle: 'Complete Eye Care & Vision Solutions',
+    clinicPhone: '022-25551234',
+    clinicEmail: 'eyes@cityclinic.com',
+    clinicWebsite: 'https://cityclinic.com/eyes',
+    doctorName: 'Dr. Deepa Nair',
+    doctorSpecialization: 'Ophthalmology',
+    doctorQualification: 'MBBS, MS Ophthalmology',
+    doctorRegistrationNo: 'MCI-10008',
+    layout: {
+      layoutStyle: 'banner',
+      headerStyle: 'centered',
+      fontFamily: 'serif',
+      paperSize: 'A4',
+      fontSize: 'medium',
+      showRxSymbol: true,
+      showPatientFields: true,
+      showMedicineTable: true,
+      showRecommendations: true,
+      showFooter: true,
+      showQRCode: true,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: true,
+      showWatermark: true,
+      showDiagnosis: true,
+      showNotes: true,
+      freeFormMode: false,
+      writingLineCount: 20,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Signature:',
+      showHeaderLine: true,
+      headerLineColor: '#0891b2',
+      primaryColor: '#0891b2',
+      secondaryColor: '#ecfeff',
+      headerBgColor: '#0891b2',
+      recommendations: [
+        'Single Vision',
+        'Bifocal',
+        'Trifocal',
+        'Progressive',
+        'Polycarbonate',
+        'Trivex',
+        'Hi-Index',
+        'Anti-Reflective Coating',
+        'Photochromic',
+        'Tint',
+        'Polarized',
+      ],
+      footerText: 'Thank you for choosing City Eye Centre',
+      footerColumns: ['address', 'phone', 'email', 'website'],
+    },
+  },
+  // ── 7. Letterhead — Hospital letterhead with split header and line separator ──
+  {
+    name: 'Hospital Letterhead Rx',
+    type: 'prescription',
+    description: 'Classic hospital letterhead with doctor info left, hospital right, and colored separator line',
+    isDefault: false,
+    headerTitle: 'City Hospital',
+    headerSubtitle: 'Multi-Specialty Hospital',
+    clinicPhone: '022-25551234',
+    clinicEmail: 'info@cityhospital.com',
+    clinicWebsite: 'https://cityhospital.com',
+    doctorName: 'Dr. Arun Singh',
+    doctorSpecialization: 'Cardiology',
+    doctorQualification: 'MBBS, DM Cardiology',
+    doctorRegistrationNo: 'MCI-10005',
+    layout: {
+      layoutStyle: 'letterhead',
+      headerStyle: 'split-line',
+      fontFamily: 'serif',
+      paperSize: 'A4',
+      fontSize: 'medium',
+      showRxSymbol: false,
+      showPatientFields: true,
+      showMedicineTable: true,
+      showRecommendations: false,
+      showFooter: false,
+      showQRCode: false,
+      showBorder: false,
+      showClinicAddress: true,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: false,
+      showNotes: false,
+      freeFormMode: false,
+      writingLineCount: 20,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Signature:',
+      showHeaderLine: true,
+      headerLineColor: '#16a34a',
+      primaryColor: '#16a34a',
+      secondaryColor: '#dcfce7',
+      headerBgColor: '#16a34a',
+      recommendations: [],
+      footerText: '',
+      footerColumns: [],
+    },
+  },
+  // ── 8. Doctor's Script — Free-form writing pad with handwriting font ──
+  {
+    name: "Doctor's Script Pad",
+    type: 'prescription',
+    description: 'Free-form writing pad with lined paper and handwriting font — for doctors who prefer to write by hand',
+    isDefault: false,
+    headerTitle: '',
+    headerSubtitle: '',
+    clinicPhone: '',
+    clinicEmail: '',
+    clinicWebsite: '',
+    doctorName: 'Dr. Priya Kapoor',
+    doctorSpecialization: 'Dermatology',
+    doctorQualification: 'MBBS, MD Dermatology',
+    doctorRegistrationNo: 'MCI-10006',
+    layout: {
+      layoutStyle: 'doctor-script',
+      headerStyle: 'left',
+      fontFamily: 'handwriting',
+      paperSize: 'A4',
+      fontSize: 'large',
+      showRxSymbol: true,
+      showPatientFields: true,
+      showMedicineTable: false,
+      showRecommendations: false,
+      showFooter: false,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: false,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: true,
+      showNotes: false,
+      freeFormMode: true,
+      writingLineCount: 25,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Dr. Priya Kapoor',
+      showHeaderLine: true,
+      headerLineColor: '#d97706',
+      primaryColor: '#d97706',
+      secondaryColor: '#fef3c7',
+      headerBgColor: '#d97706',
+      recommendations: [],
+      footerText: '',
+      footerColumns: [],
+    },
+  },
+  // ── 9. Prescription Pad — Classic pad with no footer, just signature ──
+  {
+    name: 'Quick Prescription Pad',
+    type: 'prescription',
+    description: 'Minimal pad — header, patient line, writing space, and signature. No footer, no table.',
+    isDefault: false,
+    headerTitle: '',
+    headerSubtitle: '',
+    clinicPhone: '022-25551234',
+    clinicEmail: '',
+    clinicWebsite: '',
+    doctorName: 'Dr. Mohammed Farooq',
+    doctorSpecialization: 'ENT',
+    doctorQualification: 'MBBS, MS ENT',
+    doctorRegistrationNo: 'MCI-10007',
+    layout: {
+      layoutStyle: 'prescription-pad',
+      headerStyle: 'split-line',
+      fontFamily: 'serif',
+      paperSize: 'A4',
+      fontSize: 'medium',
+      showRxSymbol: false,
+      showPatientFields: true,
+      showMedicineTable: false,
+      showRecommendations: false,
+      showFooter: false,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: false,
+      showWatermark: false,
+      showDiagnosis: false,
+      showNotes: false,
+      freeFormMode: true,
+      writingLineCount: 22,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Signature:',
+      showHeaderLine: true,
+      headerLineColor: '#7c3aed',
+      primaryColor: '#7c3aed',
+      secondaryColor: '#ede9fe',
+      headerBgColor: '#7c3aed',
+      recommendations: [],
+      footerText: '',
+      footerColumns: [],
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // DIAGNOSIS TEMPLATES
+  // ═══════════════════════════════════════════════════════════
+
+  // ── 10. Standard Diagnosis Report ──
+  {
+    name: 'Standard Diagnosis Report',
+    type: 'diagnosis',
+    description: 'General diagnosis report with clinical findings, investigation, and treatment plan',
+    isDefault: true,
+    headerTitle: 'City Hospital',
+    headerSubtitle: 'Multi-Specialty Hospital',
+    clinicPhone: '022-25551234',
+    clinicEmail: 'info@cityhospital.com',
+    clinicWebsite: 'https://cityhospital.com',
+    doctorName: 'Dr. Rajesh Sharma',
+    doctorSpecialization: 'General Medicine',
+    doctorQualification: 'MBBS, MD',
+    doctorRegistrationNo: 'MCI-10001',
+    layout: {
+      layoutStyle: 'classic',
+      headerStyle: 'centered',
+      fontFamily: 'serif',
+      paperSize: 'A4',
+      fontSize: 'medium',
+      showRxSymbol: false,
+      showPatientFields: true,
+      showMedicineTable: false,
+      showRecommendations: false,
+      showFooter: true,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: true,
+      showNotes: true,
+      freeFormMode: true,
+      writingLineCount: 15,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Signature:',
+      showHeaderLine: true,
+      headerLineColor: '#16a34a',
+      primaryColor: '#16a34a',
+      secondaryColor: '#dcfce7',
+      headerBgColor: '#16a34a',
+      recommendations: [],
+      footerText: '',
+      footerColumns: ['address', 'phone'],
+    },
+  },
+
+  // ── 11. Fitness Certificate ──
+  {
+    name: 'Fitness Certificate',
+    type: 'diagnosis',
+    description: 'Medical fitness certificate for employment, sports, or travel',
+    isDefault: false,
+    headerTitle: 'City Hospital',
+    headerSubtitle: 'Medical Fitness Department',
+    clinicPhone: '022-25551234',
+    clinicEmail: 'fitness@cityhospital.com',
+    clinicWebsite: '',
+    doctorName: 'Dr. Arun Singh',
+    doctorSpecialization: 'General Medicine',
+    doctorQualification: 'MBBS, MD',
+    doctorRegistrationNo: 'MCI-10005',
+    layout: {
+      layoutStyle: 'letterhead',
+      headerStyle: 'split-line',
+      fontFamily: 'serif',
+      paperSize: 'A4',
+      fontSize: 'medium',
+      showRxSymbol: false,
+      showPatientFields: true,
+      showMedicineTable: false,
+      showRecommendations: false,
+      showFooter: true,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: true,
+      showNotes: true,
+      freeFormMode: true,
+      writingLineCount: 18,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Doctor Signature:',
+      showHeaderLine: true,
+      headerLineColor: '#0891b2',
+      primaryColor: '#0891b2',
+      secondaryColor: '#ecfeff',
+      headerBgColor: '#0891b2',
+      recommendations: [],
+      footerText: 'This certificate is valid for 30 days from the date of issue.',
+      footerColumns: ['address', 'phone'],
+    },
+  },
+
+  // ── 12. Sick Leave Certificate ──
+  {
+    name: 'Sick Leave Certificate',
+    type: 'diagnosis',
+    description: 'Sick leave / medical leave certificate for employers and institutions',
+    isDefault: false,
+    headerTitle: 'City Clinic',
+    headerSubtitle: '',
+    clinicPhone: '022-25551234',
+    clinicEmail: '',
+    clinicWebsite: '',
+    doctorName: 'Dr. Sunita Verma',
+    doctorSpecialization: 'General Medicine',
+    doctorQualification: 'MBBS, DCH',
+    doctorRegistrationNo: 'MCI-10002',
+    layout: {
+      layoutStyle: 'minimal',
+      headerStyle: 'left',
+      fontFamily: 'serif',
+      paperSize: 'A4',
+      fontSize: 'medium',
+      showRxSymbol: false,
+      showPatientFields: true,
+      showMedicineTable: false,
+      showRecommendations: false,
+      showFooter: false,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: false,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: false,
+      showNotes: false,
+      freeFormMode: true,
+      writingLineCount: 12,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Doctor Signature:',
+      showHeaderLine: true,
+      headerLineColor: '#d97706',
+      primaryColor: '#d97706',
+      secondaryColor: '#fef3c7',
+      headerBgColor: '#d97706',
+      recommendations: [],
+      footerText: '',
+      footerColumns: [],
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // LAB TEST TEMPLATES
+  // ═══════════════════════════════════════════════════════════
+
+  // ── 13. Standard Lab Test Order ──
+  {
+    name: 'Standard Lab Test Order',
+    type: 'test',
+    description: 'Comprehensive lab test order form with all test categories and checkboxes',
+    isDefault: true,
+    headerTitle: 'City Diagnostic Centre',
+    headerSubtitle: 'NABL Accredited Laboratory',
+    clinicPhone: '022-25551235',
+    clinicEmail: 'lab@cityclinic.com',
+    clinicWebsite: 'https://cityclinic.com/lab',
+    doctorName: '',
+    doctorSpecialization: '',
+    doctorQualification: '',
+    doctorRegistrationNo: '',
+    layout: {
+      layoutStyle: 'classic',
+      headerStyle: 'centered',
+      fontFamily: 'sans',
+      paperSize: 'A4',
+      fontSize: 'small',
+      showRxSymbol: false,
+      showPatientFields: true,
+      showMedicineTable: false,
+      showRecommendations: false,
+      showFooter: true,
+      showQRCode: true,
+      showBorder: true,
+      showClinicAddress: true,
+      showRegistrationNo: false,
+      showWatermark: false,
+      showDiagnosis: false,
+      showNotes: false,
+      freeFormMode: false,
+      writingLineCount: 20,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Referring Doctor:',
+      showHeaderLine: true,
+      headerLineColor: '#dc2626',
+      primaryColor: '#dc2626',
+      secondaryColor: '#fef2f2',
+      headerBgColor: '#dc2626',
+      recommendations: [],
+      footerText: 'Report will be available in 24-48 hours',
+      footerColumns: ['address', 'phone', 'email'],
+    },
+  },
+
+  // ── 14. Quick Test Requisition ──
+  {
+    name: 'Quick Test Requisition',
+    type: 'test',
+    description: 'Minimal test requisition — just patient info and test checklist',
+    isDefault: false,
+    headerTitle: 'City Clinic Lab',
+    headerSubtitle: '',
+    clinicPhone: '022-25551234',
+    clinicEmail: '',
+    clinicWebsite: '',
+    doctorName: 'Dr. Priya Kapoor',
+    doctorSpecialization: 'Dermatology',
+    doctorQualification: 'MBBS, MD Dermatology',
+    doctorRegistrationNo: 'MCI-10006',
+    layout: {
+      layoutStyle: 'minimal',
+      headerStyle: 'left',
+      fontFamily: 'sans',
+      paperSize: 'A5',
+      fontSize: 'small',
+      showRxSymbol: false,
+      showPatientFields: true,
+      showMedicineTable: false,
+      showRecommendations: false,
+      showFooter: false,
+      showQRCode: false,
+      showBorder: true,
+      showClinicAddress: false,
+      showRegistrationNo: true,
+      showWatermark: false,
+      showDiagnosis: false,
+      showNotes: false,
+      freeFormMode: false,
+      writingLineCount: 15,
+      showWritingLines: true,
+      showSignatureLine: true,
+      signatureText: 'Doctor:',
+      showHeaderLine: true,
+      headerLineColor: '#7c3aed',
+      primaryColor: '#7c3aed',
+      secondaryColor: '#ede9fe',
+      headerBgColor: '#7c3aed',
+      recommendations: [],
+      footerText: '',
+      footerColumns: [],
+    },
+  },
+];
+
+async function seedPrescriptionTemplates() {
+  const existing = await prisma.prescriptionTemplate.count();
+  if (existing > 0 && !FRESH) {
+    console.log('Prescription templates already seeded, skipping.');
+    return;
+  }
+  const orgId = '00000000-0000-0000-0000-000000000001';
+  const superadmin = await prisma.user.findFirst({ where: { email: 'superadmin@clinic.com' } });
+  const userId = superadmin?.id ?? null;
+
+  for (const t of prescriptionTemplateData) {
+    await prisma.prescriptionTemplate.create({
+      data: {
+        name: t.name,
+        type: t.type ?? 'prescription',
+        description: t.description,
+        isDefault: t.isDefault,
+        clinicName: t.headerTitle,
+        clinicPhone: t.clinicPhone,
+        clinicEmail: t.clinicEmail,
+        clinicWebsite: t.clinicWebsite,
+        doctorName: t.doctorName,
+        doctorSpecialization: t.doctorSpecialization,
+        doctorQualification: t.doctorQualification,
+        doctorRegNo: t.doctorRegistrationNo,
+        layout: t.layout,
+        createdById: userId,
+      },
+    });
+  }
+  console.log(`Seeded ${prescriptionTemplateData.length} prescription templates (prescription, diagnosis, and test).`);
+}
+
+// ─── Financial Years ─────────────────────────────────────
+
+async function seedFinancialYears() {
+  const existing = await prisma.financialYear.count();
+  if (existing > 0 && !FRESH) {
+    console.log('Financial years already seeded, skipping.');
+    return;
+  }
+  const orgId = '00000000-0000-0000-0000-000000000001';
+  const fyData = [
+    { label: 'FY 2024-25', startDate: new Date('2024-04-01'), endDate: new Date('2025-03-31'), isActive: false },
+    { label: 'FY 2025-26', startDate: new Date('2025-04-01'), endDate: new Date('2026-03-31'), isActive: true },
+    { label: 'FY 2026-27', startDate: new Date('2026-04-01'), endDate: new Date('2027-03-31'), isActive: false },
+  ];
+  for (const fy of fyData) {
+    await prisma.financialYear.create({
+      data: { ...fy, organisationId: orgId },
+    });
+  }
+  console.log(`Seeded ${fyData.length} financial years.`);
+}
+
+// ─── Appointments ─────────────────────────────────────────
+
+async function seedAppointments(doctorRows: Doctor[]) {
+  const existing = await prisma.appointment.count();
+  if (existing > 0 && !FRESH) {
+    console.log('Appointments already seeded, skipping.');
+    return;
+  }
+  const patients = await prisma.patient.findMany();
+  if (patients.length === 0) return;
+  const now = Date.now();
+  // Use UTC-based date construction to match the API's filter boundaries
+  function utcDate(daysOffset: number, hours: number, minutes: number): Date {
+    const d = new Date(now + daysOffset * DAY);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hours, minutes, 0, 0));
+  }
+
+  // Completed appointments (past)
+  const completedAppts = [
+    { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 21, type: 'WALK_IN', fee: 0, status: 'COMPLETED', notes: 'General check-up — mild fever' },
+    { patientPhone: '9876543210', doctorIdx: 1, daysAgo: 14, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Pediatric follow-up for child' },
+    { patientPhone: '9876543210', doctorIdx: 2, daysAgo: 10, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Orthopedic consult for knee pain' },
+    { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Follow-up — fever resolved' },
+    { patientPhone: '9876543210', doctorIdx: 4, daysAgo: 3, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology check-up — chest discomfort' },
+    { patientPhone: '9876543212', doctorIdx: 2, daysAgo: 30, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Orthopedic consult — chronic knee pain' },
+    { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 18, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology follow-up — hypertension' },
+    { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 5, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP check — stable' },
+    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 45, type: 'WALK_IN', fee: 0, status: 'COMPLETED', notes: 'Newborn check-up — weight & vaccinations' },
+    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 28, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Routine vaccination visit' },
+    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 12, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Milk allergy assessment — improving' },
+    { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 35, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Skin rash — diagnosed as eczema' },
+    { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 20, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Dermatology follow-up — improved' },
+    { patientPhone: '9876543216', doctorIdx: 3, daysAgo: 8, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Gynecology consult — routine check-up' },
+    { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 40, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Neurology consult — chronic headaches' },
+    { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 25, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'ENT check — hearing difficulty' },
+    { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 10, type: 'FOLLOW_UP', fee: 600, status: 'COMPLETED', notes: 'Headache follow-up — MRI reports normal' },
+    { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 2, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'ENT follow-up — hearing aid trial' },
+    { patientPhone: '9876543220', doctorIdx: 3, daysAgo: 15, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Regular gynecology check-up' },
+    { patientPhone: '9876543220', doctorIdx: 5, daysAgo: 5, type: 'SPECIALIST', fee: 600, status: 'COMPLETED', notes: 'Acne treatment follow-up' },
+    { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 20, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Sports injury — ankle sprain' },
+    { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 8, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Ankle healing well, physiotherapy advised' },
+    { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 60, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes screening — borderline' },
+    { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 30, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'HbA1c results reviewed — lifestyle changes advised' },
+    { patientPhone: '9876543226', doctorIdx: 7, daysAgo: 10, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Vision check — mild myopia detected' },
+    { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 45, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology consult — uncontrolled hypertension' },
+    { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 15, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP medication adjusted — monitor weekly' },
+  ];
+
+  const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
+  let apptCount = 0;
+
+  for (const a of completedAppts) {
+    const patient = patientByPhone.get(a.patientPhone);
+    if (!patient) continue;
+    const doctor = doctorRows[a.doctorIdx];
     if (!doctor) continue;
+    const date = utcDate(-a.daysAgo, 9 + (a.doctorIdx % 8), (a.doctorIdx * 15) % 60);
 
-    const createdAt = new Date(Date.now() - rx.daysAgo * 24 * 60 * 60 * 1000);
-
-    await prisma.prescription.create({
+    await prisma.appointment.create({
       data: {
         patientId: patient.id,
         doctorId: doctor.id,
-        diagnosis: rx.diagnosis,
-        notes: rx.notes ?? null,
-        status: rx.status,
-        createdAt,
-        updatedAt: createdAt,
-        items: {
-          create: rx.items.map((item) => {
-            const medicine = medicineByName.get(item.medicineName);
-            return {
-              medicineId: medicine?.id ?? 'unknown',
-              medicineName: item.medicineName,
-              dosage: item.dosage,
-              duration: item.duration,
-              quantity: item.qty,
-            };
-          }),
-        },
+        date,
+        type: a.type,
+        status: a.status,
+        fee: a.fee,
+        registrationFee: a.daysAgo > 30 ? 100 : 0,
+        notes: a.notes,
       },
     });
-    totalRx++;
+    apptCount++;
   }
-  console.log(`Seeded ${totalRx} demo prescriptions with items.`);
+
+  // Upcoming appointments (next 7 days)
+  const upcomingAppts = [
+    { patientPhone: '9876543210', doctorIdx: 0, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP follow-up' },
+    { patientPhone: '9876543212', doctorIdx: 4, daysAhead: 3, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiology review' },
+    { patientPhone: '9876543214', doctorIdx: 1, daysAhead: 1, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Growth assessment' },
+    { patientPhone: '9876543216', doctorIdx: 3, daysAhead: 5, type: 'SPECIALIST', fee: 700, status: 'SCHEDULED', notes: 'Gynecology follow-up' },
+    { patientPhone: '9876543218', doctorIdx: 9, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Psychiatry session' },
+    { patientPhone: '9876543220', doctorIdx: 3, daysAhead: 7, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Prenatal check-up' },
+    { patientPhone: '9876543222', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Ankle rehab check' },
+    { patientPhone: '9876543224', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
+    { patientPhone: '9876543226', doctorIdx: 7, daysAhead: 2, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Glasses fitting' },
+    { patientPhone: '9876543228', doctorIdx: 4, daysAhead: 1, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
+  ];
+
+  for (const a of upcomingAppts) {
+    const patient = patientByPhone.get(a.patientPhone);
+    if (!patient) continue;
+    const doctor = doctorRows[a.doctorIdx];
+    if (!doctor) continue;
+    const date = utcDate(a.daysAhead, 9 + (a.doctorIdx % 8), (a.doctorIdx * 15) % 60);
+
+    await prisma.appointment.create({
+      data: {
+        patientId: patient.id,
+        doctorId: doctor.id,
+        date,
+        type: a.type,
+        status: a.status,
+        fee: a.fee,
+        notes: a.notes,
+      },
+    });
+    apptCount++;
+  }
+
+  // Today's appointments (one per doctor with a queue entry)
+  const todayAppts = [
+    { patientPhone: '9876543210', doctorIdx: 0, type: 'FOLLOW_UP', fee: 500, status: 'IN_PROGRESS', notes: 'Routine follow-up' },
+    { patientPhone: '9876543224', doctorIdx: 0, type: 'CONSULTATION', fee: 500, status: 'SCHEDULED', notes: 'Diabetes review' },
+    { patientPhone: '9876543214', doctorIdx: 1, type: 'CONSULTATION', fee: 600, status: 'IN_PROGRESS', notes: 'Growth assessment' },
+    { patientPhone: '9876543222', doctorIdx: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Ankle rehab check' },
+    { patientPhone: '9876543220', doctorIdx: 3, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Prenatal check-up' },
+    { patientPhone: '9876543228', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP monitoring' },
+    { patientPhone: '9876543212', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Hypertension review' },
+    { patientPhone: '9876543216', doctorIdx: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Eczema follow-up' },
+    { patientPhone: '9876543218', doctorIdx: 6, type: 'CONSULTATION', fee: 550, status: 'IN_PROGRESS', notes: 'Ear pain' },
+    { patientPhone: '9876543226', doctorIdx: 7, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Vision check' },
+    { patientPhone: '9876543218', doctorIdx: 8, type: 'FOLLOW_UP', fee: 600, status: 'SCHEDULED', notes: 'Headache follow-up' },
+    { patientPhone: '9876543210', doctorIdx: 9, type: 'CONSULTATION', fee: 800, status: 'SCHEDULED', notes: 'Anxiety session' },
+  ];  for (let i = 0; i < todayAppts.length; i++) {
+    const a = todayAppts[i];
+    const patient = patientByPhone.get(a.patientPhone);
+    if (!patient) continue;
+    const doctor = doctorRows[a.doctorIdx];
+    if (!doctor) continue;
+
+    const date = utcDate(0, 9 + i, (i * 15) % 60);
+
+    await prisma.appointment.create({
+      data: {
+        patientId: patient.id,
+        doctorId: doctor.id,
+        date,
+        type: a.type,
+        status: a.status,
+        fee: a.fee,
+        notes: a.notes,
+      },
+    });
+    apptCount++;
+  }
+
+  console.log(`Seeded ${apptCount} appointments (${completedAppts.length} completed, ${upcomingAppts.length} upcoming, ${todayAppts.length} today).`);
+}
+
+// ─── Queue Entries ────────────────────────────────────────
+
+async function seedQueueEntries(doctorRows: Doctor[]) {
+  const existing = await prisma.queueEntry.count();
+  if (existing > 0 && !FRESH) {
+    console.log('Queue entries already seeded, skipping.');
+    return;
+  }
+  const patients = await prisma.patient.findMany();
+  if (patients.length === 0) return;
+  const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
+  // Use UTC midnight to match the queue service's filter boundaries
+  const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+
+  const queueData = [
+    // Dr. Rajesh Sharma (idx 0) — General Medicine
+    { patientPhone: '9876543210', doctorIdx: 0, token: 'T001', status: 'IN_PROGRESS' },
+    { patientPhone: '9876543224', doctorIdx: 0, token: 'T002', status: 'WAITING' },
+    // Dr. Sunita Verma (idx 1) — Pediatrics
+    { patientPhone: '9876543214', doctorIdx: 1, token: 'T003', status: 'IN_PROGRESS' },
+    // Dr. Vivek Mehta (idx 2) — Orthopedics
+    { patientPhone: '9876543222', doctorIdx: 2, token: 'T004', status: 'COMPLETED' },
+    // Dr. Lakshmi Iyer (idx 3) — Gynecology
+    { patientPhone: '9876543220', doctorIdx: 3, token: 'T005', status: 'WAITING' },
+    // Dr. Arun Singh (idx 4) — Cardiology
+    { patientPhone: '9876543228', doctorIdx: 4, token: 'T006', status: 'WAITING' },
+    { patientPhone: '9876543212', doctorIdx: 4, token: 'T007', status: 'WAITING' },
+    // Dr. Priya Kapoor (idx 5) — Dermatology
+    { patientPhone: '9876543216', doctorIdx: 5, token: 'T008', status: 'WAITING' },
+    // Dr. Mohammed Farooq (idx 6) — ENT
+    { patientPhone: '9876543218', doctorIdx: 6, token: 'T009', status: 'IN_PROGRESS' },
+    // Dr. Deepa Nair (idx 7) — Ophthalmology
+    { patientPhone: '9876543226', doctorIdx: 7, token: 'T010', status: 'WAITING' },
+    // Dr. Sanjay Gupta (idx 8) — Neurology
+    { patientPhone: '9876543218', doctorIdx: 8, token: 'T011', status: 'WAITING' },
+    // Dr. Anjali Desai (idx 9) — Psychiatry
+    { patientPhone: '9876543210', doctorIdx: 9, token: 'T012', status: 'WAITING' },
+  ];
+
+  let count = 0;
+  for (const q of queueData) {
+    const patient = patientByPhone.get(q.patientPhone);
+    if (!patient) continue;
+    const doctor = doctorRows[q.doctorIdx];
+    if (!doctor) continue;
+
+    await prisma.queueEntry.create({
+      data: {
+        patientId: patient.id,
+        doctorId: doctor.id,
+        tokenNumber: q.token,
+        status: q.status,
+        queueDate: today,
+        checkedInAt: new Date(),
+      },
+    });
+    count++;
+  }
+  console.log(`Seeded ${count} queue entries for today.`);
+}
+
+// ─── Bills ────────────────────────────────────────────────
+
+async function seedBills() {
+  const existing = await prisma.bill.count();
+  if (existing > 0 && !FRESH) {
+    console.log('Bills already seeded, skipping.');
+    return;
+  }
+  const patients = await prisma.patient.findMany();
+  const appointments = await prisma.appointment.findMany({ where: { status: 'COMPLETED' } });
+  if (patients.length === 0 || appointments.length === 0) return;
+  const patientById = new Map(patients.map((p) => [p.id, p]));
+
+  let invoiceCounter = 1000;
+  let billCount = 0;
+
+  // Create bills for a subset of completed appointments
+  const billsToCreate = appointments.slice(0, Math.min(15, appointments.length));
+  for (const appt of billsToCreate) {
+    const patient = patientById.get(appt.patientId);
+    if (!patient) continue;
+    const invoiceNo = `INV-${String(invoiceCounter++).padStart(5, '0')}`;
+    const consultationFee = appt.fee || 500;
+    const registrationFee = appt.registrationFee || 0;
+    const medicineFee = Math.floor(Math.random() * 300) + 50;
+    const labFee = Math.random() > 0.5 ? Math.floor(Math.random() * 500) + 200 : 0;
+    const subtotal = consultationFee + registrationFee + medicineFee + labFee;
+    const discount = Math.random() > 0.7 ? Math.floor(subtotal * 0.1) : 0;
+    const tax = Math.floor((subtotal - discount) * 0.18);
+    const total = subtotal - discount + tax;
+    const paymentMethods = ['CASH', 'CARD', 'UPI', 'INSURANCE'];
+    const paymentMethod = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
+    const statuses = ['PAID', 'PAID', 'PAID', 'PENDING'];
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+    const bill = await prisma.bill.create({
+      data: {
+        patientId: patient.id,
+        appointmentId: appt.id,
+        invoiceNo,
+        subtotal,
+        discount,
+        tax,
+        total,
+        paymentMethod,
+        status,
+        notes: `Bill for appointment on ${appt.date.toISOString().split('T')[0]}`,
+      },
+    });
+
+    // Add bill items
+    const items: { itemType: string; itemName: string; quantity: number; unitPrice: number; amount: number }[] = [];
+    if (consultationFee > 0) items.push({ itemType: 'consultation', itemName: 'Consultation Fee', quantity: 1, unitPrice: consultationFee, amount: consultationFee });
+    if (registrationFee > 0) items.push({ itemType: 'registration', itemName: 'Registration Fee', quantity: 1, unitPrice: registrationFee, amount: registrationFee });
+    if (medicineFee > 0) items.push({ itemType: 'medicine', itemName: 'Medicines', quantity: Math.ceil(medicineFee / 50), unitPrice: 50, amount: medicineFee });
+    if (labFee > 0) items.push({ itemType: 'lab', itemName: 'Lab Tests', quantity: 1, unitPrice: labFee, amount: labFee });
+
+    await prisma.billItem.createMany({
+      data: items.map((item) => ({ ...item, billId: bill.id })),
+    });
+    billCount++;
+  }
+  console.log(`Seeded ${billCount} bills with items.`);
+}
+
+// ─── Lab / Radiology / Procedure Orders ───────────────────
+
+async function seedOrders(doctorRows: Doctor[]) {
+  const existingLab = await prisma.labOrder.count();
+  if (existingLab > 0 && !FRESH) {
+    console.log('Orders already seeded, skipping.');
+    return;
+  }
+  const patients = await prisma.patient.findMany();
+  if (patients.length === 0) return;
+  const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
+
+  const labOrders = [
+    { patientPhone: '9876543210', doctorIdx: 4, testName: 'Complete Blood Count (CBC)', category: 'Hematology', status: 'COMPLETED', result: 'WNL — All parameters within normal limits', daysAgo: 3 },
+    { patientPhone: '9876543210', doctorIdx: 4, testName: 'Lipid Profile', category: 'Biochemistry', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543212', doctorIdx: 4, testName: 'HbA1c', category: 'Biochemistry', status: 'COMPLETED', result: '7.2% — Above target', daysAgo: 5 },
+    { patientPhone: '9876543212', doctorIdx: 4, testName: 'Renal Function Test', category: 'Biochemistry', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543214', doctorIdx: 1, testName: 'Complete Blood Count (CBC)', category: 'Hematology', status: 'COMPLETED', result: 'Normal for age', daysAgo: 12 },
+    { patientPhone: '9876543216', doctorIdx: 3, testName: 'Pregnancy Test (Urine)', category: 'Immunology', status: 'COMPLETED', result: 'Negative', daysAgo: 8 },
+    { patientPhone: '9876543218', doctorIdx: 8, testName: 'Thyroid Profile (TSH, T3, T4)', category: 'Endocrinology', status: 'COMPLETED', result: 'TSH 4.5 — Mildly elevated', daysAgo: 10 },
+    { patientPhone: '9876543218', doctorIdx: 8, testName: 'Vitamin B12 Level', category: 'Biochemistry', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543220', doctorIdx: 3, testName: 'Complete Blood Count (CBC)', category: 'Hematology', status: 'COMPLETED', result: 'Hb 10.2 — Mild anemia', daysAgo: 5 },
+    { patientPhone: '9876543222', doctorIdx: 2, testName: 'X-Ray Ankle AP/Lateral', category: 'Radiology', status: 'COMPLETED', result: 'No fracture. Soft tissue swelling noted.', daysAgo: 20 },
+    { patientPhone: '9876543224', doctorIdx: 0, testName: 'Fasting Blood Sugar', category: 'Biochemistry', status: 'COMPLETED', result: '126 mg/dL — Diabetic range', daysAgo: 30 },
+    { patientPhone: '9876543224', doctorIdx: 0, testName: 'HbA1c', category: 'Biochemistry', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543228', doctorIdx: 4, testName: 'ECG', category: 'Cardiology', status: 'COMPLETED', result: 'Sinus rhythm. No acute changes.', daysAgo: 15 },
+    { patientPhone: '9876543228', doctorIdx: 4, testName: 'Echocardiography', category: 'Cardiology', status: 'ORDERED', daysAgo: 0 },
+  ];
+
+  let labCount = 0;
+  for (const lo of labOrders) {
+    const patient = patientByPhone.get(lo.patientPhone);
+    if (!patient) continue;
+    const doctor = doctorRows[lo.doctorIdx];
+    if (!doctor) continue;
+    await prisma.labOrder.create({
+      data: {
+        patientId: patient.id,
+        doctorId: doctor.id,
+        testName: lo.testName,
+        category: lo.category,
+        status: lo.status,
+        result: lo.result ?? null,
+        resultDate: lo.result ? new Date(Date.now() - lo.daysAgo * DAY) : null,
+        createdAt: new Date(Date.now() - lo.daysAgo * DAY),
+      },
+    });
+    labCount++;
+  }
+
+  const radiologyOrders = [
+    { patientPhone: '9876543210', doctorIdx: 4, studyName: 'Chest X-Ray PA View', category: 'Radiology', status: 'COMPLETED', result: 'Normal chest radiograph. No active pathology.', daysAgo: 3 },
+    { patientPhone: '9876543218', doctorIdx: 8, studyName: 'MRI Brain with Contrast', category: 'Neurology', status: 'COMPLETED', result: 'No intracranial mass, bleed, or significant abnormality.', daysAgo: 10 },
+    { patientPhone: '9876543222', doctorIdx: 2, studyName: 'X-Ray Ankle AP/Lateral', category: 'Orthopedics', status: 'COMPLETED', result: 'No fracture. Mild soft tissue swelling.', daysAgo: 20 },
+    { patientPhone: '9876543228', doctorIdx: 4, studyName: 'Chest X-Ray PA View', category: 'Cardiology', status: 'ORDERED', daysAgo: 0 },
+  ];
+
+  let radioCount = 0;
+  for (const ro of radiologyOrders) {
+    const patient = patientByPhone.get(ro.patientPhone);
+    if (!patient) continue;
+    const doctor = doctorRows[ro.doctorIdx];
+    if (!doctor) continue;
+    await prisma.radiologyOrder.create({
+      data: {
+        patientId: patient.id,
+        doctorId: doctor.id,
+        studyName: ro.studyName,
+        category: ro.category,
+        status: ro.status,
+        result: ro.result ?? null,
+        resultDate: ro.result ? new Date(Date.now() - ro.daysAgo * DAY) : null,
+        createdAt: new Date(Date.now() - ro.daysAgo * DAY),
+      },
+    });
+    radioCount++;
+  }
+
+  const procedureOrders = [
+    { patientPhone: '9876543210', doctorIdx: 4, procedureName: 'Treadmill Test (TMT)', category: 'Cardiology', status: 'COMPLETED', result: 'Normal exercise tolerance. No ST changes.', daysAgo: 2 },
+    { patientPhone: '9876543216', doctorIdx: 3, procedureName: 'Pap Smear', category: 'Gynecology', status: 'COMPLETED', result: 'Normal — No dysplasia', daysAgo: 8 },
+    { patientPhone: '9876543222', doctorIdx: 2, procedureName: 'Physiotherapy Session', category: 'Rehabilitation', status: 'ORDERED', daysAgo: 0 },
+  ];
+
+  let procCount = 0;
+  for (const po of procedureOrders) {
+    const patient = patientByPhone.get(po.patientPhone);
+    if (!patient) continue;
+    const doctor = doctorRows[po.doctorIdx];
+    if (!doctor) continue;
+    await prisma.procedureOrder.create({
+      data: {
+        patientId: patient.id,
+        doctorId: doctor.id,
+        procedureName: po.procedureName,
+        category: po.category,
+        status: po.status,
+        result: po.result ?? null,
+        resultDate: po.result ? new Date(Date.now() - po.daysAgo * DAY) : null,
+        createdAt: new Date(Date.now() - po.daysAgo * DAY),
+      },
+    });
+    procCount++;
+  }
+
+  console.log(`Seeded ${labCount} lab orders, ${radioCount} radiology orders, ${procCount} procedure orders.`);
+}
+
+// ─── Dispensing Records ───────────────────────────────────
+
+async function seedDispensing() {
+  const existing = await prisma.dispensing.count();
+  if (existing > 0 && !FRESH) {
+    console.log('Dispensing records already seeded, skipping.');
+    return;
+  }
+  const dispensedPrescriptions = await prisma.prescription.findMany({
+    where: { status: 'DISPENSED' },
+    include: { items: true },
+  });
+  if (dispensedPrescriptions.length === 0) return;
+
+  let count = 0;
+  for (const rx of dispensedPrescriptions) {
+    for (const item of rx.items) {
+      const batchNo = `BATCH-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+      const expiryDate = new Date(Date.now() + Math.floor(Math.random() * 365 + 90) * 24 * 60 * 60 * 1000);
+      await prisma.dispensing.create({
+        data: {
+          prescriptionId: rx.id,
+          medicineId: item.medicineId,
+          medicineName: item.medicineName,
+          quantity: item.quantity,
+          batchNo,
+          expiryDate,
+          dispensedAt: rx.createdAt,
+          dispensedBy: 'Pharmacy',
+        },
+      });
+      count++;
+    }
+  }
+  console.log(`Seeded ${count} dispensing records for ${dispensedPrescriptions.length} dispensed prescriptions.`);
+}
+
+// ─── Patient Allergies & Allergy Records ──────────────────
+
+async function seedPatientAllergies() {
+  const existing = await prisma.patientAllergy.count();
+  if (existing > 0 && !FRESH) {
+    console.log('Patient allergies already seeded, skipping.');
+    return;
+  }
+  const patients = await prisma.patient.findMany();
+  const allergyCatalog = await prisma.allergy.findMany();
+  if (patients.length === 0 || allergyCatalog.length === 0) return;
+  const allergyByName = new Map(allergyCatalog.map((a) => [a.name, a]));
+  const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
+
+  // Link patients to their catalog allergies via PatientAllergy
+  const allergyLinks = [
+    { patientPhone: '9876543210', allergyNames: ['Pollen', 'Dust'], notes: 'Seasonal — worse in monsoon' },
+    { patientPhone: '9876543212', allergyNames: ['Aspirin', 'Penicillin'], notes: 'Severe reaction to penicillin — anaphylaxis history' },
+    { patientPhone: '9876543214', allergyNames: ['Milk', 'Eggs'], notes: 'Pediatric food allergy — improving with age' },
+    { patientPhone: '9876543216', allergyNames: ['Sulfa', 'Dust'], notes: 'Sulfa rash — confirmed on challenge' },
+    { patientPhone: '9876543218', allergyNames: ['Codeine'], notes: 'Nausea and vomiting with codeine' },
+    { patientPhone: '9876543220', allergyNames: ['Peanuts', 'Shellfish'], notes: 'Peanut allergy — carry EpiPen' },
+    { patientPhone: '9876543222', allergyNames: ['Bee Sting', 'Latex'], notes: 'Bee sting — anaphylaxis. Latex — contact urticaria.' },
+    { patientPhone: '9876543224', allergyNames: ['Soy', 'Wheat'], notes: 'Gluten sensitivity confirmed' },
+    { patientPhone: '9876543228', allergyNames: ['Iodine'], notes: 'Contrast dye allergy — premedicate if needed' },
+  ];
+
+  let count = 0;
+  for (const link of allergyLinks) {
+    const patient = patientByPhone.get(link.patientPhone);
+    if (!patient) continue;
+    for (const allergyName of link.allergyNames) {
+      const allergy = allergyByName.get(allergyName);
+      if (!allergy) continue;
+      await prisma.patientAllergy.create({
+        data: {
+          patientId: patient.id,
+          allergyId: allergy.id,
+          notes: link.notes,
+        },
+      });
+      count++;
+    }
+  }
+  console.log(`Seeded ${count} patient allergy links.`);
+
+  // PatientAllergyRecord — detailed records
+  const existingRecords = await prisma.patientAllergyRecord.count();
+  if (existingRecords > 0) return;
+
+  const allergyRecords = [
+    { patientPhone: '9876543210', allergen: 'Pollen', allergyType: 'ENVIRONMENTAL', reaction: 'Sneezing, watery eyes, nasal congestion', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543210', allergen: 'Dust', allergyType: 'ENVIRONMENTAL', reaction: 'Coughing, throat irritation', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543212', allergen: 'Penicillin', allergyType: 'DRUG', reaction: 'Anaphylaxis — hives, swelling, difficulty breathing', severity: 'LIFE_THREATENING', status: 'ACTIVE' },
+    { patientPhone: '9876543212', allergen: 'Aspirin', allergyType: 'DRUG', reaction: 'Urticaria, bronchospasm', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543214', allergen: 'Milk', allergyType: 'FOOD', reaction: 'Diaper rash, loose stools', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543214', allergen: 'Eggs', allergyType: 'FOOD', reaction: 'Skin rash, mild vomiting', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543216', allergen: 'Sulfa', allergyType: 'DRUG', reaction: 'Maculopapular rash, fever', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543218', allergen: 'Codeine', allergyType: 'DRUG', reaction: 'Nausea, vomiting, dizziness', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543220', allergen: 'Peanuts', allergyType: 'FOOD', reaction: 'Throat tightness, urticaria, vomiting', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543220', allergen: 'Shellfish', allergyType: 'FOOD', reaction: 'Hives, facial swelling', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543222', allergen: 'Bee Sting', allergyType: 'ENVIRONMENTAL', reaction: 'Anaphylaxis — hypotension, airway edema', severity: 'LIFE_THREATENING', status: 'ACTIVE' },
+    { patientPhone: '9876543222', allergen: 'Latex', allergyType: 'ENVIRONMENTAL', reaction: 'Contact urticaria, itching', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543224', allergen: 'Soy', allergyType: 'FOOD', reaction: 'Bloating, abdominal discomfort', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543224', allergen: 'Wheat', allergyType: 'FOOD', reaction: 'Abdominal pain, diarrhea', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543228', allergen: 'Iodine', allergyType: 'DRUG', reaction: 'Urticaria, flushing with contrast dye', severity: 'MODERATE', status: 'ACTIVE' },
+  ];
+
+  let recordCount = 0;
+  for (const ar of allergyRecords) {
+    const patient = patientByPhone.get(ar.patientPhone);
+    if (!patient) continue;
+    await prisma.patientAllergyRecord.create({
+      data: {
+        patientId: patient.id,
+        allergen: ar.allergen,
+        allergyType: ar.allergyType,
+        reaction: ar.reaction,
+        severity: ar.severity,
+        status: ar.status,
+      },
+    });
+    recordCount++;
+  }
+  console.log(`Seeded ${recordCount} patient allergy records.`);
 }
 
 // ─── Main ───────────────────────────────────────────────────
@@ -1208,11 +2618,23 @@ async function main() {
 
   const permissions = await seedPermissions();
   const roles = await seedRoles(permissions);
-  await seedUsers(roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors, roles.developer.id);
+  await seedUsers(
+    roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors, roles.developer.id,
+    roles.nurse.id, roles.pharmacist.id, roles.labTech.id,
+  );
 
-  if (FRESH) {
-    await seedPatientsWithHistory(doctors);
-  }
+  console.log('\n📊 Seeding demo transactional data...');
+
+  await seedFinancialYears();
+  await seedPatientsWithHistory(doctors);
+  await seedAppointments(doctors);
+  await seedQueueEntries(doctors);
+  await seedBills();
+  await seedOrders(doctors);
+  await seedDispensing();
+  await seedPatientAllergies();
+
+  await seedPrescriptionTemplates();
 
   console.log('✅ Seed complete.');
 }

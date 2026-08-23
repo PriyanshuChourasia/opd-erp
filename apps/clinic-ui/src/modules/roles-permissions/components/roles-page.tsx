@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { Check, Pencil, Plus, ShieldCheck, Trash2, Users, X } from "lucide-react";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { DataTable } from "@/components/data-table/data-table";
 import { fetchRoles, fetchRole, createRole, updateRole, deleteRole, fetchPermissions, createPermission, deletePermission, type Role, type Permission } from "@/lib/api";
-import { resourceLabels, defaultResources, defaultActions } from "../data/interface";
+import { resourceLabels, resourceCategories, defaultResources, defaultActions, roleColors } from "../data/interface";
 
 // Large-enough limit to cover "give me every role/permission" use cases
 // (the permission matrix, and the permission-picker inside the role sheet)
@@ -101,6 +101,9 @@ export function RolesPage() {
   const groupedPermissions: Record<string, Permission[]> = {};
   for (const perm of allPermissions) { const key = perm.resource; if (!groupedPermissions[key]) groupedPermissions[key] = []; groupedPermissions[key]!.push(perm); }
 
+  // Check if all default resources have permissions
+  const missingResources = defaultResources.filter((r) => !groupedPermissions[r]);
+
   function getEffectivePermission(role: Role, resource: string): "manage" | "read" | null {
     const perms = role.rolePermissions.filter((rp: any) => rp.permission.resource === resource).map((rp: any) => rp.permission.action);
     if (perms.includes("manage")) return "manage";
@@ -116,8 +119,15 @@ export function RolesPage() {
         const role = row.original;
         return (
           <div className="flex items-center gap-2">
-            <ShieldCheck className="size-4 text-muted-foreground" />
-            <span className="font-medium">{role.name}</span>
+            {(() => {
+              const colorClass = roleColors[role.name] ?? "bg-muted text-muted-foreground";
+              return (
+                <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium ${colorClass}`}>
+                  <ShieldCheck className="size-3" />
+                  {role.name}
+                </span>
+              );
+            })()}
             {role.isSystem && <Badge variant="outline" className="text-[10px]">System</Badge>}
           </div>
         );
@@ -242,17 +252,40 @@ export function RolesPage() {
               </FieldGroup>
               <div><h3 className="mb-2 text-sm font-medium">Permissions</h3><p className="mb-3 text-xs text-muted-foreground">Select the permissions assigned to this role.</p>
                 {allPermissions.length === 0 ? (<p className="text-sm text-muted-foreground">No permissions defined. Click "Seed Permissions" first.</p>) : (
-                  <div className="space-y-3">{Object.entries(groupedPermissions).map(([resource, perms]) => (
-                    <div key={resource}><p className="mb-1 text-xs font-medium text-muted-foreground uppercase">{resourceLabels[resource] ?? resource}</p>
-                      <div className="flex flex-wrap gap-1.5">{perms.map((perm) => {
-                        const selected = formPermissions.includes(perm.id);
-                        return (<button key={perm.id} type="button" onClick={() => togglePermission(perm.id)}
-                          className={`inline-flex items-center gap-1 rounded-none border px-2 py-1 text-xs font-medium transition-colors ${selected ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground hover:bg-muted"}`}>
-                          {selected && <Check className="size-3" />}{perm.action}
-                        </button>);
-                      })}</div>
-                    </div>
-                  ))}</div>
+                  <div className="space-y-4">
+                    {missingResources.length > 0 && (
+                      <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3">
+                        <p className="text-xs font-medium text-amber-700">Missing permissions for: {missingResources.map((r) => resourceLabels[r] ?? r).join(", ")}</p>
+                        <p className="text-[10px] text-amber-600 mt-1">Run the seed command to create them.</p>
+                      </div>
+                    )}
+                    {resourceCategories.map((category) => (
+                      <div key={category.label}>
+                        <p className="mb-2 text-xs font-semibold text-foreground/80 uppercase tracking-wider">{category.label}</p>
+                        <div className="space-y-2">
+                          {category.resources.filter((r) => groupedPermissions[r]).map((resource) => {
+                            const perms = groupedPermissions[resource]!;
+                            return (
+                              <div key={resource} className="rounded-lg border p-2">
+                                <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{resourceLabels[resource] ?? resource}</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {perms.map((perm) => {
+                                    const selected = formPermissions.includes(perm.id);
+                                    return (
+                                      <button key={perm.id} type="button" onClick={() => togglePermission(perm.id)}
+                                        className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors ${selected ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground hover:bg-muted"}`}>
+                                        {selected && <Check className="size-2.5" />}{perm.action}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div></div>
               <SheetFooter><Button variant="outline" onClick={closeSheet}>Cancel</Button><Button onClick={handleSave} disabled={!formName.trim() || createMutation.isPending || updateMutation.isPending}>{editingId ? "Save Changes" : "Create Role"}</Button></SheetFooter>
@@ -281,12 +314,48 @@ export function RolesPage() {
         </CardContent>
       </Card>
 
-      <Card><CardHeader><CardTitle className="text-base">Permission Matrix</CardTitle><CardDescription>Granular access control for each role across all resources</CardDescription></CardHeader>
-        <CardContent className="overflow-x-auto p-0"><Table><TableHeader><TableRow><TableHead className="sticky left-0 bg-background min-w-[140px]">Resource</TableHead>{allRoles.map((role) => (<TableHead key={role.id} className="text-center min-w-[100px]">{role.name}</TableHead>))}</TableRow></TableHeader>
-          <TableBody>{Object.keys(resourceLabels).map((resource) => (<TableRow key={resource}>
-            <TableCell className="sticky left-0 bg-background font-medium">{resourceLabels[resource]}</TableCell>
-            {allRoles.map((role) => (<TableCell key={role.id} className="text-center"><PermissionIcon value={getEffectivePermission(role, resource)} /></TableCell>))}
-          </TableRow>))}</TableBody></Table></CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Permission Matrix</CardTitle>
+          <CardDescription>Granular access control for each role across all resources</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="sticky left-0 bg-background min-w-[140px]">Resource</TableHead>
+                {allRoles.map((role) => (
+                  <TableHead key={role.id} className="text-center min-w-[100px]">
+                    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${roleColors[role.name] ?? "bg-muted text-muted-foreground"}`}>
+                      {role.name}
+                    </span>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {resourceCategories.map((category) => (
+                <Fragment key={category.label}>
+                  <TableRow>
+                    <TableCell colSpan={allRoles.length + 1} className="bg-muted/50 font-semibold text-xs uppercase tracking-wider py-1.5">
+                      {category.label}
+                    </TableCell>
+                  </TableRow>
+                  {category.resources.map((resource) => (
+                    <TableRow key={resource}>
+                      <TableCell className="sticky left-0 bg-background font-medium text-sm">{resourceLabels[resource]}</TableCell>
+                      {allRoles.map((role) => (
+                        <TableCell key={role.id} className="text-center">
+                          <PermissionIcon value={getEffectivePermission(role, resource)} />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
       </Card>
 
       <Card>

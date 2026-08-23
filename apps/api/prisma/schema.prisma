@@ -59,6 +59,7 @@ model User {
   createdPatientAllergyRecords PatientAllergyRecord[] @relation("PatientAllergyRecordCreated")
   createdDiagnosisSystems     DiagnosisSystem[]      @relation("DiagnosisSystemCreated")
   createdFinancialYears       FinancialYear[]         @relation("FinancialYearCreated")
+  createdPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateCreated")
 
   // Audit relations — Updated by
   updatedRoles                Role[]                  @relation("RoleUpdated")
@@ -88,6 +89,7 @@ model User {
   updatedPatientAllergyRecords PatientAllergyRecord[] @relation("PatientAllergyRecordUpdated")
   updatedDiagnosisSystems     DiagnosisSystem[]      @relation("DiagnosisSystemUpdated")
   updatedFinancialYears       FinancialYear[]         @relation("FinancialYearUpdated")
+  updatedPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateUpdated")
 
   @@index([userableType, userableId])
 }
@@ -785,6 +787,51 @@ model FinancialYear {
   @@index([organisationId])
   @@index([isActive])
   @@index([startDate, endDate])
+}
+
+model PrescriptionTemplate {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  isDefault       Boolean  @default(false)
+
+  // Header / branding
+  logoUrl         String?
+  clinicName      String?
+  doctorName      String?
+  doctorSpecialization String?
+  doctorQualification String?
+  doctorRegNo     String?
+  clinicAddress   String?
+  clinicPhone     String?
+  clinicEmail     String?
+  clinicWebsite   String?
+
+  // Rx layout config (JSON)
+  layout          Json     @default("{}")
+  // layout shape:
+  // {
+  //   showRxSymbol: boolean,
+  //   showPatientFields: boolean,   // Name, Age, Sex, Adv
+  //   showMedicineTable: boolean,
+  //   medicineColumns: string[],     // ["Medicine", "Dosage", "Duration", "Instructions"]
+  //   showRecommendations: boolean,
+  //   recommendations: string[],
+  //   showFooter: boolean,
+  //   footerText: string,
+  //   showQRCode: boolean,
+  //   primaryColor: string,
+  //   showBorder: boolean
+  // }
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String?
+  updatedById     String?
+  createdBy       User?    @relation("PrescriptionTemplateCreated", fields: [createdById], references: [id])
+  updatedBy       User?    @relation("PrescriptionTemplateUpdated", fields: [updatedById], references: [id])
+
+  @@index([isDefault])
 }
 
 /// Developer change-plan annotations captured in the Database Schema module.

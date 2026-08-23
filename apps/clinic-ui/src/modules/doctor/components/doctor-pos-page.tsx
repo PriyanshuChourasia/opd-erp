@@ -5,11 +5,13 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   Activity,
   CalendarDays,
+  Check,
   CheckCircle2,
   ClipboardList,
   Clock,
   History,
   Minus,
+  Pencil,
   Pill,
   Plus,
   Search,
@@ -41,7 +43,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
 import { PatientHistorySheet } from "./patient-history-sheet";
-import { fetchAllergies } from "@/lib/api";
+import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
+import { fetchAllergies, fetchPatientVitalsLatest } from "@/lib/api";
 
 interface RxItem {
   tempId: string;
@@ -150,6 +153,14 @@ export function DoctorPosPage() {
   const [newProcedureName, setNewProcedureName] = useState("");
   const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [editPatientOpen, setEditPatientOpen] = useState(false);
+
+  // Fetch patient vitals when a patient is selected
+  const { data: patientVitals } = useQuery({
+    queryKey: ["patientVitals", "latest", selectedEntry?.patientId],
+    queryFn: () => fetchPatientVitalsLatest(selectedEntry!.patientId),
+    enabled: !!selectedEntry?.patientId,
+  });
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["queue", "doctor", doctorId],
@@ -395,6 +406,11 @@ export function DoctorPosPage() {
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
+                          {isSelected && (
+                            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+                              <Check className="size-3" />
+                            </span>
+                          )}
                           <Badge variant="outline" className={`text-[9px] ${QUEUE_STATUS_STYLES[entry.status] ?? ""}`}>
                             {entry.status.replace("_", " ")}
                           </Badge>
@@ -455,6 +471,16 @@ export function DoctorPosPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold leading-tight truncate">{selectedEntry.patient ? getPatientName(selectedEntry.patient) : "—"}</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 gap-1 px-1.5 text-[10px]"
+                          onClick={() => setEditPatientOpen(true)}
+                        >
+                          <Pencil className="size-3" />
+                          Edit
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"
@@ -553,6 +579,39 @@ export function DoctorPosPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Patient Vitals */}
+                {patientVitals && (
+                  <div className="border-t border-border/50 px-4 py-3">
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Patient Vitals</span>
+                    <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5">
+                      {patientVitals.heightCm != null && (
+                        <div><span className="text-[9px] text-muted-foreground">Height</span><p className="text-xs font-medium">{patientVitals.heightCm} cm</p></div>
+                      )}
+                      {patientVitals.weightKg != null && (
+                        <div><span className="text-[9px] text-muted-foreground">Weight</span><p className="text-xs font-medium">{patientVitals.weightKg} kg</p></div>
+                      )}
+                      {patientVitals.bmi != null && (
+                        <div><span className="text-[9px] text-muted-foreground">BMI</span><p className="text-xs font-medium">{patientVitals.bmi}</p></div>
+                      )}
+                      {patientVitals.temperatureC != null && (
+                        <div><span className="text-[9px] text-muted-foreground">Temp</span><p className="text-xs font-medium">{patientVitals.temperatureC}°C</p></div>
+                      )}
+                      {patientVitals.pulseBpm != null && (
+                        <div><span className="text-[9px] text-muted-foreground">Pulse</span><p className="text-xs font-medium">{patientVitals.pulseBpm} bpm</p></div>
+                      )}
+                      {patientVitals.systolicBp != null && patientVitals.diastolicBp != null && (
+                        <div><span className="text-[9px] text-muted-foreground">BP</span><p className="text-xs font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
+                      )}
+                      {patientVitals.spo2Percent != null && (
+                        <div><span className="text-[9px] text-muted-foreground">SpO₂</span><p className="text-xs font-medium">{patientVitals.spo2Percent}%</p></div>
+                      )}
+                      {patientVitals.respiratoryRate != null && (
+                        <div><span className="text-[9px] text-muted-foreground">Resp Rate</span><p className="text-xs font-medium">{patientVitals.respiratoryRate}/min</p></div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </Card>
 
               {/* Diagnosis */}
@@ -828,6 +887,18 @@ export function DoctorPosPage() {
         patientName={selectedEntry?.patient ? getPatientName(selectedEntry.patient) : ""}
         open={historyOpen}
         onOpenChange={setHistoryOpen}
+      />
+
+      <PatientFormSheet
+        open={editPatientOpen}
+        onOpenChange={setEditPatientOpen}
+        editingPatient={selectedEntry?.patient ?? null}
+        onSaved={() => {
+          queryClient.invalidateQueries({ queryKey: ["queue"] });
+          queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
+          setEditPatientOpen(false);
+          toast.success("Patient updated successfully");
+        }}
       />
     </div>
   );

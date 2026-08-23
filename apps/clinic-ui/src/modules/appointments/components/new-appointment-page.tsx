@@ -2,7 +2,7 @@ import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { AlertTriangle, ChevronDown, Clock, History, Pencil, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, Award, ChevronDown, Clock, History, Pencil, Plus, RotateCcw, Search, Siren, Stethoscope, UserPlus, Video, X } from "lucide-react";
 import {
   createAppointment,
   createDoctorWithUser,
@@ -32,12 +32,12 @@ import { AllergySelect } from "@/components/allergy-select";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 
 const CONSULTATION_TYPES = [
-  { value: "WALK_IN", label: "Walk-in Registration" },
-  { value: "CONSULTATION", label: "Consultation" },
-  { value: "SPECIALIST", label: "Specialist Consultation" },
-  { value: "EMERGENCY", label: "Emergency Consultation" },
-  { value: "FOLLOW_UP", label: "Follow-up Consultation" },
-  { value: "TELECONSULTATION", label: "Teleconsultation" },
+  { value: "WALK_IN", label: "Walk-in Registration", icon: UserPlus },
+  { value: "CONSULTATION", label: "Consultation", icon: Stethoscope },
+  { value: "SPECIALIST", label: "Specialist Consultation", icon: Award },
+  { value: "EMERGENCY", label: "Emergency Consultation", icon: Siren },
+  { value: "FOLLOW_UP", label: "Follow-up Consultation", icon: RotateCcw },
+  { value: "TELECONSULTATION", label: "Teleconsultation", icon: Video },
 ] as const;
 
 function currency(value: number) { return `₹${value.toFixed(2)}`; }
@@ -512,10 +512,10 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
               </div>
 
               {/* ── Slot + Consultation type (side by side) ── */}
-              {form.doctorId ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <Field><FieldLabel>Slot *</FieldLabel>
-                    {slotsQuery.isLoading ? (
+              <div className="grid grid-cols-2 gap-4">
+                <Field><FieldLabel>Slot *</FieldLabel>
+                  {form.doctorId ? (
+                    slotsQuery.isLoading ? (
                       <p className="text-sm text-muted-foreground">Loading slots...</p>
                     ) : !slotsQuery.data?.available ? (
                       <p className="text-sm text-muted-foreground">No slots available for this day.</p>
@@ -626,29 +626,27 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                           );
                         })()}
                       </div>
-                    )}
-                  </Field>
-                  <Field><FieldLabel>Consultation type *</FieldLabel>
-                    <div className="grid grid-cols-1 gap-2">
-                      {CONSULTATION_TYPES.map((t) => (
-                        <button key={t.value} type="button" className={cn("rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
+                    )
+                  ) : (
+                    <div className="flex h-[calc(2.25rem+2px)] items-center rounded-none border border-dashed border-input bg-muted/30 px-3">
+                      <p className="text-sm text-muted-foreground/60">Select a doctor to view available slots</p>
+                    </div>
+                  )}
+                </Field>
+                <Field><FieldLabel>Consultation type *</FieldLabel>
+                  <div className="grid grid-cols-1 gap-2">
+                    {CONSULTATION_TYPES.map((t) => {
+                      const Icon = t.icon;
+                      return (
+                        <button key={t.value} type="button" className={cn("flex items-center gap-2 rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
+                          <Icon className="size-4 shrink-0" />
                           <p className="font-medium text-foreground">{t.label}</p>
                         </button>
-                      ))}
-                    </div>
-                  </Field>
-                </div>
-              ) : (
-                <Field><FieldLabel>Consultation type *</FieldLabel>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CONSULTATION_TYPES.map((t) => (
-                      <button key={t.value} type="button" className={cn("rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
-                        <p className="font-medium text-foreground">{t.label}</p>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </Field>
-              )}
+              </div>
 
               {/* ── Notes ── */}
               <Field><FieldLabel htmlFor="a-notes">Notes</FieldLabel>
@@ -732,7 +730,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
 
                 {/* Allergies display — always visible */}
                 <div className="border-t px-4 py-3">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Allergies</span>
+                  <span className="text-xs font-semibold text-foreground">Allergies</span>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {form.allergies.length > 0 ? form.allergies.map((allergy) => (
                       <span
@@ -758,7 +756,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 {/* Patient Vitals — latest record */}
                 {patientVitals && (
                   <div className="border-t px-4 py-3">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Patient Vitals</span>
+                    <span className="text-xs font-semibold text-foreground">Patient Vitals</span>
                     <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
                       {patientVitals.heightCm != null && (
                         <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
@@ -846,7 +844,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
               {/* ── Invoice-style Fee Summary ── */}
               <div className="rounded-none border">
                 <div className="border-b bg-muted/30 px-4 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Fee Summary</p>
+                  <p className="text-xs font-semibold text-foreground">Fee Summary</p>
                 </div>
                 <div className="space-y-4 px-4 py-4">
                   {/* Consultation Fee */}
@@ -941,7 +939,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       <PatientFormSheet
         open={patientSheetOpen || !!editPatientId}
         onOpenChange={(open) => { if (!open) { setPatientSheetOpen(false); setEditPatientId(null); } }}
-        editingPatient={editPatientId ? (patientResults.data?.data ?? []).find((p) => p.id === editPatientId) ?? null : null}
+        editingPatient={editPatientId ? (selectedPatient?.id === editPatientId ? selectedPatient : (patientResults.data?.data ?? []).find((p) => p.id === editPatientId) ?? null) : null}
         onSaved={(patient) => {
           if (!editPatientId) {
             setForm((prev) => ({ ...prev, patient: { id: patient.id, firstName: patient.firstName, middleName: patient.middleName, lastName: patient.lastName, contactNo: patient.contactNo }, isNewPatient: true, registrationFee: null }));

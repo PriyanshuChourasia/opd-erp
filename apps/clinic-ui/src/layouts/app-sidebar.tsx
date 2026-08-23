@@ -6,6 +6,7 @@ import {
   Box,
   Building2,
   CalendarClock,
+  CalendarRange,
   ClipboardCheck,
   ClipboardList,
   Clock,
@@ -95,6 +96,7 @@ const devNav = [
 
 const orgNav = [
   { to: "/organisation", label: "Overview", icon: Building2 },
+  { to: "/organisation/financial-years", label: "Financial Years", icon: CalendarRange },
   { to: "/shifts", label: "Shifts", icon: Clock },
   { to: "/addresses", label: "Addresses", icon: MapPin },
   { to: "/organisation/users", label: "Users", icon: UserCog },

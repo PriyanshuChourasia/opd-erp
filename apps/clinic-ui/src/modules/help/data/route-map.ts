@@ -40,6 +40,7 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/doctors": { module: "doctors" },
   "/medicine-catalog": { module: "medicine-catalog" },
   "/organisation": { module: "organisation" },
+  "/organisation/financial-years": { module: "organisation" },
   "/organisation/roles": { module: "roles-permissions" },
   "/organisation/users": { module: "users" },
   "/patients": { module: "patients" },

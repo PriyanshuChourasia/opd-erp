@@ -773,7 +773,7 @@ export function EditAppointmentPage() {
                 </div>
 
                 <div className="border-t px-4 py-3">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Allergies</span>
+                  <span className="text-xs font-semibold text-foreground">Allergies</span>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {form.allergies.length > 0 ? form.allergies.map((allergy) => (
                       <span
@@ -799,7 +799,7 @@ export function EditAppointmentPage() {
                 {/* Patient Vitals — latest record */}
                 {patientVitals && (
                   <div className="border-t px-4 py-3">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Patient Vitals</span>
+                    <span className="text-xs font-semibold text-foreground">Patient Vitals</span>
                     <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
                       {patientVitals.heightCm != null && (
                         <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
@@ -886,7 +886,7 @@ export function EditAppointmentPage() {
               {/* ── Invoice-style Fee Summary ── */}
               <div className="rounded-none border">
                 <div className="border-b bg-muted/30 px-4 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Fee Summary</p>
+                  <p className="text-xs font-semibold text-foreground">Fee Summary</p>
                 </div>
                 <div className="space-y-4 px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
@@ -973,7 +973,7 @@ export function EditAppointmentPage() {
       <PatientFormSheet
         open={patientSheetOpen || !!editPatientId}
         onOpenChange={(open) => { if (!open) { setPatientSheetOpen(false); setEditPatientId(null); } }}
-        editingPatient={editPatientId ? (patientResults.data?.data ?? []).find((p) => p.id === editPatientId) ?? null : null}
+        editingPatient={editPatientId ? (selectedPatient?.id === editPatientId ? selectedPatient : (patientResults.data?.data ?? []).find((p) => p.id === editPatientId) ?? null) : null}
         onSaved={(patient) => {
           if (!editPatientId) {
             setForm((prev) => ({ ...prev, patient: { id: patient.id, firstName: patient.firstName, middleName: patient.middleName, lastName: patient.lastName, contactNo: patient.contactNo }, registrationFee: 0 }));

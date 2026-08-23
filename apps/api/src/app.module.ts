@@ -31,6 +31,7 @@ import { PatientVitalsModule } from './patient-vitals/patient-vitals.module';
 import { PatientAllergyRecordsModule } from './patient-allergy-records/patient-allergy-records.module';
 import { DiagnosisSystemsModule } from './diagnosis-systems/diagnosis-systems.module';
 import { DatabaseSchemaModule } from './database-schema/database-schema.module';
+import { FinancialYearModule } from './financial-year/financial-year.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { DatabaseSchemaModule } from './database-schema/database-schema.module';
     PatientVitalsModule,
     PatientAllergyRecordsModule,
     DatabaseSchemaModule,
+    FinancialYearModule,
   ],
 })
 export class AppModule {}

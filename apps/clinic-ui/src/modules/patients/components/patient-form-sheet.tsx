@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCreatePatient, useUpdatePatient } from "../data/hooks";
 import type { Patient } from "../data/interface";
-import { uploadDocument, createPatientVitals } from "@/lib/api";
+import { uploadDocument, createPatientVitals, fetchPatientVitalsLatest } from "@/lib/api";
 import {
   Sheet,
   SheetContent,
@@ -95,6 +95,29 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
   const createMutation = useCreatePatient();
   const updateMutation = useUpdatePatient();
 
+  // Fetch latest vitals when editing
+  const { data: existingVitals } = useQuery({
+    queryKey: ["patientVitals", "latest", editingPatient?.id],
+    queryFn: () => fetchPatientVitalsLatest(editingPatient!.id),
+    enabled: open && !!editingPatient?.id,
+  });
+
+  // Pre-fill vitals when existing vitals are loaded
+  useEffect(() => {
+    if (existingVitals && editingPatient) {
+      setVitals({
+        heightCm: existingVitals.heightCm?.toString() ?? "",
+        weightKg: existingVitals.weightKg?.toString() ?? "",
+        temperatureC: existingVitals.temperatureC?.toString() ?? "",
+        pulseBpm: existingVitals.pulseBpm?.toString() ?? "",
+        systolicBp: existingVitals.systolicBp?.toString() ?? "",
+        diastolicBp: existingVitals.diastolicBp?.toString() ?? "",
+        spo2Percent: existingVitals.spo2Percent?.toString() ?? "",
+        respiratoryRate: existingVitals.respiratoryRate?.toString() ?? "",
+      });
+    }
+  }, [existingVitals?.id]);
+
   const uploadPendingDocs = async (patientId: string) => {
     for (const pf of pendingFiles) {
       try {
@@ -135,7 +158,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
     if (editingPatient) {
       updateMutation.mutate(
         { id: editingPatient.id, data: form },
-        { onSuccess: (patient) => { onOpenChange(false); onSaved?.(patient); } },
+        { onSuccess: async (patient) => { await submitVitals(editingPatient.id); queryClient.invalidateQueries({ queryKey: ["patientVitals"] }); onOpenChange(false); onSaved?.(patient); } },
       );
     } else {
       createMutation.mutate(form as any, {
@@ -296,10 +319,9 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
             )}
 
 
-            {/* ── Patient Vitals (create only — immutable once created) ── */}
-            {!editingPatient && (
+            {/* ── Patient Vitals ── */}
             <div className="border-t pt-3 mt-2">
-              <p className="text-base font-semibold mb-3">Patient Vitals <span className="text-xs font-normal text-muted-foreground">(optional)</span></p>
+              <p className="text-base font-semibold mb-3">Patient Vitals {!editingPatient && <span className="text-xs font-normal text-muted-foreground">(optional)</span>}</p>
               <div className="grid grid-cols-2 gap-3">
                 <Field>                  <FieldLabel htmlFor="v-height">Height (cm) <span className="text-[10px] font-normal text-muted-foreground">(1 ft = 30.48 cm)</span></FieldLabel>
                    <Input id="v-height" type="number" step="0.1" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals({ ...vitals, heightCm: e.target.value })} />
@@ -334,7 +356,6 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                 </Field>
               </div>
             </div>
-            )}
 
           </FieldGroup>
         </div>

@@ -561,6 +561,31 @@ export interface Organisation {
   updatedAt: string;
 }
 
+export interface FinancialYear {
+  id: string;
+  organisationId: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFinancialYearInput {
+  label: string;
+  startDate: string;
+  endDate: string;
+  isActive?: boolean;
+}
+
+export interface UpdateFinancialYearInput {
+  label?: string;
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+}
+
 export interface UpdateOrganisationInput {
   name?: string;
   address?: string;
@@ -1455,6 +1480,32 @@ export function updateOrganisation(data: UpdateOrganisationInput) {
     path: "/organisation",
     body: data,
   });
+}
+
+// ─── Financial Year API ──────────────────────────────────────
+
+export function fetchFinancialYears() {
+  return request<FinancialYear[]>({ method: "GET", path: "/financial-years" });
+}
+
+export function fetchActiveFinancialYear() {
+  return request<FinancialYear | null>({ method: "GET", path: "/financial-years/active" });
+}
+
+export function createFinancialYear(data: CreateFinancialYearInput) {
+  return request<FinancialYear>({ method: "POST", path: "/financial-years", body: data });
+}
+
+export function updateFinancialYear(id: string, data: UpdateFinancialYearInput) {
+  return request<FinancialYear>({ method: "PATCH", path: `/financial-years/${id}`, body: data });
+}
+
+export function activateFinancialYear(id: string) {
+  return request<FinancialYear>({ method: "PATCH", path: `/financial-years/${id}/activate` });
+}
+
+export function deleteFinancialYear(id: string) {
+  return request<void>({ method: "DELETE", path: `/financial-years/${id}` });
 }
 
 // ─── Search helpers ───────────────────────────────────────────

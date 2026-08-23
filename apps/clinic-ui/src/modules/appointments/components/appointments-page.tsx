@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { AlertTriangle, CalendarClock, ClipboardList, Eye, FileText, Plus, Printer, Search, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, ClipboardList, Eye, FileText, HeartPulse, Plus, Printer, Search, X } from "lucide-react";
 import {
   fetchAppointments,
   updateAppointmentStatus,
@@ -16,6 +16,8 @@ import {
   fetchOrganisation,
   updatePatient,
   createPrescription,
+  createPatientVitals,
+  fetchPatientVitalsLatest,
   fetchPrescriptions,
   type Appointment,
   type AppointmentStatus,
@@ -127,6 +129,14 @@ export function AppointmentsPage() {
       toast.success("Invoice generated successfully");
     },
     onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  // ── Vitals entry ──
+  const [vitalsOpen, setVitalsOpen] = useState(false);
+  const [vitalsAppointment, setVitalsAppointment] = useState<Appointment | null>(null);
+  const [vitals, setVitals] = useState<Record<string, string>>({
+    heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
+    systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
   });
 
   // ── Prescription creation ──
@@ -290,6 +300,38 @@ export function AppointmentsPage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
+  // ── Vitals mutation ──
+  const vitalsMutation = useMutation({
+    mutationFn: async () => {
+      if (!vitalsAppointment) return;
+      const payload: Record<string, string | number> = { patientId: vitalsAppointment.patientId };
+      if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
+      if (vitals.weightCm) payload.weightKg = parseFloat(vitals.weightCm);
+      if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
+      if (vitals.pulseBpm) payload.pulseBpm = parseInt(vitals.pulseBpm, 10);
+      if (vitals.systolicBp) payload.systolicBp = parseInt(vitals.systolicBp, 10);
+      if (vitals.diastolicBp) payload.diastolicBp = parseInt(vitals.diastolicBp, 10);
+      if (vitals.spo2Percent) payload.spo2Percent = parseFloat(vitals.spo2Percent);      if (vitals.respiratoryRate) payload.respiratoryRate = parseInt(vitals.respiratoryRate, 10);
+      if (vitals.medicalStatus) payload.medicalStatus = vitals.medicalStatus;
+      await createPatientVitals(payload as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
+
+      toast.success("Vitals recorded successfully");
+      setVitalsOpen(false);
+      setVitalsAppointment(null);
+      setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  function openVitals(appt: Appointment) {
+    setVitalsAppointment(appt);
+    setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
+    setVitalsOpen(true);
+  }
+
   function openReschedule(appt: Appointment) {
     const d = new Date(appt.date);
     setRescheduleTarget(appt);
@@ -318,33 +360,6 @@ export function AppointmentsPage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  const pendingInvoiceAppointments = useMemo(
-    () => appointments.filter((a) => a.status === "COMPLETED" && !a.bill),
-    [appointments],
-  );
-
-  const bulkCheckoutMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      let succeeded = 0;
-      let failed = 0;
-      // Sequential on purpose: invoice numbers are allocated by counting
-      // existing bills, so concurrent checkouts could race onto the same number.
-      for (const id of ids) {
-        try {
-          await checkoutAppointment(id);
-          succeeded++;
-        } catch {
-          failed++;
-        }
-      }
-      return { succeeded, failed };
-    },
-    onSuccess: ({ succeeded, failed }) => {
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      if (succeeded) toast.success(`Generated ${succeeded} invoice${succeeded === 1 ? "" : "s"}`);
-      if (failed) toast.error(`${failed} invoice${failed === 1 ? "" : "s"} failed to generate`);
-    },
-  });
 
   function setFilterDoctorAndResetPage(id: string) {
     setFilterDoctor(id);
@@ -432,18 +447,30 @@ export function AppointmentsPage() {
         const appt = row.original;
         return (
           <div className="flex items-center justify-end gap-1">
-            <Button variant="ghost" size="icon" className="size-8" title="View / Edit appointment" aria-label="View or edit appointment" onClick={() => navigate({ to: "/appointments/$appointmentId/edit", params: { appointmentId: appt.id } })}>
-              <Eye className="size-4" />
+            <Button variant="ghost" size="icon" className="size-9" title="View / Edit appointment" aria-label="View or edit appointment" onClick={() => navigate({ to: "/appointments/$appointmentId/edit", params: { appointmentId: appt.id } })}>
+              <Eye className="size-4.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="size-8" title="Preview appointment slip" aria-label="Preview appointment slip" onClick={() => setPrintAppt(appt)}>
-              <Printer className="size-4" />
+            <Button variant="ghost" size="icon" className="size-9" title="Preview appointment slip" aria-label="Preview appointment slip" onClick={() => setPrintAppt(appt)}>
+              <Printer className="size-4.5" />
             </Button>
+            {appt.status !== "COMPLETED" && appt.status !== "CANCELLED" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                title="Record patient vitals"
+                aria-label="Record patient vitals"
+                onClick={() => openVitals(appt)}
+              >
+                <HeartPulse className="size-4.5 text-rose-500" />
+              </Button>
+            )}
             {appt.status === "COMPLETED" && (
               <>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-8"
+                  className="size-9"
                   title="Create prescription"
                   aria-label="Create prescription with doctor's remarks"
                   onClick={() => {
@@ -453,7 +480,7 @@ export function AppointmentsPage() {
                     setRxSheetOpen(true);
                   }}
                 >
-                  <ClipboardList className="size-4 text-indigo-600" />
+                  <ClipboardList className="size-4.5 text-indigo-600" />
                 </Button>
                 {appt.bill ? (
                   <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" title={`Paid · Invoice ${appt.bill.invoiceNo}`}>
@@ -464,13 +491,13 @@ export function AppointmentsPage() {
                     <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                       Unpaid
                     </Badge>
-                    <Button variant="ghost" size="icon" className="size-8" title="Generate invoice" aria-label="Generate invoice" onClick={() => {
+                    <Button variant="ghost" size="icon" className="size-9" title="Generate invoice" aria-label="Generate invoice" onClick={() => {
                       setInvoicePreviewAppt(appt);
                       setInvoiceDiscount(0);
                       setInvoiceTax(0);
                       setInvoicePaymentMethod("CASH");
                     }}>
-                      <FileText className="size-4 text-green-600" />
+                      <FileText className="size-4.5 text-green-600" />
                     </Button>
                   </div>
                 )}
@@ -487,7 +514,7 @@ export function AppointmentsPage() {
                   onKeyDown={(e) => { if (e.key === "Enter") statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason || undefined }); }}
                 />
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason || undefined })}>Cancel</Button>
-                <Button variant="ghost" size="icon" className="size-8" title="Dismiss cancellation" aria-label="Dismiss cancellation" onClick={() => { setStatusConfirm(null); setCancelReason(""); }}><X className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-9" title="Dismiss cancellation" aria-label="Dismiss cancellation" onClick={() => { setStatusConfirm(null); setCancelReason(""); }}><X className="size-3.5" /></Button>
               </div>
             ) : (
               <Select
@@ -535,16 +562,7 @@ export function AppointmentsPage() {
               </Link>
             </Button>
           )}
-          {pendingInvoiceAppointments.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => bulkCheckoutMutation.mutate(pendingInvoiceAppointments.map((a) => a.id))}
-              disabled={bulkCheckoutMutation.isPending}
-            >
-              <FileText className="mr-2 size-4" />
-              {bulkCheckoutMutation.isPending ? "Generating..." : `Generate ${pendingInvoiceAppointments.length} invoice${pendingInvoiceAppointments.length === 1 ? "" : "s"}`}
-            </Button>
-          )}
+
           <div className="flex items-center gap-1.5">
             <Button variant={!search && !filterDate ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage("")}>All</Button>
             <Button variant={filterDate === todayStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(todayStr())}>Today</Button>
@@ -576,7 +594,7 @@ export function AppointmentsPage() {
             <div className="flex h-9 items-center justify-between rounded-none border border-input bg-background px-3 text-sm">
               <span className="truncate">{doctors.find((d) => d.id === filterDoctor)?.name ?? doctors.find((d) => d.id === filterDoctor)?.medicalRegistrationNo ?? 'Doctor'}</span>
               <button type="button" className="ml-2 shrink-0 text-muted-foreground hover:text-foreground" title="Clear doctor filter" onClick={() => setFilterDoctorAndResetPage("")}>
-                <X className="size-3.5" />
+                <X className="size-4.5" />
               </button>
             </div>
           ) : (
@@ -996,6 +1014,95 @@ export function AppointmentsPage() {
               disabled={!rxDoctorRemarks.trim() || createPrescriptionMutation.isPending}
             >
               {createPrescriptionMutation.isPending ? "Creating..." : "Create Prescription"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Record Vitals Sheet ── */}
+      <Sheet open={vitalsOpen} onOpenChange={(open) => { if (!open) { setVitalsOpen(false); setVitalsAppointment(null); } }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <HeartPulse className="size-5 text-rose-500" />
+              Record Vitals
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 py-4">
+            {vitalsAppointment && (
+              <div className="rounded-none border bg-muted/20 p-3 text-sm">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Patient</span>
+                <p className="mt-0.5 font-medium">{vitalsAppointment.patient ? getPatientName(vitalsAppointment.patient) : "—"}</p>
+                <p className="text-xs text-muted-foreground">{vitalsAppointment.patient?.contactNo}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals((v) => ({ ...v, heightCm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Weight (kg)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="70" value={vitals.weightCm} onChange={(e) => setVitals((v) => ({ ...v, weightCm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Temperature (°F)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Pulse (bpm)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals((v) => ({ ...v, pulseBpm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Systolic BP</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals((v) => ({ ...v, systolicBp: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Diastolic BP</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals((v) => ({ ...v, diastolicBp: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">SpO₂ (%)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals((v) => ({ ...v, spo2Percent: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Resp. Rate (/min)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals((v) => ({ ...v, respiratoryRate: e.target.value }))} />
+              </Field>
+              <Field className="col-span-2">
+                <FieldLabel className="text-[10px]">Medical Status</FieldLabel>
+                <select
+                  className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
+                  value={vitals.medicalStatus}
+                  onChange={(e) => setVitals((v) => ({ ...v, medicalStatus: e.target.value }))}
+                >
+                  <option value="">Select status...</option>
+                  <option value="Before Fasting">Before Fasting</option>
+                  <option value="After Fasting">After Fasting</option>
+                  <option value="Before Meals">Before Meals</option>
+                  <option value="After Meals">After Meals</option>
+                  <option value="Before Sleep">Before Sleep</option>
+                  <option value="After Waking Up">After Waking Up</option>
+                  <option value="After Exercise">After Exercise</option>
+                  <option value="At Rest">At Rest</option>
+                  <option value="During Stress">During Stress</option>
+                  <option value="Before Medication">Before Medication</option>
+                  <option value="After Medication">After Medication</option>
+                  <option value="During Menstruation">During Menstruation</option>
+                  <option value="Pregnancy">Pregnancy</option>
+                  <option value="Post Surgery">Post Surgery</option>
+                  <option value="Other">Other</option>
+                </select>
+              </Field>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => { setVitalsOpen(false); setVitalsAppointment(null); }}>Cancel</Button>
+            <Button
+              onClick={() => vitalsMutation.mutate()}
+              disabled={!Object.values(vitals).some((v) => v !== "") || vitalsMutation.isPending}
+            >
+              {vitalsMutation.isPending ? "Saving..." : "Save Vitals"}
             </Button>
           </SheetFooter>
         </SheetContent>

@@ -3,8 +3,8 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { FileText, ListOrdered, Pencil, Receipt, Search, Trash2, X } from "lucide-react";
-import { fetchQueue, updateQueueStatus, deleteQueueEntry, checkoutAppointment, type QueueEntry } from "@/lib/api";
+import { FileText, HeartPulse, ListOrdered, Pencil, Receipt, Search, Trash2, X } from "lucide-react";
+import { fetchQueue, updateQueueStatus, deleteQueueEntry, checkoutAppointment, createPatientVitals, type QueueEntry } from "@/lib/api";
 import { fetchDoctors, fetchPatients } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
@@ -14,11 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { STATUS_STYLES } from "../data/interface";
 
-const QUEUE_STATUSES = ["WAITING", "IN_PROGRESS", "COMPLETED", "SKIPPED", "NO_SHOW"];
-const ACTIVE_STATUSES = ["WAITING", "IN_PROGRESS"];
+const QUEUE_STATUSES = ["WAITING", "SEND_IN", "IN_PROGRESS", "COMPLETED", "SKIPPED", "NO_SHOW"];
+const ACTIVE_STATUSES = ["WAITING", "SEND_IN", "IN_PROGRESS"];
 const HISTORY_STATUSES = ["COMPLETED", "SKIPPED", "NO_SHOW"];
 
 type QueueTab = "ACTIVE" | "HISTORY";
@@ -39,6 +41,13 @@ export function QueuePage() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [editPatientId, setEditPatientId] = useState<string | null>(null);
+  // ── Vitals entry ──
+  const [vitalsOpen, setVitalsOpen] = useState(false);
+  const [vitalsEntry, setVitalsEntry] = useState<QueueEntry | null>(null);
+  const [vitals, setVitals] = useState<Record<string, string>>({
+    heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
+    systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
+  });
 
   // Fetch the whole day's queue (a single day's volume is always small) and
   // split/paginate it client-side into the Active / History tabs below.
@@ -96,6 +105,37 @@ export function QueuePage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["queue"] }); setDeleteConfirm(null); toast.success("Queue entry removed"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
+
+  const vitalsMutation = useMutation({
+    mutationFn: async () => {
+      if (!vitalsEntry) return;
+      const payload: Record<string, string | number> = { patientId: vitalsEntry.patientId };
+      if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
+      if (vitals.weightCm) payload.weightKg = parseFloat(vitals.weightCm);
+      if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
+      if (vitals.pulseBpm) payload.pulseBpm = parseInt(vitals.pulseBpm, 10);
+      if (vitals.systolicBp) payload.systolicBp = parseInt(vitals.systolicBp, 10);
+      if (vitals.diastolicBp) payload.diastolicBp = parseInt(vitals.diastolicBp, 10);
+      if (vitals.spo2Percent) payload.spo2Percent = parseFloat(vitals.spo2Percent);
+      if (vitals.respiratoryRate) payload.respiratoryRate = parseInt(vitals.respiratoryRate, 10);
+      if (vitals.medicalStatus) payload.medicalStatus = vitals.medicalStatus;
+      await createPatientVitals(payload as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
+      toast.success("Vitals recorded successfully");
+      setVitalsOpen(false);
+      setVitalsEntry(null);
+      setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  function openVitals(entry: QueueEntry) {
+    setVitalsEntry(entry);
+    setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
+    setVitalsOpen(true);
+  }
 
   const checkoutMutation = useMutation({
     mutationFn: (appointmentId: string) => checkoutAppointment(appointmentId),
@@ -176,19 +216,31 @@ export function QueuePage() {
                 <Badge variant="outline" className="text-[10px]" title={`Invoice ${entry.appointment.bill.invoiceNo}`}>{entry.appointment.bill.invoiceNo}</Badge>
               ) : (
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="size-8" title="Generate invoice (direct)" aria-label="Generate invoice directly" onClick={() => checkoutMutation.mutate(entry.appointment!.id)}>
-                    <FileText className="size-4 text-green-600" />
+                  <Button variant="ghost" size="icon" className="size-9" title="Generate invoice (direct)" aria-label="Generate invoice directly" onClick={() => checkoutMutation.mutate(entry.appointment!.id)}>
+                    <FileText className="size-4.5 text-green-600" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="size-8" title="Generate invoice (POS)" aria-label="Generate invoice via POS checkout" onClick={() => navigate({ to: "/pos", search: { appointmentId: entry.appointment!.id } })}>
-                    <Receipt className="size-4 text-primary" />
+                  <Button variant="ghost" size="icon" className="size-9" title="Generate invoice (POS)" aria-label="Generate invoice via POS checkout" onClick={() => navigate({ to: "/pos", search: { appointmentId: entry.appointment!.id } })}>
+                    <Receipt className="size-4.5 text-primary" />
                   </Button>
                 </div>
               )
             )}
+            {entry.status !== "COMPLETED" && entry.status !== "SKIPPED" && entry.status !== "NO_SHOW" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                title="Record patient vitals"
+                aria-label="Record patient vitals"
+                onClick={() => openVitals(entry)}
+              >
+                <HeartPulse className="size-4.5 text-rose-500" />
+              </Button>
+            )}
             {deleteConfirm === entry.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(entry.id)}>Confirm</Button>
-                <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-9" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-4.5" /></Button>
               </div>
             ) : (
               <>
@@ -207,8 +259,8 @@ export function QueuePage() {
                       <SelectItem key={status} value={status}>{status.replace("_", " ")}</SelectItem>
                     ))}
                   </SelectContent>
-                </Select>
-                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}><Trash2 className="size-3.5" /></Button>
+                </Select>                <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive" title="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}>
+                  <Trash2 className="size-4.5" /></Button>
               </>
             )}
           </div>
@@ -319,6 +371,95 @@ export function QueuePage() {
         editingPatient={editPatientId ? patients.find((p) => p.id === editPatientId) ?? null : null}
         onSaved={() => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setEditPatientId(null); }}
       />
+
+      {/* ── Record Vitals Sheet ── */}
+      <Sheet open={vitalsOpen} onOpenChange={(open) => { if (!open) { setVitalsOpen(false); setVitalsEntry(null); } }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <HeartPulse className="size-5 text-rose-500" />
+              Record Vitals
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 py-4">
+            {vitalsEntry && (
+              <div className="rounded-none border bg-muted/20 p-3 text-sm">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Patient</span>
+                <p className="mt-0.5 font-medium">{getPatientName(vitalsEntry.patient)}</p>
+                <p className="text-xs text-muted-foreground">{vitalsEntry.patient?.contactNo}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals((v) => ({ ...v, heightCm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Weight (kg)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="70" value={vitals.weightCm} onChange={(e) => setVitals((v) => ({ ...v, weightCm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Temperature (°F)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Pulse (bpm)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals((v) => ({ ...v, pulseBpm: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Systolic BP</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals((v) => ({ ...v, systolicBp: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Diastolic BP</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals((v) => ({ ...v, diastolicBp: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">SpO₂ (%)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals((v) => ({ ...v, spo2Percent: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel className="text-[10px]">Resp. Rate (/min)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals((v) => ({ ...v, respiratoryRate: e.target.value }))} />
+              </Field>
+              <Field className="col-span-2">
+                <FieldLabel className="text-[10px]">Medical Status</FieldLabel>
+                <select
+                  className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
+                  value={vitals.medicalStatus}
+                  onChange={(e) => setVitals((v) => ({ ...v, medicalStatus: e.target.value }))}
+                >
+                  <option value="">Select status...</option>
+                  <option value="Before Fasting">Before Fasting</option>
+                  <option value="After Fasting">After Fasting</option>
+                  <option value="Before Meals">Before Meals</option>
+                  <option value="After Meals">After Meals</option>
+                  <option value="Before Sleep">Before Sleep</option>
+                  <option value="After Waking Up">After Waking Up</option>
+                  <option value="After Exercise">After Exercise</option>
+                  <option value="At Rest">At Rest</option>
+                  <option value="During Stress">During Stress</option>
+                  <option value="Before Medication">Before Medication</option>
+                  <option value="After Medication">After Medication</option>
+                  <option value="During Menstruation">During Menstruation</option>
+                  <option value="Pregnancy">Pregnancy</option>
+                  <option value="Post Surgery">Post Surgery</option>
+                  <option value="Other">Other</option>
+                </select>
+              </Field>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => { setVitalsOpen(false); setVitalsEntry(null); }}>Cancel</Button>
+            <Button
+              onClick={() => vitalsMutation.mutate()}
+              disabled={!Object.values(vitals).some((v) => v !== "") || vitalsMutation.isPending}
+            >
+              {vitalsMutation.isPending ? "Saving..." : "Save Vitals"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

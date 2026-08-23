@@ -21,8 +21,8 @@ export class CreatePatientVitalsDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(30)
-  @Max(50)
+  @Min(90)
+  @Max(110)
   temperatureC?: number;
 
   @IsOptional()
@@ -54,6 +54,10 @@ export class CreatePatientVitalsDto {
   @Min(0)
   @Max(100)
   respiratoryRate?: number;
+
+  @IsOptional()
+  @IsString()
+  medicalStatus?: string;
 
   @IsOptional()
   @Transform(({ value }) => (value ? new Date(value) : undefined))

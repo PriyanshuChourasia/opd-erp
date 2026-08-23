@@ -876,6 +876,7 @@ export interface PatientVitals {
   diastolicBp?: number | null;
   spo2Percent?: number | null;
   respiratoryRate?: number | null;
+  medicalStatus?: string | null;
   recordedAt: string;
   createdAt: string;
 }
@@ -890,7 +891,26 @@ export interface CreatePatientVitalsInput {
   diastolicBp?: number;
   spo2Percent?: number;
   respiratoryRate?: number;
+  medicalStatus?: string;
 }
+
+export const MEDICAL_STATUSES = [
+  "Before Fasting",
+  "After Fasting",
+  "Before Meals",
+  "After Meals",
+  "Before Sleep",
+  "After Waking Up",
+  "After Exercise",
+  "At Rest",
+  "During Stress",
+  "Before Medication",
+  "After Medication",
+  "During Menstruation",
+  "Pregnancy",
+  "Post Surgery",
+  "Other",
+] as const;
 
 export function createPatientVitals(input: CreatePatientVitalsInput) {
   return request<PatientVitals>({ method: "POST", path: "/patient-vitals", body: input });

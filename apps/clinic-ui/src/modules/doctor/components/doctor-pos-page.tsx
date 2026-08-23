@@ -4,7 +4,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Activity,
+  ArrowRight,
+  CalendarClock,
   CalendarDays,
+  CalendarX,
   Check,
   CheckCircle2,
   ClipboardList,
@@ -30,6 +33,9 @@ import {
   deleteQueueEntry,
   createProcedureOrder,
   updateAppointmentStatus,
+  rescheduleAppointment,
+  fetchDoctorSlots,
+  fetchDoctors,
   createPatientVitals,
   type QueueEntry,
   type Medicine,
@@ -43,7 +49,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
 import { PatientHistorySheet } from "./patient-history-sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
@@ -107,6 +113,7 @@ function totalTablets(dosage: string, duration: string, quantity: number): numbe
 
 const QUEUE_STATUS_STYLES: Record<string, string> = {
   WAITING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  SEND_IN: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
   IN_PROGRESS: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   SKIPPED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -157,12 +164,22 @@ export function DoctorPosPage() {
   const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editPatientOpen, setEditPatientOpen] = useState(false);
+  // ── Cancel appointment ──
+  const [cancelTarget, setCancelTarget] = useState<QueueEntry | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+
+  // ── Reschedule appointment ──
+  const [rescheduleTarget, setRescheduleTarget] = useState<QueueEntry | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduleDoctorId, setRescheduleDoctorId] = useState("");
+
   // ── Vitals entry ──
   const [vitalsOpen, setVitalsOpen] = useState(false);
   const [vitalsTarget, setVitalsTarget] = useState<QueueEntry | null>(null);
   const [vitals, setVitals] = useState<Record<string, string>>({
     heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
-    systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "",
+    systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
   });
 
   // Fetch patient vitals when a patient is selected
@@ -181,8 +198,9 @@ export function DoctorPosPage() {
 
   const queue = response?.data ?? [];
   const waiting = queue.filter((e) => e.status === "WAITING");
+  const sendIn = queue.filter((e) => e.status === "SEND_IN");
   const inProgress = queue.filter((e) => e.status === "IN_PROGRESS");
-  const active = [...inProgress, ...waiting];
+  const active = [...inProgress, ...sendIn, ...waiting];
 
   const medicineResults = useQuery({
     queryKey: ["medicines", "search", medicineQuery],
@@ -217,6 +235,75 @@ export function DoctorPosPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
+  // ── Doctors list (for reschedule) ──
+  const { data: doctorsResp } = useQuery({
+    queryKey: ["doctors", "reschedule"],
+    queryFn: () => fetchDoctors({ limit: 100 }),
+  });
+  const doctors = useMemo(() => doctorsResp?.data ?? [], [doctorsResp]);
+
+  // ── Cancel appointment mutation ──
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!cancelTarget?.appointment?.id) return;
+      // Cancel the appointment
+      await updateAppointmentStatus(cancelTarget.appointment.id, "CANCELLED", cancelReason || undefined);
+      // Delete the queue entry
+      await deleteQueueEntry(cancelTarget.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success("Appointment cancelled");
+      const cancelledId = cancelTarget?.id;
+      setCancelTarget(null);
+      setCancelReason("");
+      if (selectedEntry?.id === cancelledId) clearForm();
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  // ── Reschedule appointment mutation ──
+  const rescheduleMutation = useMutation({
+    mutationFn: async () => {
+      if (!rescheduleTarget?.appointment?.id) return;
+      await rescheduleAppointment(rescheduleTarget.appointment.id, {
+        date: `${rescheduleDate}T${rescheduleTime}:00`,
+        doctorId: rescheduleDoctorId || undefined,
+      });
+      // Delete the queue entry
+      await deleteQueueEntry(rescheduleTarget.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success("Appointment rescheduled");
+      const rescheduledId = rescheduleTarget?.id;
+      setRescheduleTarget(null);
+      setRescheduleDate("");
+      setRescheduleTime("");
+      setRescheduleDoctorId("");
+      if (selectedEntry?.id === rescheduledId) clearForm();
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const rescheduleSlotsQuery = useQuery({
+    queryKey: ["doctor-slots", "reschedule", rescheduleDoctorId, rescheduleDate],
+    queryFn: () => fetchDoctorSlots(rescheduleDoctorId, rescheduleDate),
+    enabled: !!rescheduleDoctorId && !!rescheduleDate,
+  });
+
+  function openReschedule(entry: QueueEntry) {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const today = new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
+    setRescheduleTarget(entry);
+    setRescheduleDate(today);
+    setRescheduleTime("");
+    setRescheduleDoctorId(entry.doctorId);
+  }
+
   // ── Vitals mutation ──
   const vitalsMutation = useMutation({
     mutationFn: async () => {
@@ -230,6 +317,7 @@ export function DoctorPosPage() {
       if (vitals.diastolicBp) payload.diastolicBp = parseInt(vitals.diastolicBp, 10);
       if (vitals.spo2Percent) payload.spo2Percent = parseFloat(vitals.spo2Percent);
       if (vitals.respiratoryRate) payload.respiratoryRate = parseInt(vitals.respiratoryRate, 10);
+      if (vitals.medicalStatus) payload.medicalStatus = vitals.medicalStatus;
       await createPatientVitals(payload as any);
     },
     onSuccess: () => {
@@ -237,7 +325,7 @@ export function DoctorPosPage() {
       toast.success("Vitals recorded successfully");
       setVitalsOpen(false);
       setVitalsTarget(null);
-      setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
+      setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
@@ -378,7 +466,7 @@ export function DoctorPosPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Patients</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {waiting.length} waiting &middot; {inProgress.length} in progress
+            {waiting.length} waiting &middot; {sendIn.length} to see &middot; {inProgress.length} in progress
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -456,14 +544,14 @@ export function DoctorPosPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-7 shrink-0"
+                            className="size-9 shrink-0"
                             title="Record vitals"
                             onClick={(e) => {
                               e.stopPropagation();
                               openVitals(entry);
                             }}
                           >
-                            <HeartPulse className="size-3.5 text-rose-500" />
+                            <HeartPulse className="size-4.5 text-rose-500" />
                           </Button>
                           <Badge variant="outline" className={`text-[9px] ${QUEUE_STATUS_STYLES[entry.status] ?? ""}`}>
                             {entry.status.replace("_", " ")}
@@ -473,6 +561,27 @@ export function DoctorPosPage() {
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs gap-1.5"
+                              disabled={inProgress.length > 0}
+                              title={inProgress.length > 0 ? "Complete the current consultation first" : "Send patient in"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                statusMutation.mutate({ id: entry.id, status: "SEND_IN" });
+                                if (!selectedEntry || selectedEntry.id === entry.id) {
+                                  setSelectedEntry({ ...entry, status: "SEND_IN" });
+                                }
+                              }}
+                            >
+                              <ArrowRight className="size-4 text-violet-600" />
+                              Send In
+                            </Button>
+                          )}
+                          {entry.status === "SEND_IN" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1.5"
+                              disabled={inProgress.length > 0}
+                              title={inProgress.length > 0 ? "Complete the current consultation first" : "Start consultation"}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 statusMutation.mutate({ id: entry.id, status: "IN_PROGRESS" });
@@ -481,9 +590,38 @@ export function DoctorPosPage() {
                                 }
                               }}
                             >
-                              <UserCheck className="size-3.5 text-blue-600" />
+                              <UserCheck className="size-4 text-blue-600" />
                               Start Consultation
                             </Button>
+                          )}
+                          {(entry.status === "WAITING" || entry.status === "SEND_IN") && entry.appointment && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-9 shrink-0"
+                                title="Reschedule appointment"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openReschedule(entry);
+                                }}
+                              >
+                                <CalendarClock className="size-4.5 text-amber-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-9 shrink-0"
+                                title="Cancel appointment"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCancelTarget(entry);
+                                  setCancelReason("");
+                                }}
+                              >
+                                <CalendarX className="size-4.5 text-destructive" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </button>
@@ -529,20 +667,20 @@ export function DoctorPosPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-6 gap-1 px-1.5 text-[10px]"
+                          className="h-7 gap-1.5 px-2 text-xs"
                           onClick={() => setEditPatientOpen(true)}
                         >
-                          <Pencil className="size-3" />
+                          <Pencil className="size-3.5" />
                           Edit
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-6 gap-1 px-1.5 text-[10px]"
+                          className="h-7 gap-1.5 px-2 text-xs"
                           onClick={() => setHistoryOpen(true)}
                         >
-                          <History className="size-3" />
+                          <History className="size-3.5" />
                           All Prescriptions
                         </Button>
                       </div>
@@ -553,8 +691,8 @@ export function DoctorPosPage() {
                     <Badge variant="outline" className={`text-[10px] ${QUEUE_STATUS_STYLES[selectedEntry.status] ?? ""}`}>
                       {selectedEntry.status.replace("_", " ")}
                     </Badge>
-                    <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" title="Clear form" onClick={clearForm}>
-                      <X className="size-4" />
+                    <Button variant="ghost" size="icon" className="size-9 text-muted-foreground hover:text-foreground" title="Clear form" onClick={clearForm}>
+                      <X className="size-5" />
                     </Button>
                   </div>
                 </div>
@@ -649,7 +787,7 @@ export function DoctorPosPage() {
                         <div><span className="text-[9px] text-muted-foreground">BMI</span><p className="text-xs font-medium">{patientVitals.bmi}</p></div>
                       )}
                       {patientVitals.temperatureC != null && (
-                        <div><span className="text-[9px] text-muted-foreground">Temp</span><p className="text-xs font-medium">{patientVitals.temperatureC}°C</p></div>
+                        <div><span className="text-[9px] text-muted-foreground">Temp</span><p className="text-xs font-medium">{patientVitals.temperatureC}°F</p></div>
                       )}
                       {patientVitals.pulseBpm != null && (
                         <div><span className="text-[9px] text-muted-foreground">Pulse</span><p className="text-xs font-medium">{patientVitals.pulseBpm} bpm</p></div>
@@ -662,6 +800,9 @@ export function DoctorPosPage() {
                       )}
                       {patientVitals.respiratoryRate != null && (
                         <div><span className="text-[9px] text-muted-foreground">Resp Rate</span><p className="text-xs font-medium">{patientVitals.respiratoryRate}/min</p></div>
+                      )}
+                      {patientVitals.medicalStatus && (
+                        <div className="col-span-4"><span className="text-[9px] text-muted-foreground">Status</span><p className="text-xs font-medium text-amber-600">{patientVitals.medicalStatus}</p></div>
                       )}
                     </div>
                   </div>
@@ -750,8 +891,8 @@ export function DoctorPosPage() {
                         <div key={item.tempId} className="rounded-none border p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium">{item.medicineName}</p>
-                            <Button variant="ghost" size="icon" className="size-6 shrink-0" title="Remove item" onClick={() => removeRxItem(item.tempId)}>
-                              <Trash2 className="size-3 text-destructive" />
+                            <Button variant="ghost" size="icon" className="size-8 shrink-0" title="Remove item" onClick={() => removeRxItem(item.tempId)}>
+                              <Trash2 className="size-4 text-destructive" />
                             </Button>
                           </div>
                           <div className="grid grid-cols-3 gap-2">
@@ -780,20 +921,20 @@ export function DoctorPosPage() {
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="size-7"
+                                  className="size-8"
                                   onClick={() => updateRxItem(item.tempId, { quantity: Math.max(1, item.quantity - 1) })}
                                 >
-                                  <Minus className="size-3" />
+                                  <Minus className="size-4" />
                                 </Button>
                                 <span className="w-6 text-center text-sm">{item.quantity}</span>
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="size-7"
+                                  className="size-8"
                                   onClick={() => updateRxItem(item.tempId, { quantity: item.quantity + 1 })}
                                 >
-                                  <Plus className="size-3" />
+                                  <Plus className="size-4" />
                                 </Button>
                               </div>
                             </Field>
@@ -881,8 +1022,8 @@ export function DoctorPosPage() {
                             <p className="text-sm font-medium">{p.procedureName}</p>
                             <p className="text-[10px] text-muted-foreground">{p.category}</p>
                           </div>
-                          <Button variant="ghost" size="icon" className="size-6" title="Remove procedure" onClick={() => removeProcedureOrder(p.tempId)}>
-                            <Trash2 className="size-3 text-destructive" />
+                          <Button variant="ghost" size="icon" className="size-8" title="Remove procedure" onClick={() => removeProcedureOrder(p.tempId)}>
+                            <Trash2 className="size-4 text-destructive" />
                           </Button>
                         </div>
                       ))}
@@ -982,8 +1123,8 @@ export function DoctorPosPage() {
                 <Input className="h-8 text-xs" type="number" placeholder="70" value={vitals.weightCm} onChange={(e) => setVitals((v) => ({ ...v, weightCm: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Temperature (°C)</FieldLabel>
-                <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.4" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
+                <FieldLabel className="text-[10px]">Temperature (°F)</FieldLabel>
+                <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
               </Field>
               <Field>
                 <FieldLabel className="text-[10px]">Pulse (bpm)</FieldLabel>
@@ -1005,6 +1146,31 @@ export function DoctorPosPage() {
                 <FieldLabel className="text-[10px]">Resp. Rate (/min)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals((v) => ({ ...v, respiratoryRate: e.target.value }))} />
               </Field>
+              <Field className="col-span-2">
+                <FieldLabel className="text-[10px]">Medical Status</FieldLabel>
+                <select
+                  className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
+                  value={vitals.medicalStatus}
+                  onChange={(e) => setVitals((v) => ({ ...v, medicalStatus: e.target.value }))}
+                >
+                  <option value="">Select status...</option>
+                  <option value="Before Fasting">Before Fasting</option>
+                  <option value="After Fasting">After Fasting</option>
+                  <option value="Before Meals">Before Meals</option>
+                  <option value="After Meals">After Meals</option>
+                  <option value="Before Sleep">Before Sleep</option>
+                  <option value="After Waking Up">After Waking Up</option>
+                  <option value="After Exercise">After Exercise</option>
+                  <option value="At Rest">At Rest</option>
+                  <option value="During Stress">During Stress</option>
+                  <option value="Before Medication">Before Medication</option>
+                  <option value="After Medication">After Medication</option>
+                  <option value="During Menstruation">During Menstruation</option>
+                  <option value="Pregnancy">Pregnancy</option>
+                  <option value="Post Surgery">Post Surgery</option>
+                  <option value="Other">Other</option>
+                </select>
+              </Field>
             </div>
           </div>
           <SheetFooter>
@@ -1014,6 +1180,108 @@ export function DoctorPosPage() {
               disabled={!Object.values(vitals).some((v) => v !== "") || vitalsMutation.isPending}
             >
               {vitalsMutation.isPending ? "Saving..." : "Save Vitals"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Cancel Appointment Confirmation ── */}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-none border bg-background p-6 shadow-lg">
+            <h3 className="text-lg font-semibold">Cancel Appointment</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cancel appointment for {cancelTarget.patient ? getPatientName(cancelTarget.patient) : "this patient"}?
+            </p>
+            <Field className="mt-4">
+              <FieldLabel className="text-xs">Reason (optional)</FieldLabel>
+              <Input
+                placeholder="Enter cancellation reason..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") cancelMutation.mutate(); }}
+              />
+            </Field>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setCancelTarget(null); setCancelReason(""); }}>Back</Button>
+              <Button
+                variant="destructive"
+                onClick={() => cancelMutation.mutate()}
+                disabled={cancelMutation.isPending}
+              >
+                {cancelMutation.isPending ? "Cancelling..." : "Cancel Appointment"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reschedule Appointment Sheet ── */}
+      <Sheet open={!!rescheduleTarget} onOpenChange={(open) => { if (!open) setRescheduleTarget(null); }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Reschedule Appointment</SheetTitle>
+            <SheetDescription>
+              {rescheduleTarget?.patient ? getPatientName(rescheduleTarget.patient) : ""} — pick a new date, doctor, and slot.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4 pb-4">
+            <Field>
+              <FieldLabel className="text-xs">Date</FieldLabel>
+              <Input
+                type="date"
+                value={rescheduleDate}
+                onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleTime(""); }}
+              />
+            </Field>
+            <Field>
+              <FieldLabel className="text-xs">Doctor</FieldLabel>
+              <select
+                className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
+                value={rescheduleDoctorId}
+                onChange={(e) => { setRescheduleDoctorId(e.target.value); setRescheduleTime(""); }}
+              >
+                <option value="">Select a doctor...</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name ?? d.medicalRegistrationNo ?? "Doctor"}</option>
+                ))}
+              </select>
+            </Field>
+            {rescheduleDoctorId && rescheduleDate && (
+              <Field>
+                <FieldLabel className="text-xs">Slot</FieldLabel>
+                {rescheduleSlotsQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading slots...</p>
+                ) : !rescheduleSlotsQuery.data?.available ? (
+                  <p className="text-sm text-muted-foreground">No slots available for this day.</p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {rescheduleSlotsQuery.data.slots.map((s) => (
+                      <button
+                        key={s.time}
+                        type="button"
+                        disabled={!s.available}
+                        className={cn(
+                          "rounded-none border px-2 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40",
+                          rescheduleTime === s.time ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => setRescheduleTime(s.time)}
+                      >
+                        {s.time}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Field>
+            )}
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setRescheduleTarget(null)}>Cancel</Button>
+            <Button
+              onClick={() => rescheduleMutation.mutate()}
+              disabled={!rescheduleDate || !rescheduleDoctorId || !rescheduleTime || rescheduleMutation.isPending}
+            >
+              {rescheduleMutation.isPending ? "Rescheduling..." : "Reschedule"}
             </Button>
           </SheetFooter>
         </SheetContent>

@@ -359,7 +359,7 @@ const diagnosisData = [
   { name: 'Acne Vulgaris', icdCode: 'L70.0', description: 'Common acne involving face, chest, or back' },
   { name: 'Eczema / Atopic Dermatitis', icdCode: 'L20.9', description: 'Chronic inflammatory skin condition with pruritus' },
   { name: 'Psoriasis', icdCode: 'L40.9', description: 'Chronic autoimmune skin condition with scaly plaques' },
-  { name: 'Fungal Skin Infection', icdCode: 'B36.9', description: 'Superficial mycosis of the skin' },
+  { name: 'Fungal Skin Infection', icdCode: 'B98.4', description: 'Superficial mycosis of the skin' },
   { name: 'Urticaria', icdCode: 'L50.9', description: 'Hives — allergic wheal-and-flare reaction' },
   { name: 'Alopecia Areata', icdCode: 'L63.9', description: 'Patchy hair loss of autoimmune origin' },
   { name: 'Vitiligo', icdCode: 'L80', description: 'Depigmented macules due to melanocyte destruction' },
@@ -1018,7 +1018,7 @@ const PATIENT_DEMOS = [
       systolicBp: 145, diastolicBp: 92, spo2Percent: 96, respiratoryRate: 18,
     },
     vitalsHistory: [
-      { heightCm: 155, weightKg: 70, temperatureC: 99.2, pulseBpm: 82, systolicBp: 152, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 45 },
+      { heightCm: 155, weightKg: 70, temperatureC: 99.1, pulseBpm: 82, systolicBp: 152, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 45 },
       { heightCm: 155, weightKg: 69, temperatureC: 98.8, pulseBpm: 80, systolicBp: 148, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 18 },
     ],
     appointments: [

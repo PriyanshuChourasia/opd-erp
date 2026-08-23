@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCreatePatient, useUpdatePatient } from "../data/hooks";
 import type { Patient } from "../data/interface";
-import { uploadDocument, createPatientVitals, fetchPatientVitalsLatest } from "@/lib/api";
+import { uploadDocument, createPatientVitals, fetchPatientVitalsLatest, createAddress, type CreateAddressInput } from "@/lib/api";
 import {
   Sheet,
   SheetContent,
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { DocumentManager } from "@/modules/documents/components/document-manager";
-import { Camera, FileUp, X, File, Image as ImageIcon } from "lucide-react";
+import { Camera, FileUp, X, File, Image as ImageIcon, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface PendingFile {
@@ -40,6 +40,19 @@ const emptyForm = {
   emergencyContact: "",
 };
 
+const emptyNewPatientAddress = {
+  addressType: "HOME" as string,
+  addressLine1: "",
+  addressLine2: "",
+  landmark: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "India",
+  postalCode: "",
+  isPrimary: true,
+};
+
 const emptyVitals = {
   heightCm: "",
   weightKg: "",
@@ -49,6 +62,7 @@ const emptyVitals = {
   diastolicBp: "",
   spo2Percent: "",
   respiratoryRate: "",
+  medicalStatus: "",
 };
 
 interface PatientFormSheetProps {
@@ -64,6 +78,8 @@ interface PatientFormSheetProps {
 export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFirstName, defaultLastName, defaultContactNo, onSaved }: PatientFormSheetProps) {
   const [form, setForm] = useState(emptyForm);
   const [vitals, setVitals] = useState(emptyVitals);
+  const [newPatientAddress, setNewPatientAddress] = useState(emptyNewPatientAddress);
+  const [showNewPatientAddress, setShowNewPatientAddress] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +89,8 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
     if (!open) return;
     setPendingFiles([]);
     setVitals(emptyVitals);
+    setNewPatientAddress(emptyNewPatientAddress);
+    setShowNewPatientAddress(false);
     setForm(
       editingPatient
         ? {
@@ -117,6 +135,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
         diastolicBp: existingVitals.diastolicBp?.toString() ?? "",
         spo2Percent: existingVitals.spo2Percent?.toString() ?? "",
         respiratoryRate: existingVitals.respiratoryRate?.toString() ?? "",
+        medicalStatus: existingVitals.medicalStatus?.toString() ?? "",
       });
   }, [open, existingVitals?.id]);
 
@@ -133,6 +152,19 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
     }
   };
 
+  async function submitAddress(patientId: string) {
+    if (!showNewPatientAddress || !newPatientAddress.addressLine1.trim()) return;
+    try {
+      await createAddress({
+        ...newPatientAddress,
+        addressableType: "Patient",
+        addressableId: patientId,
+      } as CreateAddressInput);
+    } catch {
+      // address submission failure shouldn't block patient save
+    }
+  }
+
   async function submitVitals(patientId: string) {
     // Only submit if at least one vitals field has a value
     const hasVitals = Object.values(vitals).some((v) => v !== "");
@@ -147,6 +179,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
     if (vitals.diastolicBp) payload.diastolicBp = parseInt(vitals.diastolicBp, 10);
     if (vitals.spo2Percent) payload.spo2Percent = parseFloat(vitals.spo2Percent);
     if (vitals.respiratoryRate) payload.respiratoryRate = parseInt(vitals.respiratoryRate, 10);
+    if (vitals.medicalStatus) payload.medicalStatus = vitals.medicalStatus;
 
     try {
       await createPatientVitals(payload as any);
@@ -167,6 +200,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
         onSuccess: async (patient: any) => {
           const saved: Patient = patient?.data ?? patient;
           await uploadPendingDocs(saved.id);
+          await submitAddress(saved.id);
           await submitVitals(saved.id);
           onOpenChange(false);
           onSaved?.({ ...saved, firstName: form.firstName, lastName: form.lastName, contactNo: form.contactNo });
@@ -316,7 +350,58 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
               </div>
             ) : (
               <div className="border-t pt-3 mt-2">
-                <p className="text-xs text-muted-foreground">Save the patient first to add addresses.</p>
+                <button
+                  type="button"
+                  onClick={() => setShowNewPatientAddress((v) => !v)}
+                  className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <MapPin className="size-4 text-muted-foreground" />
+                    Addresses
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Plus className="size-3.5" />
+                    {showNewPatientAddress ? "Hide" : "Add Address"}
+                  </span>
+                </button>
+                {showNewPatientAddress && (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field>
+                        <FieldLabel className="text-[10px]">Address Line 1 *</FieldLabel>
+                        <Input className="h-8 text-xs" placeholder="123 Main Street" value={newPatientAddress.addressLine1} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, addressLine1: e.target.value })} />
+                      </Field>
+                      <Field>
+                        <FieldLabel className="text-[10px]">Address Line 2</FieldLabel>
+                        <Input className="h-8 text-xs" placeholder="Suite 100" value={newPatientAddress.addressLine2} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, addressLine2: e.target.value })} />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field>
+                        <FieldLabel className="text-[10px]">City</FieldLabel>
+                        <Input className="h-8 text-xs" placeholder="Mumbai" value={newPatientAddress.city} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, city: e.target.value })} />
+                      </Field>
+                      <Field>
+                        <FieldLabel className="text-[10px]">District</FieldLabel>
+                        <Input className="h-8 text-xs" placeholder="Mumbai City" value={newPatientAddress.district} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, district: e.target.value })} />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Field>
+                        <FieldLabel className="text-[10px]">State</FieldLabel>
+                        <Input className="h-8 text-xs" placeholder="Maharashtra" value={newPatientAddress.state} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, state: e.target.value })} />
+                      </Field>
+                      <Field>
+                        <FieldLabel className="text-[10px]">Country</FieldLabel>
+                        <Input className="h-8 text-xs" placeholder="India" value={newPatientAddress.country} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, country: e.target.value })} />
+                      </Field>
+                      <Field>
+                        <FieldLabel className="text-[10px]">Postal Code</FieldLabel>
+                        <Input className="h-8 text-xs" placeholder="400001" value={newPatientAddress.postalCode} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, postalCode: e.target.value })} />
+                      </Field>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -333,8 +418,8 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                   <Input id="v-weight" type="number" step="0.1" placeholder="65" value={vitals.weightKg} onChange={(e) => setVitals({ ...vitals, weightKg: e.target.value })} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="v-temp">Temperature (°C)</FieldLabel>
-                  <Input id="v-temp" type="number" step="0.1" placeholder="36.5" value={vitals.temperatureC} onChange={(e) => setVitals({ ...vitals, temperatureC: e.target.value })} />
+                  <FieldLabel htmlFor="v-temp">Temperature (°F)</FieldLabel>
+                  <Input id="v-temp" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals({ ...vitals, temperatureC: e.target.value })} />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="v-pulse">Pulse (bpm)</FieldLabel>
@@ -355,6 +440,32 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                 <Field>
                   <FieldLabel htmlFor="v-rr">Respiratory Rate</FieldLabel>
                   <Input id="v-rr" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })} />
+                </Field>
+                <Field className="col-span-2">
+                  <FieldLabel htmlFor="v-status">Medical Status</FieldLabel>
+                  <select
+                    id="v-status"
+                    className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
+                    value={vitals.medicalStatus}
+                    onChange={(e) => setVitals({ ...vitals, medicalStatus: e.target.value })}
+                  >
+                    <option value="">Select status...</option>
+                    <option value="Before Fasting">Before Fasting</option>
+                    <option value="After Fasting">After Fasting</option>
+                    <option value="Before Meals">Before Meals</option>
+                    <option value="After Meals">After Meals</option>
+                    <option value="Before Sleep">Before Sleep</option>
+                    <option value="After Waking Up">After Waking Up</option>
+                    <option value="After Exercise">After Exercise</option>
+                    <option value="At Rest">At Rest</option>
+                    <option value="During Stress">During Stress</option>
+                    <option value="Before Medication">Before Medication</option>
+                    <option value="After Medication">After Medication</option>
+                    <option value="During Menstruation">During Menstruation</option>
+                    <option value="Pregnancy">Pregnancy</option>
+                    <option value="Post Surgery">Post Surgery</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </Field>
               </div>
             </div>

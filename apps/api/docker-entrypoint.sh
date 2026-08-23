@@ -5,19 +5,17 @@ cd /app/apps/api
 
 echo "[entrypoint] Applying database migrations..."
 if ! npx prisma migrate deploy; then
-  echo "[entrypoint] Migration failed — a prior migration attempt likely left the database in a"
-  echo "[entrypoint] failed/partial state (Prisma error P3009)."
-  echo "[entrypoint] Resetting the database and reapplying migrations + seed from scratch..."
+  echo "[entrypoint] Migration failed — resetting database and reapplying..."
   npx prisma migrate reset --force
-  echo "[entrypoint] Starting server..."
-  exec node dist/main.js
 fi
 
-echo "[entrypoint] Seeding database..."
-if ! npx prisma db seed; then
-  echo "[entrypoint] Seed failed — database schema is out of sync with migrations (drift)."
-  echo "[entrypoint] Resetting the database and reapplying migrations + seed from scratch..."
+echo "[entrypoint] Seeding database with demo data (--fresh)..."
+# Run seed directly via ts-node for reliability — bypasses prisma db seed
+# wrapper which can have issues forwarding args in some environments.
+if ! npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts --fresh; then
+  echo "[entrypoint] Seed failed — resetting database and re-seeding from scratch..."
   npx prisma migrate reset --force
+  npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts --fresh
 fi
 
 echo "[entrypoint] Starting server..."

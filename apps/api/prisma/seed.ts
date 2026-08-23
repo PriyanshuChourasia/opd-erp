@@ -156,43 +156,34 @@ function permissionName(action: string, resource: string) {
 
 async function wipeAll() {
   console.log('⚠️  --fresh mode: wiping all tables...');
-  // Order matters: children first (FK-safe)
+  // Delete in FK-safe order: children before parents, no duplicates.
+  // 1. Transactional child records
   await prisma.patientVitals.deleteMany();
   await prisma.patientAllergyRecord.deleteMany();
   await prisma.patientAllergy.deleteMany();
-  await prisma.allergy.deleteMany();
-  await prisma.diagnosis.deleteMany();
-  await prisma.diagnosisSystem.deleteMany();
   await prisma.dispensing.deleteMany();
   await prisma.prescriptionItem.deleteMany();
-  await prisma.prescription.deleteMany();
   await prisma.billItem.deleteMany();
-  await prisma.bill.deleteMany();
   await prisma.queueEntry.deleteMany();
-  await prisma.appointment.deleteMany();
-  await prisma.labOrder.deleteMany();
-  await prisma.radiologyOrder.deleteMany();
-  await prisma.procedureOrder.deleteMany();
-  await prisma.employeeSchedule.deleteMany();
-  await prisma.shift.deleteMany();
-  await prisma.dispensing.deleteMany();
-  await prisma.billItem.deleteMany();
-  await prisma.bill.deleteMany();
-  await prisma.prescriptionItem.deleteMany();
-  await prisma.prescription.deleteMany();
-  await prisma.labOrder.deleteMany();
-  await prisma.radiologyOrder.deleteMany();
-  await prisma.procedureOrder.deleteMany();
-  await prisma.queueEntry.deleteMany();
-  await prisma.appointment.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.rolePermission.deleteMany();
+  // 2. Transactional parent records
+  await prisma.prescription.deleteMany();
+  await prisma.bill.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.labOrder.deleteMany();
+  await prisma.radiologyOrder.deleteMany();
+  await prisma.procedureOrder.deleteMany();
+  // 3. Reference / catalogue records
+  await prisma.employeeSchedule.deleteMany();
+  await prisma.shift.deleteMany();
   await prisma.user.deleteMany();
-  await prisma.patientAllergyRecord.deleteMany();
-  await prisma.patientAllergy.deleteMany();
   await prisma.patient.deleteMany();
   await prisma.doctor.deleteMany();
   await prisma.medicine.deleteMany();
+  await prisma.allergy.deleteMany();
+  await prisma.diagnosis.deleteMany();
+  await prisma.diagnosisSystem.deleteMany();
   await prisma.permission.deleteMany();
   await prisma.role.deleteMany();
   await prisma.address.deleteMany();
@@ -1108,7 +1099,9 @@ const PATIENT_DEMOS = [
       heightCm: 160, weightKg: 52, temperatureC: 98.0, pulseBpm: 68,
       systolicBp: 110, diastolicBp: 70, spo2Percent: 99, respiratoryRate: 14,
     },
-    vitalsHistory: [],
+    vitalsHistory: [
+      { heightCm: 160, weightKg: 54, temperatureC: 98.2, pulseBpm: 70, systolicBp: 112, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 15, daysAgo: 15 },
+    ],
     appointments: [
       { daysAgo: 15, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'Regular gynecology check-up' },
       { daysAgo: 5, doctorIndex: 5, type: 'SPECIALIST', fee: 600, time: '14:00', status: 'COMPLETED', notes: 'Acne treatment follow-up' },
@@ -1197,6 +1190,659 @@ const PATIENT_DEMOS = [
       { daysAgo: 15, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '11:00', status: 'COMPLETED', notes: 'BP medication adjusted — monitor weekly' },
     ],
   },
+  // ── Additional demo patients (batch 2) ──
+  {
+    patient: {
+      firstName: 'Meena', middleName: 'Kumari', lastName: 'Agarwal',
+      patientCode: 'MEENAKUMARI-19780412',
+      contactNo: '9876543230', email: 'meena.agarwal@example.com',
+      dateOfBirth: new Date('1978-04-12'), gender: 'Female', bloodGroup: 'A+',
+      address: '45 Residency Road, Jaipur, Rajasthan', emergencyContact: '9876543231',
+      allergies: ['Penicillin', 'Sulfa'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 158, weightKg: 72, temperatureC: 98.6, pulseBpm: 82,
+      systolicBp: 148, diastolicBp: 92, spo2Percent: 96, respiratoryRate: 18,
+    },
+    vitalsHistory: [
+      { heightCm: 158, weightKg: 75, temperatureC: 99.0, pulseBpm: 86, systolicBp: 155, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 40 },
+      { heightCm: 158, weightKg: 73, temperatureC: 98.4, pulseBpm: 84, systolicBp: 150, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 15 },
+    ],
+    appointments: [
+      { daysAgo: 40, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '10:00', status: 'COMPLETED', notes: 'Cardiology consult — chest pain on exertion' },
+      { daysAgo: 15, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '11:30', status: 'COMPLETED', notes: 'ECG normal — stress test recommended' },
+      { daysAgo: 3, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:00', status: 'COMPLETED', notes: 'General check-up — fatigue and dizziness' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Suresh', middleName: null, lastName: 'Babu',
+      patientCode: 'SURESHBABU-19650819',
+      contactNo: '9876543232', email: 'suresh.babu@example.com',
+      dateOfBirth: new Date('1965-08-19'), gender: 'Male', bloodGroup: 'B+',
+      address: '78 T Nagar, Chennai, Tamil Nadu', emergencyContact: '9876543233',
+      allergies: ['Aspirin'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 170, weightKg: 85, temperatureC: 98.4, pulseBpm: 78,
+      systolicBp: 142, diastolicBp: 88, spo2Percent: 96, respiratoryRate: 17,
+    },
+    vitalsHistory: [
+      { heightCm: 170, weightKg: 88, temperatureC: 98.8, pulseBpm: 80, systolicBp: 148, diastolicBp: 92, spo2Percent: 95, respiratoryRate: 18, daysAgo: 60 },
+      { heightCm: 170, weightKg: 86, temperatureC: 98.6, pulseBpm: 79, systolicBp: 145, diastolicBp: 90, spo2Percent: 96, respiratoryRate: 17, daysAgo: 30 },
+    ],
+    appointments: [
+      { daysAgo: 60, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '09:00', status: 'COMPLETED', notes: 'Back pain — lumbar spondylosis' },
+      { daysAgo: 30, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '10:00', status: 'COMPLETED', notes: 'Physiotherapy started — some improvement' },
+      { daysAgo: 5, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '14:00', status: 'COMPLETED', notes: 'Routine diabetes check' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Kavya', middleName: null, lastName: 'Reddy',
+      patientCode: 'KAVYAREDDY-19980305',
+      contactNo: '9876543234', email: 'kavya.reddy@example.com',
+      dateOfBirth: new Date('1998-03-05'), gender: 'Female', bloodGroup: 'O+',
+      address: '22 Banjara Hills, Hyderabad', emergencyContact: '9876543235',
+      allergies: ['Ibuprofen'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 165, weightKg: 55, temperatureC: 98.2, pulseBpm: 72,
+      systolicBp: 112, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [
+      { heightCm: 165, weightKg: 56, temperatureC: 98.4, pulseBpm: 74, systolicBp: 114, diastolicBp: 73, spo2Percent: 99, respiratoryRate: 15, daysAgo: 12 },
+    ],
+    appointments: [
+      { daysAgo: 12, doctorIndex: 5, type: 'CONSULTATION', fee: 600, time: '14:00', status: 'COMPLETED', notes: 'Acne treatment — isotretinoin started' },
+      { daysAgo: 3, doctorIndex: 5, type: 'FOLLOW_UP', fee: 300, time: '15:00', status: 'COMPLETED', notes: 'Skin improving — continue treatment' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Rakesh', middleName: null, lastName: 'Tiwari',
+      patientCode: 'RAKESHTIWARI-19710630',
+      contactNo: '9876543236', email: 'rakesh.tiwari@example.com',
+      dateOfBirth: new Date('1971-06-30'), gender: 'Male', bloodGroup: 'AB+',
+      address: '112 Civil Lines, Lucknow, UP', emergencyContact: '9876543237',
+      allergies: ['Latex'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 175, weightKg: 90, temperatureC: 98.6, pulseBpm: 84,
+      systolicBp: 152, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 20,
+    },
+    vitalsHistory: [
+      { heightCm: 175, weightKg: 92, temperatureC: 98.8, pulseBpm: 86, systolicBp: 158, diastolicBp: 98, spo2Percent: 94, respiratoryRate: 21, daysAgo: 50 },
+    ],
+    appointments: [
+      { daysAgo: 50, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Cardiology — uncontrolled HTN and diabetes' },
+      { daysAgo: 20, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '10:30', status: 'COMPLETED', notes: 'BP improved with new medication' },
+      { daysAgo: 2, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '11:00', status: 'COMPLETED', notes: 'Blood sugar review — HbA1c 8.1%' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Pooja', middleName: 'Lata', lastName: 'Singh',
+      patientCode: 'POOJALATA-19940918',
+      contactNo: '9876543238', email: 'pooja.singh@example.com',
+      dateOfBirth: new Date('1994-09-18'), gender: 'Female', bloodGroup: 'O-',
+      address: '33 Gomti Nagar, Lucknow, UP', emergencyContact: '9876543239',
+      allergies: [], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 160, weightKg: 62, temperatureC: 98.4, pulseBpm: 76,
+      systolicBp: 118, diastolicBp: 74, spo2Percent: 98, respiratoryRate: 16,
+    },
+    vitalsHistory: [
+      { heightCm: 160, weightKg: 58, temperatureC: 98.2, pulseBpm: 74, systolicBp: 115, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 15, daysAgo: 30 },
+    ],
+    appointments: [
+      { daysAgo: 30, doctorIndex: 3, type: 'SPECIALIST', fee: 700, time: '10:00', status: 'COMPLETED', notes: 'Prenatal check-up — 16 weeks' },
+      { daysAgo: 7, doctorIndex: 3, type: 'FOLLOW_UP', fee: 500, time: '10:30', status: 'COMPLETED', notes: 'Routine antenatal — growth normal' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Arvind', middleName: null, lastName: 'Patel',
+      patientCode: 'ARVINDPATEL-19860214',
+      contactNo: '9876543240', email: 'arvind.patel@example.com',
+      dateOfBirth: new Date('1986-02-14'), gender: 'Male', bloodGroup: 'A-',
+      address: '99 SG Highway, Ahmedabad, Gujarat', emergencyContact: '9876543241',
+      allergies: ['Pollen'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 176, weightKg: 78, temperatureC: 98.0, pulseBpm: 72,
+      systolicBp: 120, diastolicBp: 78, spo2Percent: 98, respiratoryRate: 15,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 8, doctorIndex: 6, type: 'CONSULTATION', fee: 550, time: '11:00', status: 'COMPLETED', notes: 'Chronic sinusitis — CT scan advised' },
+      { daysAgo: 1, doctorIndex: 6, type: 'FOLLOW_UP', fee: 300, time: '14:00', status: 'COMPLETED', notes: 'CT results — mild pansinusitis' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Shanti', middleName: null, lastName: 'Devi',
+      patientCode: 'SHANTIDEVI-19560325',
+      contactNo: '9876543242', email: null,
+      dateOfBirth: new Date('1956-03-25'), gender: 'Female', bloodGroup: 'B-',
+      address: '8 Lake Market, Kolkata, WB', emergencyContact: '9876543243',
+      allergies: ['Iodine'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 148, weightKg: 60, temperatureC: 98.4, pulseBpm: 76,
+      systolicBp: 135, diastolicBp: 82, spo2Percent: 97, respiratoryRate: 17,
+    },
+    vitalsHistory: [
+      { heightCm: 148, weightKg: 62, temperatureC: 98.6, pulseBpm: 78, systolicBp: 140, diastolicBp: 85, spo2Percent: 96, respiratoryRate: 18, daysAgo: 45 },
+    ],
+    appointments: [
+      { daysAgo: 45, doctorIndex: 7, type: 'SPECIALIST', fee: 650, time: '10:00', status: 'COMPLETED', notes: 'Cataract evaluation — Grade 2 NS OU' },
+      { daysAgo: 10, doctorIndex: 7, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Pre-op assessment — surgery scheduled' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Mohammed', middleName: null, lastName: 'Irfan',
+      patientCode: 'MOHAMMEDIRFAN-20010711',
+      contactNo: '9876543244', email: 'irfan.m@example.com',
+      dateOfBirth: new Date('2001-07-11'), gender: 'Male', bloodGroup: 'O+',
+      address: '67 Dharavi Main Road, Mumbai', emergencyContact: '9876543245',
+      allergies: [], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 172, weightKg: 65, temperatureC: 98.0, pulseBpm: 74,
+      systolicBp: 118, diastolicBp: 74, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [
+      { heightCm: 172, weightKg: 64, temperatureC: 98.2, pulseBpm: 76, systolicBp: 120, diastolicBp: 76, spo2Percent: 99, respiratoryRate: 15, daysAgo: 20 },
+    ],
+    appointments: [
+      { daysAgo: 20, doctorIndex: 9, type: 'CONSULTATION', fee: 800, time: '14:00', status: 'COMPLETED', notes: 'Anxiety and insomnia — started on Escitalopram' },
+      { daysAgo: 5, doctorIndex: 9, type: 'FOLLOW_UP', fee: 400, time: '15:00', status: 'COMPLETED', notes: 'Mild improvement — dosage adjusted' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Lakshmi', middleName: null, lastName: 'Devi',
+      patientCode: 'LAKSHMIDEVI-19720520',
+      contactNo: '9876543246', email: 'lakshmi.d@example.com',
+      dateOfBirth: new Date('1972-05-20'), gender: 'Female', bloodGroup: 'A+',
+      address: '15 Ameerpet, Hyderabad', emergencyContact: '9876543247',
+      allergies: ['Shellfish'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 155, weightKg: 68, temperatureC: 98.6, pulseBpm: 80,
+      systolicBp: 160, diastolicBp: 100, spo2Percent: 95, respiratoryRate: 19,
+    },
+    vitalsHistory: [
+      { heightCm: 155, weightKg: 70, temperatureC: 98.8, pulseBpm: 82, systolicBp: 165, diastolicBp: 102, spo2Percent: 94, respiratoryRate: 20, daysAgo: 35 },
+      { heightCm: 155, weightKg: 69, temperatureC: 98.4, pulseBpm: 81, systolicBp: 162, diastolicBp: 100, spo2Percent: 95, respiratoryRate: 19, daysAgo: 10 },
+    ],
+    appointments: [
+      { daysAgo: 35, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Stage 2 hypertension — triple therapy started' },
+      { daysAgo: 10, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '11:00', status: 'COMPLETED', notes: 'BP still elevated — added Spironolactone' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Rajiv', middleName: null, lastName: 'Menon',
+      patientCode: 'RAJIVMENON-19910127',
+      contactNo: '9876543248', email: 'rajiv.menon@example.com',
+      dateOfBirth: new Date('1991-01-27'), gender: 'Male', bloodGroup: 'AB-',
+      address: '42 Vyttila, Ernakulam, Kochi', emergencyContact: '9876543249',
+      allergies: ['Codeine'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 178, weightKg: 80, temperatureC: 98.2, pulseBpm: 70,
+      systolicBp: 122, diastolicBp: 78, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 15, doctorIndex: 8, type: 'SPECIALIST', fee: 1200, time: '10:00', status: 'COMPLETED', notes: 'Tension headaches — MRI normal' },
+      { daysAgo: 2, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:30', status: 'COMPLETED', notes: 'Fever and body ache — viral illness' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Anjum', middleName: null, lastName: 'Begum',
+      patientCode: 'ANJUMBEGUM-19670903',
+      contactNo: '9876543250', email: 'anjum.b@example.com',
+      dateOfBirth: new Date('1967-09-03'), gender: 'Female', bloodGroup: 'B+',
+      address: '28 Moghbazar, Dhaka (residing in Delhi)', emergencyContact: '9876543251',
+      allergies: ['Milk', 'Soy'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 150, weightKg: 65, temperatureC: 98.8, pulseBpm: 82,
+      systolicBp: 140, diastolicBp: 88, spo2Percent: 96, respiratoryRate: 18,
+    },
+    vitalsHistory: [
+      { heightCm: 150, weightKg: 67, temperatureC: 99.0, pulseBpm: 84, systolicBp: 145, diastolicBp: 90, spo2Percent: 95, respiratoryRate: 19, daysAgo: 30 },
+    ],
+    appointments: [
+      { daysAgo: 30, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '10:00', status: 'COMPLETED', notes: 'Diabetes screening — FBS 142' },
+      { daysAgo: 7, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'HbA1c 7.8% — Metformin started' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Deepak', middleName: null, lastName: 'Verma',
+      patientCode: 'DEEPAKVERMA-19830415',
+      contactNo: '9876543252', email: 'deepak.verma@example.com',
+      dateOfBirth: new Date('1983-04-15'), gender: 'Male', bloodGroup: 'O-',
+      address: '56 Sector 15, Gurgaon, Haryana', emergencyContact: '9876543253',
+      allergies: ['Dust', 'Pollen'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 174, weightKg: 82, temperatureC: 98.4, pulseBpm: 78,
+      systolicBp: 128, diastolicBp: 82, spo2Percent: 97, respiratoryRate: 16,
+    },
+    vitalsHistory: [
+      { heightCm: 174, weightKg: 84, temperatureC: 99.2, pulseBpm: 88, systolicBp: 130, diastolicBp: 84, spo2Percent: 96, respiratoryRate: 20, daysAgo: 20 },
+    ],
+    appointments: [
+      { daysAgo: 20, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:00', status: 'COMPLETED', notes: 'Acute bronchitis — cough for 5 days' },
+      { daysAgo: 5, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'Bronchitis resolving — inhaler continued' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Sunita', middleName: null, lastName: 'Joshi',
+      patientCode: 'SUNITAJOSHI-20000612',
+      contactNo: '9876543254', email: 'sunita.joshi@example.com',
+      dateOfBirth: new Date('2000-06-12'), gender: 'Female', bloodGroup: 'A+',
+      address: '18 Dehradun Road, Rishikesh, Uttarakhand', emergencyContact: '9876543255',
+      allergies: [], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 162, weightKg: 54, temperatureC: 98.0, pulseBpm: 72,
+      systolicBp: 110, diastolicBp: 68, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 10, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '09:00', status: 'COMPLETED', notes: 'PCOD evaluation — USG ordered' },
+      { daysAgo: 3, doctorIndex: 3, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'USG confirmed PCOD — Metformin + OCP started' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Prakash', middleName: null, lastName: 'Rao',
+      patientCode: 'PRAKASHRAO-19690228',
+      contactNo: '9876543256', email: 'prakash.rao@example.com',
+      dateOfBirth: new Date('1969-02-28'), gender: 'Male', bloodGroup: 'B+',
+      address: '88 JP Nagar, Bangalore, Karnataka', emergencyContact: '9876543257',
+      allergies: ['Peanuts'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 168, weightKg: 78, temperatureC: 98.6, pulseBpm: 80,
+      systolicBp: 138, diastolicBp: 86, spo2Percent: 97, respiratoryRate: 17,
+    },
+    vitalsHistory: [
+      { heightCm: 168, weightKg: 80, temperatureC: 98.4, pulseBpm: 82, systolicBp: 142, diastolicBp: 88, spo2Percent: 96, respiratoryRate: 18, daysAgo: 25 },
+    ],
+    appointments: [
+      { daysAgo: 25, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '08:00', status: 'COMPLETED', notes: 'Knee osteoarthritis — Grade 3' },
+      { daysAgo: 5, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '09:00', status: 'COMPLETED', notes: 'Viscosupplementation done' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Nisha', middleName: null, lastName: 'Agarwal',
+      patientCode: 'NISHAAGARWAL-19960818',
+      contactNo: '9876543258', email: 'nisha.agarwal@example.com',
+      dateOfBirth: new Date('1996-08-18'), gender: 'Female', bloodGroup: 'O+',
+      address: '7 Lajpat Nagar, New Delhi', emergencyContact: '9876543259',
+      allergies: ['Eggs', 'Wheat'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 164, weightKg: 58, temperatureC: 98.2, pulseBpm: 70,
+      systolicBp: 114, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 14, doctorIndex: 5, type: 'CONSULTATION', fee: 600, time: '12:00', status: 'COMPLETED', notes: 'Eczema flare-up — prescribed topical steroids' },
+      { daysAgo: 4, doctorIndex: 5, type: 'FOLLOW_UP', fee: 300, time: '13:00', status: 'COMPLETED', notes: 'Eczema improving — moisturizer emphasized' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Vijay', middleName: 'Kumar', lastName: 'Malhotra',
+      patientCode: 'VIJAYKUMAR-19771009',
+      contactNo: '9876543260', email: 'vijay.malhotra@example.com',
+      dateOfBirth: new Date('1977-10-09'), gender: 'Male', bloodGroup: 'A-',
+      address: '102 Model Town, Amritsar, Punjab', emergencyContact: '9876543261',
+      allergies: ['Bee Sting'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 180, weightKg: 92, temperatureC: 98.4, pulseBpm: 80,
+      systolicBp: 145, diastolicBp: 92, spo2Percent: 96, respiratoryRate: 18,
+    },
+    vitalsHistory: [
+      { heightCm: 180, weightKg: 95, temperatureC: 98.6, pulseBpm: 82, systolicBp: 150, diastolicBp: 95, spo2Percent: 95, respiratoryRate: 19, daysAgo: 42 },
+      { heightCm: 180, weightKg: 93, temperatureC: 98.4, pulseBpm: 81, systolicBp: 148, diastolicBp: 93, spo2Percent: 96, respiratoryRate: 18, daysAgo: 14 },
+    ],
+    appointments: [
+      { daysAgo: 42, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:30', status: 'COMPLETED', notes: 'Obesity and metabolic syndrome' },
+      { daysAgo: 14, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'Weight loss program — 2kg lost' },
+    ],
+  },
+  // ── Additional demo patients (batch 3) ──
+  {
+    patient: {
+      firstName: 'Chandrika', middleName: null, lastName: 'Menon',
+      patientCode: 'CHANDRIKAMENON-19820917',
+      contactNo: '9876543262', email: 'chandrika.m@example.com',
+      dateOfBirth: new Date('1982-09-17'), gender: 'Female', bloodGroup: 'B+',
+      address: '61 Panampilly Nagar, Kochi, Kerala', emergencyContact: '9876543263',
+      allergies: ['Codeine', 'Ibuprofen'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 162, weightKg: 70, temperatureC: 98.6, pulseBpm: 78,
+      systolicBp: 140, diastolicBp: 90, spo2Percent: 97, respiratoryRate: 17,
+    },
+    vitalsHistory: [
+      { heightCm: 162, weightKg: 73, temperatureC: 98.8, pulseBpm: 80, systolicBp: 148, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 50 },
+      { heightCm: 162, weightKg: 71, temperatureC: 98.4, pulseBpm: 79, systolicBp: 142, diastolicBp: 92, spo2Percent: 97, respiratoryRate: 17, daysAgo: 20 },
+    ],
+    appointments: [
+      { daysAgo: 50, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '10:00', status: 'COMPLETED', notes: 'Migraine + tension headache' },
+      { daysAgo: 20, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Headache frequency reduced' },
+      { daysAgo: 3, doctorIndex: 5, type: 'CONSULTATION', fee: 600, time: '14:00', status: 'COMPLETED', notes: 'Psoriasis flare-up on elbows' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Sanjay', middleName: null, lastName: 'Patil',
+      patientCode: 'SANJAYPATIL-19740510',
+      contactNo: '9876543264', email: 'sanjay.patil@example.com',
+      dateOfBirth: new Date('1974-05-10'), gender: 'Male', bloodGroup: 'O+',
+      address: '44 FC Road, Pune, Maharashtra', emergencyContact: '9876543265',
+      allergies: ['Aspirin', 'Latex'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 172, weightKg: 86, temperatureC: 98.4, pulseBpm: 82,
+      systolicBp: 148, diastolicBp: 92, spo2Percent: 96, respiratoryRate: 18,
+    },
+    vitalsHistory: [
+      { heightCm: 172, weightKg: 89, temperatureC: 98.6, pulseBpm: 84, systolicBp: 155, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 60 },
+      { heightCm: 172, weightKg: 87, temperatureC: 98.4, pulseBpm: 83, systolicBp: 150, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 25 },
+    ],
+    appointments: [
+      { daysAgo: 60, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Cardiology — angina on exertion' },
+      { daysAgo: 25, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '10:00', status: 'COMPLETED', notes: 'TMT positive — cath planned' },
+      { daysAgo: 5, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Post-angiography — 60% LAD' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Divya', middleName: 'Prabha', lastName: 'Rao',
+      patientCode: 'DIVYAPRABHA-19990228',
+      contactNo: '9876543266', email: 'divya.rao@example.com',
+      dateOfBirth: new Date('1999-02-28'), gender: 'Female', bloodGroup: 'A-',
+      address: '12 Koramangala, Bangalore, Karnataka', emergencyContact: '9876543267',
+      allergies: ['Shellfish'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 168, weightKg: 60, temperatureC: 98.0, pulseBpm: 70,
+      systolicBp: 108, diastolicBp: 68, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 18, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'Dysmenorrhea — USG normal' },
+      { daysAgo: 6, doctorIndex: 3, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Pain improved with NSAIDs' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Rajesh', middleName: null, lastName: 'Yadav',
+      patientCode: 'RAJESHYADAV-19690715',
+      contactNo: '9876543268', email: 'rajesh.yadav@example.com',
+      dateOfBirth: new Date('1969-07-15'), gender: 'Male', bloodGroup: 'B-',
+      address: '78 Hazratganj, Lucknow, UP', emergencyContact: '9876543269',
+      allergies: ['Peanuts'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 166, weightKg: 82, temperatureC: 98.8, pulseBpm: 84,
+      systolicBp: 155, diastolicBp: 98, spo2Percent: 95, respiratoryRate: 20,
+    },
+    vitalsHistory: [
+      { heightCm: 166, weightKg: 85, temperatureC: 99.0, pulseBpm: 86, systolicBp: 160, diastolicBp: 100, spo2Percent: 94, respiratoryRate: 21, daysAgo: 45 },
+      { heightCm: 166, weightKg: 83, temperatureC: 98.6, pulseBpm: 85, systolicBp: 158, diastolicBp: 99, spo2Percent: 95, respiratoryRate: 20, daysAgo: 12 },
+    ],
+    appointments: [
+      { daysAgo: 45, doctorIndex: 8, type: 'SPECIALIST', fee: 1200, time: '10:00', status: 'COMPLETED', notes: 'Stroke evaluation — TIA history' },
+      { daysAgo: 12, doctorIndex: 8, type: 'FOLLOW_UP', fee: 600, time: '11:00', status: 'COMPLETED', notes: 'MRI brain — lacunar infarcts' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Aisha', middleName: null, lastName: 'Khan',
+      patientCode: 'AISHAKHAN-20031201',
+      contactNo: '9876543270', email: 'aisha.khan@example.com',
+      dateOfBirth: new Date('2003-12-01'), gender: 'Female', bloodGroup: 'O-',
+      address: '23 MG Road, Indore, MP', emergencyContact: '9876543271',
+      allergies: ['Sulfa', 'Pollen'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 160, weightKg: 52, temperatureC: 98.2, pulseBpm: 72,
+      systolicBp: 108, diastolicBp: 70, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 22, doctorIndex: 9, type: 'CONSULTATION', fee: 800, time: '14:00', status: 'COMPLETED', notes: 'Depression screening — PHQ-9 14' },
+      { daysAgo: 8, doctorIndex: 9, type: 'FOLLOW_UP', fee: 400, time: '15:00', status: 'COMPLETED', notes: 'Starting Sertraline 50mg' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Gopal', middleName: 'Krishna', lastName: 'Iyer',
+      patientCode: 'GOPALKRISHNA-19620419',
+      contactNo: '9876543272', email: 'gopal.iyer@example.com',
+      dateOfBirth: new Date('1962-04-19'), gender: 'Male', bloodGroup: 'AB+',
+      address: '9 T Nagar, Chennai, Tamil Nadu', emergencyContact: '9876543273',
+      allergies: [], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 165, weightKg: 72, temperatureC: 98.6, pulseBpm: 76,
+      systolicBp: 132, diastolicBp: 84, spo2Percent: 97, respiratoryRate: 16,
+    },
+    vitalsHistory: [
+      { heightCm: 165, weightKg: 74, temperatureC: 98.4, pulseBpm: 78, systolicBp: 138, diastolicBp: 86, spo2Percent: 96, respiratoryRate: 17, daysAgo: 40 },
+    ],
+    appointments: [
+      { daysAgo: 40, doctorIndex: 7, type: 'SPECIALIST', fee: 650, time: '10:00', status: 'COMPLETED', notes: 'Glaucoma screening — elevated IOP' },
+      { daysAgo: 10, doctorIndex: 7, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Timolol started — IOP 18mmHg' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Harpreet', middleName: null, lastName: 'Singh',
+      patientCode: 'HARPREETSINGH-19870830',
+      contactNo: '9876543274', email: 'harpreet.s@example.com',
+      dateOfBirth: new Date('1987-08-30'), gender: 'Male', bloodGroup: 'A+',
+      address: '55 Sector 22, Chandigarh', emergencyContact: '9876543275',
+      allergies: ['Dust', 'Milk'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 182, weightKg: 88, temperatureC: 98.0, pulseBpm: 68,
+      systolicBp: 118, diastolicBp: 76, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [
+      { heightCm: 182, weightKg: 89, temperatureC: 100.2, pulseBpm: 88, systolicBp: 120, diastolicBp: 78, spo2Percent: 98, respiratoryRate: 18, daysAgo: 15 },
+    ],
+    appointments: [
+      { daysAgo: 15, doctorIndex: 6, type: 'CONSULTATION', fee: 550, time: '11:00', status: 'COMPLETED', notes: 'Recurrent sore throat — tonsillitis' },
+      { daysAgo: 3, doctorIndex: 6, type: 'FOLLOW_UP', fee: 300, time: '14:00', status: 'COMPLETED', notes: 'Improved — ENT review in 1 month' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Shobha', middleName: null, lastName: 'Devi',
+      patientCode: 'SHOBHADEVI-19580625',
+      contactNo: '9876543276', email: 'shobha.d@example.com',
+      dateOfBirth: new Date('1958-06-25'), gender: 'Female', bloodGroup: 'B+',
+      address: '33 Vasant Kunj, New Delhi', emergencyContact: '9876543277',
+      allergies: ['Penicillin', 'Eggs'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 150, weightKg: 62, temperatureC: 98.8, pulseBpm: 80,
+      systolicBp: 160, diastolicBp: 100, spo2Percent: 95, respiratoryRate: 20,
+    },
+    vitalsHistory: [
+      { heightCm: 150, weightKg: 64, temperatureC: 99.2, pulseBpm: 84, systolicBp: 168, diastolicBp: 104, spo2Percent: 94, respiratoryRate: 22, daysAgo: 55 },
+      { heightCm: 150, weightKg: 63, temperatureC: 98.8, pulseBpm: 82, systolicBp: 162, diastolicBp: 102, spo2Percent: 95, respiratoryRate: 20, daysAgo: 20 },
+    ],
+    appointments: [
+      { daysAgo: 55, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Uncontrolled HTN — ER visit history' },
+      { daysAgo: 20, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '10:30', status: 'COMPLETED', notes: 'BP improving with triple therapy' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Aditya', middleName: null, lastName: 'Sharma',
+      patientCode: 'ADITYASHARMA-20000915',
+      contactNo: '9876543278', email: 'aditya.s@example.com',
+      dateOfBirth: new Date('2000-09-15'), gender: 'Male', bloodGroup: 'O+',
+      address: '17 Malviya Nagar, Jaipur, Rajasthan', emergencyContact: '9876543279',
+      allergies: ['Latex'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 176, weightKg: 70, temperatureC: 98.0, pulseBpm: 72,
+      systolicBp: 115, diastolicBp: 74, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [
+      { heightCm: 176, weightKg: 71, temperatureC: 98.2, pulseBpm: 74, systolicBp: 116, diastolicBp: 75, spo2Percent: 99, respiratoryRate: 14, daysAgo: 12 },
+    ],
+    appointments: [
+      { daysAgo: 12, doctorIndex: 2, type: 'CONSULTATION', fee: 800, time: '09:00', status: 'COMPLETED', notes: 'ACL tear — sports injury' },
+      { daysAgo: 2, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '10:00', status: 'COMPLETED', notes: 'Brace fitted — physiotherapy advised' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Kamala', middleName: null, lastName: 'Nair',
+      patientCode: 'KAMALANAIR-19710308',
+      contactNo: '9876543280', email: 'kamala.nair@example.com',
+      dateOfBirth: new Date('1971-03-08'), gender: 'Female', bloodGroup: 'AB-',
+      address: '48 MG Road, Thiruvananthapuram, Kerala', emergencyContact: '9876543281',
+      allergies: ['Soy', 'Wheat'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 156, weightKg: 66, temperatureC: 98.4, pulseBpm: 76,
+      systolicBp: 135, diastolicBp: 86, spo2Percent: 97, respiratoryRate: 16,
+    },
+    vitalsHistory: [
+      { heightCm: 156, weightKg: 68, temperatureC: 98.6, pulseBpm: 78, systolicBp: 140, diastolicBp: 88, spo2Percent: 96, respiratoryRate: 17, daysAgo: 35 },
+    ],
+    appointments: [
+      { daysAgo: 35, doctorIndex: 3, type: 'SPECIALIST', fee: 700, time: '09:00', status: 'COMPLETED', notes: 'Menorrhagia — USG shows fibroids' },
+      { daysAgo: 8, doctorIndex: 3, type: 'FOLLOW_UP', fee: 500, time: '10:00', status: 'COMPLETED', notes: 'Conservative management — iron tabs' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Manoj', middleName: null, lastName: 'Tripathi',
+      patientCode: 'MANOJTRIPATHI-19800112',
+      contactNo: '9876543282', email: 'manoj.t@example.com',
+      dateOfBirth: new Date('1980-01-12'), gender: 'Male', bloodGroup: 'B+',
+      address: '89 Mahatma Gandhi Road, Varanasi, UP', emergencyContact: '9876543283',
+      allergies: ['Iodine', 'Shellfish'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 170, weightKg: 78, temperatureC: 98.6, pulseBpm: 80,
+      systolicBp: 142, diastolicBp: 90, spo2Percent: 96, respiratoryRate: 17,
+    },
+    vitalsHistory: [
+      { heightCm: 170, weightKg: 80, temperatureC: 98.8, pulseBpm: 82, systolicBp: 148, diastolicBp: 92, spo2Percent: 95, respiratoryRate: 18, daysAgo: 30 },
+    ],
+    appointments: [
+      { daysAgo: 30, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:00', status: 'COMPLETED', notes: 'GERD — persistent acid reflux' },
+      { daysAgo: 7, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'PPI working — continue 4 weeks' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Rekha', middleName: null, lastName: 'Joshi',
+      patientCode: 'REKHAJOSHI-19850704',
+      contactNo: '9876543284', email: 'rekha.joshi@example.com',
+      dateOfBirth: new Date('1985-07-04'), gender: 'Female', bloodGroup: 'A+',
+      address: '26 Somajiguda, Hyderabad, Telangana', emergencyContact: '9876543285',
+      allergies: ['Bee Sting'], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 164, weightKg: 58, temperatureC: 98.2, pulseBpm: 72,
+      systolicBp: 112, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [],
+    appointments: [
+      { daysAgo: 16, doctorIndex: 1, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'Child fever — viral illness' },
+      { daysAgo: 4, doctorIndex: 1, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Child recovered' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Vijay', middleName: null, lastName: 'Patel',
+      patientCode: 'VIJAYPATEL-19760322',
+      contactNo: '9876543286', email: 'vijay.patel@example.com',
+      dateOfBirth: new Date('1976-03-22'), gender: 'Male', bloodGroup: 'O-',
+      address: '37 CG Road, Ahmedabad, Gujarat', emergencyContact: '9876543287',
+      allergies: ['Penicillin'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 174, weightKg: 84, temperatureC: 98.4, pulseBpm: 80,
+      systolicBp: 145, diastolicBp: 92, spo2Percent: 96, respiratoryRate: 17,
+    },
+    vitalsHistory: [
+      { heightCm: 174, weightKg: 86, temperatureC: 98.6, pulseBpm: 82, systolicBp: 150, diastolicBp: 94, spo2Percent: 95, respiratoryRate: 18, daysAgo: 35 },
+    ],
+    appointments: [
+      { daysAgo: 35, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:30', status: 'COMPLETED', notes: 'Hypothyroidism — TSH elevated' },
+      { daysAgo: 7, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'Levothyroxine started' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Sunita', middleName: null, lastName: 'Pandey',
+      patientCode: 'SUNITAPANDEY-19930518',
+      contactNo: '9876543288', email: 'sunita.pandey@example.com',
+      dateOfBirth: new Date('1993-05-18'), gender: 'Female', bloodGroup: 'B-',
+      address: '19 Civil Lines, Allahabad, UP', emergencyContact: '9876543289',
+      allergies: [], isFollowUp: false,
+    },
+    vitals: {
+      heightCm: 158, weightKg: 55, temperatureC: 98.0, pulseBpm: 70,
+      systolicBp: 106, diastolicBp: 66, spo2Percent: 99, respiratoryRate: 14,
+    },
+    vitalsHistory: [
+      { heightCm: 158, weightKg: 57, temperatureC: 98.2, pulseBpm: 72, systolicBp: 108, diastolicBp: 68, spo2Percent: 99, respiratoryRate: 15, daysAgo: 20 },
+    ],
+    appointments: [
+      { daysAgo: 20, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'PCOD — irregular periods' },
+      { daysAgo: 5, doctorIndex: 3, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Hormonal panel results reviewed' },
+    ],
+  },
+  {
+    patient: {
+      firstName: 'Ashok', middleName: null, lastName: 'Gupta',
+      patientCode: 'ASHOKGUPTA-19631130',
+      contactNo: '9876543290', email: 'ashok.gupta@example.com',
+      dateOfBirth: new Date('1963-11-30'), gender: 'Male', bloodGroup: 'A-',
+      address: '56 Lajpat Nagar, New Delhi', emergencyContact: '9876543291',
+      allergies: ['Aspirin', 'Codeine'], isFollowUp: true,
+    },
+    vitals: {
+      heightCm: 168, weightKg: 76, temperatureC: 98.6, pulseBpm: 78,
+      systolicBp: 138, diastolicBp: 88, spo2Percent: 97, respiratoryRate: 16,
+    },
+    vitalsHistory: [
+      { heightCm: 168, weightKg: 78, temperatureC: 98.4, pulseBpm: 80, systolicBp: 142, diastolicBp: 90, spo2Percent: 96, respiratoryRate: 17, daysAgo: 50 },
+      { heightCm: 168, weightKg: 77, temperatureC: 98.6, pulseBpm: 79, systolicBp: 140, diastolicBp: 89, spo2Percent: 97, respiratoryRate: 16, daysAgo: 18 },
+    ],
+    appointments: [
+      { daysAgo: 50, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '08:00', status: 'COMPLETED', notes: 'Frozen shoulder — right' },
+      { daysAgo: 18, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '09:00', status: 'COMPLETED', notes: 'Physiotherapy + intra-articular injection' },
+    ],
+  },
 ];
 
 // Appointment/queue history seeding was removed — it cluttered the live
@@ -1238,6 +1884,76 @@ const PRESCRIPTION_DEMOS = [
   { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Stage 2 hypertension. Increase medication dose. Follow up in 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
   { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 15, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'Diet + exercise. Monitor fasting glucose.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '30 days', qty: 1 }] },
   { patientPhone: '9876543228', doctorIdx: 6, daysAgo: 45, diagnosis: 'Chronic Sinusitis', notes: 'Nasal saline irrigation. Complete antibiotic course.', status: 'DISPENSED' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '10 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
+  // Patient: Meena Kumari Agarwal (9876543230)
+  { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 0, diagnosis: 'Coronary Artery Disease', notes: 'Start dual antiplatelet. Low-fat diet.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 3, diagnosis: 'Iron Deficiency Anemia', notes: 'Take iron on empty stomach.', status: 'DISPENSED' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '60 days', qty: 2 }, { medicineName: 'Vitamin C', dosage: '1-0-0', duration: '60 days', qty: 2 }] },
+  // Patient: Suresh Babu (9876543232)
+  { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 0, diagnosis: 'Cervical Spondylosis', notes: 'Physiotherapy + ergonomics.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Pregabalin', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
+  { patientPhone: '9876543232', doctorIdx: 0, daysAgo: 5, diagnosis: 'Dyslipidemia', notes: 'Low-fat diet. Walk 30 min daily.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
+  // Patient: Kavya Reddy (9876543234)
+  { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 0, diagnosis: 'Acne Vulgaris', notes: 'Isotretinoin — avoid sun. Monthly LFT.', status: 'ACTIVE' as const, items: [{ medicineName: 'Isotretinoin', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Clotrimazole 1% Cream', dosage: 'Apply locally HS', duration: '30 days', qty: 1 }] },
+  // Patient: Rakesh Tiwari (9876543236)
+  { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 2, diagnosis: 'Congestive Heart Failure', notes: 'Fluid restriction. Daily weight.', status: 'ACTIVE' as const, items: [{ medicineName: 'Furosemide', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Spironolactone', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Ramipril', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543236', doctorIdx: 0, daysAgo: 2, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'HbA1c 8.1% — optimize control.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Glimepiride', dosage: '1-0-0', duration: '90 days', qty: 2 }] },
+  // Patient: Pooja Lata Singh (9876543238)
+  { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 0, diagnosis: 'Pregnancy - Routine Antenatal Care', notes: 'Continue iron and calcium. Next visit 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Folic Acid', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  // Patient: Arvind Patel (9876543240)
+  { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 1, diagnosis: 'Chronic Sinusitis', notes: 'Complete course. Nasal irrigation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
+  // Patient: Shanti Devi (9876543242)
+  { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 0, diagnosis: 'Cataract', notes: 'Pre-op drops. Surgery scheduled next week.', status: 'ACTIVE' as const, items: [{ medicineName: 'Moxifloxacin Eye Drops', dosage: '1 drop TID', duration: '7 days', qty: 1 }, { medicineName: 'Timolol Eye Drops', dosage: '1 drop BD', duration: '7 days', qty: 1 }] },
+  // Patient: Mohammed Irfan (9876543244)
+  { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 5, diagnosis: 'Generalized Anxiety Disorder', notes: 'Take at bedtime. Review in 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Clonazepam', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
+  // Patient: Lakshmi Devi (9876543246)
+  { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Resistant HTN. Monitor K+ with Spironolactone.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Spironolactone', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 10, diagnosis: 'Dyslipidemia', notes: 'High-dose statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
+  // Patient: Rajiv Menon (9876543248)
+  { patientPhone: '9876543248', doctorIdx: 8, daysAgo: 15, diagnosis: 'Headache - Tension Type', notes: 'Stress management. Paracetamol SOS.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543248', doctorIdx: 0, daysAgo: 2, diagnosis: 'Influenza', notes: 'Oseltamivir if within 48h. Rest fluids.', status: 'DISPENSED' as const, items: [{ medicineName: 'Oseltamivir', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }] },
+  // Patient: Anjum Begum (9876543250)
+  { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 0, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'HbA1c 7.8%. Diet + exercise + Metformin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
+  // Patient: Deepak Verma (9876543252)
+  { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 5, diagnosis: 'Acute Bronchitis', notes: 'Inhaler PRN. Complete course.', status: 'DISPENSED' as const, items: [{ medicineName: 'Salbutamol Inhaler', dosage: '1 puff PRN', duration: '14 days', qty: 1 }, { medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '10 days', qty: 1 }] },
+  // Patient: Sunita Joshi (9876543254)
+  { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 0, diagnosis: 'Polycystic Ovarian Syndrome', notes: 'OCP + Metformin. Lifestyle modification.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Dydrogesterone', dosage: '1-0-0', duration: '10 days', qty: 3 }] },
+  // Patient: Prakash Rao (9876543256)
+  { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 0, diagnosis: 'Osteoarthritis - Knee', notes: 'Post-injection care. Weight management.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
+  // Patient: Nisha Agarwal (9876543258)
+  { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 0, diagnosis: 'Eczema / Atopic Dermatitis', notes: 'Emollients. Avoid triggers.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mometasone 0.1% Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
+  // Patient: Vijay Kumar Malhotra (9876543260)
+  { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 0, diagnosis: 'Obesity', notes: 'Diet plan + exercise. Follow up monthly.', status: 'ACTIVE' as const, items: [{ medicineName: 'Orlistat', dosage: '1-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 14, diagnosis: 'Essential Hypertension', notes: 'Lifestyle changes + medication.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Losartan', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  // Patient: Chandrika Menon (9876543262)
+  { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 0, diagnosis: 'Migraine', notes: 'Prophylaxis with Amitriptyline. Avoid triggers.', status: 'ACTIVE' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1 SOS', duration: '5 days', qty: 1 }, { medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543262', doctorIdx: 5, daysAgo: 3, diagnosis: 'Psoriasis', notes: 'Topical steroids + moisturizer.', status: 'ACTIVE' as const, items: [{ medicineName: 'Betamethasone Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
+  // Patient: Sanjay Patil (9876543264)
+  { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 0, diagnosis: 'Coronary Artery Disease', notes: 'Post-angiography. Dual antiplatelet + statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 5, diagnosis: 'Coronary Artery Disease', notes: 'Pre-PCI medications.', status: 'DISPENSED' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '5 days', qty: 1 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '5 days', qty: 1 }] },
+  // Patient: Divya Prabha Rao (9876543266)
+  { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 0, diagnosis: 'Dysmenorrhea', notes: 'NSAIDs during periods. Heat therapy.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mefenamic Acid', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
+  // Patient: Rajesh Yadav (9876543268)
+  { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 0, diagnosis: 'Cerebrovascular Accident (Stroke)', notes: 'Secondary prevention. Dual antiplatelet + statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '21 days', qty: 1 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
+  // Patient: Aisha Khan (9876543270)
+  { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 0, diagnosis: 'Major Depressive Disorder', notes: 'SSRI started. Review in 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Sertraline', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
+  // Patient: Gopal Krishna Iyer (9876543272)
+  { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 0, diagnosis: 'Glaucoma', notes: 'Timolol eye drops. Monitor IOP monthly.', status: 'ACTIVE' as const, items: [{ medicineName: 'Timolol Eye Drops', dosage: '1 drop BD', duration: '30 days', qty: 1 }] },
+  // Patient: Harpreet Singh (9876543274)
+  { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 0, diagnosis: 'Tonsillitis', notes: 'Antibiotics. Tonsillectomy if recurrent.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '10 days', qty: 1 }, { medicineName: 'Paracetamol', dosage: '1-0-1 SOS', duration: '5 days', qty: 1 }] },
+  // Patient: Shobha Devi (9876543276)
+  { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Resistant HTN. BP still elevated.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Furosemide', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
+  // Patient: Aditya Sharma (9876543278)
+  { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 0, diagnosis: 'Ankle Sprain', notes: 'RICE + physiotherapy. Follow up 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Ibuprofen', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Diclofenac', dosage: 'Apply locally TID', duration: '10 days', qty: 1 }] },
+  // Patient: Kamala Nair (9876543280)
+  { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 0, diagnosis: 'Uterine Fibroids', notes: 'Conservative. Iron supplementation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '60 days', qty: 2 }, { medicineName: 'Tranexamic Acid', dosage: '1-0-1', duration: '5 days', qty: 1 }] },
+  // Patient: Manoj Tripathi (9876543282)
+  { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 0, diagnosis: 'GERD', notes: 'PPI 4 weeks. Lifestyle modifications.', status: 'ACTIVE' as const, items: [{ medicineName: 'Pantoprazole', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Domperidone', dosage: '1-0-1', duration: '14 days', qty: 1 }] },
+  // Patient: Rekha Joshi (9876543284)
+  { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 0, diagnosis: 'Chickenpox', notes: 'Keep hydrated. Calamine for itch.', status: 'ACTIVE' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Calamine Lotion', dosage: 'Apply topically TID', duration: '7 days', qty: 1 }] },
+  // Patient: Vijay Patel (9876543286)
+  { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 0, diagnosis: 'Hypothyroidism', notes: 'Levothyroxine on empty stomach. Recheck TSH in 6 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Levothyroxine', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
+  // Patient: Sunita Pandey (9876543288)
+  { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 0, diagnosis: 'Polycystic Ovarian Syndrome', notes: 'OCP + lifestyle. Recheck hormones in 3 months.', status: 'ACTIVE' as const, items: [{ medicineName: 'Dydrogesterone', dosage: '1-0-0', duration: '10 days', qty: 3 }, { medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
+  // Patient: Ashok Gupta (9876543290)
+  { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 0, diagnosis: 'Frozen Shoulder', notes: 'Physiotherapy + NSAIDs. Intra-articular injection.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Pregabalin', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
 ];
 
 async function seedPatientsWithHistory(doctorRows: Doctor[]) {
@@ -2138,6 +2854,85 @@ async function seedAppointments(doctorRows: Doctor[]) {
     { patientPhone: '9876543226', doctorIdx: 7, daysAgo: 10, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Vision check — mild myopia detected' },
     { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 45, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology consult — uncontrolled hypertension' },
     { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 15, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP medication adjusted — monitor weekly' },
+    // ── Batch 2 completed appointments ──
+    { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 40, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology — chest pain on exertion' },
+    { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 15, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Stress test recommended' },
+    { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 3, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'General check-up — fatigue' },
+    { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 60, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Back pain — spondylosis' },
+    { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 30, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Physiotherapy started' },
+    { patientPhone: '9876543232', doctorIdx: 0, daysAgo: 5, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes check' },
+    { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 12, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Acne treatment started' },
+    { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Skin improving' },
+    { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 50, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'CHF evaluation' },
+    { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 20, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP improved' },
+    { patientPhone: '9876543236', doctorIdx: 0, daysAgo: 2, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'HbA1c review' },
+    { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 30, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Prenatal 16 weeks' },
+    { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 7, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Routine antenatal' },
+    { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 8, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'Chronic sinusitis' },
+    { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 1, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'CT results reviewed' },
+    { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 45, type: 'SPECIALIST', fee: 650, status: 'COMPLETED', notes: 'Cataract evaluation' },
+    { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 10, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Pre-op assessment' },
+    { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 20, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'Anxiety and insomnia' },
+    { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 5, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Dosage adjusted' },
+    { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 35, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Resistant HTN' },
+    { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 10, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Added Spironolactone' },
+    { patientPhone: '9876543248', doctorIdx: 8, daysAgo: 15, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Tension headaches' },
+    { patientPhone: '9876543248', doctorIdx: 0, daysAgo: 2, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Viral fever' },
+    { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 30, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes screening' },
+    { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'HbA1c 7.8%' },
+    { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 20, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Acute bronchitis' },
+    { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 5, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Bronchitis resolving' },
+    { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 10, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'PCOD evaluation' },
+    { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'USG confirmed PCOD' },
+    { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 25, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Knee OA Grade 3' },
+    { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 5, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Viscosupplementation' },
+    { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 14, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Eczema flare-up' },
+    { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 4, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Eczema improving' },
+    { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 42, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Obesity consult' },
+    { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 14, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Weight loss 2kg' },
+    // ── Batch 3 completed appointments ──
+    { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 50, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Migraine evaluation' },
+    { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 20, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Headache frequency reduced' },
+    { patientPhone: '9876543262', doctorIdx: 5, daysAgo: 3, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Psoriasis flare-up' },
+    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 60, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Angina evaluation' },
+    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 25, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'TMT positive' },
+    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 5, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Post-angiography' },
+    { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 18, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Dysmenorrhea' },
+    { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 6, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Pain improved' },
+    { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 45, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Stroke evaluation' },
+    { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 12, type: 'FOLLOW_UP', fee: 600, status: 'COMPLETED', notes: 'MRI review' },
+    { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 22, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'Depression screening' },
+    { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 8, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'SSRI started' },
+    { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 40, type: 'SPECIALIST', fee: 650, status: 'COMPLETED', notes: 'Glaucoma screening' },
+    { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 10, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Timolol started' },
+    { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 15, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'Recurrent tonsillitis' },
+    { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Improved' },
+    { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 55, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Uncontrolled HTN' },
+    { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 20, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP improving' },
+    { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 12, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'ACL tear' },
+    { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Brace fitted' },
+    { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 35, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Menorrhagia eval' },
+    { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 8, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Conservative mgmt' },
+    { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 30, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'GERD eval' },
+    { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'PPI working' },
+    { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 16, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Child fever' },
+    { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 4, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Child recovered' },
+    { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 35, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Hypothyroid eval' },
+    { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Levothyroxine started' },
+    { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 20, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'PCOD eval' },
+    { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 5, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Hormones reviewed' },
+    { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 50, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Frozen shoulder eval' },
+    { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 18, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Physiotherapy started' },
+    // ── Cancelled and No-Show appointments ──
+    { patientPhone: '9876543262', doctorIdx: 9, daysAgo: 10, type: 'CONSULTATION', fee: 800, status: 'CANCELLED', notes: 'Patient cancelled — personal reasons' },
+    { patientPhone: '9876543270', doctorIdx: 5, daysAgo: 15, type: 'CONSULTATION', fee: 600, status: 'CANCELLED', notes: 'Patient cancelled — felt better' },
+    { patientPhone: '9876543276', doctorIdx: 0, daysAgo: 8, type: 'FOLLOW_UP', fee: 300, status: 'NO_SHOW', notes: 'Patient did not attend' },
+    { patientPhone: '9876543284', doctorIdx: 6, daysAgo: 12, type: 'CONSULTATION', fee: 550, status: 'NO_SHOW', notes: 'Patient did not attend' },
+    { patientPhone: '9876543288', doctorIdx: 5, daysAgo: 18, type: 'CONSULTATION', fee: 600, status: 'RESCHEDULED', notes: 'Rescheduled to later date' },
+    { patientPhone: '9876543264', doctorIdx: 0, daysAgo: 15, type: 'CONSULTATION', fee: 500, status: 'CANCELLED', notes: 'Doctor unavailable — rescheduled' },
+    // ── Confirmed / Checked-In appointments ──
+    { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 1, type: 'CONSULTATION', fee: 500, status: 'CONFIRMED', notes: 'General check-up confirmed' },
+    { patientPhone: '9876543252', doctorIdx: 2, daysAgo: 1, type: 'SPECIALIST', fee: 800, status: 'CHECKED_IN', notes: 'Checked in for ortho consult' },
   ];
 
   const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
@@ -2177,6 +2972,32 @@ async function seedAppointments(doctorRows: Doctor[]) {
     { patientPhone: '9876543224', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
     { patientPhone: '9876543226', doctorIdx: 7, daysAhead: 2, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Glasses fitting' },
     { patientPhone: '9876543228', doctorIdx: 4, daysAhead: 1, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
+    // ── Batch 2 upcoming appointments ──
+    { patientPhone: '9876543230', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiology review' },
+    { patientPhone: '9876543232', doctorIdx: 2, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Back pain check' },
+    { patientPhone: '9876543234', doctorIdx: 5, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Acne review' },
+    { patientPhone: '9876543236', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'CHF follow-up' },
+    { patientPhone: '9876543238', doctorIdx: 3, daysAhead: 5, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Prenatal 20 weeks' },
+    { patientPhone: '9876543242', doctorIdx: 7, daysAhead: 3, type: 'SPECIALIST', fee: 650, status: 'SCHEDULED', notes: 'Cataract surgery' },
+    { patientPhone: '9876543244', doctorIdx: 9, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Anxiety review' },
+    { patientPhone: '9876543246', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
+    { patientPhone: '9876543250', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
+    { patientPhone: '9876543254', doctorIdx: 3, daysAhead: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
+    { patientPhone: '9876543256', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Knee review' },
+    { patientPhone: '9876543260', doctorIdx: 0, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Weight check' },
+    // ── Batch 3 upcoming ──
+    { patientPhone: '9876543262', doctorIdx: 5, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Psoriasis review' },
+    { patientPhone: '9876543264', doctorIdx: 4, daysAhead: 2, type: 'SPECIALIST', fee: 1000, status: 'SCHEDULED', notes: 'Pre-PCI assessment' },
+    { patientPhone: '9876543268', doctorIdx: 8, daysAhead: 4, type: 'FOLLOW_UP', fee: 600, status: 'SCHEDULED', notes: 'Stroke secondary prevention' },
+    { patientPhone: '9876543270', doctorIdx: 9, daysAhead: 3, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'SSRI review' },
+    { patientPhone: '9876543272', doctorIdx: 7, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'IOP recheck' },
+    { patientPhone: '9876543276', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
+    { patientPhone: '9876543278', doctorIdx: 2, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'ACL rehab check' },
+    { patientPhone: '9876543280', doctorIdx: 3, daysAhead: 6, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Fibroid review' },
+    { patientPhone: '9876543282', doctorIdx: 0, daysAhead: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PPI review' },
+    { patientPhone: '9876543286', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'TSH recheck' },
+    { patientPhone: '9876543288', doctorIdx: 3, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
+    { patientPhone: '9876543290', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Frozen shoulder rehab' },
   ];
 
   for (const a of upcomingAppts) {
@@ -2214,6 +3035,24 @@ async function seedAppointments(doctorRows: Doctor[]) {
     { patientPhone: '9876543226', doctorIdx: 7, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Vision check' },
     { patientPhone: '9876543218', doctorIdx: 8, type: 'FOLLOW_UP', fee: 600, status: 'SCHEDULED', notes: 'Headache follow-up' },
     { patientPhone: '9876543210', doctorIdx: 9, type: 'CONSULTATION', fee: 800, status: 'SCHEDULED', notes: 'Anxiety session' },
+    // ── Batch 2 today appointments ──
+    { patientPhone: '9876543230', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiac follow-up' },
+    { patientPhone: '9876543236', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'CHF review' },
+    { patientPhone: '9876543246', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Resistant HTN' },
+    { patientPhone: '9876543250', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
+    { patientPhone: '9876543242', doctorIdx: 7, type: 'SPECIALIST', fee: 650, status: 'SCHEDULED', notes: 'Pre-op drops check' },
+    { patientPhone: '9876543260', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'IN_PROGRESS', notes: 'Weight management' },
+    // ── Batch 3 today appointments ──
+    { patientPhone: '9876543262', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Migraine follow-up' },
+    { patientPhone: '9876543264', doctorIdx: 4, type: 'SPECIALIST', fee: 1000, status: 'SCHEDULED', notes: 'Pre-PCI assessment' },
+    { patientPhone: '9876543268', doctorIdx: 8, type: 'FOLLOW_UP', fee: 600, status: 'IN_PROGRESS', notes: 'Stroke follow-up' },
+    { patientPhone: '9876543270', doctorIdx: 9, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Depression review' },
+    { patientPhone: '9876543272', doctorIdx: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Glaucoma check' },
+    { patientPhone: '9876543276', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
+    { patientPhone: '9876543280', doctorIdx: 3, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Fibroid review' },
+    { patientPhone: '9876543286', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Thyroid recheck' },
+    { patientPhone: '9876543288', doctorIdx: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
+    { patientPhone: '9876543290', doctorIdx: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Frozen shoulder check' },
   ];  for (let i = 0; i < todayAppts.length; i++) {
     const a = todayAppts[i];
     const patient = patientByPhone.get(a.patientPhone);
@@ -2277,6 +3116,37 @@ async function seedQueueEntries(doctorRows: Doctor[]) {
     { patientPhone: '9876543218', doctorIdx: 8, token: 'T011', status: 'WAITING' },
     // Dr. Anjali Desai (idx 9) — Psychiatry
     { patientPhone: '9876543210', doctorIdx: 9, token: 'T012', status: 'WAITING' },
+    // ── Batch 2 queue entries ──
+    { patientPhone: '9876543230', doctorIdx: 4, token: 'T013', status: 'WAITING' },
+    { patientPhone: '9876543236', doctorIdx: 4, token: 'T014', status: 'WAITING' },
+    { patientPhone: '9876543246', doctorIdx: 4, token: 'T015', status: 'WAITING' },
+    { patientPhone: '9876543250', doctorIdx: 0, token: 'T016', status: 'WAITING' },
+    { patientPhone: '9876543242', doctorIdx: 7, token: 'T017', status: 'WAITING' },
+    { patientPhone: '9876543260', doctorIdx: 0, token: 'T018', status: 'IN_PROGRESS' },
+    { patientPhone: '9876543234', doctorIdx: 5, token: 'T019', status: 'WAITING' },
+    { patientPhone: '9876543258', doctorIdx: 5, token: 'T020', status: 'WAITING' },
+    { patientPhone: '9876543238', doctorIdx: 3, token: 'T021', status: 'WAITING' },
+    { patientPhone: '9876543254', doctorIdx: 3, token: 'T022', status: 'WAITING' },
+    { patientPhone: '9876543232', doctorIdx: 2, token: 'T023', status: 'WAITING' },
+    { patientPhone: '9876543256', doctorIdx: 2, token: 'T024', status: 'COMPLETED' },
+    { patientPhone: '9876543244', doctorIdx: 9, token: 'T025', status: 'WAITING' },
+    { patientPhone: '9876543240', doctorIdx: 6, token: 'T026', status: 'WAITING' },
+    // ── Batch 3 queue entries ──
+    { patientPhone: '9876543262', doctorIdx: 0, token: 'T027', status: 'WAITING' },
+    { patientPhone: '9876543268', doctorIdx: 8, token: 'T028', status: 'SEND_IN' },
+    { patientPhone: '9876543270', doctorIdx: 9, token: 'T029', status: 'SEND_IN' },
+    { patientPhone: '9876543272', doctorIdx: 7, token: 'T030', status: 'WAITING' },
+    { patientPhone: '9876543274', doctorIdx: 6, token: 'T031', status: 'WAITING' },
+    { patientPhone: '9876543276', doctorIdx: 4, token: 'T032', status: 'WAITING' },
+    { patientPhone: '9876543278', doctorIdx: 2, token: 'T033', status: 'WAITING' },
+    { patientPhone: '9876543280', doctorIdx: 3, token: 'T034', status: 'WAITING' },
+    { patientPhone: '9876543282', doctorIdx: 0, token: 'T035', status: 'WAITING' },
+    { patientPhone: '9876543284', doctorIdx: 1, token: 'T036', status: 'WAITING' },
+    { patientPhone: '9876543286', doctorIdx: 0, token: 'T037', status: 'SEND_IN' },
+    { patientPhone: '9876543288', doctorIdx: 3, token: 'T038', status: 'WAITING' },
+    { patientPhone: '9876543290', doctorIdx: 2, token: 'T039', status: 'SKIPPED' },
+    { patientPhone: '9876543266', doctorIdx: 3, token: 'T040', status: 'NO_SHOW' },
+    { patientPhone: '9876543264', doctorIdx: 4, token: 'T041', status: 'SKIPPED' },
   ];
 
   let count = 0;
@@ -2393,6 +3263,46 @@ async function seedOrders(doctorRows: Doctor[]) {
     { patientPhone: '9876543224', doctorIdx: 0, testName: 'HbA1c', category: 'Biochemistry', status: 'ORDERED', daysAgo: 0 },
     { patientPhone: '9876543228', doctorIdx: 4, testName: 'ECG', category: 'Cardiology', status: 'COMPLETED', result: 'Sinus rhythm. No acute changes.', daysAgo: 15 },
     { patientPhone: '9876543228', doctorIdx: 4, testName: 'Echocardiography', category: 'Cardiology', status: 'ORDERED', daysAgo: 0 },
+    // ── Batch 2 lab orders ──
+    { patientPhone: '9876543230', doctorIdx: 4, testName: 'Lipid Profile', category: 'Biochemistry', status: 'COMPLETED', result: 'Total Chol 280 — High. LDL 180.', daysAgo: 35 },
+    { patientPhone: '9876543230', doctorIdx: 4, testName: 'Cardiac Enzymes (Troponin)', category: 'Cardiology', status: 'COMPLETED', result: 'Negative — ruled out ACS', daysAgo: 35 },
+    { patientPhone: '9876543230', doctorIdx: 4, testName: 'Thyroid Profile', category: 'Endocrinology', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543232', doctorIdx: 2, testName: 'X-Ray Lumbar Spine AP/Lateral', category: 'Radiology', status: 'COMPLETED', result: 'L4-L5 disc space narrowing. Osteophytes.', daysAgo: 55 },
+    { patientPhone: '9876543232', doctorIdx: 0, testName: 'HbA1c', category: 'Biochemistry', status: 'COMPLETED', result: '6.8% — Prediabetic range', daysAgo: 5 },
+    { patientPhone: '9876543236', doctorIdx: 4, testName: 'ECG', category: 'Cardiology', status: 'COMPLETED', result: 'Sinus tachycardia. ST depression V4-V6.', daysAgo: 48 },
+    { patientPhone: '9876543236', doctorIdx: 4, testName: 'Echocardiography', category: 'Cardiology', status: 'COMPLETED', result: 'EF 40%. Mild LV dilatation.', daysAgo: 45 },
+    { patientPhone: '9876543236', doctorIdx: 0, testName: 'HbA1c', category: 'Biochemistry', status: 'COMPLETED', result: '8.1% — Poor control', daysAgo: 2 },
+    { patientPhone: '9876543238', doctorIdx: 3, testName: 'CBC', category: 'Hematology', status: 'COMPLETED', result: 'Normal. Hb 11.8.', daysAgo: 28 },
+    { patientPhone: '9876543238', doctorIdx: 3, testName: 'Blood Group & Crossmatch', category: 'Hematology', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543240', doctorIdx: 6, testName: 'CT PNS', category: 'Radiology', status: 'COMPLETED', result: 'Mild pansinusitis. No polyp.', daysAgo: 1 },
+    { patientPhone: '9876543242', doctorIdx: 7, testName: 'Slit Lamp Examination', category: 'Ophthalmology', status: 'COMPLETED', result: 'Grade 2 NS OU. No other pathology.', daysAgo: 42 },
+    { patientPhone: '9876543246', doctorIdx: 4, testName: 'Renal Function Test', category: 'Biochemistry', status: 'COMPLETED', result: 'Cr 1.2. K+ 4.8 — monitor.', daysAgo: 8 },
+    { patientPhone: '9876543246', doctorIdx: 4, testName: 'ECG', category: 'Cardiology', status: 'COMPLETED', result: 'LVH. No acute changes.', daysAgo: 8 },
+    { patientPhone: '9876543250', doctorIdx: 0, testName: 'Fasting Blood Sugar', category: 'Biochemistry', status: 'COMPLETED', result: '142 mg/dL — Diabetic', daysAgo: 28 },
+    { patientPhone: '9876543250', doctorIdx: 0, testName: 'Lipid Profile', category: 'Biochemistry', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543252', doctorIdx: 0, testName: 'CBC', category: 'Hematology', status: 'COMPLETED', result: 'WBC elevated — 14000. Viral.', daysAgo: 18 },
+    { patientPhone: '9876543254', doctorIdx: 3, testName: 'USG Pelvis', category: 'Radiology', status: 'COMPLETED', result: 'Bilateral PCOM. Thickened endometrium.', daysAgo: 8 },
+    { patientPhone: '9876543256', doctorIdx: 2, testName: 'X-Ray Knee AP/Oblique', category: 'Radiology', status: 'COMPLETED', result: 'Grade 3 OA medial compartment. Joint space narrowed.', daysAgo: 22 },
+    { patientPhone: '9876543260', doctorIdx: 0, testName: 'Fasting Blood Sugar', category: 'Biochemistry', status: 'COMPLETED', result: '98 mg/dL — Normal', daysAgo: 40 },
+    { patientPhone: '9876543260', doctorIdx: 0, testName: 'Lipid Profile', category: 'Biochemistry', status: 'COMPLETED', result: 'Total Chol 240. LDL 155.', daysAgo: 40 },
+    // ── Batch 3 lab orders ──
+    { patientPhone: '9876543262', doctorIdx: 0, testName: 'Thyroid Profile', category: 'Endocrinology', status: 'COMPLETED', result: 'Normal. TSH 2.1.', daysAgo: 45 },
+    { patientPhone: '9876543264', doctorIdx: 4, testName: 'Coronary Angiography', category: 'Cardiology', status: 'COMPLETED', result: '60% LAD. 40% RCA. No intervention needed.', daysAgo: 4 },
+    { patientPhone: '9876543264', doctorIdx: 4, testName: 'Lipid Profile', category: 'Biochemistry', status: 'COMPLETED', result: 'Total Chol 320. LDL 210. High risk.', daysAgo: 55 },
+    { patientPhone: '9876543264', doctorIdx: 4, testName: 'CBC', category: 'Hematology', status: 'COMPLETED', result: 'Normal.', daysAgo: 4 },
+    { patientPhone: '9876543266', doctorIdx: 3, testName: 'Hemoglobin', category: 'Hematology', status: 'COMPLETED', result: 'Hb 10.5 — Mild anemia.', daysAgo: 16 },
+    { patientPhone: '9876543268', doctorIdx: 8, testName: 'MRI Brain', category: 'Neurology', status: 'COMPLETED', result: 'Multiple lacunar infarcts in basal ganglia.', daysAgo: 10 },
+    { patientPhone: '9876543268', doctorIdx: 8, testName: 'Carotid Doppler', category: 'Neurology', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543270', doctorIdx: 9, testName: 'Thyroid Profile', category: 'Endocrinology', status: 'COMPLETED', result: 'Normal.', daysAgo: 20 },
+    { patientPhone: '9876543272', doctorIdx: 7, testName: 'IOP Measurement', category: 'Ophthalmology', status: 'COMPLETED', result: 'Right 22mmHg, Left 20mmHg — elevated.', daysAgo: 38 },
+    { patientPhone: '9876543272', doctorIdx: 7, testName: 'Visual Field Test', category: 'Ophthalmology', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543276', doctorIdx: 4, testName: 'ECG', category: 'Cardiology', status: 'COMPLETED', result: 'LVH. ST changes. Strain pattern.', daysAgo: 52 },
+    { patientPhone: '9876543278', doctorIdx: 2, testName: 'MRI Knee', category: 'Orthopedics', status: 'COMPLETED', result: 'ACL tear confirmed. Meniscus intact.', daysAgo: 10 },
+    { patientPhone: '9876543280', doctorIdx: 3, testName: 'USG Pelvis', category: 'Gynecology', status: 'COMPLETED', result: 'Multiple fibroids — largest 4cm submucosal.', daysAgo: 32 },
+    { patientPhone: '9876543282', doctorIdx: 0, testName: 'H. Pylori Test', category: 'Gastroenterology', status: 'COMPLETED', result: 'Positive — triple therapy recommended.', daysAgo: 28 },
+    { patientPhone: '9876543286', doctorIdx: 0, testName: 'Thyroid Profile', category: 'Endocrinology', status: 'COMPLETED', result: 'TSH 8.2 — Elevated. Hypothyroid.', daysAgo: 32 },
+    { patientPhone: '9876543288', doctorIdx: 3, testName: 'USG Pelvis', category: 'Gynecology', status: 'COMPLETED', result: 'Bilateral PCOM. No fibroids.', daysAgo: 18 },
+    { patientPhone: '9876543290', doctorIdx: 2, testName: 'X-Ray Shoulder', category: 'Orthopedics', status: 'COMPLETED', result: 'Frozen shoulder — reduced joint space.', daysAgo: 48 },
   ];
 
   let labCount = 0;
@@ -2421,6 +3331,15 @@ async function seedOrders(doctorRows: Doctor[]) {
     { patientPhone: '9876543218', doctorIdx: 8, studyName: 'MRI Brain with Contrast', category: 'Neurology', status: 'COMPLETED', result: 'No intracranial mass, bleed, or significant abnormality.', daysAgo: 10 },
     { patientPhone: '9876543222', doctorIdx: 2, studyName: 'X-Ray Ankle AP/Lateral', category: 'Orthopedics', status: 'COMPLETED', result: 'No fracture. Mild soft tissue swelling.', daysAgo: 20 },
     { patientPhone: '9876543228', doctorIdx: 4, studyName: 'Chest X-Ray PA View', category: 'Cardiology', status: 'ORDERED', daysAgo: 0 },
+    // ── Batch 2 radiology orders ──
+    { patientPhone: '9876543230', doctorIdx: 4, studyName: 'Treadmill Test', category: 'Cardiology', status: 'COMPLETED', result: 'Positive for ischemia at 8 min. ST depression 2mm inferior leads.', daysAgo: 30 },
+    { patientPhone: '9876543236', doctorIdx: 4, studyName: 'Chest X-Ray PA View', category: 'Cardiology', status: 'COMPLETED', result: 'Cardiomegaly. Bilateral pleural effusion.', daysAgo: 45 },
+    { patientPhone: '9876543242', doctorIdx: 7, studyName: 'B-Scan Ultrasound Eye', category: 'Ophthalmology', status: 'COMPLETED', result: 'Dense cataract. No retinal detachment.', daysAgo: 40 },
+    { patientPhone: '9876543256', doctorIdx: 2, studyName: 'MRI Knee', category: 'Orthopedics', status: 'ORDERED', daysAgo: 0 },
+    // ── Batch 3 radiology orders ──
+    { patientPhone: '9876543264', doctorIdx: 4, studyName: 'Coronary Angiography', category: 'Cardiology', status: 'COMPLETED', result: '60% LAD. 40% RCA.', daysAgo: 4 },
+    { patientPhone: '9876543278', doctorIdx: 2, studyName: 'MRI Knee', category: 'Orthopedics', status: 'COMPLETED', result: 'ACL tear confirmed.', daysAgo: 10 },
+    { patientPhone: '9876543290', doctorIdx: 2, studyName: 'X-Ray Shoulder AP/Lateral', category: 'Orthopedics', status: 'COMPLETED', result: 'Frozen shoulder. Reduced joint space.', daysAgo: 48 },
   ];
 
   let radioCount = 0;
@@ -2448,6 +3367,18 @@ async function seedOrders(doctorRows: Doctor[]) {
     { patientPhone: '9876543210', doctorIdx: 4, procedureName: 'Treadmill Test (TMT)', category: 'Cardiology', status: 'COMPLETED', result: 'Normal exercise tolerance. No ST changes.', daysAgo: 2 },
     { patientPhone: '9876543216', doctorIdx: 3, procedureName: 'Pap Smear', category: 'Gynecology', status: 'COMPLETED', result: 'Normal — No dysplasia', daysAgo: 8 },
     { patientPhone: '9876543222', doctorIdx: 2, procedureName: 'Physiotherapy Session', category: 'Rehabilitation', status: 'ORDERED', daysAgo: 0 },
+    // ── Batch 2 procedure orders ──
+    { patientPhone: '9876543230', doctorIdx: 4, procedureName: 'Coronary Angiography', category: 'Cardiology', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543232', doctorIdx: 2, procedureName: 'Physiotherapy — Lumbar', category: 'Rehabilitation', status: 'COMPLETED', result: '6 sessions completed. Mild improvement.', daysAgo: 15 },
+    { patientPhone: '9876543238', doctorIdx: 3, procedureName: 'Anomaly Scan (18-22 weeks)', category: 'Gynecology', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543242', doctorIdx: 7, procedureName: 'Phacoemulsification + IOL', category: 'Ophthalmology', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543256', doctorIdx: 2, procedureName: 'Intra-articular Injection', category: 'Orthopedics', status: 'COMPLETED', result: 'Hyaluronic acid injected. No complications.', daysAgo: 4 },
+    { patientPhone: '9876543260', doctorIdx: 0, procedureName: 'Body Composition Analysis', category: 'General', status: 'COMPLETED', result: 'BMI 28.4. Body fat 32%. Lean mass 62kg.', daysAgo: 38 },
+    // ── Batch 3 procedure orders ──
+    { patientPhone: '9876543264', doctorIdx: 4, procedureName: 'PTCA + Stenting', category: 'Cardiology', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543278', doctorIdx: 2, procedureName: 'ACL Reconstruction', category: 'Orthopedics', status: 'ORDERED', daysAgo: 0 },
+    { patientPhone: '9876543290', doctorIdx: 2, procedureName: 'Hydrodilatation', category: 'Orthopedics', status: 'COMPLETED', result: 'Shoulder range improved post-procedure.', daysAgo: 15 },
+    { patientPhone: '9876543272', doctorIdx: 7, procedureName: 'Laser Trabeculoplasty', category: 'Ophthalmology', status: 'ORDERED', daysAgo: 0 },
   ];
 
   let procCount = 0;
@@ -2536,6 +3467,31 @@ async function seedPatientAllergies() {
     { patientPhone: '9876543222', allergyNames: ['Bee Sting', 'Latex'], notes: 'Bee sting — anaphylaxis. Latex — contact urticaria.' },
     { patientPhone: '9876543224', allergyNames: ['Soy', 'Wheat'], notes: 'Gluten sensitivity confirmed' },
     { patientPhone: '9876543228', allergyNames: ['Iodine'], notes: 'Contrast dye allergy — premedicate if needed' },
+    // ── Batch 2 allergy links ──
+    { patientPhone: '9876543230', allergyNames: ['Penicillin', 'Sulfa'], notes: 'Penicillin — anaphylaxis history. Sulfa — rash.' },
+    { patientPhone: '9876543232', allergyNames: ['Aspirin'], notes: 'Aspirin-induced bronchospasm' },
+    { patientPhone: '9876543234', allergyNames: ['Ibuprofen'], notes: 'GI upset with NSAIDs' },
+    { patientPhone: '9876543236', allergyNames: ['Latex'], notes: 'Contact dermatitis with latex gloves' },
+    { patientPhone: '9876543240', allergyNames: ['Pollen'], notes: 'Severe seasonal allergies' },
+    { patientPhone: '9876543242', allergyNames: ['Iodine'], notes: 'Flushing with contrast dye' },
+    { patientPhone: '9876543246', allergyNames: ['Shellfish'], notes: 'Hives and cramps with shellfish' },
+    { patientPhone: '9876543248', allergyNames: ['Codeine'], notes: 'Severe nausea with codeine' },
+    { patientPhone: '9876543250', allergyNames: ['Milk', 'Soy'], notes: 'Dairy and soy intolerance' },
+    { patientPhone: '9876543252', allergyNames: ['Dust', 'Pollen'], notes: 'Environmental allergies — dust and pollen' },
+    { patientPhone: '9876543256', allergyNames: ['Peanuts'], notes: 'Peanut allergy — carry EpiPen' },
+    { patientPhone: '9876543258', allergyNames: ['Eggs', 'Wheat'], notes: 'Egg and wheat sensitivity' },
+    { patientPhone: '9876543260', allergyNames: ['Bee Sting'], notes: 'Severe reaction to bee stings' },
+    // ── Batch 3 allergy links ──
+    { patientPhone: '9876543262', allergyNames: ['Codeine', 'Ibuprofen'], notes: 'Codeine — nausea. Ibuprofen — GI bleeding.' },
+    { patientPhone: '9876543264', allergyNames: ['Aspirin', 'Latex'], notes: 'Aspirin — bronchospasm. Latex — contact dermatitis.' },
+    { patientPhone: '9876543266', allergyNames: ['Shellfish'], notes: 'Hives with shellfish' },
+    { patientPhone: '9876543268', allergyNames: ['Peanuts'], notes: 'Anaphylaxis risk' },
+    { patientPhone: '9876543270', allergyNames: ['Sulfa', 'Pollen'], notes: 'Sulfa — rash. Pollen — seasonal.' },
+    { patientPhone: '9876543274', allergyNames: ['Dust', 'Milk'], notes: 'Dust — cough. Milk — bloating.' },
+    { patientPhone: '9876543276', allergyNames: ['Penicillin', 'Eggs'], notes: 'Penicillin — anaphylaxis history. Eggs — urticaria.' },
+    { patientPhone: '9876543278', allergyNames: ['Latex'], notes: 'Contact urticaria' },
+    { patientPhone: '9876543286', allergyNames: ['Penicillin'], notes: 'Rash with penicillin' },
+    { patientPhone: '9876543290', allergyNames: ['Aspirin', 'Codeine'], notes: 'Aspirin — GI upset. Codeine — nausea.' },
   ];
 
   let count = 0;
@@ -2577,6 +3533,41 @@ async function seedPatientAllergies() {
     { patientPhone: '9876543224', allergen: 'Soy', allergyType: 'FOOD', reaction: 'Bloating, abdominal discomfort', severity: 'MILD', status: 'ACTIVE' },
     { patientPhone: '9876543224', allergen: 'Wheat', allergyType: 'FOOD', reaction: 'Abdominal pain, diarrhea', severity: 'MODERATE', status: 'ACTIVE' },
     { patientPhone: '9876543228', allergen: 'Iodine', allergyType: 'DRUG', reaction: 'Urticaria, flushing with contrast dye', severity: 'MODERATE', status: 'ACTIVE' },
+    // ── Batch 2 allergy records ──
+    { patientPhone: '9876543230', allergen: 'Penicillin', allergyType: 'DRUG', reaction: 'Hives, facial swelling', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543230', allergen: 'Sulfa', allergyType: 'DRUG', reaction: 'Maculopapular rash', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543232', allergen: 'Aspirin', allergyType: 'DRUG', reaction: 'Bronchospasm, wheezing', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543234', allergen: 'Ibuprofen', allergyType: 'DRUG', reaction: 'GI upset, mild rash', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543236', allergen: 'Latex', allergyType: 'ENVIRONMENTAL', reaction: 'Contact dermatitis', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543240', allergen: 'Pollen', allergyType: 'ENVIRONMENTAL', reaction: 'Severe rhinitis, eye itching', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543242', allergen: 'Iodine', allergyType: 'DRUG', reaction: 'Flushing with povidone', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543246', allergen: 'Shellfish', allergyType: 'FOOD', reaction: 'Hives, abdominal cramps', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543248', allergen: 'Codeine', allergyType: 'DRUG', reaction: 'Severe nausea, vomiting', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543250', allergen: 'Milk', allergyType: 'FOOD', reaction: 'Diarrhea, bloating', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543250', allergen: 'Soy', allergyType: 'FOOD', reaction: 'Abdominal discomfort', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543252', allergen: 'Dust', allergyType: 'ENVIRONMENTAL', reaction: 'Coughing, sneezing', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543252', allergen: 'Pollen', allergyType: 'ENVIRONMENTAL', reaction: 'Seasonal rhinitis', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543256', allergen: 'Peanuts', allergyType: 'FOOD', reaction: 'Throat tightness, urticaria', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543258', allergen: 'Eggs', allergyType: 'FOOD', reaction: 'Skin rash, eczema flare', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543258', allergen: 'Wheat', allergyType: 'FOOD', reaction: 'Abdominal pain, diarrhea', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543260', allergen: 'Bee Sting', allergyType: 'ENVIRONMENTAL', reaction: 'Swelling, pain at sting site', severity: 'SEVERE', status: 'ACTIVE' },
+    // ── Batch 3 allergy records ──
+    { patientPhone: '9876543262', allergen: 'Codeine', allergyType: 'DRUG', reaction: 'Severe nausea and headache', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543262', allergen: 'Ibuprofen', allergyType: 'DRUG', reaction: 'GI bleeding history', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543264', allergen: 'Aspirin', allergyType: 'DRUG', reaction: 'Bronchospasm', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543264', allergen: 'Latex', allergyType: 'ENVIRONMENTAL', reaction: 'Contact dermatitis', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543266', allergen: 'Shellfish', allergyType: 'FOOD', reaction: 'Hives, facial swelling', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543268', allergen: 'Peanuts', allergyType: 'FOOD', reaction: 'Throat tightness', severity: 'SEVERE', status: 'ACTIVE' },
+    { patientPhone: '9876543270', allergen: 'Sulfa', allergyType: 'DRUG', reaction: 'Skin rash', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543270', allergen: 'Pollen', allergyType: 'ENVIRONMENTAL', reaction: 'Seasonal rhinitis', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543274', allergen: 'Dust', allergyType: 'ENVIRONMENTAL', reaction: 'Coughing', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543274', allergen: 'Milk', allergyType: 'FOOD', reaction: 'Bloating', severity: 'MILD', status: 'ACTIVE' },
+    { patientPhone: '9876543276', allergen: 'Penicillin', allergyType: 'DRUG', reaction: 'Anaphylaxis history', severity: 'LIFE_THREATENING', status: 'ACTIVE' },
+    { patientPhone: '9876543276', allergen: 'Eggs', allergyType: 'FOOD', reaction: 'Urticaria', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543278', allergen: 'Latex', allergyType: 'ENVIRONMENTAL', reaction: 'Contact urticaria', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543286', allergen: 'Penicillin', allergyType: 'DRUG', reaction: 'Rash', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543290', allergen: 'Aspirin', allergyType: 'DRUG', reaction: 'GI upset', severity: 'MODERATE', status: 'ACTIVE' },
+    { patientPhone: '9876543290', allergen: 'Codeine', allergyType: 'DRUG', reaction: 'Nausea, dizziness', severity: 'MODERATE', status: 'ACTIVE' },
   ];
 
   let recordCount = 0;

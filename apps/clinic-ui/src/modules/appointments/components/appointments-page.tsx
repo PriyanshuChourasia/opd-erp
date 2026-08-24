@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { AlertTriangle, CalendarClock, ClipboardList, Eye, FileText, HeartPulse, Plus, Printer, Search, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, ClipboardList, Eye, FileText, HeartPulse, Plus, Search, X } from "lucide-react";
 import {
   fetchAppointments,
   updateAppointmentStatus,
@@ -36,6 +36,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { DataTable } from "@/components/data-table/data-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { QueuePage } from "@/modules/queue";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
 import { ChevronDown, History } from "lucide-react";
@@ -378,19 +379,18 @@ export function AppointmentsPage() {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
   }
 
-  const columns = useMemo<ColumnDef<Appointment>[]>(() => [
-    {
+  const columns = useMemo<ColumnDef<Appointment>[]>(() => [    {
       id: "token",
-      header: "Token #",
+      header: () => <div className="text-center">Token #</div>,
       cell: ({ row }) => (
-        <span className="text-sm font-semibold text-muted-foreground">
+        <div className="text-center text-sm font-semibold text-muted-foreground">
           {row.original.tokenNumber ? `#${row.original.tokenNumber}` : "—"}
-        </span>
+        </div>
       ),
     },
     {
       id: "patient",
-      header: "Patient",
+      header: () => <div className="text-center">Patient</div>,
       cell: ({ row }) => {
         const appt = row.original;
         const rxNotes = prescriptionNotesMap.get(`${appt.patientId}:${appt.doctorId}`);
@@ -409,81 +409,81 @@ export function AppointmentsPage() {
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: () => <div className="text-center">Status</div>,
       cell: ({ row }) => (
-        <Badge variant="outline" className={`text-[10px] ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
+        <div className="text-center"><Badge variant="outline" className={`text-[10px] ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
           {apptStatusLabel(row.original.status)}
-        </Badge>
+        </Badge></div>
       ),
     },
     {
       id: "doctor",
-      header: "Doctor",
-      cell: ({ row }) => <span className="text-sm">{row.original.doctor?.name ?? row.original.doctor?.medicalRegistrationNo ?? 'Doctor'}</span>,
+      header: () => <div className="text-center">Doctor</div>,
+      cell: ({ row }) => <div className="text-center text-sm">{row.original.doctor?.name ?? row.original.doctor?.medicalRegistrationNo ?? 'Doctor'}</div>,
     },
     {
       accessorKey: "type",
-      header: "Type",
-      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.type.replace("_", " ")}</span>,
+      header: () => <div className="text-center">Type</div>,
+      cell: ({ row }) => <div className="text-center text-sm text-muted-foreground">{row.original.type.replace("_", " ")}</div>,
     },
     {
       id: "time",
-      header: "Time",
+      header: () => <div className="text-center">Time</div>,
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
+        <div className="text-center text-sm text-muted-foreground">
           {new Date(row.original.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </span>
+        </div>
       ),
     },
     {
       accessorKey: "fee",
-      header: "Fee",
-      cell: ({ row }) => <span className="text-sm font-medium">{currency(row.original.fee)}</span>,
+      header: () => <div className="text-center">Fee</div>,
+      cell: ({ row }) => <div className="text-center text-sm font-medium">{currency(row.original.fee)}</div>,
     },
     {
       id: "actions",
-      header: "Action",
+      header: () => <div className="text-center">Action</div>,
       cell: ({ row }) => {
         const appt = row.original;
         return (
-          <div className="flex items-center justify-end gap-1">
-            <Button variant="ghost" size="icon" className="size-9" title="View / Edit appointment" aria-label="View or edit appointment" onClick={() => navigate({ to: "/appointments/$appointmentId/edit", params: { appointmentId: appt.id } })}>
-              <Eye className="size-4.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="size-9" title="Preview appointment slip" aria-label="Preview appointment slip" onClick={() => setPrintAppt(appt)}>
-              <Printer className="size-4.5" />
-            </Button>
+          <div className="flex items-center justify-center gap-1">
+            <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-9" aria-label="View or edit appointment" onClick={() => navigate({ to: "/appointments/$appointmentId/edit", params: { appointmentId: appt.id } })}>
+                  <Eye className="size-4.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>View / Edit</TooltipContent>
+            </Tooltip>
             {appt.status !== "COMPLETED" && appt.status !== "CANCELLED" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9"
-                title="Record patient vitals"
-                aria-label="Record patient vitals"
-                onClick={() => openVitals(appt)}
-              >
-                <HeartPulse className="size-4.5 text-rose-500" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-9" aria-label="Record patient vitals" onClick={() => openVitals(appt)}>
+                    <HeartPulse className="size-4.5 text-rose-500" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Record Vitals</TooltipContent>
+              </Tooltip>
             )}
             {appt.status === "COMPLETED" && (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-9"
-                  title="Create prescription"
-                  aria-label="Create prescription with doctor's remarks"
-                  onClick={() => {
-                    setRxAppointment(appt);
-                    setRxDiagnosis("");
-                    setRxDoctorRemarks("");
-                    setRxSheetOpen(true);
-                  }}
-                >
-                  <ClipboardList className="size-4.5 text-indigo-600" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-9" aria-label="Create prescription with doctor's remarks" onClick={() => {
+                      setRxAppointment(appt);
+                      setRxDiagnosis("");
+                      setRxDoctorRemarks("");
+
+                      setRxSheetOpen(true);
+                    }}>
+                      <ClipboardList className="size-4.5 text-indigo-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Create Prescription</TooltipContent>
+                </Tooltip>
                 {appt.bill ? (
-                  <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" title={`Paid · Invoice ${appt.bill.invoiceNo}`}>
+                  <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                     Paid
                   </Badge>
                 ) : (
@@ -491,14 +491,19 @@ export function AppointmentsPage() {
                     <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                       Unpaid
                     </Badge>
-                    <Button variant="ghost" size="icon" className="size-9" title="Generate invoice" aria-label="Generate invoice" onClick={() => {
-                      setInvoicePreviewAppt(appt);
-                      setInvoiceDiscount(0);
-                      setInvoiceTax(0);
-                      setInvoicePaymentMethod("CASH");
-                    }}>
-                      <FileText className="size-4.5 text-green-600" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-9" aria-label="Generate invoice" onClick={() => {
+                          setInvoicePreviewAppt(appt);
+                          setInvoiceDiscount(0);
+                          setInvoiceTax(0);
+                          setInvoicePaymentMethod("CASH");
+                        }}>
+                          <FileText className="size-4.5 text-green-600" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Generate Invoice</TooltipContent>
+                    </Tooltip>
                   </div>
                 )}
               </>
@@ -507,14 +512,19 @@ export function AppointmentsPage() {
               <div className="flex items-center gap-1">
                 <Input
                   autoFocus
-                  placeholder="Reason (optional)"
+                  placeholder="Reason *"
                   className="h-8 w-36 text-xs"
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason || undefined }); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && cancelReason.trim()) statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason.trim() }); }}
                 />
-                <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason || undefined })}>Cancel</Button>
-                <Button variant="ghost" size="icon" className="size-9" title="Dismiss cancellation" aria-label="Dismiss cancellation" onClick={() => { setStatusConfirm(null); setCancelReason(""); }}><X className="size-3.5" /></Button>
+                <Button variant="destructive" size="sm" className="h-8 text-xs" disabled={!cancelReason.trim()} onClick={() => statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason.trim() })}>Cancel</Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-9" aria-label="Dismiss cancellation" onClick={() => { setStatusConfirm(null); setCancelReason(""); }}><X className="size-3.5" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Dismiss</TooltipContent>
+                </Tooltip>
               </div>
             ) : (
               <Select
@@ -540,6 +550,7 @@ export function AppointmentsPage() {
                 </SelectContent>
               </Select>
             )}
+            </TooltipProvider>
           </div>
         );
       },
@@ -1242,7 +1253,7 @@ export function AppointmentsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPrintAppt(null)}>Close</Button>
             <Button variant="outline" disabled={generatingPdf} onClick={browserPrint}>
-              <Printer className="mr-1.5 size-3.5" /> Print
+              Print
             </Button>
             <Button disabled={generatingPdf} onClick={downloadPrintPdf}>
               {generatingPdf ? "Generating…" : "Download PDF"}

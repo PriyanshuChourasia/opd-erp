@@ -14,7 +14,7 @@ import {
   FileUp,
   FileText,
 } from "lucide-react";
-import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient, fetchDocumentsByEntity, uploadDocument, deleteDocument, type Patient, type CreatePatientInput, type DocumentRecord } from "@/lib/api";
+import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient, fetchDocumentsByEntity, fetchBatchProfilePhotos, uploadDocument, deleteDocument, type Patient, type CreatePatientInput, type DocumentRecord } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import { DocumentManager } from "@/modules/documents/components/document-manager
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { AllergySelect } from "@/components/allergy-select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const bloodGroupColors: Record<string, string> = {
   "A+": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -42,19 +43,11 @@ const bloodGroupColors: Record<string, string> = {
   "AB-": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
 };
 
-function PatientAvatar({ patientId, name }: { patientId: string; name: string }) {
-  const { data: docs } = useQuery({
-    queryKey: ["documents", "Patient", patientId],
-    queryFn: () => fetchDocumentsByEntity("Patient", patientId),
-    enabled: !!patientId,
-    staleTime: 60_000,
-  });
-  const photo = docs?.find((d) => d.documentType === "PROFILE_PHOTO" && d.isActive);
-
-  if (photo) {
+function PatientAvatar({ photoUrl, name }: { photoUrl?: string; name: string }) {
+  if (photoUrl) {
     return (
       <img
-        src={`/uploads/documents/${photo.fileName}`}
+        src={`/uploads/documents/${photoUrl}`}
         alt={name}
         className="size-8 shrink-0 rounded-full object-cover"
       />
@@ -111,6 +104,22 @@ export function PatientsPage() {
 
   const patients = response?.data ?? [];
   const pageCount = response?.meta?.totalPages ?? 0;
+
+  // Batch-fetch profile photos for all patients on the current page (1 call instead of N)
+  const patientIds = useMemo(() => patients.map((p) => p.id), [patients]);
+  const { data: profilePhotos = [] } = useQuery({
+    queryKey: ["batch-profile-photos", "Patient", patientIds],
+    queryFn: () => fetchBatchProfilePhotos("Patient", patientIds),
+    enabled: patientIds.length > 0,
+    staleTime: 60_000,
+  });
+  const photoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const doc of profilePhotos) {
+      if (!map.has(doc.documentableId)) map.set(doc.documentableId, doc.fileName);
+    }
+    return map;
+  }, [profilePhotos]);
 
   const createMutation = useMutation({
     mutationFn: createPatient,
@@ -253,7 +262,7 @@ export function PatientsPage() {
         const fullName = `${patient.firstName} ${patient.middleName ? patient.middleName + ' ' : ''}${patient.lastName}`;
         return (
           <div className="flex items-center gap-3">
-            <PatientAvatar patientId={patient.id} name={fullName} />
+            <PatientAvatar photoUrl={photoMap.get(patient.id)} name={fullName} />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="truncate font-medium">{fullName}</p>
@@ -317,28 +326,50 @@ export function PatientsPage() {
     },
     {
       id: "actions",
-      header: "Action",
+      header: () => <div className="text-center">Action</div>,
       cell: ({ row }) => {
         const patient = row.original;
         return (
-          <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" className="size-8" title="Documents" onClick={() => openDocs(patient)}>
-              <FileText className="size-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="size-8" title="Edit patient" onClick={() => openEdit(patient.id)}>
-              <Pencil className="size-3.5" />
-            </Button>
+          <TooltipProvider>
+          <div className="flex justify-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => openDocs(patient)}>
+                  <FileText className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Documents</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(patient.id)}>
+                  <Pencil className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Edit Patient</TooltipContent>
+            </Tooltip>
             {deleteConfirm === patient.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(patient.id)}>Deactivate</Button>
-                <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Cancel</TooltipContent>
+                </Tooltip>
               </div>
             ) : (
-              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Deactivate patient" onClick={() => setDeleteConfirm(patient.id)}>
-                <Trash2 className="size-3.5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(patient.id)}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Deactivate Patient</TooltipContent>
+              </Tooltip>
             )}
           </div>
+          </TooltipProvider>
         );
       },
     },

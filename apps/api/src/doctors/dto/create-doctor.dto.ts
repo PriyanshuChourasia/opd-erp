@@ -6,13 +6,6 @@ export enum ConsultationMode {
   BOTH = 'BOTH',
 }
 
-export enum VerificationStatus {
-  PENDING = 'PENDING',
-  VERIFIED = 'VERIFIED',
-  REJECTED = 'REJECTED',
-  SUSPENDED = 'SUSPENDED',
-}
-
 export class CreateDoctorDto {
   @IsOptional()
   @IsString()
@@ -62,10 +55,6 @@ export class CreateDoctorDto {
   @IsOptional()
   @IsString()
   governmentIdUrl?: string;
-
-  @IsOptional()
-  @IsEnum(VerificationStatus)
-  verificationStatus?: VerificationStatus;
 
   @IsOptional()
   @IsString()

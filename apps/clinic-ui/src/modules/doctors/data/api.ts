@@ -23,8 +23,8 @@ export async function deleteDoctor(id: string): Promise<void> {
 }
 
 export async function fetchDoctorSchedules(doctorId: string): Promise<EmployeeScheduleDay[]> {
-  const res = await apiFetch<EmployeeSchedule[]>(`/employee-schedules?employeeSchedulableType=Doctor&employeeSchedulableId=${encodeURIComponent(doctorId)}`);
-  return res.map((s) => ({
+  const res = await apiFetch<{ data: EmployeeSchedule[] }>(`/employee-schedules?employeeSchedulableType=Doctor&employeeSchedulableId=${encodeURIComponent(doctorId)}`);
+  return (res.data ?? []).map((s) => ({
     id: s.id,
     dayOfWeek: s.dayOfWeek,
     startTime: s.startTime,

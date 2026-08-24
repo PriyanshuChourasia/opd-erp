@@ -14,7 +14,7 @@ import {
   fetchOrganisation,
   createAppointment,
   fetchQueue,
-  fetchEmployeeSchedules,
+  fetchAllDoctorSchedules,
   type Doctor,
   type Appointment,
   type AppointmentType,
@@ -201,16 +201,15 @@ export function ReceptionistDashboardPage() {
   });
   const doctors = doctorsResponse?.data ?? [];
 
-  // Fetch all doctor schedules to show times in the dropdown
+  // Fetch all doctor schedules in one call
   const { data: allSchedules = [] } = useQuery({
-    queryKey: ["employee-schedules", "search-doctors"],
+    queryKey: ["employee-schedules", "all-doctors"],
     queryFn: async () => {
-      const results = await Promise.all(
-        doctors.map((d) => fetchEmployeeSchedules("Doctor", d.id).catch(() => []))
-      );
-      return results.flat();
+      const res = await fetchAllDoctorSchedules();
+      return Array.isArray(res) ? res : (res as any)?.data ?? [];
     },
-    enabled: doctors.length > 0,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
   // Build a schedule map for the selected date

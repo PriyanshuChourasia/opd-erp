@@ -459,7 +459,6 @@ async function seedDoctors(): Promise<Doctor[]> {
             consultationFee: doc.consultationFee,
             yearsOfExperience: doc.yearsOfExperience,
             consultationMode: 'OFFLINE',
-            verificationStatus: 'VERIFIED',
             isActive: true,
           },
         }),

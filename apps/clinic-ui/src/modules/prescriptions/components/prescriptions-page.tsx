@@ -2,10 +2,11 @@ import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, FileDown, FileText, Eye, Pill, Plus, X } from "lucide-react";
+import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, FileDown, FileText, Eye, Pill, Plus, X, Clock } from "lucide-react";
 import {
   fetchPrescriptions,
   createPrescription,
+  fetchPrescriptionHistory,
   fetchPatients,
   fetchBills,
   fetchDoctors,
@@ -14,6 +15,7 @@ import {
   updateBillStatus,
   updatePrescription,
   type Prescription,
+  type PrescriptionHistoryEntry,
   type BillStatus,
   type Medicine,
   type Patient,
@@ -333,6 +335,14 @@ export function PrescriptionsPage() {
   const [pdfPreviewRx, setPdfPreviewRx] = useState<Prescription | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
+  // ── Version History ──
+  const [historyRx, setHistoryRx] = useState<Prescription | null>(null);
+  const historyQuery = useQuery({
+    queryKey: ["prescription-history", historyRx?.id],
+    queryFn: () => fetchPrescriptionHistory(historyRx!.id),
+    enabled: !!historyRx,
+  });
+
   async function downloadPdfFromPreview() {
     const rx = pdfPreviewRx;
     if (!rx) return;
@@ -554,6 +564,15 @@ export function PrescriptionsPage() {
       cell: ({ row }) => row.original.items?.length ?? 0,
     },
     {
+      accessorKey: "version",
+      header: () => <div className="text-center">Ver</div>,
+      cell: ({ row }) => (
+        <div className="text-center">
+          <Badge variant="outline" className="text-[10px] font-mono">v{row.original.version}</Badge>
+        </div>
+      ),
+    },
+    {
       accessorKey: "createdAt",
       header: "Created",
       cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString(),
@@ -569,6 +588,7 @@ export function PrescriptionsPage() {
               if (value === "pdf-preview") setPdfPreviewRx(rx);
               else if (value === "export-word") exportWord(rx);
               else if (value === "edit") openEdit(rx);
+              else if (value === "history") setHistoryRx(rx);
               else if (value === "invoices" && rx.patient) openInvoices(rx.patientId, rx.patient);
             }}>
               <SelectTrigger className="h-8 w-32 text-xs">
@@ -594,6 +614,10 @@ export function PrescriptionsPage() {
                     View
                   </SelectItem>
                 )}
+                <SelectItem value="history">
+                  <Clock className="mr-2 size-3.5" />
+                  Version History
+                </SelectItem>
                 {rx.patient && (
                   <SelectItem value="invoices">
                     Invoices
@@ -1198,6 +1222,63 @@ export function PrescriptionsPage() {
       </Dialog>
 
 
+
+      {/* ── Version History Dialog ── */}
+      <Dialog open={!!historyRx} onOpenChange={(open) => { if (!open) setHistoryRx(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Version History{historyRx ? ` — v${historyRx.version}` : ""}</DialogTitle>
+          </DialogHeader>
+          {historyQuery.isLoading ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Loading history...</p>
+          ) : (historyQuery.data ?? []).length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No history entries found</p>
+          ) : (
+            <div className="space-y-3">
+              {historyQuery.data!.map((entry) => (
+                <div key={entry.id} className="rounded-none border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] font-mono">v{entry.version}</Badge>
+                      <Badge variant="outline" className={`text-[10px] ${entry.changeType === "CREATE" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                        {entry.changeType}
+                      </Badge>
+                      <Badge variant="outline" className={`text-[10px] ${RX_STATUS_STYLES[entry.status] ?? ""}`}>
+                        {entry.status}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(entry.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  {entry.changeReason && (
+                    <p className="text-xs text-muted-foreground">Reason: {entry.changeReason}</p>
+                  )}
+                  {entry.createdBy && (
+                    <p className="text-xs text-muted-foreground">By: {entry.createdBy.firstName} {entry.createdBy.lastName}</p>
+                  )}
+                  {entry.diagnosis && (
+                    <p className="text-xs"><span className="font-medium">Diagnosis:</span> {entry.diagnosis}</p>
+                  )}
+                  {entry.items && entry.items.length > 0 && (
+                    <div className="text-xs">
+                      <span className="font-medium">Medicines:</span>
+                      <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+                        {entry.items.map((item, idx) => (
+                          <li key={idx}>{item.medicineName} — {item.dosage}{item.duration ? `, ${item.duration}` : ""}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryRx(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PatientFormSheet
         open={!!editPatientId}

@@ -10,6 +10,10 @@ export function isAdminRole(roleName: string | undefined): boolean {
   return !!role && ADMIN_ROLES.has(role);
 }
 
+export function isSuperAdmin(roleName: string | undefined): boolean {
+  return roleName === 'Super Admin';
+}
+
 export function getHomeRoute(
   roleName: string | undefined,
 ): "/receptionist" | "/doctor" | "/developer" | "/dashboard" {

@@ -96,6 +96,15 @@ export class DocumentsController {
     return this.documentsService.findByEntity(documentableType, documentableId);
   }
 
+  @Get('batch-profile-photos')
+  findProfilePhotos(
+    @Query('documentableType') documentableType: string,
+    @Query('ids') ids: string,
+  ) {
+    const idList = ids.split(',').filter(Boolean);
+    return this.documentsService.findProfilePhotosByEntityIds(documentableType, idList);
+  }
+
   @Patch(':id/primary')
   setPrimary(@Param('id') id: string) {
     return this.documentsService.setPrimary(id);

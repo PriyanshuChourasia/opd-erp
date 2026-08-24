@@ -23,11 +23,25 @@ export class PrescriptionsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Build a JSON snapshot of prescription items for history storage. */
+  private buildItemsSnapshot(items: { medicineId: string; medicineName: string; dosage: string; duration?: string | null; instructions?: string | null; quantity: number; refills?: number | null }[]) {
+    return items.map((item) => ({
+      medicineId: item.medicineId,
+      medicineName: item.medicineName,
+      dosage: item.dosage,
+      duration: item.duration ?? null,
+      instructions: item.instructions ?? null,
+      quantity: item.quantity,
+      refills: item.refills ?? 0,
+    }));
+  }
+
   async create(dto: CreatePrescriptionDto, userId?: string) {
     const { items, ...data } = dto;
-    return this.prisma.prescription.create({
+    const prescription = await this.prisma.prescription.create({
       data: {
         ...data,
+        version: 1,
         createdById: userId ?? null,
         items: {
           create: items.map((item) => ({
@@ -43,6 +57,22 @@ export class PrescriptionsService
       },
       include: { items: true, patient: true, doctor: true },
     });
+
+    // Save version 1 history entry
+    await this.prisma.prescriptionHistory.create({
+      data: {
+        prescriptionId: prescription.id,
+        version: 1,
+        diagnosis: prescription.diagnosis,
+        notes: prescription.notes,
+        status: prescription.status,
+        items: this.buildItemsSnapshot(items),
+        changeType: 'CREATE',
+        createdById: userId ?? null,
+      },
+    });
+
+    return prescription;
   }
 
   async findAll(query: FindPrescriptionsQueryDto, requestingDoctorId?: string): Promise<PaginatedResult<Prescription>> {
@@ -92,16 +122,49 @@ export class PrescriptionsService
     return prescription;
   }
 
-  async update(id: string, dto: UpdatePrescriptionDto, userId?: string) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdatePrescriptionDto, userId?: string, changeReason?: string) {
+    const current = await this.findOne(id);
+    const newVersion = current.version + 1;
     const { items, ...data } = dto;
-    const updateData: Record<string, unknown> = { ...data, updatedById: userId ?? null };
 
+    // Build the snapshot of items for this version
+    let itemsSnapshot: ReturnType<typeof this.buildItemsSnapshot>;
     if (items) {
-      // Atomic replace: delete existing items and recreate in a single transaction
-      await this.prisma.$transaction([
-        this.prisma.prescriptionItem.deleteMany({ where: { prescriptionId: id } }),
-        this.prisma.prescriptionItem.createMany({
+      itemsSnapshot = this.buildItemsSnapshot(items);
+    } else {
+      // No item changes — snapshot the current items
+      itemsSnapshot = this.buildItemsSnapshot(current.items);
+    }
+
+    // Use a transaction to atomically: save history, update prescription, replace items
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Save history entry with previous state
+      await tx.prescriptionHistory.create({
+        data: {
+          prescriptionId: id,
+          version: newVersion,
+          diagnosis: data.diagnosis !== undefined ? data.diagnosis : current.diagnosis,
+          notes: data.notes !== undefined ? data.notes : current.notes,
+          status: current.status,
+          items: itemsSnapshot,
+          changeType: 'UPDATE',
+          changeReason: changeReason ?? null,
+          createdById: userId ?? null,
+        },
+      });
+
+      // 2. Update prescription metadata + increment version
+      const updateData: Record<string, unknown> = { ...data, version: newVersion, updatedById: userId ?? null };
+      if (Object.keys(updateData).length > 1) { // more than just version
+        await tx.prescription.update({ where: { id }, data: updateData });
+      } else {
+        await tx.prescription.update({ where: { id }, data: { version: newVersion, updatedById: userId ?? null } });
+      }
+
+      // 3. Replace items if provided
+      if (items) {
+        await tx.prescriptionItem.deleteMany({ where: { prescriptionId: id } });
+        await tx.prescriptionItem.createMany({
           data: items.map((item) => ({
             prescriptionId: id,
             medicineId: item.medicineId,
@@ -112,15 +175,21 @@ export class PrescriptionsService
             quantity: item.quantity,
             refills: item.refills ?? 0,
           })),
-        }),
-      ]);
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      await this.prisma.prescription.update({ where: { id }, data: updateData });
-    }
+        });
+      }
+    });
 
     return this.findOne(id);
+  }
+
+  async findHistory(prescriptionId: string) {
+    // Verify prescription exists
+    await this.findOne(prescriptionId);
+    return this.prisma.prescriptionHistory.findMany({
+      where: { prescriptionId },
+      orderBy: { version: 'desc' },
+      include: { createdBy: { select: { id: true, firstName: true, lastName: true } } },
+    });
   }
 
   async remove(id: string) {

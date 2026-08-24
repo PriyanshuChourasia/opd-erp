@@ -159,7 +159,6 @@ export interface Doctor {
   registrationCertificateUrl?: string | null;
   degreeCertificateUrl?: string | null;
   governmentIdUrl?: string | null;
-  verificationStatus: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -178,7 +177,6 @@ export interface CreateDoctorInput {
   registrationCertificateUrl?: string;
   degreeCertificateUrl?: string;
   governmentIdUrl?: string;
-  verificationStatus?: string;
 }
 
 /**
@@ -208,7 +206,6 @@ export interface CreateDoctorWithUserInput {
   registrationCertificateUrl?: string;
   degreeCertificateUrl?: string;
   governmentIdUrl?: string;
-  verificationStatus?: string;
 
   // Address (optional)
   addressType?: string;
@@ -401,7 +398,21 @@ export interface PrescriptionItem {
   createdAt: string;
 }
 
-export type PrescriptionStatus = "ACTIVE" | "DISPENSED" | "CANCELLED";
+export type PrescriptionStatus = "ACTIVE" | "DISPENSED" | "CANCELLED" | "COMPLETED" | "DISCONTINUED";
+
+export interface PrescriptionHistoryEntry {
+  id: string;
+  prescriptionId: string;
+  version: number;
+  diagnosis?: string | null;
+  notes?: string | null;
+  status: string;
+  items: { medicineId: string; medicineName: string; dosage: string; duration?: string | null; instructions?: string | null; quantity: number; refills: number }[];
+  changeType: string;
+  changeReason?: string | null;
+  createdAt: string;
+  createdBy?: { id: string; firstName: string; lastName: string } | null;
+}
 
 export interface Prescription {
   id: string;
@@ -410,6 +421,7 @@ export interface Prescription {
   diagnosis?: string | null;
   notes?: string | null;
   status: PrescriptionStatus;
+  version: number;
   createdAt: string;
   updatedAt: string;
   patient: Patient;
@@ -1096,6 +1108,14 @@ export function fetchEmployeeSchedules(employeeType: string, employeeId: string)
   });
 }
 
+export function fetchAllDoctorSchedules() {
+  return request<{ data: EmployeeSchedule[] }>({
+    method: "GET",
+    path: "/employee-schedules",
+    params: { employeeSchedulableType: "Doctor", limit: "500" },
+  });
+}
+
 export function createEmployeeSchedule(input: CreateEmployeeScheduleInput) {
   return request<EmployeeSchedule>({
     method: "POST",
@@ -1660,6 +1680,7 @@ export interface UpdatePrescriptionInput {
   notes?: string;
   status?: PrescriptionStatus;
   items?: CreatePrescriptionItemInput[];
+  changeReason?: string;
 }
 
 export function updatePrescription(id: string, input: UpdatePrescriptionInput) {
@@ -1667,6 +1688,13 @@ export function updatePrescription(id: string, input: UpdatePrescriptionInput) {
     method: "PATCH",
     path: `/prescriptions/${id}`,
     body: input,
+  });
+}
+
+export function fetchPrescriptionHistory(prescriptionId: string) {
+  return request<PrescriptionHistoryEntry[]>({
+    method: "GET",
+    path: `/prescriptions/${prescriptionId}/history`,
   });
 }
 
@@ -1931,6 +1959,14 @@ export function fetchDocumentsByEntity(documentableType: string, documentableId:
     method: "GET",
     path: "/documents/by-entity",
     params: { documentableType, documentableId },
+  });
+}
+
+export function fetchBatchProfilePhotos(documentableType: string, ids: string[]) {
+  return request<DocumentRecord[]>({
+    method: "GET",
+    path: "/documents/batch-profile-photos",
+    params: { documentableType, ids: ids.join(',') },
   });
 }
 

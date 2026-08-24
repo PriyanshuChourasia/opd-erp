@@ -27,7 +27,6 @@ export interface DoctorWithUser {
   yearsOfExperience?: number | null;
   consultationFee: number;
   consultationMode: string;
-  verificationStatus: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

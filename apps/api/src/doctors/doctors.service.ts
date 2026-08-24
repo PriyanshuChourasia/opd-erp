@@ -9,7 +9,7 @@ import type { PaginatedResult } from '../common/interfaces/paginated-result.inte
 import type { Doctor } from '@prisma/client';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { CreateDoctorWithUserDto } from './dto/create-doctor-with-user.dto';
-import { UpdateDoctorDto, UpdateVerificationStatusDto } from './dto/update-doctor.dto';
+import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { UpdateDoctorWithUserDto } from './dto/update-doctor-with-user.dto';
 import { FindDoctorsQueryDto } from './dto/find-doctors-query.dto';
 
@@ -29,7 +29,7 @@ export class DoctorsService
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateDoctorDto, userId?: string) {
-    return this.prisma.doctor.create({
+    const doctor = await this.prisma.doctor.create({
       data: {
         qualification: dto.qualification,
         specialization: dto.specialization,
@@ -43,11 +43,26 @@ export class DoctorsService
         registrationCertificateUrl: dto.registrationCertificateUrl,
         degreeCertificateUrl: dto.degreeCertificateUrl,
         governmentIdUrl: dto.governmentIdUrl,
-        verificationStatus: dto.verificationStatus ?? 'PENDING',
         isActive: dto.isActive ?? true,
         createdById: userId ?? null,
       },
     });
+
+    // Create default weekly schedule (Mon-Fri 9:00-17:00)
+    const defaultScheduleDays = [0, 1, 2, 3, 4]; // Monday=0 … Friday=4
+    for (const dayOfWeek of defaultScheduleDays) {
+      await this.prisma.employeeSchedule.create({
+        data: {
+          employeeSchedulableType: 'Doctor',
+          employeeSchedulableId: doctor.id,
+          dayOfWeek,
+          startTime: '09:00',
+          endTime: '17:00',
+        },
+      });
+    }
+
+    return doctor;
   }
 
   async findAll(query: FindDoctorsQueryDto): Promise<PaginatedResult<Doctor>> {
@@ -87,16 +102,7 @@ export class DoctorsService
     return this.prisma.doctor.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async updateVerificationStatus(id: string, dto: UpdateVerificationStatusDto) {
-    const doctor = await this.findOne(id);
-    if (doctor.verificationStatus === 'VERIFIED' && dto.verificationStatus !== 'SUSPENDED') {
-      throw new Error('Cannot change verification status of a verified doctor');
-    }
-    return this.prisma.doctor.update({
-      where: { id },
-      data: { verificationStatus: dto.verificationStatus },
-    });
-  }
+
 
   async findLinkedUser(doctorId: string) {
     const user = await this.prisma.user.findFirst({
@@ -138,7 +144,6 @@ export class DoctorsService
       state,
       country,
       postalCode,
-      verificationStatus,
       ...doctorFields
     } = dto;
 
@@ -148,15 +153,7 @@ export class DoctorsService
         await tx.doctor.update({ where: { id }, data: doctorFields });
       }
 
-      // 2. Update verification status if provided
-      if (verificationStatus) {
-        if (doctor.verificationStatus === 'VERIFIED' && verificationStatus !== 'SUSPENDED') {
-          throw new BadRequestException('Cannot change verification status of a verified doctor');
-        }
-        await tx.doctor.update({ where: { id }, data: { verificationStatus } });
-      }
-
-      // 3. Update linked user fields (if any user fields provided)
+      // 2. Update linked user fields (if any user fields provided)
       const hasUserFields = firstName || lastName || email || username || mobileNumber || password;
       if (hasUserFields) {
         const userData: Record<string, unknown> = {};
@@ -174,9 +171,8 @@ export class DoctorsService
         });
       }
 
-      // 4. Update or create address if address fields provided
-      const hasAddressFields = addressLine1 || city || state || postalCode || country;
-      if (hasAddressFields) {
+      // 4. Update or create address — addressLine1 is required by the Address model
+      if (addressLine1) {
         const addressData: Record<string, unknown> = {};
         if (addressLine1) addressData.addressLine1 = addressLine1;
         if (addressLine2 !== undefined) addressData.addressLine2 = addressLine2;
@@ -247,7 +243,6 @@ export class DoctorsService
           registrationCertificateUrl: dto.registrationCertificateUrl,
           degreeCertificateUrl: dto.degreeCertificateUrl,
           governmentIdUrl: dto.governmentIdUrl,
-          verificationStatus: dto.verificationStatus ?? 'PENDING',
           isActive: true,
         },
       });
@@ -295,6 +290,20 @@ export class DoctorsService
             },
           })
         : null;
+
+      // 4. Create default weekly schedule (Mon-Fri 9:00-17:00)
+      const defaultScheduleDays = [0, 1, 2, 3, 4]; // Monday=0 … Friday=4
+      for (const dayOfWeek of defaultScheduleDays) {
+        await tx.employeeSchedule.create({
+          data: {
+            employeeSchedulableType: 'Doctor',
+            employeeSchedulableId: doctor.id,
+            dayOfWeek,
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+        });
+      }
 
       return { doctor, user, address };
     });

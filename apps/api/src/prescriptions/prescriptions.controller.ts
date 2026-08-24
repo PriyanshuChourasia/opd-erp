@@ -36,10 +36,20 @@ export class PrescriptionsController {
     return this.service.findOne(id);
   }
 
+  @Get(':id/history')
+  findHistory(@Param('id') id: string) {
+    return this.service.findHistory(id);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePrescriptionDto, @Req() req: { user: { id: string } }) {
-    return this.service.update(id, dto, req.user.id);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePrescriptionDto & { changeReason?: string },
+    @Req() req: { user: { id: string } },
+  ) {
+    const { changeReason, ...prescriptionDto } = dto;
+    return this.service.update(id, prescriptionDto, req.user.id, changeReason);
   }
 
   @Delete(':id')

@@ -14,9 +14,10 @@ import {
   fetchOrganisation,
   fetchAppointments,
   updatePatient,
-  fetchEmployeeSchedules,
+  fetchAllDoctorSchedules,
   fetchPatientVitalsLatest,
   type AppointmentType,
+  type EmployeeSchedule,
   type CreateDoctorWithUserInput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -156,21 +157,21 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   }, [selectedPatient?.id]);
 
   const { data: doctorsResponse } = useQuery({
-    queryKey: ["doctors", "appointments-filter"],
+    queryKey: ["doctors", "list", "all"],
     queryFn: () => fetchDoctors({ limit: 100 }),
+    refetchOnMount: true,
   });
   const doctors = useMemo(() => doctorsResponse?.data ?? [], [doctorsResponse]);
 
-  // Fetch all doctor schedules to determine date availability
+  // Fetch all doctor schedules in one call (no dependency on doctors list)
   const { data: allSchedules = [] } = useQuery({
     queryKey: ["employee-schedules", "all-doctors"],
-    queryFn: async () => {
-      const results = await Promise.all(
-        doctors.map((d) => fetchEmployeeSchedules("Doctor", d.id).catch(() => []))
-      );
-      return results.flat();
+    queryFn: async (): Promise<EmployeeSchedule[]> => {
+      const res = await fetchAllDoctorSchedules();
+      return res?.data ?? [];
     },
-    enabled: doctors.length > 0,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
   // Compute which doctor IDs are available on the selected date
@@ -217,6 +218,28 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       (s) => s.employeeSchedulableId === form.doctorId && s.dayOfWeek === dayOfWeek
     ) ?? null;
   }, [allSchedules, form.doctorId, form.date]);
+
+  // ── Auto-advance date to next available weekday when current date has no schedule ──
+  useEffect(() => {
+    if (!form.doctorId || !allSchedules.length || !form.date) return;
+    if (selectedDoctorSchedule) return; // current date has a schedule, no need to advance
+    // Find next available date (up to 14 days ahead)
+    const base = new Date(form.date + "T00:00:00");
+    for (let i = 1; i <= 14; i++) {
+      const next = new Date(base);
+      next.setDate(next.getDate() + i);
+      const dow = (next.getDay() + 6) % 7;
+      const hasSchedule = allSchedules.some(
+        (s) => s.employeeSchedulableId === form.doctorId && s.dayOfWeek === dow,
+      );
+      if (hasSchedule) {
+        const offset = next.getTimezoneOffset();
+        const nextStr = new Date(next.getTime() - offset * 60_000).toISOString().slice(0, 10);
+        setForm((prev) => ({ ...prev, date: nextStr, slot: null }));
+        break;
+      }
+    }
+  }, [form.doctorId, form.date, allSchedules, selectedDoctorSchedule]);
 
   // ── Already-booked slot times ──
   const bookedSlots = useMemo(() => {
@@ -456,7 +479,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   {doctorSearchOpen && !form.doctorId && (
                     <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-none border bg-popover shadow-md">
                       {doctors
-                        .filter((d) => availableDoctorIds.has(d.id))
                         .filter((d) =>
                           !doctorSearchQuery.trim() ||
                           (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
@@ -486,14 +508,8 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                             )}
                           </button>
                         ))}
-                      {doctors
-                        .filter((d) => availableDoctorIds.has(d.id))
-                        .filter((d) =>
-                          !doctorSearchQuery.trim() ||
-                          (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
-                          (d.specialization ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase())
-                        ).length === 0 && (
-                        <p className="p-3 text-center text-sm text-muted-foreground">No doctors scheduled on this date</p>
+                      {doctors.length === 0 && (
+                        <p className="p-3 text-center text-sm text-muted-foreground">No doctors found</p>
                       )}
                       <button
                         type="button"
@@ -517,6 +533,15 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   {form.doctorId ? (
                     slotsQuery.isLoading ? (
                       <p className="text-sm text-muted-foreground">Loading slots...</p>
+                    ) : !selectedDoctorSchedule ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-amber-600">No schedule for this day. Select a different date.</p>
+                        <Input
+                          type="time"
+                          value={form.slot ?? ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, slot: e.target.value || null }))}
+                        />
+                      </div>
                     ) : !slotsQuery.data?.available ? (
                       <p className="text-sm text-muted-foreground">No slots available for this day.</p>
                     ) : (
@@ -807,7 +832,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   </button>
                   <div className={cn(
                     "overflow-hidden transition-all duration-200",
-                    patientInfoOpen ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+                    patientInfoOpen ? "max-h-200 opacity-100" : "max-h-0 opacity-0"
                   )}>
                     <div className="px-4 pb-3">
                       {!selectedPatient ? (

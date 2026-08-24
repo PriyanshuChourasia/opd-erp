@@ -14,7 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DoctorsService } from './doctors.service';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { CreateDoctorWithUserDto } from './dto/create-doctor-with-user.dto';
-import { UpdateDoctorDto, UpdateVerificationStatusDto } from './dto/update-doctor.dto';
+import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { UpdateDoctorWithUserDto } from './dto/update-doctor-with-user.dto';
 import { FindDoctorsQueryDto } from './dto/find-doctors-query.dto';
 
@@ -61,14 +61,6 @@ export class DoctorsController {
   @Patch(':id/restore')
   restore(@Param('id') id: string) {
     return this.doctorsService.restore(id);
-  }
-
-  @Patch(':id/verification')
-  updateVerificationStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdateVerificationStatusDto,
-  ) {
-    return this.doctorsService.updateVerificationStatus(id, dto);
   }
 
   @Delete(':id')

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { CalendarClock, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, BadgeCheck, DollarSign, ShieldCheck, GraduationCap, User, Repeat, UserX, RotateCcw, FileUp, FileText, Camera } from "lucide-react";
+import { CalendarClock, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, BadgeCheck, DollarSign, ShieldCheck, GraduationCap, User, Repeat, FileUp, FileText, Camera } from "lucide-react";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { DocumentManager } from "@/modules/documents/components/document-manager";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
-import { fetchDoctors, fetchDoctor, createDoctorWithUser, updateDoctor, deleteDoctor, restoreDoctor, fetchDoctorUser, updateDoctorWithUser, fetchDocumentsByEntity, uploadDocument, deleteDocument, type Doctor, type CreateDoctorInput, type CreateDoctorWithUserInput } from "@/lib/api";
+import { fetchDoctors, fetchDoctor, createDoctorWithUser, updateDoctor, fetchDoctorUser, updateDoctorWithUser, fetchDocumentsByEntity, uploadDocument, deleteDocument, type Doctor, type CreateDoctorInput, type CreateDoctorWithUserInput } from "@/lib/api";
 import { fetchDoctorSchedules, createEmployeeSchedule, updateEmployeeSchedule, deleteEmployeeSchedule } from "../data/api";
 import { fetchShifts, type Shift } from "@/lib/api";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
@@ -33,8 +34,7 @@ export function DoctorsPage() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [showDropped, setShowDropped] = useState(false);
+
 
   const [form, setForm] = useState<CreateDoctorInput & Partial<CreateDoctorWithUserInput>>({
     specialization: "",
@@ -48,10 +48,9 @@ export function DoctorsPage() {
   });
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ["doctors", search, showDropped, pagination.pageIndex, pagination.pageSize],
+    queryKey: ["doctors", search, pagination.pageIndex, pagination.pageSize],
     queryFn: () => fetchDoctors({
       search: search || undefined,
-      isActive: showDropped ? 'false' : 'true',
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
     }),
@@ -63,7 +62,7 @@ export function DoctorsPage() {
 
   const createMutation = useMutation({
     mutationFn: createDoctorWithUser,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); closeSheet(); toast.success("Doctor created successfully"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); queryClient.invalidateQueries({ queryKey: ["doctor-slots"] }); closeSheet(); toast.success("Doctor created successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
   const updateMutation = useMutation({
@@ -71,16 +70,7 @@ export function DoctorsPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); closeSheet(); toast.success("Doctor updated successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
-  const deleteMutation = useMutation({
-    mutationFn: deleteDoctor,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); setDeleteConfirm(null); toast.success("Doctor dropped — can be restored anytime"); },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
-  const restoreMutation = useMutation({
-    mutationFn: restoreDoctor,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); setDeleteConfirm(null); toast.success("Doctor restored successfully"); },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
+
 
   const [scheduleDoctorId, setScheduleDoctorId] = useState<string | null>(null);
   const [scheduleDoctorSpecialization, setScheduleDoctorSpecialization] = useState<string | null>(null);
@@ -158,7 +148,7 @@ export function DoctorsPage() {
         }
       }
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules", "Doctor", scheduleDoctorId] }); setScheduleDoctorId(null); toast.success("Schedule saved successfully"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); queryClient.invalidateQueries({ queryKey: ["doctor-slots"] }); setScheduleDoctorId(null); toast.success("Schedule saved successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
@@ -250,7 +240,6 @@ export function DoctorsPage() {
       registrationYear: doctor.registrationYear ?? undefined,
       yearsOfExperience: doctor.yearsOfExperience ?? undefined,
       consultationMode: doctor.consultationMode,
-      verificationStatus: doctor.verificationStatus,
       // Address fields start empty (managed via AddressManager sheet)
       addressType: "CLINIC",
       addressLine1: "",
@@ -306,10 +295,31 @@ export function DoctorsPage() {
   function handleSave() {
     if (!form.medicalRegistrationNo.trim()) return;
     if (editingId) {
-      updateMutation.mutate({ id: editingId, data: form as Partial<CreateDoctorWithUserInput> });
+      // Strip medicalRegistrationNo (immutable after creation) and empty address
+      // fields so the backend UpdateDoctorWithUserDto validation passes.
+      const { medicalRegistrationNo: _reg, password, addressType, addressLine1, addressLine2, landmark, city, district, state, country, postalCode, ...rest } = form;
+      const updateData: Record<string, unknown> = { ...rest };
+      // Only include password if user actually typed a new one
+      if (password?.trim()) updateData.password = password;
+      // Only include address fields if addressLine1 is provided (required by Address model)
+      if (addressLine1?.trim()) {
+        updateData.addressLine1 = addressLine1;
+        if (addressType) updateData.addressType = addressType;
+        if (addressLine2?.trim()) updateData.addressLine2 = addressLine2;
+        if (landmark?.trim()) updateData.landmark = landmark;
+        if (city?.trim()) updateData.city = city;
+        if (district?.trim()) updateData.district = district;
+        if (state?.trim()) updateData.state = state;
+        if (country?.trim()) updateData.country = country;
+        if (postalCode?.trim()) updateData.postalCode = postalCode;
+      }
+      updateMutation.mutate({ id: editingId, data: updateData as Partial<CreateDoctorWithUserInput> });
     } else {
       createMutation.mutate(form as CreateDoctorWithUserInput, {
         onSuccess: async (result: any) => {
+          queryClient.invalidateQueries({ queryKey: ["doctors"] });
+          closeSheet();
+          toast.success("Doctor created successfully");
           const doctorId = result?.doctor?.id || result?.id;
           if (doctorId) await uploadPendingDocs(doctorId);
         },
@@ -368,66 +378,57 @@ export function DoctorsPage() {
       ),
     },
     {
-      accessorKey: "verificationStatus",
-      header: "Status",
-      cell: ({ row }) => {
-        const doctor = row.original;
-        if (!doctor.isActive) return <Badge variant="outline" className="text-[10px] text-muted-foreground border-dashed"><UserX className="mr-1 size-2.5" />Dropped</Badge>;
-        const status = doctor.verificationStatus;
-        if (status === 'VERIFIED') return <Badge variant="default" className="bg-green-600/10 text-green-600 text-[10px]"><BadgeCheck className="mr-1 size-2.5" />Verified</Badge>;
-        if (status === 'REJECTED') return <Badge variant="destructive" className="text-[10px]">Rejected</Badge>;
-        if (status === 'SUSPENDED') return <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600">Suspended</Badge>;
-        return <Badge variant="secondary" className="text-[10px]">Pending</Badge>;
-      },
-    },
-    {
       id: "actions",
-      header: "Action",
+      header: () => <div className="text-center">Action</div>,
       cell: ({ row }) => {
         const doctor = row.original;
         return (
-          <div className="flex justify-end gap-1">
-            {doctor.isActive ? (
-              <>
-                <Button variant="ghost" size="icon" className="size-8" title="Documents" onClick={() => openDocs(doctor)}>
-                  <FileText className="size-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="size-8" title="Weekly schedule" onClick={() => { setScheduleDoctorId(doctor.id); setScheduleDoctorSpecialization(doctor.specialization ?? null); }}>
-                  <CalendarClock className="size-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="size-8" title="Addresses" onClick={() => setAddressDoctorId(doctor.id)}>
-                  <MapPin className="size-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="size-8" title="Edit doctor" onClick={() => openEdit(doctor.id)}>
-                  <Pencil className="size-3.5" />
-                </Button>
-                {deleteConfirm === doctor.id ? (
-                  <div className="flex items-center gap-1">
-                    <Button variant="secondary" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(doctor.id)}>Drop</Button>
-                    <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
-                  </div>
-                ) : (
-                  <Button variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-amber-600" title="Drop doctor" onClick={() => setDeleteConfirm(doctor.id)}>
-                    <UserX className="size-3.5" />
-                  </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" size="icon" className="size-8" title="Restore" onClick={() => restoreMutation.mutate(doctor.id)}>
-                  <RotateCcw className="size-3.5" />
-                </Button>
-                <span className="text-[10px] text-muted-foreground italic">Dropped</span>
-              </>
-            )}
-          </div>
+            <div className="flex justify-center gap-1">
+              {doctor.isActive ? (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openDocs(doctor)}>
+                        <FileText className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Documents</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => { setScheduleDoctorId(doctor.id); setScheduleDoctorSpecialization(doctor.specialization ?? null); }}>
+                        <CalendarClock className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Weekly Schedule</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => setAddressDoctorId(doctor.id)}>
+                        <MapPin className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Addresses</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(doctor.id)}>
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Edit Doctor</TooltipContent>
+                  </Tooltip>
+                </>
+              ) : null}
+            </div>
         );
       },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [deleteConfirm]);
+  ], []);
 
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -532,20 +533,6 @@ export function DoctorsPage() {
                     </Select>
                   </Field>
                 </div>
-                {/* Verification status */}
-                <Field>
-                  <FieldLabel htmlFor="d-verification">Verification Status</FieldLabel>
-                  <Select value={form.verificationStatus ?? "PENDING"} onValueChange={(v) => setForm({ ...form, verificationStatus: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="VERIFIED">Verified</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                      <SelectItem value="SUSPENDED">Suspended</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-
                 {/* ─── Address Section (optional) ─── */}
                 <Separator className="my-2" />
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -641,9 +628,14 @@ export function DoctorsPage() {
                               <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
                               <Input placeholder="Label (e.g. Medical Council Certificate)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(realIdx, e.target.value)} />
                             </div>
-                            <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => removePending(realIdx)}>
-                              <X className="size-3.5" />
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removePending(realIdx)}>
+                                  <X className="size-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Remove file</TooltipContent>
+                            </Tooltip>
                           </div>
                         );
                       })}
@@ -664,29 +656,11 @@ export function DoctorsPage() {
 
       <Card>
         <CardHeader className="pb-3 space-y-3">
-          <div className="flex items-center gap-2">
-            <Button
-              variant={!showDropped ? "default" : "outline"}
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => { setShowDropped(false); setPagination((p) => ({ ...p, pageIndex: 0 })); setDeleteConfirm(null); }}
-            >
-              Active
-            </Button>
-            <Button
-              variant={showDropped ? "default" : "outline"}
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => { setShowDropped(true); setPagination((p) => ({ ...p, pageIndex: 0 })); setDeleteConfirm(null); }}
-            >
-              <UserX className="mr-1 size-3" />
-              Dropped
-            </Button>
-          </div>
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder={showDropped ? "Search dropped doctors..." : "Search by specialization or registration number..."}
+              placeholder="Search by specialization or registration number..."
               className="pl-9"
               value={search}
               onChange={(e) => {
@@ -706,9 +680,8 @@ export function DoctorsPage() {
             isLoading={isLoading}
             emptyState={
               <div className="flex flex-col items-center gap-2 py-6 text-center">
-                {showDropped ? <UserX className="size-8 text-muted-foreground/50" /> : <Stethoscope className="size-8 text-muted-foreground/50" />}
-                <p className="text-sm text-muted-foreground">{search ? "No doctors found" : showDropped ? "No dropped doctors" : "No doctors registered yet"}</p>
-                {showDropped && !search && <p className="text-xs text-muted-foreground">Dropped doctors can be restored anytime from this view.</p>}
+                <Stethoscope className="size-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">{search ? "No doctors found" : "No doctors registered yet"}</p>
               </div>
             }
           />
@@ -877,6 +850,7 @@ export function DoctorsPage() {
         </SheetContent>
       </Sheet>
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -965,9 +939,14 @@ function DoctorDocUploader({ doctorId }: { doctorId: string }) {
             <p className="text-xs font-medium truncate">{doc.originalName}</p>
             <p className="text-[10px] text-muted-foreground">{doc.caption || doc.documentType} · {(doc.fileSize / 1024).toFixed(0)} KB</p>
           </div>
-          <Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" onClick={() => deleteMutation.mutate(doc.id)}>
-            <X className="size-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" onClick={() => deleteMutation.mutate(doc.id)}>
+                <X className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete document</TooltipContent>
+          </Tooltip>
         </div>
       ))}
 
@@ -985,9 +964,14 @@ function DoctorDocUploader({ doctorId }: { doctorId: string }) {
             <p className="text-xs truncate text-muted-foreground">{pf.file.name}</p>
             <Input placeholder="Label (e.g. Medical Council Certificate)" className="h-7 text-xs" value={pf.label} onChange={(e) => updatePendingLabel(idx, e.target.value)} />
           </div>
-          <Button variant="ghost" size="icon" className="size-7 shrink-0" title="Remove file" onClick={() => removePending(idx)}>
-            <X className="size-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removePending(idx)}>
+                <X className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Remove file</TooltipContent>
+          </Tooltip>
         </div>
       ))}
 

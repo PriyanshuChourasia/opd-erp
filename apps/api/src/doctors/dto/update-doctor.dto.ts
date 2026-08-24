@@ -1,10 +1,8 @@
 import { PartialType, PickType } from '@nestjs/mapped-types';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { CreateDoctorDto, VerificationStatus } from './create-doctor.dto';
+import { CreateDoctorDto } from './create-doctor.dto';
 
 /**
  * For updates, medicalRegistrationNo should not be changeable once set.
- * Verification status changes are handled by the verification endpoint.
  */
 export class UpdateDoctorDto extends PartialType(
   PickType(CreateDoctorDto, [
@@ -21,12 +19,3 @@ export class UpdateDoctorDto extends PartialType(
     'governmentIdUrl',
   ] as const),
 ) {}
-
-export class UpdateVerificationStatusDto {
-  @IsEnum(VerificationStatus)
-  verificationStatus!: VerificationStatus;
-
-  @IsOptional()
-  @IsString()
-  rejectionReason?: string;
-}

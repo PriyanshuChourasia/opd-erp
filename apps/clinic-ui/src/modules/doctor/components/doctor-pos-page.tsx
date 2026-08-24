@@ -247,7 +247,7 @@ export function DoctorPosPage() {
     mutationFn: async () => {
       if (!cancelTarget?.appointment?.id) return;
       // Cancel the appointment
-      await updateAppointmentStatus(cancelTarget.appointment.id, "CANCELLED", cancelReason || undefined);
+      await updateAppointmentStatus(cancelTarget.appointment.id, "CANCELLED", cancelReason.trim());
       // Delete the queue entry
       await deleteQueueEntry(cancelTarget.id);
     },
@@ -1194,12 +1194,12 @@ export function DoctorPosPage() {
               Cancel appointment for {cancelTarget.patient ? getPatientName(cancelTarget.patient) : "this patient"}?
             </p>
             <Field className="mt-4">
-              <FieldLabel className="text-xs">Reason (optional)</FieldLabel>
+              <FieldLabel className="text-xs">Reason *</FieldLabel>
               <Input
                 placeholder="Enter cancellation reason..."
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") cancelMutation.mutate(); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && cancelReason.trim()) cancelMutation.mutate(); }}
               />
             </Field>
             <div className="mt-4 flex justify-end gap-2">
@@ -1207,7 +1207,7 @@ export function DoctorPosPage() {
               <Button
                 variant="destructive"
                 onClick={() => cancelMutation.mutate()}
-                disabled={cancelMutation.isPending}
+                disabled={cancelMutation.isPending || !cancelReason.trim()}
               >
                 {cancelMutation.isPending ? "Cancelling..." : "Cancel Appointment"}
               </Button>

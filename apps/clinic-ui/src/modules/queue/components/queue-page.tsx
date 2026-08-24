@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { STATUS_STYLES } from "../data/interface";
@@ -210,37 +211,51 @@ export function QueuePage() {
       cell: ({ row }) => {
         const entry = row.original;
         return (
-          <div className="flex items-center justify-end gap-1">
+          <TooltipProvider>
+          <div className="flex items-center gap-1">
             {entry.status === "COMPLETED" && entry.appointment && (
               entry.appointment.bill ? (
-                <Badge variant="outline" className="text-[10px]" title={`Invoice ${entry.appointment.bill.invoiceNo}`}>{entry.appointment.bill.invoiceNo}</Badge>
+                <Badge variant="outline" className="text-[10px]">{entry.appointment.bill.invoiceNo}</Badge>
               ) : (
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="size-9" title="Generate invoice (direct)" aria-label="Generate invoice directly" onClick={() => checkoutMutation.mutate(entry.appointment!.id)}>
-                    <FileText className="size-4.5 text-green-600" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="size-9" title="Generate invoice (POS)" aria-label="Generate invoice via POS checkout" onClick={() => navigate({ to: "/pos", search: { appointmentId: entry.appointment!.id } })}>
-                    <Receipt className="size-4.5 text-primary" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-9" aria-label="Generate invoice directly" onClick={() => checkoutMutation.mutate(entry.appointment!.id)}>
+                        <FileText className="size-4.5 text-green-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Generate Invoice</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-9" aria-label="Generate invoice via POS checkout" onClick={() => navigate({ to: "/pos", search: { appointmentId: entry.appointment!.id } })}>
+                        <Receipt className="size-4.5 text-primary" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Invoice via POS</TooltipContent>
+                  </Tooltip>
                 </div>
               )
             )}
             {entry.status !== "COMPLETED" && entry.status !== "SKIPPED" && entry.status !== "NO_SHOW" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9"
-                title="Record patient vitals"
-                aria-label="Record patient vitals"
-                onClick={() => openVitals(entry)}
-              >
-                <HeartPulse className="size-4.5 text-rose-500" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-9" aria-label="Record patient vitals" onClick={() => openVitals(entry)}>
+                    <HeartPulse className="size-4.5 text-rose-500" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Record Vitals</TooltipContent>
+              </Tooltip>
             )}
             {deleteConfirm === entry.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(entry.id)}>Confirm</Button>
-                <Button variant="ghost" size="icon" className="size-9" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-4.5" /></Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-9" onClick={() => setDeleteConfirm(null)}><X className="size-4.5" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Cancel</TooltipContent>
+                </Tooltip>
               </div>
             ) : (
               <>
@@ -259,11 +274,19 @@ export function QueuePage() {
                       <SelectItem key={status} value={status}>{status.replace("_", " ")}</SelectItem>
                     ))}
                   </SelectContent>
-                </Select>                <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive" title="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}>
-                  <Trash2 className="size-4.5" /></Button>
+                </Select>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive" aria-label="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}>
+                      <Trash2 className="size-4.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Remove from Queue</TooltipContent>
+                </Tooltip>
               </>
             )}
           </div>
+          </TooltipProvider>
         );
       },
     },

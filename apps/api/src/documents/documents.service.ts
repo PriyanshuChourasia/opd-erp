@@ -64,6 +64,20 @@ export class DocumentsService
     });
   }
 
+  /** Find profile photos for multiple entity IDs in a single query. */
+  async findProfilePhotosByEntityIds(documentableType: string, ids: string[]) {
+    if (ids.length === 0) return [];
+    return this.prisma.document.findMany({
+      where: {
+        documentableType,
+        documentableId: { in: ids },
+        documentType: 'PROFILE_PHOTO',
+        isActive: true,
+      },
+      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
   /** Set a specific document as the primary for its entity (unsets all others). */
   async setPrimary(id: string) {
     const doc = await this.findOne(id);

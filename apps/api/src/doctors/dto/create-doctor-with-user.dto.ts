@@ -9,7 +9,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { ConsultationMode, VerificationStatus } from './create-doctor.dto';
+import { ConsultationMode } from './create-doctor.dto';
 import { AddressType } from '../../addresses/dto/create-address.dto';
 
 /**
@@ -98,10 +98,6 @@ export class CreateDoctorWithUserDto {
   @IsOptional()
   @IsString()
   governmentIdUrl?: string;
-
-  @IsOptional()
-  @IsEnum(VerificationStatus)
-  verificationStatus?: VerificationStatus;
 
   // ── Address (optional) ────────────────────────────────────
 

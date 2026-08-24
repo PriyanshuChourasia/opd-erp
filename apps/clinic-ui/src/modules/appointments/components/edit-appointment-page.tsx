@@ -15,10 +15,11 @@ import {
   fetchOrganisation,
   fetchAppointments,
   updatePatient,
-  fetchEmployeeSchedules,
+  fetchAllDoctorSchedules,
   fetchPatientVitalsLatest,
   type AppointmentType,
   type CreateDoctorWithUserInput,
+  type EmployeeSchedule,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -183,20 +184,20 @@ export function EditAppointmentPage() {
   }, [selectedPatient?.id]);
 
   const { data: doctorsResponse } = useQuery({
-    queryKey: ["doctors", "appointments-filter"],
+    queryKey: ["doctors", "list", "all"],
     queryFn: () => fetchDoctors({ limit: 100 }),
+    refetchOnMount: true,
   });
   const doctors = useMemo(() => doctorsResponse?.data ?? [], [doctorsResponse]);
 
   const { data: allSchedules = [] } = useQuery({
     queryKey: ["employee-schedules", "all-doctors"],
-    queryFn: async () => {
-      const results = await Promise.all(
-        doctors.map((d) => fetchEmployeeSchedules("Doctor", d.id).catch(() => []))
-      );
-      return results.flat();
+    queryFn: async (): Promise<EmployeeSchedule[]> => {
+      const res = await fetchAllDoctorSchedules();
+      return res?.data ?? [];
     },
-    enabled: doctors.length > 0,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
   const availableDoctorIds = useMemo(() => {
@@ -503,7 +504,6 @@ export function EditAppointmentPage() {
                   {doctorSearchOpen && !form.doctorId && (
                     <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-none border bg-popover shadow-md">
                       {doctors
-                        .filter((d) => availableDoctorIds.has(d.id))
                         .filter((d) =>
                           !doctorSearchQuery.trim() ||
                           (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
@@ -533,14 +533,8 @@ export function EditAppointmentPage() {
                             )}
                           </button>
                         ))}
-                      {doctors
-                        .filter((d) => availableDoctorIds.has(d.id))
-                        .filter((d) =>
-                          !doctorSearchQuery.trim() ||
-                          (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
-                          (d.specialization ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase())
-                        ).length === 0 && (
-                        <p className="p-3 text-center text-sm text-muted-foreground">No doctors scheduled on this date</p>
+                      {doctors.length === 0 && (
+                        <p className="p-3 text-center text-sm text-muted-foreground">No doctors found</p>
                       )}
                       <button
                         type="button"
@@ -564,6 +558,15 @@ export function EditAppointmentPage() {
                   <Field><FieldLabel>Slot *</FieldLabel>
                     {slotsQuery.isLoading ? (
                       <p className="text-sm text-muted-foreground">Loading slots...</p>
+                    ) : !selectedDoctorSchedule ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-amber-600">No schedule for this day. Select a different date.</p>
+                        <Input
+                          type="time"
+                          value={form.slot ?? ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, slot: e.target.value || null }))}
+                        />
+                      </div>
                     ) : !slotsQuery.data?.available ? (
                       <p className="text-sm text-muted-foreground">No slots available for this day.</p>
                     ) : (

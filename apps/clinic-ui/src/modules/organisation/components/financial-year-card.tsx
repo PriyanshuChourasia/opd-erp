@@ -4,6 +4,11 @@ import { CalendarRange, Plus, Trash2, Check, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
+import {
+  defaultFyEndDate,
+  defaultFyStartDate,
+  deriveFyLabel,
+} from "@/lib/financial-year";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -21,7 +26,6 @@ import {
   createFinancialYear,
   deleteFinancialYear,
   activateFinancialYear,
-  type FinancialYear,
 } from "@/lib/api";
 
 function formatDate(dateStr: string) {
@@ -32,28 +36,16 @@ function formatDate(dateStr: string) {
   });
 }
 
-function defaultStartDate() {
-  const now = new Date();
-  const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-  return `${year}-04-01`;
+function emptyForm() {
+  return { startDate: defaultFyStartDate(), endDate: defaultFyEndDate() };
 }
 
-function defaultEndDate() {
-  const now = new Date();
-  const year = now.getMonth() >= 3 ? now.getFullYear() + 1 : now.getFullYear();
-  return `${year}-03-31`;
-}
-
-function defaultLabel() {
-  const now = new Date();
-  const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-  return `FY ${startYear}-${String(startYear + 1).slice(2)}`;
-}
-
-export function FinancialYearCard({ organisationId }: { organisationId: string }) {
+export function FinancialYearCard() {
   const queryClient = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [form, setForm] = useState({ label: defaultLabel(), startDate: defaultStartDate(), endDate: defaultEndDate() });
+  const [form, setForm] = useState(emptyForm);
+
+  const previewLabel = form.startDate ? deriveFyLabel(form.startDate) : null;
 
   const { data: financialYears = [], isLoading } = useQuery({
     queryKey: ["financial-years"],
@@ -65,8 +57,8 @@ export function FinancialYearCard({ organisationId }: { organisationId: string }
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["financial-years"] });
       setSheetOpen(false);
-      setForm({ label: defaultLabel(), startDate: defaultStartDate(), endDate: defaultEndDate() });
-      toast.success("Financial year created");
+      setForm(emptyForm());
+      toast.success(`Financial year ${previewLabel ?? ""} created`.trim());
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
@@ -88,8 +80,6 @@ export function FinancialYearCard({ organisationId }: { organisationId: string }
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
-
-  const activeFY = financialYears.find((fy) => fy.isActive);
 
   return (
     <>
@@ -195,34 +185,28 @@ export function FinancialYearCard({ organisationId }: { organisationId: string }
           </SheetHeader>
           <div className="flex-1 space-y-4 px-4">
             <Field>
-              <FieldLabel htmlFor="fy-label">Label *</FieldLabel>
+              <FieldLabel htmlFor="fy-card-start">Start Date *</FieldLabel>
               <Input
-                id="fy-label"
-                placeholder="FY 2025-26"
-                value={form.label}
-                onChange={(e) => setForm({ ...form, label: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Display name for this financial year.
-              </p>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="fy-start">Start Date *</FieldLabel>
-              <Input
-                id="fy-start"
+                id="fy-card-start"
                 type="date"
                 value={form.startDate}
                 onChange={(e) => setForm({ ...form, startDate: e.target.value })}
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="fy-end">End Date *</FieldLabel>
+              <FieldLabel htmlFor="fy-card-end">End Date *</FieldLabel>
               <Input
-                id="fy-end"
+                id="fy-card-end"
                 type="date"
                 value={form.endDate}
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               />
+              {previewLabel && (
+                <p className="text-xs text-muted-foreground">
+                  Will be created as{" "}
+                  <span className="font-medium text-foreground">{previewLabel}</span>
+                </p>
+              )}
             </Field>
           </div>
           <SheetFooter>
@@ -231,7 +215,9 @@ export function FinancialYearCard({ organisationId }: { organisationId: string }
             </Button>
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={!form.label.trim() || !form.startDate || !form.endDate || createMutation.isPending}
+              disabled={
+                !form.startDate || !form.endDate || form.startDate >= form.endDate || createMutation.isPending
+              }
             >
               {createMutation.isPending ? "Creating..." : "Create"}
             </Button>

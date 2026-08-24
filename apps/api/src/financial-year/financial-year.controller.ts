@@ -9,13 +9,13 @@ export class FinancialYearController {
   constructor(private readonly service: FinancialYearService) {}
 
   @Get()
-  findAll(@Req() req: { user: { organisationId?: string } }) {
-    return this.service.findAll(req.user.organisationId ?? '');
+  findAll() {
+    return this.service.findAll();
   }
 
   @Get('active')
-  findActive(@Req() req: { user: { organisationId?: string } }) {
-    return this.service.findActive(req.user.organisationId ?? '');
+  findActive() {
+    return this.service.findActive();
   }
 
   @Get(':id')
@@ -24,8 +24,8 @@ export class FinancialYearController {
   }
 
   @Post()
-  create(@Body() dto: CreateFinancialYearDto, @Req() req: { user: { id: string; organisationId?: string } }) {
-    return this.service.create(dto, req.user.organisationId ?? '', req.user.id);
+  create(@Body() dto: CreateFinancialYearDto, @Req() req: { user: { id: string } }) {
+    return this.service.create(dto, req.user.id);
   }
 
   @Patch(':id')

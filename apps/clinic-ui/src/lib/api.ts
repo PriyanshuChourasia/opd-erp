@@ -585,7 +585,7 @@ export interface FinancialYear {
 }
 
 export interface CreateFinancialYearInput {
-  label: string;
+  label?: string;
   startDate: string;
   endDate: string;
   isActive?: boolean;

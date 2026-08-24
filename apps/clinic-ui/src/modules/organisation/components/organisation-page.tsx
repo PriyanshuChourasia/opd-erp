@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Globe, Mail, MapPin, ShieldCheck, Users, Settings, CalendarRange } from "lucide-react";
+import { Building2, Globe, Mail, MapPin, ShieldCheck, Users, Settings } from "lucide-react";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { FinancialYearCard } from "@/modules/organisation/components/financial-year-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -96,7 +96,7 @@ export function OrganisationPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Organisation</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage your clinic's settings, users, and permissions</p>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your clinic&apos;s settings, users, and permissions</p>
         </div>
         <Button variant="outline" onClick={openSheet}>
           <Settings className="mr-2 size-4" />
@@ -175,7 +175,7 @@ export function OrganisationPage() {
         </Card>
 
         {/* Financial Year card */}
-        {organisation && <FinancialYearCard organisationId={organisation.id} />}
+        {organisation && <FinancialYearCard />}
 
         <Card>
           <CardHeader>
@@ -204,7 +204,7 @@ export function OrganisationPage() {
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{organisation ? "Edit Organisation" : "Set Up Organisation"}</SheetTitle>
-            <SheetDescription>Update your clinic's profile information.</SheetDescription>
+            <SheetDescription>Update your clinic&apos;s profile information.</SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-4 px-4">
             <FieldGroup>

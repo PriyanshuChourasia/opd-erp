@@ -1964,7 +1964,7 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
   const userId = superadmin?.id ?? null;
   for (const demo of PATIENT_DEMOS) {
     const patient = await prisma.patient.upsert({
-      where: { contactNo: demo.patient.contactNo },
+      where: { patientCode: demo.patient.patientCode },
       update: {},
       create: demo.patient,
     });
@@ -2034,7 +2034,7 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
     const medicineByName = new Map(medicines.map((m) => [m.name, m]));
 
     for (const rx of PRESCRIPTION_DEMOS) {
-      const patient = await prisma.patient.findUnique({ where: { contactNo: rx.patientPhone } });
+      const patient = await prisma.patient.findFirst({ where: { contactNo: rx.patientPhone } });
       if (!patient) {
         console.warn(`Patient not found for phone ${rx.patientPhone}, skipping prescription.`);
         continue;

@@ -27,7 +27,7 @@ interface TestAccount {
 }
 
 const testAccounts: TestAccount[] = [
-  { role: "Doctor", email: "rajesh.sharma@clinic.com", password: "Doctor@123" },
+  { role: "Doctor as Admin", email: "rajesh.admin@clinic.com", password: "Doctor@123" },
   { role: "Admin", email: "admin@clinic.com", password: "Password@123" },
   { role: "Receptionist", email: "receptionist@clinic.com", password: "Password@123" },
   { role: "Nurse", email: "meera@clinic.com", password: "Password@123" },
@@ -120,7 +120,7 @@ export function LoginPage() {
             <div className="mb-2 flex items-center gap-2">
               <Shield className="size-3.5 text-muted-foreground" />
               <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Demo accounts — Doctor pre-filled
+                Demo accounts — Doctor as Admin pre-filled
               </span>
             </div>
             <div className="flex flex-wrap gap-2">

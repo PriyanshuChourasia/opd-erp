@@ -1,5 +1,6 @@
 import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import {
+  CalendarClock,
   ClipboardList,
   LayoutDashboard,
   LifeBuoy,
@@ -26,7 +27,8 @@ import { HelpTip } from "@/modules/help/components/help-tip";
 import { BrandMark } from "@/components/brand-mark";
 
 const doctorNav = [
-  { to: "/doctor", label: "My Appointments", icon: LayoutDashboard },
+  { to: "/doctor", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/doctor/appointments", label: "Appointments", icon: CalendarClock },
   { to: "/doctor/prescriptions", label: "Prescriptions", icon: ClipboardList },
   { to: "/help", label: "Help", icon: LifeBuoy },
 ];

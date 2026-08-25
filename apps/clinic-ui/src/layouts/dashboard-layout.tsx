@@ -24,7 +24,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
+import { LogOut, RefreshCw, User } from "lucide-react";
+import { toast } from "sonner";
 
 function initials(firstName?: string, lastName?: string) {
   return `${(firstName ?? "?").charAt(0)}${(lastName ?? "").charAt(0)}`.toUpperCase();
@@ -81,7 +82,11 @@ export function DashboardLayout() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            <HelpTip className="ml-auto" />
+            <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={() => { fetchProfile().then((data) => { toast.success("State fetched", { description: `${data.firstName} ${data.lastName} — ${data.roleName}` }); }).catch(() => { toast.error("Failed to fetch state"); }); }}>
+              <RefreshCw className="size-3.5" />
+              FetchCurrentState
+            </Button>
+            <HelpTip />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2">

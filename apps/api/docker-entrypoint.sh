@@ -18,5 +18,9 @@ if ! npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/see
   npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts --fresh
 fi
 
+echo "[entrypoint] Ensuring uploads directory exists..."
+mkdir -p /app/apps/api/uploads/documents
+chmod -R 777 /app/apps/api/uploads 2>/dev/null || true
+
 echo "[entrypoint] Starting server..."
 exec node dist/main.js

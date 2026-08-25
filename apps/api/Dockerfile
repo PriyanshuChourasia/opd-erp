@@ -49,4 +49,8 @@ EXPOSE 4000
 # resetting the database and reapplying migrations + seed from scratch —
 # so a plain `docker compose up -d --build` recovers on its own.
 WORKDIR /app/apps/api
+
+# Create uploads directory with proper permissions
+RUN mkdir -p /app/apps/api/uploads/documents && chmod 777 /app/apps/api/uploads/documents
+
 CMD ["./docker-entrypoint.sh"]

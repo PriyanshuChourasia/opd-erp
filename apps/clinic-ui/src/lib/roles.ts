@@ -1,6 +1,6 @@
 /** Roles that work the front desk land on the receptionist POS instead of the stats dashboard. */
 const DESK_ROLES = new Set(["RECEPTIONIST"]);
-const DOCTOR_ROLES = new Set(["DOCTOR"]);
+const DOCTOR_ROLES = new Set(["DOCTOR", "DOCTOR AS ADMIN"]);
 const ADMIN_ROLES = new Set(["ADMIN", "SUPER ADMIN", "DEVELOPER"]);
 
 /** Admin roles can navigate to any layout without being redirected. */

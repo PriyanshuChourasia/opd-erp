@@ -28,9 +28,12 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://nest_user:wish123456789@postgres_db:5432/opd_db?schema=public
     restart: always
+    volumes:
+      - uploads:/app/apps/api/uploads
     depends_on:
       postgres_db:
         condition: service_healthy
 
 volumes:
   pgdata:
+  uploads:

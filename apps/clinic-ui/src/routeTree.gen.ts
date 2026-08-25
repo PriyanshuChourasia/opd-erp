@@ -48,6 +48,7 @@ import { Route as DeveloperDeveloperApisRouteImport } from './routes/_developer/
 import { Route as DeveloperDeveloperFeaturesRouteImport } from './routes/_developer/developer/features'
 import { Route as DeveloperDeveloperModulesRouteImport } from './routes/_developer/developer/modules'
 import { Route as DoctorDoctorIndexRouteImport } from './routes/_doctor/doctor/index'
+import { Route as DoctorDoctorAppointmentsRouteImport } from './routes/_doctor/doctor/appointments'
 import { Route as DoctorDoctorPrescriptionsRouteImport } from './routes/_doctor/doctor/prescriptions'
 import { Route as DoctorDoctorProfileRouteImport } from './routes/_doctor/doctor/profile'
 import { Route as PatientPatientIndexRouteImport } from './routes/_patient/patient/index'
@@ -273,6 +274,12 @@ const DoctorDoctorIndexRoute = DoctorDoctorIndexRouteImport.update({
   path: '/doctor/',
   getParentRoute: () => DoctorRoute,
 } as any)
+const DoctorDoctorAppointmentsRoute =
+  DoctorDoctorAppointmentsRouteImport.update({
+    id: '/doctor/appointments',
+    path: '/doctor/appointments',
+    getParentRoute: () => DoctorRoute,
+  } as any)
 const DoctorDoctorPrescriptionsRoute =
   DoctorDoctorPrescriptionsRouteImport.update({
     id: '/doctor/prescriptions',
@@ -427,6 +434,7 @@ export interface FileRoutesByFullPath {
   '/developer/apis': typeof DeveloperDeveloperApisRoute
   '/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/developer/modules': typeof DeveloperDeveloperModulesRoute
+  '/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/doctor/prescriptions': typeof DoctorDoctorPrescriptionsRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/patient/appointments': typeof PatientPatientAppointmentsRoute
@@ -483,6 +491,7 @@ export interface FileRoutesByTo {
   '/developer/apis': typeof DeveloperDeveloperApisRoute
   '/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/developer/modules': typeof DeveloperDeveloperModulesRoute
+  '/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/doctor/prescriptions': typeof DoctorDoctorPrescriptionsRoute
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/patient/appointments': typeof PatientPatientAppointmentsRoute
@@ -547,6 +556,7 @@ export interface FileRoutesById {
   '/_developer/developer/apis': typeof DeveloperDeveloperApisRoute
   '/_developer/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/_developer/developer/modules': typeof DeveloperDeveloperModulesRoute
+  '/_doctor/doctor/appointments': typeof DoctorDoctorAppointmentsRoute
   '/_doctor/doctor/prescriptions': typeof DoctorDoctorPrescriptionsRoute
   '/_doctor/doctor/profile': typeof DoctorDoctorProfileRoute
   '/_patient/patient/appointments': typeof PatientPatientAppointmentsRoute
@@ -605,6 +615,7 @@ export interface FileRouteTypes {
     | '/developer/apis'
     | '/developer/features'
     | '/developer/modules'
+    | '/doctor/appointments'
     | '/doctor/prescriptions'
     | '/doctor/profile'
     | '/patient/appointments'
@@ -661,6 +672,7 @@ export interface FileRouteTypes {
     | '/developer/apis'
     | '/developer/features'
     | '/developer/modules'
+    | '/doctor/appointments'
     | '/doctor/prescriptions'
     | '/doctor/profile'
     | '/patient/appointments'
@@ -724,6 +736,7 @@ export interface FileRouteTypes {
     | '/_developer/developer/apis'
     | '/_developer/developer/features'
     | '/_developer/developer/modules'
+    | '/_doctor/doctor/appointments'
     | '/_doctor/doctor/prescriptions'
     | '/_doctor/doctor/profile'
     | '/_patient/patient/appointments'
@@ -1041,6 +1054,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DoctorDoctorIndexRouteImport
       parentRoute: typeof DoctorRoute
     }
+    '/_doctor/doctor/appointments': {
+      id: '/_doctor/doctor/appointments'
+      path: '/doctor/appointments'
+      fullPath: '/doctor/appointments'
+      preLoaderRoute: typeof DoctorDoctorAppointmentsRouteImport
+      parentRoute: typeof DoctorRoute
+    }
     '/_doctor/doctor/prescriptions': {
       id: '/_doctor/doctor/prescriptions'
       path: '/doctor/prescriptions'
@@ -1294,12 +1314,14 @@ const DeveloperRouteWithChildren = DeveloperRoute._addFileChildren(
 )
 
 interface DoctorRouteChildren {
+  DoctorDoctorAppointmentsRoute: typeof DoctorDoctorAppointmentsRoute
   DoctorDoctorPrescriptionsRoute: typeof DoctorDoctorPrescriptionsRoute
   DoctorDoctorProfileRoute: typeof DoctorDoctorProfileRoute
   DoctorDoctorIndexRoute: typeof DoctorDoctorIndexRoute
 }
 
 const DoctorRouteChildren: DoctorRouteChildren = {
+  DoctorDoctorAppointmentsRoute: DoctorDoctorAppointmentsRoute,
   DoctorDoctorPrescriptionsRoute: DoctorDoctorPrescriptionsRoute,
   DoctorDoctorProfileRoute: DoctorDoctorProfileRoute,
   DoctorDoctorIndexRoute: DoctorDoctorIndexRoute,

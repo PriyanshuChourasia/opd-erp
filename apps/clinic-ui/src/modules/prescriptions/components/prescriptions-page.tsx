@@ -97,7 +97,7 @@ export function PrescriptionsPage() {
   const [search, setSearch] = useState("");
   const [filterDoctor, setFilterDoctor] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterDate, setFilterDate] = useState("");
+  const [filterDate, setFilterDate] = useState(todayStr());
   const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
   const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
 

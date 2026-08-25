@@ -15,10 +15,6 @@ async function bootstrap() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // Serve uploaded files (documents, images, etc.)
-  const uploadsDir = join(process.cwd(), 'uploads');
-  app.use('/uploads', express.static(uploadsDir));
-
   // CORS_ORIGINS: comma-separated list of extra allowed origins for this
   // deployment (e.g. a per-environment frontend domain), on top of the
   // always-allowed defaults below. Lets a new environment (dev/staging)
@@ -39,6 +35,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
   app.setGlobalPrefix('api');
+
+  // Serve uploaded files AFTER global prefix so /uploads is not affected by /api prefix
+  const uploadsDir = join(process.cwd(), 'uploads');
+  app.use('/uploads', express.static(uploadsDir));
 
   app.useGlobalFilters(new PrismaExceptionFilter());
 

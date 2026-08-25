@@ -18,6 +18,7 @@ import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
+import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -76,7 +77,7 @@ export class DocumentsController {
       originalName: file.originalname,
       mimeType: file.mimetype,
       fileSize: file.size,
-      filePath: file.path,
+      filePath: `/uploads/documents/${file.filename}`,
       caption,
       isPrimary: isPrimary === 'true',
       documentableType,
@@ -121,7 +122,8 @@ export class DocumentsController {
   @Permissions('read:documents')
   async download(@Param('id') id: string, @Res() res: Response) {
     const doc = await this.documentsService.findOne(id);
-    res.download(doc.filePath, doc.originalName);
+    const absolutePath = doc.filePath.startsWith('/') ? doc.filePath : join(process.cwd(), doc.filePath.replace(/^\//, ''));
+    res.download(absolutePath, doc.originalName);
   }
 
   @Get(':id')

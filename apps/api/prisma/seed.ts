@@ -554,9 +554,7 @@ async function seedPermissions(): Promise<Permission[]> {
       (pharmacistReadResources.has(p.resource) && p.action === 'read') ||
       (pharmacistWriteResources.has(p.resource) &&
         (p.action === 'create' || p.action === 'update' || p.action === 'read')),
-  );
-
-  // ── Lab Technician: lab orders, radiology ──
+  );  // ── Lab Technician: lab orders, radiology ──
   const labTechReadResources = new Set([
     'patients', 'lab-orders', 'radiology-orders', 'procedure-orders',
     'appointments', 'diagnoses', 'doctors',
@@ -565,8 +563,13 @@ async function seedPermissions(): Promise<Permission[]> {
   const labTechPerms = permissions.filter(
     (p) =>
       (labTechReadResources.has(p.resource) && p.action === 'read') ||
-      (labTechWriteResources.has(p.resource) &&
-        (p.action === 'create' || p.action === 'update' || p.action === 'read')),
+      (labTechWriteResources.has(p.resource) && (p.action === 'create' || p.action === 'update' || p.action === 'read')),
+  );
+
+  // ── Doctor as Admin: Doctor clinical + Admin operational ──
+  // Combines all Doctor permissions with full Admin operational access
+  const doctorAsAdminPerms = permissions.filter(
+    (p) => doctorPerms.some((dp) => dp.id === p.id) || adminPermKeys.has(`${p.resource}:${p.action}`),
   );
 
   async function upsertRoleWithPermissions(name: string, description: string, perms: Permission[]) {
@@ -592,9 +595,10 @@ async function seedPermissions(): Promise<Permission[]> {
   const assistant = await upsertRoleWithPermissions('Assistant', 'Support: view patients, manage queue', assistantPerms);
   const pharmacist = await upsertRoleWithPermissions('Pharmacist', 'Dispensing, prescriptions, medicine catalog, billing', pharmacistPerms);
   const labTech = await upsertRoleWithPermissions('Lab Technician', 'Lab orders, radiology orders, procedure orders', labTechPerms);
+  const doctorAsAdmin = await upsertRoleWithPermissions('Doctor as Admin', 'Doctor clinical access combined with full admin operational access', doctorAsAdminPerms);
 
-  console.log(`Seeded roles: Developer (${superAdminPerms.length}), Admin (${adminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}).`);
-  return { superAdmin, admin, receptionist, doctor, nurse, assistant, pharmacist, labTech };
+  console.log(`Seeded roles: Developer (${superAdminPerms.length}), Admin (${adminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Doctor as Admin (${doctorAsAdminPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}).`);
+  return { superAdmin, admin, receptionist, doctor, doctorAsAdmin, nurse, assistant, pharmacist, labTech };
 }
 
 async function seedUsers(
@@ -607,6 +611,7 @@ async function seedUsers(
   pharmacistRoleId?: string,
   labTechRoleId?: string,
   adminRoleId?: string,
+  doctorAsAdminRoleId?: string,
 ) {
   const password = await bcrypt.hash('Password@123', 10);
   const doctorPassword = await bcrypt.hash('Doctor@123', 10);
@@ -769,6 +774,27 @@ async function seedUsers(
     }
   }
 
+  // Doctor as Admin user — linked via userableType/userableId (same as Doctor)
+  if (doctorAsAdminRoleId && doctorRows.length > 0) {
+    const doc = doctorRows[0];
+    const existing = await prisma.user.findFirst({ where: { email: 'rajesh.admin@clinic.com' } });
+    if (!existing) {
+      await prisma.user.create({
+        data: {
+          username: 'rajeshadmin',
+          firstName: 'Rajesh',
+          lastName: 'Admin',
+          email: 'rajesh.admin@clinic.com',
+          password: doctorPassword,
+          roleId: doctorAsAdminRoleId,
+          userableType: 'Doctor',
+          userableId: doc.id,
+          gender: 'MALE',
+        },
+      });
+    }
+  }
+
   const extraCount = (nurseRoleId ? 2 : 0) + (pharmacistRoleId ? 2 : 0) + (labTechRoleId ? 2 : 0);
   console.log(`Seeded ${systemUsers.length} system users + ${receptionistUsers.length} receptionists + ${doctorRows.length} doctor users + ${extraCount} staff users.`);
   console.log('Login credentials:');
@@ -778,6 +804,7 @@ async function seedUsers(
   console.log('  meenakshi@clinic.com / Password@123 (Receptionist — Meenakshi Reddy)');
   console.log('  raj@clinic.com / Password@123 (Receptionist — Raj Kumar)');
   console.log('  rajesh.sharma@clinic.com / Doctor@123 (Doctor)');
+  console.log('  rajesh.admin@clinic.com / Doctor@123 (Doctor as Admin)');
   console.log('  assistant@clinic.com / Password@123 (Assistant)');
   console.log('  meera@clinic.com / Password@123 (Nurse — Meera Nair)');
   console.log('  deepak@clinic.com / Password@123 (Nurse — Deepak Yadav)');
@@ -3264,7 +3291,7 @@ async function main() {
   const roles = await seedRoles(permissions);
   await seedUsers(
     roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors,
-    roles.nurse.id, roles.pharmacist.id, roles.labTech.id, roles.admin.id,
+    roles.nurse.id, roles.pharmacist.id, roles.labTech.id, roles.admin.id, roles.doctorAsAdmin.id,
   );
 
   console.log('\n📊 Seeding demo transactional data...');
@@ -3295,16 +3322,18 @@ async function seedSidebarConfig() {
 
   const adminId = roleMap.get('Admin');
   const doctorId = roleMap.get('Doctor');
+  const doctorAsAdminId = roleMap.get('Doctor as Admin');
   const receptionistId = roleMap.get('Receptionist');
   const pharmacistId = roleMap.get('Pharmacist');
   const nurseId = roleMap.get('Nurse');
   const developerId = roleMap.get('Developer');
   const superAdminId = roleMap.get('Super Admin') ?? developerId;
 
-  const allRoleIds = Array.from(roleMap.values());
-  const clinicalRoles = [adminId, doctorId, receptionistId, nurseId, developerId].filter(Boolean);
-  const frontDeskRoles = [adminId, receptionistId, developerId].filter(Boolean);
+  const allRoleIds = [...new Set(roleMap.values())];
+  const clinicalRoles = [adminId, doctorId, doctorAsAdminId, receptionistId, nurseId, developerId].filter(Boolean);
+  const frontDeskRoles = [adminId, doctorAsAdminId, receptionistId, developerId].filter(Boolean);
   const pharmacyRoles = [adminId, pharmacistId, developerId].filter(Boolean);
+  const adminRoles = [adminId, doctorAsAdminId, developerId].filter(Boolean);
 
   const menuItems = [
     // Clinic group
@@ -3316,10 +3345,10 @@ async function seedSidebarConfig() {
     { label: 'Diagnoses', path: '/diagnoses', icon: 'Stethoscope', group: 'Clinic', sortOrder: 5, roleIds: clinicalRoles },
 
     // Reports group
-    { label: 'Revenue by Category', path: '/reports/revenue-by-category', icon: 'BarChart3', group: 'Reports', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Outstanding Bills', path: '/reports/outstanding-bills', icon: 'AlertCircle', group: 'Reports', sortOrder: 1, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Doctor Performance', path: '/reports/doctor-performance', icon: 'UserCog', group: 'Reports', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Top Medicines', path: '/reports/top-medicines', icon: 'Pill', group: 'Reports', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Revenue by Category', path: '/reports/revenue-by-category', icon: 'BarChart3', group: 'Reports', sortOrder: 0, roleIds: adminRoles },
+    { label: 'Outstanding Bills', path: '/reports/outstanding-bills', icon: 'AlertCircle', group: 'Reports', sortOrder: 1, roleIds: adminRoles },
+    { label: 'Doctor Performance', path: '/reports/doctor-performance', icon: 'UserCog', group: 'Reports', sortOrder: 2, roleIds: adminRoles },
+    { label: 'Top Medicines', path: '/reports/top-medicines', icon: 'Pill', group: 'Reports', sortOrder: 3, roleIds: adminRoles },
 
     // Pharmacy & Billing group
     { label: 'Medicine Catalog', path: '/medicine-catalog', icon: 'Pill', group: 'Pharmacy & Billing', sortOrder: 0, roleIds: pharmacyRoles },
@@ -3327,15 +3356,15 @@ async function seedSidebarConfig() {
     { label: 'Dispensing', path: '/dispensing', icon: 'Package', group: 'Pharmacy & Billing', sortOrder: 2, roleIds: pharmacyRoles },
 
     // Organisation group
-    { label: 'Overview', path: '/organisation', icon: 'Building2', group: 'Organisation', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Rx Templates', path: '/organisation/prescription-templates', icon: 'FileText', group: 'Organisation', sortOrder: 1, roleIds: [adminId, doctorId, developerId].filter(Boolean) },
-    { label: 'Shifts', path: '/shifts', icon: 'Clock', group: 'Organisation', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Addresses', path: '/addresses', icon: 'MapPin', group: 'Organisation', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Users', path: '/organisation/users', icon: 'UserCog', group: 'Organisation', sortOrder: 4, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Sidebar Config', path: '/organisation/sidebar-config', icon: 'Settings', group: 'Organisation', sortOrder: 5, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Overview', path: '/organisation', icon: 'Building2', group: 'Organisation', sortOrder: 0, roleIds: adminRoles },
+    { label: 'Rx Templates', path: '/organisation/prescription-templates', icon: 'FileText', group: 'Organisation', sortOrder: 1, roleIds: [adminId, doctorId, doctorAsAdminId, developerId].filter(Boolean) },
+    { label: 'Shifts', path: '/shifts', icon: 'Clock', group: 'Organisation', sortOrder: 2, roleIds: adminRoles },
+    { label: 'Addresses', path: '/addresses', icon: 'MapPin', group: 'Organisation', sortOrder: 3, roleIds: adminRoles },
+    { label: 'Users', path: '/organisation/users', icon: 'UserCog', group: 'Organisation', sortOrder: 4, roleIds: adminRoles },
+    { label: 'Sidebar Config', path: '/organisation/sidebar-config', icon: 'Settings', group: 'Organisation', sortOrder: 5, roleIds: adminRoles },
 
     // Access Control group
-    { label: 'Roles & Permissions', path: '/organisation/roles', icon: 'ShieldCheck', group: 'Access Control', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Roles & Permissions', path: '/organisation/roles', icon: 'ShieldCheck', group: 'Access Control', sortOrder: 0, roleIds: adminRoles },
 
     // Developer group
     { label: 'Overview', path: '/developer', icon: 'Cpu', group: 'Developer', sortOrder: 0, roleIds: [developerId].filter(Boolean) },
@@ -3356,7 +3385,7 @@ async function seedSidebarConfig() {
         group: item.group,
         sortOrder: item.sortOrder,
         roleMenus: {
-          create: item.roleIds.map(roleId => ({ roleId })),
+          create: [...new Set(item.roleIds)].map(roleId => ({ roleId })),
         },
       },
     });

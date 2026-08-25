@@ -94,7 +94,7 @@ export function AppointmentsPage() {
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "organisation");
   const [filterDoctor, setFilterDoctor] = useState("");
-  const [filterDate, setFilterDate] = useState("");
+  const [filterDate, setFilterDate] = useState(todayStr());
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCreator, setFilterCreator] = useState("");
   const [searchInput, setSearchInput] = useState("");

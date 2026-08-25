@@ -78,6 +78,7 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
 
   // Doctor workspace
   "/doctor": { module: "doctor" },
+  "/doctor/appointments": { module: "doctor" },
   "/doctor/prescriptions": { module: "prescriptions" },
   "/doctor/profile": { module: "profile" },
 

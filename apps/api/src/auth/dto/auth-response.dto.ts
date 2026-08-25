@@ -6,6 +6,7 @@ export class AuthUserDto {
   firstName!: string;
   lastName!: string;
   email!: string;
+  roleId!: string;
   roleName!: string;
   permissions!: string[];
   userableType?: UserableType | null;

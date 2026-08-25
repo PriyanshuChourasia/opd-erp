@@ -97,6 +97,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        roleId: user.roleId,
         roleName: user.role.name,
         permissions: user.role.rolePermissions.map(
           (rp) => `${rp.permission.action}:${rp.permission.resource}`,
@@ -152,6 +153,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        roleId: user.roleId,
         roleName: user.role.name,
         permissions: user.role.rolePermissions.map(
           (rp) => `${rp.permission.action}:${rp.permission.resource}`,
@@ -207,6 +209,7 @@ export class AuthService {
       profilePhotoUrl: user.profilePhotoUrl,
       qualification: user.qualification,
       username: user.username,
+      roleId: user.roleId,
       roleName: user.role.name,
       createdAt: user.createdAt.toISOString(),
       permissions: user.role.rolePermissions.map(
@@ -261,6 +264,7 @@ export class AuthService {
       profilePhotoUrl: updated.profilePhotoUrl,
       qualification: updated.qualification,
       username: updated.username,
+      roleId: updated.roleId,
       roleName: updated.role.name,
       createdAt: updated.createdAt.toISOString(),
       permissions: updated.role.rolePermissions.map(

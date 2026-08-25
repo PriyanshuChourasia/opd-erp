@@ -27,7 +27,7 @@ import {
 } from "@/lib/api";
 import { roleColors } from "@/modules/roles-permissions/data/interface";
 import { useAppSelector } from "@/store/hooks";
-import { isDeveloperRole } from "@/lib/roles";
+import { isAdminRole, isDeveloperRole } from "@/lib/roles";
 
 const ALL_LIMIT = 100;
 
@@ -64,7 +64,7 @@ export function SidebarConfigPage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const user = useAppSelector((state) => state.auth.user);
-  const canManage = isDeveloperRole(user?.roleName);
+  const canManage = isDeveloperRole(user?.roleName) || isAdminRole(user?.roleName);
 
   const { data: menuItems = [], isLoading } = useQuery({
     queryKey: ["sidebar-config"],

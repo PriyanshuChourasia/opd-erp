@@ -19,10 +19,20 @@ async function bootstrap() {
   const uploadsDir = join(process.cwd(), 'uploads');
   app.use('/uploads', express.static(uploadsDir));
 
+  // CORS_ORIGINS: comma-separated list of extra allowed origins for this
+  // deployment (e.g. a per-environment frontend domain), on top of the
+  // always-allowed defaults below. Lets a new environment (dev/staging)
+  // allow its own frontend without a code change — just set the env var.
+  const extraOrigins = (config.get<string>('CORS_ORIGINS') ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   app.enableCors({
     origin: [
-      'https://opd.codymitra.com',
+      'https://opddev.codymitra.com',
       /^https?:\/\/localhost(?:\:\d+)?$/,
+      ...extraOrigins,
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

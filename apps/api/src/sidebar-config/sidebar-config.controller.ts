@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -18,6 +19,17 @@ import { SidebarConfigService } from './sidebar-config.service';
 @Controller('sidebar-config')
 export class SidebarConfigController {
   constructor(private readonly sidebarConfigService: SidebarConfigService) {}
+
+  /**
+   * Public endpoint — returns sidebar menu items for the currently
+   * authenticated user's role. No special permission required.
+   */
+  @Get('my')
+  async findMyMenu(@Req() req: any) {
+    const user = req.user;
+    if (!user?.roleId) return [];
+    return this.sidebarConfigService.findForRole(user.roleId);
+  }
 
   @Get()
   @Permissions('read:roles')

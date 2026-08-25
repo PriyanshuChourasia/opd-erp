@@ -3667,12 +3667,12 @@ async function seedSidebarConfig() {
   const pharmacistId = roleMap.get('Pharmacist');
   const nurseId = roleMap.get('Nurse');
   const developerId = roleMap.get('Developer');
-  const superAdminId = roleMap.get('Super Admin');
+  const superAdminId = roleMap.get('Super Admin') ?? developerId;
 
   const allRoleIds = Array.from(roleMap.values());
-  const clinicalRoles = [adminId, doctorId, receptionistId, nurseId, superAdminId].filter(Boolean);
-  const frontDeskRoles = [adminId, receptionistId, superAdminId].filter(Boolean);
-  const pharmacyRoles = [adminId, pharmacistId, superAdminId].filter(Boolean);
+  const clinicalRoles = [adminId, doctorId, receptionistId, nurseId, developerId].filter(Boolean);
+  const frontDeskRoles = [adminId, receptionistId, developerId].filter(Boolean);
+  const pharmacyRoles = [adminId, pharmacistId, developerId].filter(Boolean);
 
   const menuItems = [
     // Clinic group
@@ -3684,10 +3684,10 @@ async function seedSidebarConfig() {
     { label: 'Diagnoses', path: '/diagnoses', icon: 'Stethoscope', group: 'Clinic', sortOrder: 5, roleIds: clinicalRoles },
 
     // Reports group
-    { label: 'Revenue by Category', path: '/reports/revenue-by-category', icon: 'BarChart3', group: 'Reports', sortOrder: 0, roleIds: [adminId, superAdminId].filter(Boolean) },
-    { label: 'Outstanding Bills', path: '/reports/outstanding-bills', icon: 'AlertCircle', group: 'Reports', sortOrder: 1, roleIds: [adminId, superAdminId].filter(Boolean) },
-    { label: 'Doctor Performance', path: '/reports/doctor-performance', icon: 'UserCog', group: 'Reports', sortOrder: 2, roleIds: [adminId, superAdminId].filter(Boolean) },
-    { label: 'Top Medicines', path: '/reports/top-medicines', icon: 'Pill', group: 'Reports', sortOrder: 3, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Revenue by Category', path: '/reports/revenue-by-category', icon: 'BarChart3', group: 'Reports', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Outstanding Bills', path: '/reports/outstanding-bills', icon: 'AlertCircle', group: 'Reports', sortOrder: 1, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Doctor Performance', path: '/reports/doctor-performance', icon: 'UserCog', group: 'Reports', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Top Medicines', path: '/reports/top-medicines', icon: 'Pill', group: 'Reports', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
 
     // Pharmacy & Billing group
     { label: 'Medicine Catalog', path: '/medicine-catalog', icon: 'Pill', group: 'Pharmacy & Billing', sortOrder: 0, roleIds: pharmacyRoles },
@@ -3695,20 +3695,20 @@ async function seedSidebarConfig() {
     { label: 'Dispensing', path: '/dispensing', icon: 'Package', group: 'Pharmacy & Billing', sortOrder: 2, roleIds: pharmacyRoles },
 
     // Organisation group
-    { label: 'Overview', path: '/organisation', icon: 'Building2', group: 'Organisation', sortOrder: 0, roleIds: [adminId, superAdminId].filter(Boolean) },
-    { label: 'Rx Templates', path: '/organisation/prescription-templates', icon: 'FileText', group: 'Organisation', sortOrder: 1, roleIds: [adminId, doctorId, superAdminId].filter(Boolean) },
-    { label: 'Shifts', path: '/shifts', icon: 'Clock', group: 'Organisation', sortOrder: 2, roleIds: [adminId, superAdminId].filter(Boolean) },
-    { label: 'Addresses', path: '/addresses', icon: 'MapPin', group: 'Organisation', sortOrder: 3, roleIds: [adminId, superAdminId].filter(Boolean) },
-    { label: 'Users', path: '/organisation/users', icon: 'UserCog', group: 'Organisation', sortOrder: 4, roleIds: [adminId, superAdminId].filter(Boolean) },
-    { label: 'Sidebar Config', path: '/organisation/sidebar-config', icon: 'Settings', group: 'Organisation', sortOrder: 5, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Overview', path: '/organisation', icon: 'Building2', group: 'Organisation', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Rx Templates', path: '/organisation/prescription-templates', icon: 'FileText', group: 'Organisation', sortOrder: 1, roleIds: [adminId, doctorId, developerId].filter(Boolean) },
+    { label: 'Shifts', path: '/shifts', icon: 'Clock', group: 'Organisation', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Addresses', path: '/addresses', icon: 'MapPin', group: 'Organisation', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Users', path: '/organisation/users', icon: 'UserCog', group: 'Organisation', sortOrder: 4, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Sidebar Config', path: '/organisation/sidebar-config', icon: 'Settings', group: 'Organisation', sortOrder: 5, roleIds: [adminId, developerId].filter(Boolean) },
 
     // Access Control group
-    { label: 'Roles & Permissions', path: '/organisation/roles', icon: 'ShieldCheck', group: 'Access Control', sortOrder: 0, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Roles & Permissions', path: '/organisation/roles', icon: 'ShieldCheck', group: 'Access Control', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
 
     // Developer group
-    { label: 'Overview', path: '/developer', icon: 'Cpu', group: 'Developer', sortOrder: 0, roleIds: [developerId, superAdminId].filter(Boolean) },
-    { label: 'Modules', path: '/developer/modules', icon: 'Box', group: 'Developer', sortOrder: 1, roleIds: [developerId, superAdminId].filter(Boolean) },
-    { label: 'Features', path: '/developer/features', icon: 'Zap', group: 'Developer', sortOrder: 2, roleIds: [developerId, superAdminId].filter(Boolean) },
+    { label: 'Overview', path: '/developer', icon: 'Cpu', group: 'Developer', sortOrder: 0, roleIds: [developerId].filter(Boolean) },
+    { label: 'Modules', path: '/developer/modules', icon: 'Box', group: 'Developer', sortOrder: 1, roleIds: [developerId].filter(Boolean) },
+    { label: 'Features', path: '/developer/features', icon: 'Zap', group: 'Developer', sortOrder: 2, roleIds: [developerId].filter(Boolean) },
 
     // Account group
     { label: 'Profile', path: '/profile', icon: 'User', group: 'Account', sortOrder: 0, roleIds: allRoleIds },

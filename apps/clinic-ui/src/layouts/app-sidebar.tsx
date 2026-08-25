@@ -53,7 +53,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { HelpLink } from "@/modules/help/components/help-link";
 import { BrandMark } from "@/components/brand-mark";
-import { fetchSidebarConfig } from "@/lib/api";
+import { fetchMySidebarConfig } from "@/lib/api";
 
 /** Map of icon name strings → Lucide components. */
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -119,8 +119,8 @@ export function AppSidebar() {
 
   // Fetch sidebar config from API
   const { data: menuConfig = [] } = useQuery({
-    queryKey: ["sidebar-config", "for-role", user?.roleName],
-    queryFn: fetchSidebarConfig,
+    queryKey: ["sidebar-config", "my"],
+    queryFn: fetchMySidebarConfig,
     staleTime: 5 * 60 * 1000, // cache for 5 min
     enabled: !!user,
   });
@@ -141,13 +141,9 @@ export function AppSidebar() {
       })).filter((g) => g.items.length > 0);
     }
 
-    // Filter config by user's role and group by group
-    const visible = menuConfig.filter((item) =>
-      item.roleMenus.some((rm) => rm.role.name === user.roleName)
-    );
-
-    const grouped: Record<string, typeof visible> = {};
-    for (const item of visible) {
+    // /sidebar-config/my already returns only items for the user's role
+    const grouped: Record<string, typeof menuConfig> = {};
+    for (const item of menuConfig) {
       if (!grouped[item.group]) grouped[item.group] = [];
       grouped[item.group]!.push(item);
     }

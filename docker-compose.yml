@@ -11,7 +11,7 @@ services:
     # POSTGRES_HOST_PORT) so a second deployment of this same repo on the same
     # host can run side by side — set both differently in that deployment's .env.
     ports:
-      - "${POSTGRES_HOST_PORT:-5433}:5432"
+      - "5435:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

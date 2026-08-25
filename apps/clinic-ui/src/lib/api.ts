@@ -1639,6 +1639,11 @@ export function fetchSidebarConfig() {
   return request<SidebarMenuItem[]>({ method: "GET", path: "/sidebar-config" });
 }
 
+/** Fetch sidebar menu items for the currently authenticated user (no special permission needed). */
+export function fetchMySidebarConfig() {
+  return request<SidebarMenuItem[]>({ method: "GET", path: "/sidebar-config/my" });
+}
+
 export function fetchSidebarConfigForRole(roleId: string) {
   return request<SidebarMenuItem[]>({ method: "GET", path: `/sidebar-config/for-role/${roleId}` });
 }

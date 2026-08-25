@@ -5,6 +5,7 @@ import {
   Database,
   LayoutDashboard,
   LogOut,
+  Terminal,
   User,
   Zap,
 } from "lucide-react";
@@ -30,6 +31,7 @@ const devNav = [
   { to: "/developer/modules", label: "Modules", icon: Box },
   { to: "/developer/features", label: "Features", icon: Zap },
   { to: "/developer/schema", label: "Schema", icon: Database },
+  { to: "/developer/apis", label: "APIs", icon: Terminal },
 ] as const;
 
 function initials(name: string) {

@@ -44,6 +44,7 @@ import { Route as DashboardReportsOutstandingBillsRouteImport } from './routes/_
 import { Route as DashboardReportsRevenueByCategoryRouteImport } from './routes/_dashboard/reports/revenue-by-category'
 import { Route as DashboardReportsTopMedicinesRouteImport } from './routes/_dashboard/reports/top-medicines'
 import { Route as DeveloperDeveloperIndexRouteImport } from './routes/_developer/developer/index'
+import { Route as DeveloperDeveloperApisRouteImport } from './routes/_developer/developer/apis'
 import { Route as DeveloperDeveloperFeaturesRouteImport } from './routes/_developer/developer/features'
 import { Route as DeveloperDeveloperModulesRouteImport } from './routes/_developer/developer/modules'
 import { Route as DoctorDoctorIndexRouteImport } from './routes/_doctor/doctor/index'
@@ -250,6 +251,11 @@ const DeveloperDeveloperIndexRoute = DeveloperDeveloperIndexRouteImport.update({
   path: '/developer/',
   getParentRoute: () => DeveloperRoute,
 } as any)
+const DeveloperDeveloperApisRoute = DeveloperDeveloperApisRouteImport.update({
+  id: '/developer/apis',
+  path: '/developer/apis',
+  getParentRoute: () => DeveloperRoute,
+} as any)
 const DeveloperDeveloperFeaturesRoute =
   DeveloperDeveloperFeaturesRouteImport.update({
     id: '/developer/features',
@@ -418,6 +424,7 @@ export interface FileRoutesByFullPath {
   '/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
   '/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
   '/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
+  '/developer/apis': typeof DeveloperDeveloperApisRoute
   '/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/developer/modules': typeof DeveloperDeveloperModulesRoute
   '/doctor/prescriptions': typeof DoctorDoctorPrescriptionsRoute
@@ -473,6 +480,7 @@ export interface FileRoutesByTo {
   '/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
   '/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
   '/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
+  '/developer/apis': typeof DeveloperDeveloperApisRoute
   '/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/developer/modules': typeof DeveloperDeveloperModulesRoute
   '/doctor/prescriptions': typeof DoctorDoctorPrescriptionsRoute
@@ -536,6 +544,7 @@ export interface FileRoutesById {
   '/_dashboard/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
   '/_dashboard/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
   '/_dashboard/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
+  '/_developer/developer/apis': typeof DeveloperDeveloperApisRoute
   '/_developer/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/_developer/developer/modules': typeof DeveloperDeveloperModulesRoute
   '/_doctor/doctor/prescriptions': typeof DoctorDoctorPrescriptionsRoute
@@ -593,6 +602,7 @@ export interface FileRouteTypes {
     | '/reports/outstanding-bills'
     | '/reports/revenue-by-category'
     | '/reports/top-medicines'
+    | '/developer/apis'
     | '/developer/features'
     | '/developer/modules'
     | '/doctor/prescriptions'
@@ -648,6 +658,7 @@ export interface FileRouteTypes {
     | '/reports/outstanding-bills'
     | '/reports/revenue-by-category'
     | '/reports/top-medicines'
+    | '/developer/apis'
     | '/developer/features'
     | '/developer/modules'
     | '/doctor/prescriptions'
@@ -710,6 +721,7 @@ export interface FileRouteTypes {
     | '/_dashboard/reports/outstanding-bills'
     | '/_dashboard/reports/revenue-by-category'
     | '/_dashboard/reports/top-medicines'
+    | '/_developer/developer/apis'
     | '/_developer/developer/features'
     | '/_developer/developer/modules'
     | '/_doctor/doctor/prescriptions'
@@ -1001,6 +1013,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeveloperDeveloperIndexRouteImport
       parentRoute: typeof DeveloperRoute
     }
+    '/_developer/developer/apis': {
+      id: '/_developer/developer/apis'
+      path: '/developer/apis'
+      fullPath: '/developer/apis'
+      preLoaderRoute: typeof DeveloperDeveloperApisRouteImport
+      parentRoute: typeof DeveloperRoute
+    }
     '/_developer/developer/features': {
       id: '/_developer/developer/features'
       path: '/developer/features'
@@ -1253,6 +1272,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 )
 
 interface DeveloperRouteChildren {
+  DeveloperDeveloperApisRoute: typeof DeveloperDeveloperApisRoute
   DeveloperDeveloperFeaturesRoute: typeof DeveloperDeveloperFeaturesRoute
   DeveloperDeveloperModulesRoute: typeof DeveloperDeveloperModulesRoute
   DeveloperDeveloperIndexRoute: typeof DeveloperDeveloperIndexRoute
@@ -1261,6 +1281,7 @@ interface DeveloperRouteChildren {
 }
 
 const DeveloperRouteChildren: DeveloperRouteChildren = {
+  DeveloperDeveloperApisRoute: DeveloperDeveloperApisRoute,
   DeveloperDeveloperFeaturesRoute: DeveloperDeveloperFeaturesRoute,
   DeveloperDeveloperModulesRoute: DeveloperDeveloperModulesRoute,
   DeveloperDeveloperIndexRoute: DeveloperDeveloperIndexRoute,

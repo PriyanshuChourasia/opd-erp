@@ -31,6 +31,8 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in Registration", icon: UserPlus },
@@ -113,6 +115,9 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const navigate = useNavigate();
   const location = useLocation();
   const isReceptionist = location.pathname.startsWith('/receptionist');
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
   const [form, setForm] = useState<BookingForm>(emptyBookingForm());
   const [patientQuery, setPatientQuery] = useState("");
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
@@ -170,6 +175,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       const res = await fetchAllDoctorSchedules();
       return res?.data ?? [];
     },
+    enabled: canReadEmployeeSchedules,
     refetchOnMount: true,
     staleTime: 0,
   });
@@ -255,7 +261,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
 
   const pastAppointments = useMemo(() => (patientHistory.data?.data ?? []).filter((a) => a.status === "COMPLETED"), [patientHistory.data]);
 
-  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation });
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
   const defaultRegistrationFee = organisation?.registrationFee ?? 0;
   const regFeeAmount = form.registrationFee ?? defaultRegistrationFee;
 
@@ -446,7 +452,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 <AllergySelect
                   value={form.allergies}
                   onChange={(allergies) => setForm((prev) => ({ ...prev, allergies }))}
-                  hideSelected
                 />
               </Field>
 

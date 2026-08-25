@@ -1,16 +1,15 @@
+import { useMemo } from "react";
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
-  AlertTriangle,
   BarChart3,
   Box,
   Building2,
   CalendarClock,
-  ClipboardCheck,
   ClipboardList,
   Clock,
   Cpu,
-  FlaskConical,
   FileText,
   LayoutDashboard,
   LifeBuoy,
@@ -19,19 +18,17 @@ import {
   Package,
   Pill,
   Receipt,
+  Settings,
   ShieldCheck,
-  ShoppingCart,
   Stethoscope,
   User,
   UserCog,
   Users,
-  UserX,
   Zap,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
 import { useAppSelector } from "@/store/hooks";
-import { hasPermission, isDeveloperRole, isAdminRole } from "@/lib/roles";
 import {
   Sidebar,
   SidebarContent,
@@ -56,56 +53,114 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { HelpLink } from "@/modules/help/components/help-link";
 import { BrandMark } from "@/components/brand-mark";
+import { fetchMySidebarConfig } from "@/lib/api";
 
-const clinicNav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/appointments", label: "Appointments", icon: CalendarClock },
-  { to: "/patients", label: "Patients", icon: Users },
-  { to: "/doctors", label: "Doctors", icon: UserCog },
-  { to: "/prescriptions", label: "Prescriptions", icon: ClipboardList },
-  { to: "/diagnoses", label: "Diagnoses", icon: Stethoscope },
-] as const;
+/** Map of icon name strings → Lucide components. */
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  AlertCircle, BarChart3, Box, Building2, CalendarClock, ClipboardList,
+  Clock, Cpu, FileText, LayoutDashboard, LifeBuoy, MapPin, Package,
+  Pill, Receipt, Settings, ShieldCheck, Stethoscope, User, UserCog, Users, Zap,
+};
 
-const reportsNav = [
-  { to: "/reports/revenue-by-category", label: "Revenue by Category", icon: BarChart3 },
-  { to: "/reports/outstanding-bills", label: "Outstanding Bills", icon: AlertCircle },
-  { to: "/reports/doctor-performance", label: "Doctor Performance", icon: UserCog },
-  { to: "/reports/top-medicines", label: "Top Medicines", icon: Pill },
-] as const;
+/** Hardcoded fallback menu (used when sidebar config is empty / not seeded yet). */
+const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]> = {
+  Clinic: [
+    { to: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
+    { to: "/appointments", label: "Appointments", icon: "CalendarClock" },
+    { to: "/patients", label: "Patients", icon: "Users" },
+    { to: "/doctors", label: "Doctors", icon: "UserCog" },
+    { to: "/prescriptions", label: "Prescriptions", icon: "ClipboardList" },
+    { to: "/diagnoses", label: "Diagnoses", icon: "Stethoscope" },
+  ],
+  Reports: [
+    { to: "/reports/revenue-by-category", label: "Revenue by Category", icon: "BarChart3" },
+    { to: "/reports/outstanding-bills", label: "Outstanding Bills", icon: "AlertCircle" },
+    { to: "/reports/doctor-performance", label: "Doctor Performance", icon: "UserCog" },
+    { to: "/reports/top-medicines", label: "Top Medicines", icon: "Pill" },
+  ],
+  "Pharmacy & Billing": [
+    { to: "/medicine-catalog", label: "Medicine Catalog", icon: "Pill" },
+    { to: "/billing", label: "Billing", icon: "Receipt" },
+    { to: "/dispensing", label: "Dispensing", icon: "Package" },
+  ],
+  Organisation: [
+    { to: "/organisation", label: "Overview", icon: "Building2" },
+    { to: "/organisation/prescription-templates", label: "Rx Templates", icon: "FileText" },
+    { to: "/shifts", label: "Shifts", icon: "Clock" },
+    { to: "/addresses", label: "Addresses", icon: "MapPin" },
+    { to: "/organisation/users", label: "Users", icon: "UserCog" },
+    { to: "/organisation/sidebar-config", label: "Sidebar Config", icon: "Settings" },
+  ],
+  "Access Control": [
+    { to: "/organisation/roles", label: "Roles & Permissions", icon: "ShieldCheck" },
+  ],
+  Developer: [
+    { to: "/developer", label: "Overview", icon: "Cpu" },
+    { to: "/developer/modules", label: "Modules", icon: "Box" },
+    { to: "/developer/features", label: "Features", icon: "Zap" },
+  ],
+  Account: [
+    { to: "/profile", label: "Profile", icon: "User" },
+    { to: "/help", label: "Help", icon: "LifeBuoy" },
+  ],
+};
 
-const accountNav = [
-  { to: "/profile", label: "Profile", icon: User },
-  { to: "/help", label: "Help", icon: LifeBuoy },
-] as const;
-
-const pharmacyNav = [
-  { to: "/medicine-catalog", label: "Medicine Catalog", icon: Pill },
-  { to: "/billing", label: "Billing", icon: Receipt },
-  { to: "/dispensing", label: "Dispensing", icon: Package },
-] as const;
-
-const devNav = [
-  { to: "/developer", label: "Overview", icon: Cpu },
-  { to: "/developer/modules", label: "Modules", icon: Box },
-  { to: "/developer/features", label: "Features", icon: Zap },
-] as const;
-
-const orgNav = [
-  { to: "/organisation", label: "Overview", icon: Building2, resource: "organisation" },
-  { to: "/organisation/prescription-templates", label: "Rx Templates", icon: FileText, resource: "prescription-templates" },
-  { to: "/shifts", label: "Shifts", icon: Clock, resource: "shifts" },
-  { to: "/addresses", label: "Addresses", icon: MapPin, resource: "addresses" },
-  { to: "/organisation/users", label: "Users", icon: UserCog, resource: "users" },
-] as const;
+/** Group order for deterministic sidebar rendering. */
+const GROUP_ORDER = [
+  "Clinic", "Reports", "Pharmacy & Billing", "Organisation",
+  "Access Control", "Developer", "Account",
+];
 
 export function AppSidebar() {
   const matchRoute = useMatchRoute();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
-  const visibleOrgNav = orgNav.filter((item) => hasPermission(user?.permissions, "read", item.resource));
-  const showDevNav = isDeveloperRole(user?.roleName);
-  const showRolesNav = isAdminRole(user?.roleName);
+
+  // Fetch sidebar config from API
+  const { data: menuConfig = [] } = useQuery({
+    queryKey: ["sidebar-config", "my"],
+    queryFn: fetchMySidebarConfig,
+    staleTime: 5 * 60 * 1000, // cache for 5 min
+    enabled: !!user,
+  });
+
+  // Build the sidebar menu from config (filtered by user's role)
+  const sidebarGroups = useMemo(() => {
+    if (!user) return [];
+
+    // If no config seeded yet, use fallback
+    if (menuConfig.length === 0) {
+      return GROUP_ORDER.map((group) => ({
+        group,
+        items: (FALLBACK_NAV[group] ?? []).map((item) => ({
+          to: item.to,
+          label: item.label,
+          icon: item.icon,
+        })),
+      })).filter((g) => g.items.length > 0);
+    }
+
+    // /sidebar-config/my already returns only items for the user's role
+    const grouped: Record<string, typeof menuConfig> = {};
+    for (const item of menuConfig) {
+      if (!grouped[item.group]) grouped[item.group] = [];
+      grouped[item.group]!.push(item);
+    }
+
+    return GROUP_ORDER
+      .filter((g) => grouped[g]?.length)
+      .map((group) => ({
+        group,
+        items: grouped[group]!
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((item) => ({
+            to: item.path,
+            label: item.label,
+            icon: item.icon ?? "",
+          })),
+      }));
+  }, [menuConfig, user]);
 
   const handleLogout = () => {
     dispatch(clearCredentials());
@@ -127,137 +182,40 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Clinic</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {clinicNav.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
-                    <Link to={item.to}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Reports</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {reportsNav.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
-                    <Link to={item.to}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Pharmacy &amp; Billing</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {pharmacyNav.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
-                    <Link to={item.to}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        {visibleOrgNav.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Organisation</SidebarGroupLabel>
+        {sidebarGroups.map(({ group, items }) => (
+          <SidebarGroup key={group}>
+            <SidebarGroupLabel>{group}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {visibleOrgNav.map((item) => (
-                  <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
-                      <Link to={item.to}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {items.map((item) => {
+                  const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
+                  const isHelp = item.to === "/help";
+                  return (
+                    <SidebarMenuItem key={item.to}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={!!matchRoute({ to: item.to })}
+                        tooltip={item.label}
+                      >
+                        {isHelp ? (
+                          <HelpLink>
+                            <Icon />
+                            <span>{item.label}</span>
+                          </HelpLink>
+                        ) : (
+                          <Link to={item.to}>
+                            <Icon />
+                            <span>{item.label}</span>
+                          </Link>
+                        )}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        )}
-        {showRolesNav && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Access Control</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={!!matchRoute({ to: "/organisation/roles" })} tooltip="Roles & Permissions">
-                    <Link to="/organisation/roles">
-                      <ShieldCheck />
-                      <span>Roles & Permissions</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-        {showDevNav && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Developer</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {devNav.map((item) => (
-                  <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
-                      <Link to={item.to}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Account</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {accountNav.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
-                    {item.to === "/help" ? (
-                      <HelpLink>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </HelpLink>
-                    ) : (
-                      <Link to={item.to}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

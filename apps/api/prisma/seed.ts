@@ -7,15 +7,6 @@ const DAY = 24 * 60 * 60 * 1000; // ms in a day
 
 const doctorData = [
   { firstName: 'Rajesh', lastName: 'Sharma', specialization: 'General Medicine', medicalRegistrationNo: 'MCI-10001', consultationFee: 500, qualification: 'MBBS, MD', yearsOfExperience: 15 },
-  { firstName: 'Sunita', lastName: 'Verma', specialization: 'Pediatrics', medicalRegistrationNo: 'MCI-10002', consultationFee: 600, qualification: 'MBBS, DCH', yearsOfExperience: 10 },
-  { firstName: 'Vivek', lastName: 'Mehta', specialization: 'Orthopedics', medicalRegistrationNo: 'MCI-10003', consultationFee: 800, qualification: 'MBBS, MS Ortho', yearsOfExperience: 12 },
-  { firstName: 'Lakshmi', lastName: 'Iyer', specialization: 'Gynecology', medicalRegistrationNo: 'MCI-10004', consultationFee: 700, qualification: 'MBBS, MS OBG', yearsOfExperience: 8 },
-  { firstName: 'Arun', lastName: 'Singh', specialization: 'Cardiology', medicalRegistrationNo: 'MCI-10005', consultationFee: 1000, qualification: 'MBBS, DM Cardiology', yearsOfExperience: 20 },
-  { firstName: 'Priya', lastName: 'Kapoor', specialization: 'Dermatology', medicalRegistrationNo: 'MCI-10006', consultationFee: 600, qualification: 'MBBS, MD Dermatology', yearsOfExperience: 7 },
-  { firstName: 'Mohammed', lastName: 'Farooq', specialization: 'ENT', medicalRegistrationNo: 'MCI-10007', consultationFee: 550, qualification: 'MBBS, MS ENT', yearsOfExperience: 14 },
-  { firstName: 'Deepa', lastName: 'Nair', specialization: 'Ophthalmology', medicalRegistrationNo: 'MCI-10008', consultationFee: 650, qualification: 'MBBS, MS Ophthalmology', yearsOfExperience: 11 },
-  { firstName: 'Sanjay', lastName: 'Gupta', specialization: 'Neurology', medicalRegistrationNo: 'MCI-10009', consultationFee: 1200, qualification: 'MBBS, DM Neurology', yearsOfExperience: 18 },
-  { firstName: 'Anjali', lastName: 'Desai', specialization: 'Psychiatry', medicalRegistrationNo: 'MCI-10010', consultationFee: 800, qualification: 'MBBS, MD Psychiatry', yearsOfExperience: 9 },
 ];
 
 // Varied schedules: each doctor has different working days and hours
@@ -29,97 +20,6 @@ const doctorSchedules: { firstName: string; lastName: string; schedules: { dayOf
       { dayOfWeek: 2, startTime: '09:00', endTime: '17:00' },
       { dayOfWeek: 3, startTime: '09:00', endTime: '17:00' },
       { dayOfWeek: 4, startTime: '09:00', endTime: '17:00' },
-    ],
-  },
-  { // Dr. Sunita Verma — Pediatrics: Mon, Wed, Fri 10:00–16:00 + Tue, Thu 14:00–20:00
-    firstName: 'Sunita', lastName: 'Verma',
-    schedules: [
-      { dayOfWeek: 0, startTime: '10:00', endTime: '16:00' },
-      { dayOfWeek: 1, startTime: '14:00', endTime: '20:00' },
-      { dayOfWeek: 2, startTime: '10:00', endTime: '16:00' },
-      { dayOfWeek: 3, startTime: '14:00', endTime: '20:00' },
-      { dayOfWeek: 4, startTime: '10:00', endTime: '16:00' },
-    ],
-  },
-  { // Dr. Vivek Mehta — Orthopedics: Mon–Sat 08:00–14:00
-    firstName: 'Vivek', lastName: 'Mehta',
-    schedules: [
-      { dayOfWeek: 0, startTime: '08:00', endTime: '14:00' },
-      { dayOfWeek: 1, startTime: '08:00', endTime: '14:00' },
-      { dayOfWeek: 2, startTime: '08:00', endTime: '14:00' },
-      { dayOfWeek: 3, startTime: '08:00', endTime: '14:00' },
-      { dayOfWeek: 4, startTime: '08:00', endTime: '14:00' },
-      { dayOfWeek: 5, startTime: '08:00', endTime: '12:00' },
-    ],
-  },
-  { // Dr. Lakshmi Iyer — Gynecology: Mon–Fri 09:00–13:00
-    firstName: 'Lakshmi', lastName: 'Iyer',
-    schedules: [
-      { dayOfWeek: 0, startTime: '09:00', endTime: '13:00' },
-      { dayOfWeek: 1, startTime: '09:00', endTime: '13:00' },
-      { dayOfWeek: 2, startTime: '09:00', endTime: '13:00' },
-      { dayOfWeek: 3, startTime: '09:00', endTime: '13:00' },
-      { dayOfWeek: 4, startTime: '09:00', endTime: '13:00' },
-    ],
-  },
-  { // Dr. Arun Singh — Cardiology: Mon, Wed, Fri 08:00–12:00 + Tue, Thu 15:00–19:00
-    firstName: 'Arun', lastName: 'Singh',
-    schedules: [
-      { dayOfWeek: 0, startTime: '08:00', endTime: '12:00' },
-      { dayOfWeek: 1, startTime: '15:00', endTime: '19:00' },
-      { dayOfWeek: 2, startTime: '08:00', endTime: '12:00' },
-      { dayOfWeek: 3, startTime: '15:00', endTime: '19:00' },
-      { dayOfWeek: 4, startTime: '08:00', endTime: '12:00' },
-    ],
-  },
-  { // Dr. Priya Kapoor — Dermatology: Mon–Fri 11:00–19:00
-    firstName: 'Priya', lastName: 'Kapoor',
-    schedules: [
-      { dayOfWeek: 0, startTime: '11:00', endTime: '19:00' },
-      { dayOfWeek: 1, startTime: '11:00', endTime: '19:00' },
-      { dayOfWeek: 2, startTime: '11:00', endTime: '19:00' },
-      { dayOfWeek: 3, startTime: '11:00', endTime: '19:00' },
-      { dayOfWeek: 4, startTime: '11:00', endTime: '19:00' },
-    ],
-  },
-  { // Dr. Mohammed Farooq — ENT: Mon, Wed, Fri 09:00–14:00 + Tue, Thu 14:00–18:00
-    firstName: 'Mohammed', lastName: 'Farooq',
-    schedules: [
-      { dayOfWeek: 0, startTime: '09:00', endTime: '14:00' },
-      { dayOfWeek: 1, startTime: '14:00', endTime: '18:00' },
-      { dayOfWeek: 2, startTime: '09:00', endTime: '14:00' },
-      { dayOfWeek: 3, startTime: '14:00', endTime: '18:00' },
-      { dayOfWeek: 4, startTime: '09:00', endTime: '14:00' },
-    ],
-  },
-  { // Dr. Deepa Nair — Ophthalmology: Mon–Thu 10:00–16:00, Sat 10:00–13:00
-    firstName: 'Deepa', lastName: 'Nair',
-    schedules: [
-      { dayOfWeek: 0, startTime: '10:00', endTime: '16:00' },
-      { dayOfWeek: 1, startTime: '10:00', endTime: '16:00' },
-      { dayOfWeek: 2, startTime: '10:00', endTime: '16:00' },
-      { dayOfWeek: 3, startTime: '10:00', endTime: '16:00' },
-      { dayOfWeek: 5, startTime: '10:00', endTime: '13:00' },
-    ],
-  },
-  { // Dr. Sanjay Gupta — Neurology: Mon, Wed 08:00–13:00 + Tue, Thu 13:00–18:00, Fri 08:00–12:00
-    firstName: 'Sanjay', lastName: 'Gupta',
-    schedules: [
-      { dayOfWeek: 0, startTime: '08:00', endTime: '13:00' },
-      { dayOfWeek: 1, startTime: '13:00', endTime: '18:00' },
-      { dayOfWeek: 2, startTime: '08:00', endTime: '13:00' },
-      { dayOfWeek: 3, startTime: '13:00', endTime: '18:00' },
-      { dayOfWeek: 4, startTime: '08:00', endTime: '12:00' },
-    ],
-  },
-  { // Dr. Anjali Desai — Psychiatry: Tue–Sat 10:00–18:00
-    firstName: 'Anjali', lastName: 'Desai',
-    schedules: [
-      { dayOfWeek: 1, startTime: '10:00', endTime: '18:00' },
-      { dayOfWeek: 2, startTime: '10:00', endTime: '18:00' },
-      { dayOfWeek: 3, startTime: '10:00', endTime: '18:00' },
-      { dayOfWeek: 4, startTime: '10:00', endTime: '18:00' },
-      { dayOfWeek: 5, startTime: '10:00', endTime: '18:00' },
     ],
   },
 ];
@@ -185,6 +85,12 @@ async function wipeAll() {
   await prisma.diagnosis.deleteMany();
   await prisma.diagnosisSystem.deleteMany();
   await prisma.permission.deleteMany();
+  // SidebarMenu must go before Role — RoleSidebarMenu cascades from either
+  // side, but leaving SidebarMenu rows behind after Role is wiped orphans
+  // every menu item's role links, and seedSidebarConfig() skips reseeding
+  // once any SidebarMenu rows exist — so /sidebar-config/my silently
+  // returns [] for every role on every reseed after the first.
+  await prisma.sidebarMenu.deleteMany();
   await prisma.role.deleteMany();
   await prisma.address.deleteMany();
   await prisma.prescriptionTemplate.deleteMany();
@@ -443,12 +349,27 @@ async function seedDiagnoses() {
 }
 
 async function seedDoctors(): Promise<Doctor[]> {
-  // Doctor seeding disabled — doctors are onboarded manually through the app now.
-  // Every doctor-dependent seed function below (appointments, queue, prescriptions,
-  // lab/radiology/procedure orders, employee schedules, doctor logins) already
-  // guards on an empty doctorRows array, so returning [] here is sufficient.
-  console.log('Skipped doctor seeding (disabled).');
-  return [];
+  const rows: Doctor[] = [];
+  for (const doc of doctorData) {
+    const existing = await prisma.doctor.findFirst({ where: { medicalRegistrationNo: doc.medicalRegistrationNo } });
+    if (existing) {
+      rows.push(existing);
+      continue;
+    }
+    rows.push(
+      await prisma.doctor.create({
+        data: {
+          specialization: doc.specialization,
+          medicalRegistrationNo: doc.medicalRegistrationNo,
+          consultationFee: doc.consultationFee,
+          qualification: doc.qualification,
+          yearsOfExperience: doc.yearsOfExperience,
+        },
+      }),
+    );
+  }
+  console.log(`Seeded ${rows.length} doctor(s).`);
+  return rows;
 }
 
 async function seedEmployeeSchedules(doctorRows: Doctor[]) {
@@ -3645,8 +3566,92 @@ async function main() {
   await seedPatientAllergies();
 
   await seedPrescriptionTemplates();
+  await seedSidebarConfig();
 
   console.log('✅ Seed complete.');
+}
+
+async function seedSidebarConfig() {
+  const existing = await prisma.sidebarMenu.count();
+  if (existing > 0) {
+    console.log('⏭️  Sidebar config already seeded, skipping.');
+    return;
+  }
+
+  // Fetch all roles
+  const roles = await prisma.role.findMany();
+  const roleMap = new Map(roles.map(r => [r.name, r.id]));
+
+  const adminId = roleMap.get('Admin');
+  const doctorId = roleMap.get('Doctor');
+  const receptionistId = roleMap.get('Receptionist');
+  const pharmacistId = roleMap.get('Pharmacist');
+  const nurseId = roleMap.get('Nurse');
+  const developerId = roleMap.get('Developer');
+  const superAdminId = roleMap.get('Super Admin') ?? developerId;
+
+  const allRoleIds = Array.from(roleMap.values());
+  const clinicalRoles = [adminId, doctorId, receptionistId, nurseId, developerId].filter(Boolean);
+  const frontDeskRoles = [adminId, receptionistId, developerId].filter(Boolean);
+  const pharmacyRoles = [adminId, pharmacistId, developerId].filter(Boolean);
+
+  const menuItems = [
+    // Clinic group
+    { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', group: 'Clinic', sortOrder: 0, roleIds: allRoleIds },
+    { label: 'Appointments', path: '/appointments', icon: 'CalendarClock', group: 'Clinic', sortOrder: 1, roleIds: [...frontDeskRoles, doctorId, nurseId].filter(Boolean) },
+    { label: 'Patients', path: '/patients', icon: 'Users', group: 'Clinic', sortOrder: 2, roleIds: frontDeskRoles },
+    { label: 'Doctors', path: '/doctors', icon: 'UserCog', group: 'Clinic', sortOrder: 3, roleIds: frontDeskRoles },
+    { label: 'Prescriptions', path: '/prescriptions', icon: 'ClipboardList', group: 'Clinic', sortOrder: 4, roleIds: clinicalRoles },
+    { label: 'Diagnoses', path: '/diagnoses', icon: 'Stethoscope', group: 'Clinic', sortOrder: 5, roleIds: clinicalRoles },
+
+    // Reports group
+    { label: 'Revenue by Category', path: '/reports/revenue-by-category', icon: 'BarChart3', group: 'Reports', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Outstanding Bills', path: '/reports/outstanding-bills', icon: 'AlertCircle', group: 'Reports', sortOrder: 1, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Doctor Performance', path: '/reports/doctor-performance', icon: 'UserCog', group: 'Reports', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Top Medicines', path: '/reports/top-medicines', icon: 'Pill', group: 'Reports', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
+
+    // Pharmacy & Billing group
+    { label: 'Medicine Catalog', path: '/medicine-catalog', icon: 'Pill', group: 'Pharmacy & Billing', sortOrder: 0, roleIds: pharmacyRoles },
+    { label: 'Billing', path: '/billing', icon: 'Receipt', group: 'Pharmacy & Billing', sortOrder: 1, roleIds: pharmacyRoles },
+    { label: 'Dispensing', path: '/dispensing', icon: 'Package', group: 'Pharmacy & Billing', sortOrder: 2, roleIds: pharmacyRoles },
+
+    // Organisation group
+    { label: 'Overview', path: '/organisation', icon: 'Building2', group: 'Organisation', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Rx Templates', path: '/organisation/prescription-templates', icon: 'FileText', group: 'Organisation', sortOrder: 1, roleIds: [adminId, doctorId, developerId].filter(Boolean) },
+    { label: 'Shifts', path: '/shifts', icon: 'Clock', group: 'Organisation', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Addresses', path: '/addresses', icon: 'MapPin', group: 'Organisation', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Users', path: '/organisation/users', icon: 'UserCog', group: 'Organisation', sortOrder: 4, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Sidebar Config', path: '/organisation/sidebar-config', icon: 'Settings', group: 'Organisation', sortOrder: 5, roleIds: [adminId, developerId].filter(Boolean) },
+
+    // Access Control group
+    { label: 'Roles & Permissions', path: '/organisation/roles', icon: 'ShieldCheck', group: 'Access Control', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
+
+    // Developer group
+    { label: 'Overview', path: '/developer', icon: 'Cpu', group: 'Developer', sortOrder: 0, roleIds: [developerId].filter(Boolean) },
+    { label: 'Modules', path: '/developer/modules', icon: 'Box', group: 'Developer', sortOrder: 1, roleIds: [developerId].filter(Boolean) },
+    { label: 'Features', path: '/developer/features', icon: 'Zap', group: 'Developer', sortOrder: 2, roleIds: [developerId].filter(Boolean) },
+
+    // Account group
+    { label: 'Profile', path: '/profile', icon: 'User', group: 'Account', sortOrder: 0, roleIds: allRoleIds },
+    { label: 'Help', path: '/help', icon: 'LifeBuoy', group: 'Account', sortOrder: 1, roleIds: allRoleIds },
+  ];
+
+  for (const item of menuItems) {
+    await prisma.sidebarMenu.create({
+      data: {
+        label: item.label,
+        path: item.path,
+        icon: item.icon,
+        group: item.group,
+        sortOrder: item.sortOrder,
+        roleMenus: {
+          create: item.roleIds.map(roleId => ({ roleId })),
+        },
+      },
+    });
+  }
+
+  console.log(`✅ Sidebar config seeded (${menuItems.length} items).`);
 }
 
 main()

@@ -1,7 +1,7 @@
 /** Roles that work the front desk land on the receptionist POS instead of the stats dashboard. */
 const DESK_ROLES = new Set(["RECEPTIONIST"]);
 const DOCTOR_ROLES = new Set(["DOCTOR"]);
-const ADMIN_ROLES = new Set(["ADMIN", "DEVELOPER"]);
+const ADMIN_ROLES = new Set(["ADMIN", "SUPER ADMIN", "DEVELOPER"]);
 
 /** Admin roles can navigate to any layout without being redirected. */
 export function isAdminRole(roleName: string | undefined): boolean {
@@ -35,4 +35,21 @@ export function hasPermission(
   resource: string,
 ): boolean {
   return !!permissions?.includes(`${action}:${resource}`);
+}
+
+/**
+ * Finds the most specific sidebar-config module path that owns `pathname`
+ * (exact match, or `pathname` nested under it), e.g. `/organisation/roles`
+ * is owned by `/organisation/roles` if that's a registered module, otherwise
+ * falls back to `/organisation` if that's registered instead.
+ * Returns undefined when `pathname` isn't part of any known module — those
+ * routes (e.g. detail pages, always-on utility pages) aren't gated.
+ */
+export function findGatedModulePath(
+  pathname: string,
+  allPaths: string[],
+): string | undefined {
+  return allPaths
+    .filter((path) => pathname === path || pathname.startsWith(`${path}/`))
+    .sort((a, b) => b.length - a.length)[0];
 }

@@ -11,6 +11,7 @@ import {
   type CreateAddressInput,
   type UpdateAddressInput,
   ADDRESS_TYPES,
+  INDIAN_STATES,
 } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
@@ -243,7 +244,14 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field><FieldLabel htmlFor="addr-state">State</FieldLabel>
-                  <Input id="addr-state" placeholder="Maharashtra" value={form.state ?? ""} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+                  <Select value={form.state ?? ""} onValueChange={(v) => setForm({ ...form, state: v })}>
+                    <SelectTrigger id="addr-state"><SelectValue placeholder="Select state" /></SelectTrigger>
+                    <SelectContent>
+                      {INDIAN_STATES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field><FieldLabel htmlFor="addr-country">Country</FieldLabel>
                   <Input id="addr-country" placeholder="India" value={form.country ?? "India"} onChange={(e) => setForm({ ...form, country: e.target.value })} />

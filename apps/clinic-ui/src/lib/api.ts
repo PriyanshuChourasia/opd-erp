@@ -660,6 +660,46 @@ export interface UpdateAddressInput {
 export const ADDRESS_TYPES = ['CLINIC', 'HOME', 'BILLING', 'OTHER'] as const;
 export type AddressType = (typeof ADDRESS_TYPES)[number];
 
+export const INDIAN_STATES = [
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Andaman and Nicobar Islands',
+  'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Jammu and Kashmir',
+  'Ladakh',
+  'Lakshadweep',
+  'Puducherry',
+] as const;
+export type IndianState = (typeof INDIAN_STATES)[number];
+
 // ─── Address API ──────────────────────────────────────────────
 
 export function fetchAddresses(params: { addressType?: string; addressableType?: string; addressableId?: string } & PaginationParams = {}) {
@@ -1320,6 +1360,21 @@ export function deleteRole(id: string) {
   return request<void>({ method: "DELETE", path: `/roles/${id}` });
 }
 
+export interface RoleUser {
+  id: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  email: string;
+  mobileNumber?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export function fetchUsersByRole(roleId: string) {
+  return request<RoleUser[]>({ method: "GET", path: `/roles/${roleId}/users` });
+}
+
 export function fetchPermissions(params: PaginationParams = {}) {
   return request<PaginatedResult<Permission>>({
     method: "GET",
@@ -1599,6 +1654,59 @@ export function assignPrescriptionTemplateToDoctor(id: string, doctorId: string)
 
 export function unassignPrescriptionTemplateFromDoctor(id: string) {
   return request<PrescriptionTemplate>({ method: "PATCH", path: `/prescription-templates/${id}/unassign-doctor` });
+}
+
+// ─── Sidebar Config API ──────────────────────────────────────
+
+export interface SidebarMenuItem {
+  id: string;
+  label: string;
+  path: string;
+  icon?: string | null;
+  group: string;
+  sortOrder: number;
+  isHidden: boolean;
+  createdAt: string;
+  updatedAt: string;
+  roleMenus: {
+    roleId: string;
+    sidebarMenuId: string;
+    role: { id: string; name: string };
+  }[];
+}
+
+export function fetchSidebarConfig() {
+  return request<SidebarMenuItem[]>({ method: "GET", path: "/sidebar-config" });
+}
+
+/** Fetch sidebar menu items for the currently authenticated user (no special permission needed). */
+export function fetchMySidebarConfig() {
+  return request<SidebarMenuItem[]>({ method: "GET", path: "/sidebar-config/my" });
+}
+
+/** All known sidebar menu paths (no role data) — used by the route guard. */
+export function fetchAllSidebarPaths() {
+  return request<{ path: string }[]>({ method: "GET", path: "/sidebar-config/all-paths" });
+}
+
+export function fetchSidebarConfigForRole(roleId: string) {
+  return request<SidebarMenuItem[]>({ method: "GET", path: `/sidebar-config/for-role/${roleId}` });
+}
+
+export function createSidebarMenuItem(data: { label: string; path: string; icon?: string; group: string; sortOrder?: number; isHidden?: boolean; roleIds?: string[] }) {
+  return request<SidebarMenuItem>({ method: "POST", path: "/sidebar-config", body: data });
+}
+
+export function updateSidebarMenuItem(id: string, data: { label?: string; path?: string; icon?: string; group?: string; sortOrder?: number; isHidden?: boolean; roleIds?: string[] }) {
+  return request<SidebarMenuItem>({ method: "PATCH", path: `/sidebar-config/${id}`, body: data });
+}
+
+export function deleteSidebarMenuItem(id: string) {
+  return request<void>({ method: "DELETE", path: `/sidebar-config/${id}` });
+}
+
+export function assignRolesToMenuItem(id: string, roleIds: string[]) {
+  return request<SidebarMenuItem>({ method: "PATCH", path: `/sidebar-config/${id}/assign-roles`, body: { roleIds } });
 }
 
 // ─── Search helpers ───────────────────────────────────────────

@@ -37,6 +37,7 @@ import { Route as AppointmentsAppointmentsNewRouteImport } from './routes/_appoi
 import { Route as DashboardOrganisationIndexRouteImport } from './routes/_dashboard/organisation/index'
 import { Route as DashboardOrganisationPrescriptionTemplatesRouteImport } from './routes/_dashboard/organisation/prescription-templates'
 import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
+import { Route as DashboardOrganisationSidebarConfigRouteImport } from './routes/_dashboard/organisation/sidebar-config'
 import { Route as DashboardOrganisationUsersRouteImport } from './routes/_dashboard/organisation/users'
 import { Route as DashboardReportsDoctorPerformanceRouteImport } from './routes/_dashboard/reports/doctor-performance'
 import { Route as DashboardReportsOutstandingBillsRouteImport } from './routes/_dashboard/reports/outstanding-bills'
@@ -206,6 +207,12 @@ const DashboardOrganisationRolesRoute =
   DashboardOrganisationRolesRouteImport.update({
     id: '/organisation/roles',
     path: '/organisation/roles',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardOrganisationSidebarConfigRoute =
+  DashboardOrganisationSidebarConfigRouteImport.update({
+    id: '/organisation/sidebar-config',
+    path: '/organisation/sidebar-config',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardOrganisationUsersRoute =
@@ -405,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/appointments/new': typeof AppointmentsAppointmentsNewRoute
   '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
+  '/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
   '/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
   '/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
@@ -459,6 +467,7 @@ export interface FileRoutesByTo {
   '/appointments/new': typeof AppointmentsAppointmentsNewRoute
   '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
+  '/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
   '/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
   '/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
@@ -521,6 +530,7 @@ export interface FileRoutesById {
   '/_appointments/appointments/new': typeof AppointmentsAppointmentsNewRoute
   '/_dashboard/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/_dashboard/organisation/roles': typeof DashboardOrganisationRolesRoute
+  '/_dashboard/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/_dashboard/organisation/users': typeof DashboardOrganisationUsersRoute
   '/_dashboard/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
   '/_dashboard/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
@@ -577,6 +587,7 @@ export interface FileRouteTypes {
     | '/appointments/new'
     | '/organisation/prescription-templates'
     | '/organisation/roles'
+    | '/organisation/sidebar-config'
     | '/organisation/users'
     | '/reports/doctor-performance'
     | '/reports/outstanding-bills'
@@ -631,6 +642,7 @@ export interface FileRouteTypes {
     | '/appointments/new'
     | '/organisation/prescription-templates'
     | '/organisation/roles'
+    | '/organisation/sidebar-config'
     | '/organisation/users'
     | '/reports/doctor-performance'
     | '/reports/outstanding-bills'
@@ -692,6 +704,7 @@ export interface FileRouteTypes {
     | '/_appointments/appointments/new'
     | '/_dashboard/organisation/prescription-templates'
     | '/_dashboard/organisation/roles'
+    | '/_dashboard/organisation/sidebar-config'
     | '/_dashboard/organisation/users'
     | '/_dashboard/reports/doctor-performance'
     | '/_dashboard/reports/outstanding-bills'
@@ -937,6 +950,13 @@ declare module '@tanstack/react-router' {
       path: '/organisation/roles'
       fullPath: '/organisation/roles'
       preLoaderRoute: typeof DashboardOrganisationRolesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/organisation/sidebar-config': {
+      id: '/_dashboard/organisation/sidebar-config'
+      path: '/organisation/sidebar-config'
+      fullPath: '/organisation/sidebar-config'
+      preLoaderRoute: typeof DashboardOrganisationSidebarConfigRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/organisation/users': {
@@ -1191,6 +1211,7 @@ interface DashboardRouteChildren {
   DashboardShiftsRoute: typeof DashboardShiftsRoute
   DashboardOrganisationPrescriptionTemplatesRoute: typeof DashboardOrganisationPrescriptionTemplatesRoute
   DashboardOrganisationRolesRoute: typeof DashboardOrganisationRolesRoute
+  DashboardOrganisationSidebarConfigRoute: typeof DashboardOrganisationSidebarConfigRoute
   DashboardOrganisationUsersRoute: typeof DashboardOrganisationUsersRoute
   DashboardReportsDoctorPerformanceRoute: typeof DashboardReportsDoctorPerformanceRoute
   DashboardReportsOutstandingBillsRoute: typeof DashboardReportsOutstandingBillsRoute
@@ -1215,6 +1236,8 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardOrganisationPrescriptionTemplatesRoute:
     DashboardOrganisationPrescriptionTemplatesRoute,
   DashboardOrganisationRolesRoute: DashboardOrganisationRolesRoute,
+  DashboardOrganisationSidebarConfigRoute:
+    DashboardOrganisationSidebarConfigRoute,
   DashboardOrganisationUsersRoute: DashboardOrganisationUsersRoute,
   DashboardReportsDoctorPerformanceRoute:
     DashboardReportsDoctorPerformanceRoute,

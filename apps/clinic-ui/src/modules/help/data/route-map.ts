@@ -42,6 +42,7 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/organisation": { module: "organisation" },
   "/organisation/prescription-templates": { module: "prescription-templates" },
   "/organisation/roles": { module: "roles-permissions" },
+  "/organisation/sidebar-config": { module: "sidebar-config" },
   "/organisation/users": { module: "users" },
   "/patients": { module: "patients" },
   "/prescriptions": { module: "prescriptions" },

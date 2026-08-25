@@ -1,0 +1,105 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { SidebarConfigService } from './sidebar-config.service';
+
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Controller('sidebar-config')
+export class SidebarConfigController {
+  constructor(private readonly sidebarConfigService: SidebarConfigService) {}
+
+  /**
+   * Public endpoint — returns sidebar menu items for the currently
+   * authenticated user's role. No special permission required.
+   */
+  @Get('my')
+  async findMyMenu(@Req() req: any) {
+    const user = req.user;
+    if (!user?.roleId) return [];
+    return this.sidebarConfigService.findForRole(user.roleId);
+  }
+
+  /**
+   * All known sidebar menu paths (no role data) — lets the frontend route
+   * guard tell "known module, not allowed for my role" apart from "not a
+   * gated module at all". No special permission required.
+   */
+  @Get('all-paths')
+  findAllPaths() {
+    return this.sidebarConfigService.findAllPaths();
+  }
+
+  @Get()
+  @Permissions('read:roles')
+  findAll() {
+    return this.sidebarConfigService.findAll();
+  }
+
+  @Get('for-role/:roleId')
+  @Permissions('read:roles')
+  findForRole(@Param('roleId') roleId: string) {
+    return this.sidebarConfigService.findForRole(roleId);
+  }
+
+  @Post()
+  @Permissions('manage:roles')
+  create(
+    @Body()
+    data: {
+      label: string;
+      path: string;
+      icon?: string;
+      group: string;
+      sortOrder?: number;
+      isHidden?: boolean;
+      roleIds?: string[];
+    },
+  ) {
+    return this.sidebarConfigService.create(data);
+  }
+
+  @Patch(':id')
+  @Permissions('manage:roles')
+  update(
+    @Param('id') id: string,
+    @Body()
+    data: {
+      label?: string;
+      path?: string;
+      icon?: string;
+      group?: string;
+      sortOrder?: number;
+      isHidden?: boolean;
+      roleIds?: string[];
+    },
+  ) {
+    return this.sidebarConfigService.update(id, data);
+  }
+
+  @Delete(':id')
+  @Permissions('manage:roles')
+  remove(@Param('id') id: string) {
+    return this.sidebarConfigService.remove(id);
+  }
+
+  @Patch(':id/assign-roles')
+  @Permissions('manage:roles')
+  assignRoles(
+    @Param('id') id: string,
+    @Body() body: { roleIds: string[] },
+  ) {
+    return this.sidebarConfigService.assignRoles(id, body.roleIds);
+  }
+}

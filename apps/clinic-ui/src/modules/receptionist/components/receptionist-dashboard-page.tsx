@@ -36,6 +36,8 @@ import { AllergySelect } from "@/components/allergy-select";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useDashboardStats } from "@/modules/dashboard/data/hooks";
 import { STATUS_STYLES } from "../../queue/data/interface";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400" },
@@ -111,6 +113,9 @@ export function ReceptionistDashboardPage() {
   const navigate = useNavigate();
   const statsQuery = useDashboardStats();
   const stats = statsQuery.data;
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
 
   const { data: todayAppointmentsData, isLoading: loadingAppts } = useQuery({
     queryKey: ["dashboard-today-appointments"],
@@ -208,6 +213,7 @@ export function ReceptionistDashboardPage() {
       const res = await fetchAllDoctorSchedules();
       return Array.isArray(res) ? res : (res as any)?.data ?? [];
     },
+    enabled: canReadEmployeeSchedules,
     refetchOnMount: true,
     staleTime: 0,
   });
@@ -248,6 +254,7 @@ export function ReceptionistDashboardPage() {
   const { data: organisation } = useQuery({
     queryKey: ["organisation"],
     queryFn: fetchOrganisation,
+    enabled: canReadOrganisation,
   });
 
   const pastAppointments = (patientHistory.data?.data ?? []).filter((a) => a.status === "COMPLETED");

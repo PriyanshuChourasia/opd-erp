@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -28,6 +30,8 @@ export function BillingPage() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [viewBill, setViewBill] = useState<Bill | null>(null);
   const [editPatientId, setEditPatientId] = useState<string | null>(null);
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["bills", pagination.pageIndex, pagination.pageSize],
@@ -39,7 +43,7 @@ export function BillingPage() {
   const bills = response?.data ?? [];
   const pageCount = response?.meta?.totalPages ?? 0;
 
-  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation });
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: BillStatus }) => updateBillStatus(id, status),

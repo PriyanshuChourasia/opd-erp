@@ -32,6 +32,8 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in Registration" },
@@ -116,6 +118,9 @@ export function EditAppointmentPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { appointmentId } = useParams({ from: "/_appointments/appointments/$appointmentId/edit" });
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
   const [form, setForm] = useState<EditForm>({ patient: null, doctorId: "", type: "WALK_IN", fee: 0, registrationFee: 0, date: todayStr(), slot: null, notes: "", allergies: [] });
   const [formReady, setFormReady] = useState(false);
   const [patientQuery, setPatientQuery] = useState("");
@@ -196,6 +201,7 @@ export function EditAppointmentPage() {
       const res = await fetchAllDoctorSchedules();
       return res?.data ?? [];
     },
+    enabled: canReadEmployeeSchedules,
     refetchOnMount: true,
     staleTime: 0,
   });
@@ -256,7 +262,7 @@ export function EditAppointmentPage() {
 
   const pastAppointments = useMemo(() => (patientHistory.data?.data ?? []).filter((a) => a.status === "COMPLETED"), [patientHistory.data]);
 
-  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation });
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
 
   const createDoctorMutation = useMutation({
     mutationFn: (input: CreateDoctorWithUserInput) => createDoctorWithUser(input),
@@ -471,7 +477,6 @@ export function EditAppointmentPage() {
                 <AllergySelect
                   value={form.allergies}
                   onChange={(allergies) => setForm((prev) => ({ ...prev, allergies }))}
-                  hideSelected
                 />
               </Field>
 

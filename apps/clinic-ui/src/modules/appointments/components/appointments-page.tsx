@@ -41,6 +41,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { QueuePage } from "@/modules/queue";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
 import { ChevronDown, History } from "lucide-react";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "CANCELLED", "RESCHEDULED", "NO_SHOW"];
 
@@ -89,6 +91,8 @@ export function AppointmentsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const isReceptionist = location.pathname.startsWith('/receptionist');
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
   const [filterDoctor, setFilterDoctor] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -136,10 +140,25 @@ export function AppointmentsPage() {
   // ── Vitals entry ──
   const [vitalsOpen, setVitalsOpen] = useState(false);
   const [vitalsAppointment, setVitalsAppointment] = useState<Appointment | null>(null);
+  const [showVitalsForm, setShowVitalsForm] = useState(false);
   const [vitals, setVitals] = useState<Record<string, string>>({
     heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
     systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
   });
+
+  // Latest recorded vitals for the patient whose "Vitals" sheet is open — shown
+  // read-only so a previous entry isn't hidden behind an empty form.
+  const { data: latestVitals, isLoading: latestVitalsLoading } = useQuery({
+    queryKey: ["patientVitals", "latest", vitalsAppointment?.patientId],
+    queryFn: () => fetchPatientVitalsLatest(vitalsAppointment!.patientId),
+    enabled: vitalsOpen && !!vitalsAppointment?.patientId,
+  });
+
+  useEffect(() => {
+    if (vitalsOpen && !latestVitalsLoading) {
+      setShowVitalsForm(!latestVitals);
+    }
+  }, [vitalsOpen, latestVitals, latestVitalsLoading]);
 
   // ── Prescription creation ──
   const [rxSheetOpen, setRxSheetOpen] = useState(false);
@@ -277,7 +296,7 @@ export function AppointmentsPage() {
   });
   const users = useMemo(() => usersResponse?.data ?? [], [usersResponse]);
 
-  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation });
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
 
   // ── Prescriptions lookup (for showing doctor notes on appointment rows) ──
   const { data: prescriptionsResponse } = useQuery({
@@ -375,7 +394,7 @@ export function AppointmentsPage() {
   const vitalsMutation = useMutation({
     mutationFn: async () => {
       if (!vitalsAppointment) return;
-      const payload: Record<string, string | number> = { patientId: vitalsAppointment.patientId };
+      const payload: Record<string, string | number> = { patientId: vitalsAppointment.patientId, appointmentId: vitalsAppointment.id };
       if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
       if (vitals.weightCm) payload.weightKg = parseFloat(vitals.weightCm);
       if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
@@ -392,6 +411,7 @@ export function AppointmentsPage() {
       toast.success("Vitals recorded successfully");
       setVitalsOpen(false);
       setVitalsAppointment(null);
+      setShowVitalsForm(false);
       setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
     },
     onError: (err) => toast.error(extractApiError(err)),
@@ -400,6 +420,7 @@ export function AppointmentsPage() {
   function openVitals(appt: Appointment) {
     setVitalsAppointment(appt);
     setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
+    setShowVitalsForm(false);
     setVitalsOpen(true);
   }
 
@@ -526,14 +547,14 @@ export function AppointmentsPage() {
               </TooltipTrigger>
               <TooltipContent>View / Edit</TooltipContent>
             </Tooltip>
-            {appt.status !== "COMPLETED" && appt.status !== "CANCELLED" && (
+            {appt.status !== "CANCELLED" && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-9" aria-label="Record patient vitals" onClick={() => openVitals(appt)}>
+                  <Button variant="ghost" size="icon" className="size-9" aria-label="View or record patient vitals" onClick={() => openVitals(appt)}>
                     <HeartPulse className="size-4.5 text-rose-500" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Record Vitals</TooltipContent>
+                <TooltipContent>Vitals</TooltipContent>
               </Tooltip>
             )}
             {appt.status === "COMPLETED" && (
@@ -1110,13 +1131,13 @@ export function AppointmentsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Record Vitals Sheet ── */}
-      <Sheet open={vitalsOpen} onOpenChange={(open) => { if (!open) { setVitalsOpen(false); setVitalsAppointment(null); } }}>
+      {/* ── Vitals Sheet ── */}
+      <Sheet open={vitalsOpen} onOpenChange={(open) => { if (!open) { setVitalsOpen(false); setVitalsAppointment(null); setShowVitalsForm(false); } }}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <HeartPulse className="size-5 text-rose-500" />
-              Record Vitals
+              {showVitalsForm ? "Record Vitals" : "Patient Vitals"}
             </SheetTitle>
           </SheetHeader>
           <div className="space-y-4 px-4 py-4">
@@ -1127,6 +1148,55 @@ export function AppointmentsPage() {
                 <p className="text-xs text-muted-foreground">{vitalsAppointment.patient?.contactNo}</p>
               </div>
             )}
+
+            {latestVitalsLoading && (
+              <p className="text-xs text-muted-foreground">Loading vitals…</p>
+            )}
+
+            {!showVitalsForm && latestVitals && (
+              <div className="rounded-none border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">Last recorded vitals</span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(latestVitals.recordedAt).toLocaleString()}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                  {latestVitals.heightCm != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{latestVitals.heightCm} cm</p></div>
+                  )}
+                  {latestVitals.weightKg != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{latestVitals.weightKg} kg</p></div>
+                  )}
+                  {latestVitals.bmi != null && (
+                    <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{latestVitals.bmi}</p></div>
+                  )}
+                  {latestVitals.temperatureC != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{latestVitals.temperatureC}°F</p></div>
+                  )}
+                  {latestVitals.pulseBpm != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{latestVitals.pulseBpm} bpm</p></div>
+                  )}
+                  {latestVitals.systolicBp != null && latestVitals.diastolicBp != null && (
+                    <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{latestVitals.systolicBp}/{latestVitals.diastolicBp} mmHg</p></div>
+                  )}
+                  {latestVitals.spo2Percent != null && (
+                    <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{latestVitals.spo2Percent}%</p></div>
+                  )}
+                  {latestVitals.respiratoryRate != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Resp Rate</span><p className="font-medium">{latestVitals.respiratoryRate}/min</p></div>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() => setShowVitalsForm(true)}
+                >
+                  <Plus className="size-3.5" /> Add New Vitals
+                </Button>
+              </div>
+            )}
+
+            {showVitalsForm && (
             <div className="grid grid-cols-2 gap-3">
               <Field>
                 <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
@@ -1186,15 +1256,34 @@ export function AppointmentsPage() {
                 </select>
               </Field>
             </div>
+            )}
+
+            {!showVitalsForm && !latestVitalsLoading && !latestVitals && (
+              <p className="text-xs text-muted-foreground">No vitals recorded yet for this patient.</p>
+            )}
           </div>
           <SheetFooter>
-            <Button variant="outline" onClick={() => { setVitalsOpen(false); setVitalsAppointment(null); }}>Cancel</Button>
-            <Button
-              onClick={() => vitalsMutation.mutate()}
-              disabled={!Object.values(vitals).some((v) => v !== "") || vitalsMutation.isPending}
-            >
-              {vitalsMutation.isPending ? "Saving..." : "Save Vitals"}
-            </Button>
+            {showVitalsForm ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (latestVitals) setShowVitalsForm(false);
+                    else { setVitalsOpen(false); setVitalsAppointment(null); }
+                  }}
+                >
+                  {latestVitals ? "Back" : "Cancel"}
+                </Button>
+                <Button
+                  onClick={() => vitalsMutation.mutate()}
+                  disabled={!Object.values(vitals).some((v) => v !== "") || vitalsMutation.isPending}
+                >
+                  {vitalsMutation.isPending ? "Saving..." : "Save Vitals"}
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" onClick={() => { setVitalsOpen(false); setVitalsAppointment(null); }}>Close</Button>
+            )}
           </SheetFooter>
         </SheetContent>
       </Sheet>

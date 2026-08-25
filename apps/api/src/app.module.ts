@@ -33,6 +33,7 @@ import { DiagnosisSystemsModule } from './diagnosis-systems/diagnosis-systems.mo
 import { DatabaseSchemaModule } from './database-schema/database-schema.module';
 import { PrescriptionTemplateModule } from './prescription-template/prescription-template.module';
 import { SpecializationsModule } from './specializations/specializations.module';
+import { SidebarConfigModule } from './sidebar-config/sidebar-config.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { SpecializationsModule } from './specializations/specializations.module'
     DatabaseSchemaModule,
     PrescriptionTemplateModule,
     SpecializationsModule,
+    SidebarConfigModule,
   ],
 })
 export class AppModule {}

@@ -15,6 +15,14 @@ RUN npm ci
 # 3. Copy source and build
 COPY apps/clinic-ui/ apps/clinic-ui/
 WORKDIR /app/apps/clinic-ui
+
+# Vite bakes VITE_API_BASE into the built bundle at build time. Default to a
+# relative /api — nginx below proxies that to the api container over Docker's
+# internal network, so this stays correct no matter what host port the api
+# service is published on. Override at build time (--build-arg VITE_API_BASE=...)
+# only if the frontend and backend are deployed on separate hosts/domains.
+ARG VITE_API_BASE=/api
+ENV VITE_API_BASE=$VITE_API_BASE
 RUN npm run build
 
 # ─── Runtime Stage (Nginx) ─────────────────────────────────────
@@ -47,6 +55,16 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # Uploaded files (profile photos, doctor certificates/signatures) served
+    # by the api service's express.static — same backend, different prefix.
+    location /uploads/ {
+        proxy_pass http://api:4000/uploads/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 EOF

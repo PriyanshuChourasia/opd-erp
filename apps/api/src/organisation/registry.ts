@@ -24,24 +24,6 @@ export const registry: IModuleRegistry = {
       ],
     },
     {
-      id: 'financial-year-management',
-      name: 'Financial Year Management',
-      description: 'Manage accounting periods for billing and reports',
-      capabilities: [
-        {
-          id: 'financial-year-crud', name: 'Financial Year CRUD',
-          description: 'Create, update, activate, and delete financial years',
-          actions: [
-            { id: 'list-financial-years', name: 'List Financial Years', description: 'List all financial years for the organisation', method: 'GET', path: '/financial-years' },
-            { id: 'create-financial-year', name: 'Create Financial Year', description: 'Create a new financial year', method: 'POST', path: '/financial-years' },
-            { id: 'update-financial-year', name: 'Update Financial Year', description: 'Update an existing financial year', method: 'PATCH', path: '/financial-years/:id' },
-            { id: 'activate-financial-year', name: 'Activate Financial Year', description: 'Set a financial year as the active one', method: 'PATCH', path: '/financial-years/:id/activate' },
-            { id: 'delete-financial-year', name: 'Delete Financial Year', description: 'Remove a financial year', method: 'DELETE', path: '/financial-years/:id' },
-          ],
-        },
-      ],
-    },
-    {
       id: 'document-template-management',
       name: 'Document Templates',
       description: 'Design and manage prescription, diagnosis, and lab test document templates',

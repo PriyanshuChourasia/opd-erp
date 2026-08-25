@@ -1,7 +1,12 @@
-import { Controller, Get, Post, Delete, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ReportsService } from './reports.service';
 import { ReportDateRangeDto, ReportPaginationDto } from './dto/report-date-range.dto';
 
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Permissions('read:reports')
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly service: ReportsService) {}

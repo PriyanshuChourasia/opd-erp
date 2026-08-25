@@ -20,6 +20,8 @@ import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto, DocumentType } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -32,12 +34,13 @@ const ALLOWED_MIMES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('documents')
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Post()
+  @Permissions('create:documents')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -84,11 +87,13 @@ export class DocumentsController {
   }
 
   @Get()
+  @Permissions('read:documents')
   findAll(@Query() query: FindDocumentsQueryDto) {
     return this.documentsService.findAll(query);
   }
 
   @Get('by-entity')
+  @Permissions('read:documents')
   findByEntity(
     @Query('documentableType') documentableType: string,
     @Query('documentableId') documentableId: string,
@@ -97,6 +102,7 @@ export class DocumentsController {
   }
 
   @Get('batch-profile-photos')
+  @Permissions('read:documents')
   findProfilePhotos(
     @Query('documentableType') documentableType: string,
     @Query('ids') ids: string,
@@ -106,27 +112,32 @@ export class DocumentsController {
   }
 
   @Patch(':id/primary')
+  @Permissions('update:documents')
   setPrimary(@Param('id') id: string) {
     return this.documentsService.setPrimary(id);
   }
 
   @Get(':id/download')
+  @Permissions('read:documents')
   async download(@Param('id') id: string, @Res() res: Response) {
     const doc = await this.documentsService.findOne(id);
     res.download(doc.filePath, doc.originalName);
   }
 
   @Get(':id')
+  @Permissions('read:documents')
   findOne(@Param('id') id: string) {
     return this.documentsService.findOne(id);
   }
 
   @Patch(':id')
+  @Permissions('update:documents')
   update(@Param('id') id: string, @Body() dto: UpdateDocumentDto, @Req() req: { user: { id: string } }) {
     return this.documentsService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')
+  @Permissions('delete:documents')
   remove(@Param('id') id: string) {
     return this.documentsService.remove(id);
   }

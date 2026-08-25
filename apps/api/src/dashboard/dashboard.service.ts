@@ -23,7 +23,7 @@ export class DashboardService {
     const today = startOfDay(new Date());
     const tomorrow = addDays(today, 1);
 
-    const [todayAppointments, patientsInQueue, registeredPatients, pendingPrescriptions, todayBills] = await Promise.all([
+    const [todayAppointments, patientsInQueue, registeredPatients, pendingPrescriptions, todayBills, latestAppointments, latestQueue] = await Promise.all([
       this.prisma.appointment.count({ where: { date: { gte: today, lt: tomorrow } } }),
       this.prisma.queueEntry.count({
         where: { queueDate: { gte: today, lt: tomorrow }, status: { in: ['WAITING', 'IN_PROGRESS'] } },
@@ -34,11 +34,45 @@ export class DashboardService {
         where: { createdAt: { gte: today, lt: tomorrow }, status: { notIn: ['CANCELLED', 'REFUNDED'] } },
         select: { total: true },
       }),
+      this.prisma.appointment.findMany({
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          date: true,
+          type: true,
+          status: true,
+          patient: { select: { firstName: true, lastName: true, contactNo: true } },
+          doctor: { select: { id: true, specialization: true } },
+        },
+      }),
+      this.prisma.queueEntry.findMany({
+        take: 10,
+        where: { queueDate: { gte: today, lt: tomorrow } },
+        orderBy: [{ createdAt: 'asc' }],
+        select: {
+          id: true,
+          tokenNumber: true,
+          status: true,
+          queueDate: true,
+          createdAt: true,
+          patient: { select: { firstName: true, lastName: true, contactNo: true } },
+          doctor: { select: { id: true, specialization: true } },
+        },
+      }),
     ]);
 
     const todayRevenue = todayBills.reduce((sum, b) => sum + b.total, 0);
 
-    return { todayAppointments, patientsInQueue, registeredPatients, pendingPrescriptions, todayRevenue };
+    return {
+      todayAppointments,
+      patientsInQueue,
+      registeredPatients,
+      pendingPrescriptions,
+      todayRevenue,
+      latestAppointments,
+      latestQueue,
+    };
   }
 
   async getCharts() {

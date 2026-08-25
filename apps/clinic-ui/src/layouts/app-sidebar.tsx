@@ -6,7 +6,6 @@ import {
   Box,
   Building2,
   CalendarClock,
-  CalendarRange,
   ClipboardCheck,
   ClipboardList,
   Clock,
@@ -32,6 +31,7 @@ import {
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
 import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 import {
   Sidebar,
   SidebarContent,
@@ -91,13 +91,12 @@ const devNav = [
 ] as const;
 
 const orgNav = [
-  { to: "/organisation", label: "Overview", icon: Building2 },
-  { to: "/organisation/financial-years", label: "Financial Years", icon: CalendarRange },
-  { to: "/organisation/prescription-templates", label: "Rx Templates", icon: FileText },
-  { to: "/shifts", label: "Shifts", icon: Clock },
-  { to: "/addresses", label: "Addresses", icon: MapPin },
-  { to: "/organisation/users", label: "Users", icon: UserCog },
-  { to: "/organisation/roles", label: "Roles & Permissions", icon: ShieldCheck },
+  { to: "/organisation", label: "Overview", icon: Building2, resource: "organisation" },
+  { to: "/organisation/prescription-templates", label: "Rx Templates", icon: FileText, resource: "prescription-templates" },
+  { to: "/shifts", label: "Shifts", icon: Clock, resource: "shifts" },
+  { to: "/addresses", label: "Addresses", icon: MapPin, resource: "addresses" },
+  { to: "/organisation/users", label: "Users", icon: UserCog, resource: "users" },
+  { to: "/organisation/roles", label: "Roles & Permissions", icon: ShieldCheck, resource: "roles" },
 ] as const;
 
 export function AppSidebar() {
@@ -105,6 +104,7 @@ export function AppSidebar() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
+  const visibleOrgNav = orgNav.filter((item) => hasPermission(user?.permissions, "read", item.resource));
 
   const handleLogout = () => {
     dispatch(clearCredentials());
@@ -177,23 +177,25 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Organisation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {orgNav.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
-                    <Link to={item.to}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {visibleOrgNav.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Organisation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleOrgNav.map((item) => (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton asChild isActive={!!matchRoute({ to: item.to })} tooltip={item.label}>
+                      <Link to={item.to}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         <SidebarGroup>
           <SidebarGroupLabel>Developer</SidebarGroupLabel>
           <SidebarGroupContent>

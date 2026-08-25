@@ -31,6 +31,8 @@ import { DocumentGallery } from "@/modules/documents/components/document-viewer"
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { AllergySelect } from "@/components/allergy-select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const bloodGroupColors: Record<string, string> = {
   "A+": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -63,6 +65,10 @@ function PatientAvatar({ photoUrl, name }: { photoUrl?: string; name: string }) 
 
 export function PatientsPage() {
   const queryClient = useQueryClient();
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canCreate = hasPermission(permissions, "create", "patients");
+  const canUpdate = hasPermission(permissions, "update", "patients");
+  const canDelete = hasPermission(permissions, "delete", "patients");
   const [search, setSearch] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -340,15 +346,17 @@ export function PatientsPage() {
               </TooltipTrigger>
               <TooltipContent>Documents</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(patient.id)}>
-                  <Pencil className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Edit Patient</TooltipContent>
-            </Tooltip>
-            {deleteConfirm === patient.id ? (
+            {canUpdate && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(patient.id)}>
+                    <Pencil className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Edit Patient</TooltipContent>
+              </Tooltip>
+            )}
+            {canDelete && (deleteConfirm === patient.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(patient.id)}>Deactivate</Button>
                 <Tooltip>
@@ -367,14 +375,14 @@ export function PatientsPage() {
                 </TooltipTrigger>
                 <TooltipContent>Deactivate Patient</TooltipContent>
               </Tooltip>
-            )}
+            ))}
           </div>
           </TooltipProvider>
         );
       },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [deleteConfirm]);
+  ], [deleteConfirm, canUpdate, canDelete]);
 
   return (
     <div className="space-y-6">
@@ -383,10 +391,12 @@ export function PatientsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Patients</h1>
           <p className="mt-1 text-sm text-muted-foreground">Register, search, and manage patient records</p>
         </div>
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild>
-            <Button onClick={openAdd}><Plus className="mr-2 size-4" />Add Patient</Button>
-          </SheetTrigger>
+        <Sheet open={sheetOpen && (canCreate || !!editingId)} onOpenChange={setSheetOpen}>
+          {canCreate && (
+            <SheetTrigger asChild>
+              <Button onClick={openAdd}><Plus className="mr-2 size-4" />Add Patient</Button>
+            </SheetTrigger>
+          )}
           <SheetContent side="right" className="w-[90vw] max-w-[1200px] overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{editingId ? "Edit Patient" : "Add Patient"}</SheetTitle>
@@ -554,7 +564,7 @@ export function PatientsPage() {
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <Users className="size-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">{search ? "No patients found" : "No patients registered yet"}</p>
-                <Button size="sm" onClick={openAdd}><Plus className="mr-1.5 size-3.5" />Add Patient</Button>
+                {canCreate && <Button size="sm" onClick={openAdd}><Plus className="mr-1.5 size-3.5" />Add Patient</Button>}
               </div>
             }
           />
@@ -594,6 +604,9 @@ function DocumentUploaderInline({ patientId }: { patientId: string }) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFiles, setPendingFiles] = useState<{ file: File; label: string; preview?: string }[]>([]);
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canCreate = hasPermission(permissions, "create", "documents");
+  const canDelete = hasPermission(permissions, "delete", "documents");
 
   const { data: docs = [] } = useQuery({
     queryKey: ["documents", "Patient", patientId],
@@ -663,9 +676,11 @@ function DocumentUploaderInline({ patientId }: { patientId: string }) {
             <p className="text-xs font-medium truncate">{doc.originalName}</p>
             <p className="text-[10px] text-muted-foreground">{doc.caption || doc.documentType} · {(doc.fileSize / 1024).toFixed(0)} KB</p>
           </div>
-          <Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" title="Delete document" onClick={() => deleteMutation.mutate(doc.id)}>
-            <X className="size-3.5" />
-          </Button>
+          {canDelete && (
+            <Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" title="Delete document" onClick={() => deleteMutation.mutate(doc.id)}>
+              <X className="size-3.5" />
+            </Button>
+          )}
         </div>
       ))}
 
@@ -688,17 +703,19 @@ function DocumentUploaderInline({ patientId }: { patientId: string }) {
         </div>
       ))}
 
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-          <FileUp className="mr-1.5 size-3.5" /> Add File
-        </Button>
-        {pendingFiles.length > 0 && (
-          <Button type="button" size="sm" onClick={uploadAll} disabled={uploadMutation.isPending}>
-            {uploadMutation.isPending ? "Uploading..." : `Upload ${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"}`}
+      {canCreate && (
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            <FileUp className="mr-1.5 size-3.5" /> Add File
           </Button>
-        )}
-        <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx" multiple className="hidden" onChange={handleFileSelect} />
-      </div>
+          {pendingFiles.length > 0 && (
+            <Button type="button" size="sm" onClick={uploadAll} disabled={uploadMutation.isPending}>
+              {uploadMutation.isPending ? "Uploading..." : `Upload ${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"}`}
+            </Button>
+          )}
+          <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx" multiple className="hidden" onChange={handleFileSelect} />
+        </div>
+      )}
       {nonPhotoDocs.length === 0 && pendingFiles.length === 0 && (
         <p className="text-xs text-muted-foreground">No documents yet. Click "Add File" to upload files.</p>
       )}

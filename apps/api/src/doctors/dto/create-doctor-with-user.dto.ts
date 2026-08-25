@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -8,14 +9,65 @@ import {
   Matches,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ConsultationMode } from './create-doctor.dto';
 import { AddressType } from '../../addresses/dto/create-address.dto';
 
 /**
- * Single DTO for creating a Doctor together with its User account and an
- * optional Address in one API call. The backend distributes the data into
+ * Nested DTO for a single address entry inside the addresses array.
+ */
+export class AddressEntryDto {
+  @IsOptional()
+  @IsEnum(AddressType)
+  addressType?: AddressType;
+
+  @IsString()
+  @MinLength(3)
+  addressLine1!: string;
+
+  @IsOptional()
+  @IsString()
+  addressLine2?: string;
+
+  @IsOptional()
+  @IsString()
+  landmark?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  postalCode?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isPrimary?: boolean;
+}
+
+/**
+ * Single DTO for creating a Doctor together with its User account and
+ * optional Addresses in one API call. The backend distributes the data into
  * the respective models.
+ *
+ * Supports either:
+ * - Legacy flat address fields (addressType, addressLine1, …) for backward compat
+ * - New `addresses` array for multiple addresses per doctor
  */
 export class CreateDoctorWithUserDto {
   // ── User Account ──────────────────────────────────────────
@@ -40,9 +92,9 @@ export class CreateDoctorWithUserDto {
   @IsEmail()
   email!: string;
 
-  @IsOptional()
+  @IsString()
   @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'mobileNumber must be a valid phone number' })
-  mobileNumber?: string;
+  mobileNumber!: string;
 
   @IsString()
   @MinLength(8)
@@ -99,7 +151,15 @@ export class CreateDoctorWithUserDto {
   @IsString()
   governmentIdUrl?: string;
 
-  // ── Address (optional) ────────────────────────────────────
+  // ── Addresses (optional — supports multiple) ──────────────
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AddressEntryDto)
+  addresses?: AddressEntryDto[];
+
+  // ── Legacy flat address fields (backward compat) ──────────
 
   @IsOptional()
   @IsEnum(AddressType)

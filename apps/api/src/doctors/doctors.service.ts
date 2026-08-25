@@ -135,6 +135,7 @@ export class DoctorsService
       username,
       mobileNumber,
       password,
+      addresses: _addressesArray,
       addressType,
       addressLine1,
       addressLine2,
@@ -171,8 +172,34 @@ export class DoctorsService
         });
       }
 
-      // 4. Update or create address — addressLine1 is required by the Address model
-      if (addressLine1) {
+      // 3. Handle addresses
+      //    If addresses array is provided, replace all addresses for this doctor
+      if (_addressesArray && _addressesArray.length > 0) {
+        // Delete existing addresses for this doctor
+        await tx.address.deleteMany({ where: { addressableType: 'Doctor', addressableId: id } });
+        // Create new ones
+        for (let i = 0; i < _addressesArray.length; i++) {
+          const addr = _addressesArray[i];
+          await tx.address.create({
+            data: {
+              addressType: addr.addressType ?? 'CLINIC',
+              addressLine1: addr.addressLine1,
+              addressLine2: addr.addressLine2,
+              landmark: addr.landmark,
+              city: addr.city,
+              district: addr.district,
+              state: addr.state,
+              country: addr.country ?? 'India',
+              postalCode: addr.postalCode,
+              isPrimary: addr.isPrimary ?? i === 0,
+              isActive: true,
+              addressableType: 'Doctor',
+              addressableId: id,
+            },
+          });
+        }
+      } else if (addressLine1) {
+        // Legacy: single flat address
         const addressData: Record<string, unknown> = {};
         if (addressLine1) addressData.addressLine1 = addressLine1;
         if (addressLine2 !== undefined) addressData.addressLine2 = addressLine2;
@@ -270,26 +297,53 @@ export class DoctorsService
         },
       });
 
-      // 3. Create Address if address fields are provided
-      const address = dto.addressLine1
-        ? await tx.address.create({
-            data: {
-              addressType: dto.addressType ?? 'CLINIC',
-              addressLine1: dto.addressLine1,
-              addressLine2: dto.addressLine2,
-              landmark: dto.landmark,
-              city: dto.city,
-              district: dto.district,
-              state: dto.state,
-              country: dto.country ?? 'India',
-              postalCode: dto.postalCode,
-              isPrimary: true,
-              isActive: true,
-              addressableType: 'Doctor',
-              addressableId: doctor.id,
-            },
-          })
-        : null;
+      // 3. Create Addresses
+      //    Priority: dto.addresses array > legacy flat fields > none
+      const addressesToCreate: Array<Record<string, unknown>> = [];
+
+      if (dto.addresses && dto.addresses.length > 0) {
+        // New: multi-address array
+        for (let i = 0; i < dto.addresses.length; i++) {
+          const addr = dto.addresses[i];
+          addressesToCreate.push({
+            addressType: addr.addressType ?? 'CLINIC',
+            addressLine1: addr.addressLine1,
+            addressLine2: addr.addressLine2,
+            landmark: addr.landmark,
+            city: addr.city,
+            district: addr.district,
+            state: addr.state,
+            country: addr.country ?? 'India',
+            postalCode: addr.postalCode,
+            isPrimary: addr.isPrimary ?? i === 0,
+            isActive: true,
+            addressableType: 'Doctor',
+            addressableId: doctor.id,
+          });
+        }
+      } else if (dto.addressLine1) {
+        // Legacy: single flat address
+        addressesToCreate.push({
+          addressType: dto.addressType ?? 'CLINIC',
+          addressLine1: dto.addressLine1,
+          addressLine2: dto.addressLine2,
+          landmark: dto.landmark,
+          city: dto.city,
+          district: dto.district,
+          state: dto.state,
+          country: dto.country ?? 'India',
+          postalCode: dto.postalCode,
+          isPrimary: true,
+          isActive: true,
+          addressableType: 'Doctor',
+          addressableId: doctor.id,
+        });
+      }
+
+      const createdAddresses: Array<{ id: string }> = [];
+      for (const addrData of addressesToCreate) {
+        createdAddresses.push(await tx.address.create({ data: addrData as any }));
+      }
 
       // 4. Create default weekly schedule (Mon-Fri 9:00-17:00)
       const defaultScheduleDays = [0, 1, 2, 3, 4]; // Monday=0 … Friday=4
@@ -305,7 +359,7 @@ export class DoctorsService
         });
       }
 
-      return { doctor, user, address };
+      return { doctor, user, addresses: createdAddresses };
     });
 
     return {
@@ -321,19 +375,33 @@ export class DoctorsService
         userableType: 'Doctor',
         userableId: result.doctor.id,
       },
-      address: result.address,
+      addresses: result.addresses,
     };
   }
 
   async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.doctor.update({ where: { id }, data: { isActive: false } });
+    const doctor = await this.findOne(id);
+    return this.prisma.$transaction(async (tx) => {
+      // Deactivate the linked user login too
+      await tx.user.updateMany({
+        where: { userableType: 'Doctor', userableId: id },
+        data: { isActive: false },
+      });
+      return tx.doctor.update({ where: { id }, data: { isActive: false } });
+    });
   }
 
   async restore(id: string) {
     const doctor = await this.prisma.doctor.findUnique({ where: { id } });
     if (!doctor) throw new NotFoundException(`Doctor ${id} not found`);
-    return this.prisma.doctor.update({ where: { id }, data: { isActive: true } });
+    return this.prisma.$transaction(async (tx) => {
+      // Re-activate the linked user login too
+      await tx.user.updateMany({
+        where: { userableType: 'Doctor', userableId: id },
+        data: { isActive: true },
+      });
+      return tx.doctor.update({ where: { id }, data: { isActive: true } });
+    });
   }
 }
 

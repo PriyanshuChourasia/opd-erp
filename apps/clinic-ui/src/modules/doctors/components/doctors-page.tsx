@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { CalendarClock, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, BadgeCheck, DollarSign, ShieldCheck, GraduationCap, User, Repeat, FileUp, FileText, Camera } from "lucide-react";
+import { CalendarClock, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, BadgeCheck, DollarSign, ShieldCheck, GraduationCap, User, UserX, UserCheck, Repeat, FileUp, FileText, Camera } from "lucide-react";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { DocumentManager } from "@/modules/documents/components/document-manager";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
-import { fetchDoctors, fetchDoctor, createDoctorWithUser, updateDoctor, fetchDoctorUser, updateDoctorWithUser, fetchDocumentsByEntity, uploadDocument, deleteDocument, type Doctor, type CreateDoctorInput, type CreateDoctorWithUserInput } from "@/lib/api";
+import { fetchDoctors, fetchDoctor, createDoctorWithUser, updateDoctor, fetchDoctorUser, updateDoctorWithUser, fetchDocumentsByEntity, uploadDocument, deleteDocument, deleteDoctor, restoreDoctor, type Doctor, type CreateDoctorInput, type CreateDoctorWithUserInput, type AddressEntry } from "@/lib/api";
 import { fetchDoctorSchedules, createEmployeeSchedule, updateEmployeeSchedule, deleteEmployeeSchedule } from "../data/api";
 import { fetchShifts, type Shift } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table/data-table";
 import { DAYS, SCHEDULE_TEMPLATES, type DayForm, type ScheduleTemplate } from "../data/interface";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 function emptyScheduleForm(): DayForm[] {
   return DAYS.map((day) => ({ enabled: day.value < 5, startTime: "09:00", endTime: "17:00" }));
@@ -30,6 +33,10 @@ function emptyScheduleForm(): DayForm[] {
 
 export function DoctorsPage() {
   const queryClient = useQueryClient();
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canCreate = hasPermission(permissions, "create", "doctors");
+  const canUpdate = hasPermission(permissions, "update", "doctors");
+  const canDelete = hasPermission(permissions, "delete", "doctors");
   const [search, setSearch] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -46,6 +53,7 @@ export function DoctorsPage() {
     username: "",
     password: "",
   });
+  const [addresses, setAddresses] = useState<AddressEntry[]>([]);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["doctors", search, pagination.pageIndex, pagination.pageSize],
@@ -70,7 +78,15 @@ export function DoctorsPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); closeSheet(); toast.success("Doctor updated successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      isActive ? restoreDoctor(id) : deleteDoctor(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); toast.success("Doctor status updated"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
 
+
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; doctor: Doctor | null; action: 'deactivate' | 'activate' }>({ open: false, doctor: null, action: 'deactivate' });
 
   const [scheduleDoctorId, setScheduleDoctorId] = useState<string | null>(null);
   const [scheduleDoctorSpecialization, setScheduleDoctorSpecialization] = useState<string | null>(null);
@@ -199,13 +215,8 @@ export function DoctorsPage() {
       username: "",
       password: "",
       mobileNumber: "",
-      addressType: "CLINIC",
-      addressLine1: "",
-      city: "",
-      state: "",
-      country: "India",
-      postalCode: "",
     });
+    setAddresses([]);
     setSheetOpen(true);
   }
 
@@ -240,18 +251,13 @@ export function DoctorsPage() {
       registrationYear: doctor.registrationYear ?? undefined,
       yearsOfExperience: doctor.yearsOfExperience ?? undefined,
       consultationMode: doctor.consultationMode,
-      // Address fields start empty (managed via AddressManager sheet)
-      addressType: "CLINIC",
-      addressLine1: "",
-      city: "",
-      state: "",
-      country: "India",
-      postalCode: "",
     });
+    // Addresses are managed via AddressManager sheet for editing
+    setAddresses([]);
     setSheetOpen(true);
   }
 
-  function closeSheet() { setSheetOpen(false); setEditingId(null); setPendingFiles([]); }
+  function closeSheet() { setSheetOpen(false); setEditingId(null); setPendingFiles([]); setAddresses([]); }
 
   function openDocs(doctor: Doctor) { setDocSheetDoctor(doctor); setDocSheetOpen(true); }
 
@@ -295,13 +301,13 @@ export function DoctorsPage() {
   function handleSave() {
     if (!form.medicalRegistrationNo.trim()) return;
     if (editingId) {
-      // Strip medicalRegistrationNo (immutable after creation) and empty address
-      // fields so the backend UpdateDoctorWithUserDto validation passes.
+      // Strip medicalRegistrationNo (immutable after creation) and address fields
+      // (addresses are managed via AddressManager for editing)
       const { medicalRegistrationNo: _reg, password, addressType, addressLine1, addressLine2, landmark, city, district, state, country, postalCode, ...rest } = form;
       const updateData: Record<string, unknown> = { ...rest };
       // Only include password if user actually typed a new one
       if (password?.trim()) updateData.password = password;
-      // Only include address fields if addressLine1 is provided (required by Address model)
+      // Only include flat address fields if addressLine1 is provided (legacy compat)
       if (addressLine1?.trim()) {
         updateData.addressLine1 = addressLine1;
         if (addressType) updateData.addressType = addressType;
@@ -315,7 +321,15 @@ export function DoctorsPage() {
       }
       updateMutation.mutate({ id: editingId, data: updateData as Partial<CreateDoctorWithUserInput> });
     } else {
-      createMutation.mutate(form as CreateDoctorWithUserInput, {
+      // Build create payload — use addresses array if any, else flat fields
+      const validAddresses = addresses.filter((a) => a.addressLine1?.trim());
+      const createData: CreateDoctorWithUserInput = {
+        ...form as CreateDoctorWithUserInput,
+        ...(validAddresses.length > 0
+          ? { addresses: validAddresses.map((a, i) => ({ ...a, isPrimary: a.isPrimary ?? i === 0 })) }
+          : {}),
+      };
+      createMutation.mutate(createData, {
         onSuccess: async (result: any) => {
           queryClient.invalidateQueries({ queryKey: ["doctors"] });
           closeSheet();
@@ -410,22 +424,52 @@ export function DoctorsPage() {
                     </TooltipTrigger>
                     <TooltipContent>Addresses</TooltipContent>
                   </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(doctor.id)}>
-                        <Pencil className="size-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Edit Doctor</TooltipContent>
-                  </Tooltip>
+                  {canUpdate && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(doctor.id)}>
+                          <Pencil className="size-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Edit Doctor</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {canDelete && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-destructive"
+                          onClick={() => setConfirmDialog({ open: true, doctor, action: 'deactivate' })}
+                        >
+                          <UserX className="size-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Deactivate Doctor & Login</TooltipContent>
+                    </Tooltip>
+                  )}
                 </>
+              ) : canUpdate ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-green-600"
+                      onClick={() => setConfirmDialog({ open: true, doctor, action: 'activate' })}
+                    >
+                      <UserCheck className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reactivate Doctor & Login</TooltipContent>
+                </Tooltip>
               ) : null}
             </div>
         );
       },
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], []);
+  ], [canUpdate, canDelete]);
 
   return (
     <TooltipProvider>
@@ -435,8 +479,10 @@ export function DoctorsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Doctors</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage doctor professional profiles, credentials, and verification</p>
         </div>
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild><Button onClick={openAdd}><Plus className="mr-2 size-4" />Add Doctor</Button></SheetTrigger>
+        <Sheet open={sheetOpen && (canCreate || !!editingId)} onOpenChange={setSheetOpen}>
+          {canCreate && (
+            <SheetTrigger asChild><Button onClick={openAdd}><Plus className="mr-2 size-4" />Add Doctor</Button></SheetTrigger>
+          )}
           <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{editingId ? "Edit Doctor" : "Add Doctor"}</SheetTitle>
@@ -478,7 +524,7 @@ export function DoctorsPage() {
                   </Field>
                 </div>
                 <Field>
-                  <FieldLabel htmlFor="du-mobile">Mobile Number</FieldLabel>
+                  <FieldLabel htmlFor="du-mobile">Mobile Number *</FieldLabel>
                   <Input id="du-mobile" placeholder="+919810000001" value={form.mobileNumber ?? ""} onChange={(e) => setForm({ ...form, mobileNumber: e.target.value })} />
                 </Field>
                 <Separator className="my-2" />
@@ -509,17 +555,17 @@ export function DoctorsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <Field>
                     <FieldLabel htmlFor="d-reg-year">Reg. Year</FieldLabel>
-                    <Input id="d-reg-year" type="number" placeholder="2015" value={form.registrationYear ?? ""} onChange={(e) => setForm({ ...form, registrationYear: e.target.value ? Number(e.target.value) : undefined })} />
+                    <Input id="d-reg-year" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="2015" value={form.registrationYear ?? ""} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setForm({ ...form, registrationYear: v ? Number(v) : undefined }); }} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="d-exp">Experience (yrs)</FieldLabel>
-                    <Input id="d-exp" type="number" placeholder="10" value={form.yearsOfExperience ?? ""} onChange={(e) => setForm({ ...form, yearsOfExperience: e.target.value ? Number(e.target.value) : undefined })} />
+                    <Input id="d-exp" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="10" value={form.yearsOfExperience ?? ""} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setForm({ ...form, yearsOfExperience: v ? Number(v) : undefined }); }} />
                   </Field>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Field>
                     <FieldLabel htmlFor="d-fee">Consultation Fee (₹)</FieldLabel>
-                    <Input id="d-fee" type="number" placeholder="500" value={form.consultationFee ?? ""} onChange={(e) => setForm({ ...form, consultationFee: e.target.value ? Number(e.target.value) : 0 })} />
+                    <Input id="d-fee" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="500" value={form.consultationFee ?? ""} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setForm({ ...form, consultationFee: v ? Number(v) : 0 }); }} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="d-mode">Mode</FieldLabel>
@@ -533,48 +579,81 @@ export function DoctorsPage() {
                     </Select>
                   </Field>
                 </div>
-                {/* ─── Address Section (optional) ─── */}
+                {/* ─── Addresses Section (optional, multiple) ─── */}
                 <Separator className="my-2" />
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <MapPin className="size-4" />
-                  <span>Address (optional)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <MapPin className="size-4" />
+                    <span>Addresses <span className="text-xs font-normal">(optional)</span></span>
+                  </div>
+                  {!editingId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAddresses((prev) => [...prev, { addressType: "CLINIC", addressLine1: "", city: "", state: "", country: "India", postalCode: "", isPrimary: prev.length === 0 }])}
+                    >
+                      <Plus className="mr-1 size-3.5" />Add
+                    </Button>
+                  )}
                 </div>
-                <Field>
-                  <FieldLabel htmlFor="da-type">Address Type</FieldLabel>
-                  <Select value={form.addressType ?? "CLINIC"} onValueChange={(v) => setForm({ ...form, addressType: v })}>
-                    <SelectTrigger id="da-type"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CLINIC">Clinic</SelectItem>
-                      <SelectItem value="HOME">Home</SelectItem>
-                      <SelectItem value="BILLING">Billing</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="da-line1">Address Line 1</FieldLabel>
-                  <Input id="da-line1" placeholder="123 Main Street" value={form.addressLine1 ?? ""} onChange={(e) => setForm({ ...form, addressLine1: e.target.value })} />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field>
-                    <FieldLabel htmlFor="da-city">City</FieldLabel>
-                    <Input id="da-city" placeholder="Mumbai" value={form.city ?? ""} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="da-state">State</FieldLabel>
-                    <Input id="da-state" placeholder="Maharashtra" value={form.state ?? ""} onChange={(e) => setForm({ ...form, state: e.target.value })} />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field>
-                    <FieldLabel htmlFor="da-pincode">Postal Code</FieldLabel>
-                    <Input id="da-pincode" placeholder="400001" value={form.postalCode ?? ""} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="da-country">Country</FieldLabel>
-                    <Input id="da-country" placeholder="India" value={form.country ?? "India"} onChange={(e) => setForm({ ...form, country: e.target.value })} />
-                  </Field>
-                </div>
+                {!editingId && addresses.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No addresses added. You can add them after creation via the address manager.</p>
+                )}
+                {!editingId && addresses.map((addr, idx) => (
+                  <div key={idx} className="relative rounded-md border p-3 space-y-2">
+                    {addresses.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1 right-1 size-6"
+                        onClick={() => setAddresses((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field>
+                        <FieldLabel>Address Type</FieldLabel>
+                        <Select value={addr.addressType ?? "CLINIC"} onValueChange={(v) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, addressType: v } : a))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CLINIC">Clinic</SelectItem>
+                            <SelectItem value="HOME">Home</SelectItem>
+                            <SelectItem value="BILLING">Billing</SelectItem>
+                            <SelectItem value="OTHER">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel>Address Line 1 *</FieldLabel>
+                        <Input placeholder="123 Main Street" value={addr.addressLine1} onChange={(e) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, addressLine1: e.target.value } : a))} />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Field>
+                        <FieldLabel>City</FieldLabel>
+                        <Input placeholder="Mumbai" value={addr.city ?? ""} onChange={(e) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, city: e.target.value } : a))} />
+                      </Field>
+                      <Field>
+                        <FieldLabel>State</FieldLabel>
+                        <Input placeholder="Maharashtra" value={addr.state ?? ""} onChange={(e) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, state: e.target.value } : a))} />
+                      </Field>
+                      <Field>
+                        <FieldLabel>Postal Code</FieldLabel>
+                        <Input placeholder="400001" value={addr.postalCode ?? ""} onChange={(e) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, postalCode: e.target.value } : a))} />
+                      </Field>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <input type="radio" name="primaryAddr" className="size-3 accent-primary" checked={addr.isPrimary ?? idx === 0} onChange={() => setAddresses((prev) => prev.map((a, i) => ({ ...a, isPrimary: i === idx })))} />
+                      Primary address
+                    </label>
+                  </div>
+                ))}
+                {editingId && (
+                  <p className="text-xs text-muted-foreground">Addresses are managed via the address manager on the doctor list.</p>
+                )}
 
                 {/* ─── Documents Section ─── */}
                 <Separator className="my-2" />
@@ -849,6 +928,42 @@ export function DoctorsPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* ─── Deactivate / Activate confirmation dialog ─── */}
+      <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmDialog.action === 'deactivate' ? 'Deactivate Doctor' : 'Reactivate Doctor'}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmDialog.action === 'deactivate'
+                ? `This will deactivate ${confirmDialog.doctor?.name ?? 'this doctor'} and disable their login. They will no longer be able to access the system.`
+                : `This will reactivate ${confirmDialog.doctor?.name ?? 'this doctor'} and restore their login access.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <DialogClose asChild>
+              <Button
+                variant={confirmDialog.action === 'deactivate' ? 'destructive' : 'default'}
+                onClick={() => {
+                  if (confirmDialog.doctor) {
+                    toggleActiveMutation.mutate({
+                      id: confirmDialog.doctor.id,
+                      isActive: confirmDialog.action === 'activate',
+                    });
+                  }
+                }}
+              >
+                {confirmDialog.action === 'deactivate' ? 'Deactivate' : 'Reactivate'}
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </TooltipProvider>
   );

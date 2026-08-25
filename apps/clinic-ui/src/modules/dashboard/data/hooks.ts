@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchDashboardCharts, fetchDashboardStats } from "./api";
+import { fetchDashboardStats } from "./api";
 
 export function useDashboardStats() {
   return useQuery({
@@ -7,13 +7,5 @@ export function useDashboardStats() {
     queryFn: fetchDashboardStats,
     staleTime: 30_000,
     refetchInterval: 15_000,
-  });
-}
-
-export function useDashboardCharts() {
-  return useQuery({
-    queryKey: ["dashboard", "charts"],
-    queryFn: fetchDashboardCharts,
-    staleTime: 30_000,
   });
 }

@@ -21,6 +21,7 @@ import {
   type CreatePrescriptionTemplateInput,
   type TemplateType,
 } from "@/lib/api";
+import { PrescriptionTemplatePreview } from "./prescription-template-preview";
 
 // ─── Layout Types ──────────────────────────────────────────
 
@@ -200,7 +201,7 @@ export function PrescriptionTemplateEditor({ open, onOpenChange, template }: Pro
 
   const [layout, setLayout] = useState<LayoutConfig>(defaultLayout);
   const [newRecommendation, setNewRecommendation] = useState("");
-  const [activeTab, setActiveTab] = useState<"branding" | "layout" | "colors" | "sections">("branding");
+  const [activeTab, setActiveTab] = useState<"branding" | "layout" | "colors" | "sections" | "preview">("branding");
 
   useEffect(() => {
     if (open) {
@@ -292,6 +293,7 @@ export function PrescriptionTemplateEditor({ open, onOpenChange, template }: Pro
     { key: "layout" as const, label: "Layout" },
     { key: "colors" as const, label: "Colors" },
     { key: "sections" as const, label: "Sections" },
+    { key: "preview" as const, label: "Preview" },
   ];
 
   return (
@@ -844,6 +846,38 @@ export function PrescriptionTemplateEditor({ open, onOpenChange, template }: Pro
                 </div>
               )}
             </>
+          )}
+
+          {/* ── Preview Tab ── */}
+          {activeTab === "preview" && (
+            <div className="rounded-lg border bg-muted/30 p-4 min-h-[600px]">
+              <PrescriptionTemplatePreview
+                inline
+                template={
+                  {
+                    id: template?.id ?? "preview",
+                    name: form.name || "Preview",
+                    type: form.type,
+                    description: form.description,
+                    clinicName: form.clinicName,
+                    doctorName: form.doctorName,
+                    doctorSpecialization: form.doctorSpecialization,
+                    doctorQualification: form.doctorQualification,
+                    doctorRegNo: form.doctorRegNo,
+                    clinicAddress: form.clinicAddress,
+                    clinicPhone: form.clinicPhone,
+                    clinicEmail: form.clinicEmail,
+                    clinicWebsite: form.clinicWebsite,
+                    logoUrl: form.logoUrl,
+                    isDefault: form.isDefault,
+                    layout: layout,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  } as PrescriptionTemplate
+                }
+                onOpenChange={() => {}}
+              />
+            </div>
           )}
 
           {/* Default toggle (always visible) */}

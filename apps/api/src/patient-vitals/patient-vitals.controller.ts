@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { PatientVitalsService } from './patient-vitals.service';
 import { CreatePatientVitalsDto } from './dto/create-patient-vitals.dto';
 
@@ -8,7 +10,7 @@ import { CreatePatientVitalsDto } from './dto/create-patient-vitals.dto';
  *
  * No PATCH or DELETE endpoints — vitals are never modified after creation.
  */
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('patient-vitals')
 export class PatientVitalsController {
   constructor(private readonly vitalsService: PatientVitalsService) {}
@@ -18,6 +20,7 @@ export class PatientVitalsController {
    * BMI is auto-calculated from height and weight.
    */
   @Get()
+  @Permissions('read:patient-vitals')
   findAll(
     @Query('patientId') patientId?: string,
     @Query('page') page?: string,
@@ -34,6 +37,7 @@ export class PatientVitalsController {
    * Get the latest vitals for a patient.
    */
   @Get('latest/:patientId')
+  @Permissions('read:patient-vitals')
   findLatest(@Param('patientId') patientId: string) {
     return this.vitalsService.findLatest(patientId);
   }
@@ -42,6 +46,7 @@ export class PatientVitalsController {
    * Get vitals within a date range.
    */
   @Get('range/:patientId')
+  @Permissions('read:patient-vitals')
   findByDateRange(
     @Param('patientId') patientId: string,
     @Query('from') from: string,
@@ -58,6 +63,7 @@ export class PatientVitalsController {
    * Get a single vitals record by ID.
    */
   @Get(':id')
+  @Permissions('read:patient-vitals')
   findOne(@Param('id') id: string) {
     return this.vitalsService.findOne(id);
   }
@@ -67,6 +73,7 @@ export class PatientVitalsController {
    * Body: { patientId, heightCm?, weightKg?, temperatureC?, pulseBpm?, systolicBp?, diastolicBp?, spo2Percent?, respiratoryRate? }
    */
   @Post()
+  @Permissions('create:patient-vitals')
   create(@Body() dto: CreatePatientVitalsDto, @Req() req: { user: { id: string } }) {
     return this.vitalsService.create(dto, req.user.id);
   }

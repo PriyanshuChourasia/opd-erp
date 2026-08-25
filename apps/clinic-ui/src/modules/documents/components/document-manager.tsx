@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Camera, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 interface DocumentManagerProps {
   documentableType: string;
@@ -17,6 +19,9 @@ export function DocumentManager({ documentableType, documentableId, documentType
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canCreate = hasPermission(permissions, "create", "documents");
+  const canDelete = hasPermission(permissions, "delete", "documents");
 
   const { data: documents = [] } = useQuery({
     queryKey: ["documents", documentableType, documentableId],
@@ -68,8 +73,9 @@ export function DocumentManager({ documentableType, documentableId, documentType
       <div className="relative group">
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors hover:border-primary/50 hover:bg-muted"
+          onClick={() => canCreate && fileInputRef.current?.click()}
+          disabled={!canCreate}
+          className="flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors enabled:hover:border-primary/50 enabled:hover:bg-muted disabled:cursor-default"
         >
           {imageUrl ? (
             <img src={imageUrl} alt={label} className="size-full object-cover" />
@@ -77,7 +83,7 @@ export function DocumentManager({ documentableType, documentableId, documentType
             <Camera className="size-6 text-muted-foreground/50" />
           )}
         </button>
-        {profilePhoto && !preview && (
+        {profilePhoto && !preview && canDelete && (
           <button
             type="button"
             onClick={() => deleteMutation.mutate(profilePhoto.id)}
@@ -94,15 +100,17 @@ export function DocumentManager({ documentableType, documentableId, documentType
             ? "Uploading..."
             : profilePhoto
               ? `${(profilePhoto.fileSize / 1024).toFixed(0)} KB`
-              : "Click to upload"}
+              : canCreate ? "Click to upload" : "No photo"}
         </p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          className="hidden"
-          onChange={handleFileChange}
-        />
+        {canCreate && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        )}
       </div>
     </div>
   );

@@ -4,46 +4,25 @@ export interface DashboardStats {
   registeredPatients: number;
   pendingPrescriptions: number;
   todayRevenue: number;
+  latestAppointments: LatestAppointment[];
+  latestQueue: LatestQueueEntry[];
 }
 
-export interface RecentActivity {
+export interface LatestAppointment {
   id: string;
-  type: string;
-  description: string;
-  timestamp: string;
-}
-
-export interface RevenuePoint {
   date: string;
-  revenue: number;
-}
-
-export interface StatusCount {
+  type: string;
   status: string;
-  count: number;
+  patient: { firstName: string; lastName: string; contactNo: string | null };
+  doctor: { id: string; specialization: string | null };
 }
 
-export interface DoctorLoad {
-  doctor: string;
-  count: number;
-}
-
-export interface BillStatusBreakdown {
+export interface LatestQueueEntry {
+  id: string;
+  tokenNumber: number | null;
   status: string;
-  count: number;
-  amount: number;
-}
-
-export interface MedicineUsage {
-  medicine: string;
-  quantity: number;
-}
-
-export interface DashboardCharts {
-  revenueTrend: RevenuePoint[];
-  appointmentStatusBreakdown: StatusCount[];
-  doctorLoad: DoctorLoad[];
-  billStatusBreakdown: BillStatusBreakdown[];
-  topMedicines: MedicineUsage[];
-  recentActivity: RecentActivity[];
+  queueDate: string;
+  createdAt: string;
+  patient: { firstName: string; lastName: string; contactNo: string | null };
+  doctor: { id: string; specialization: string | null };
 }

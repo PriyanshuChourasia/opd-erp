@@ -31,7 +31,6 @@ export const resourceLabels: Record<string, string> = {
   addresses: "Addresses",
   // Organisation & HR
   organisation: "Organisation",
-  "financial-years": "Financial Years",
   "prescription-templates": "Prescription Templates",
   users: "Users",
   roles: "Roles",
@@ -63,7 +62,7 @@ export const resourceCategories = [
   },
   {
     label: "Organisation & HR",
-    resources: ["organisation", "financial-years", "prescription-templates", "users", "roles", "permissions", "shifts", "employee-schedules"],
+    resources: ["organisation", "prescription-templates", "users", "roles", "permissions", "shifts", "employee-schedules"],
   },
   {
     label: "System",
@@ -80,7 +79,7 @@ export const defaultResources = [
   // Patient data
   "allergies", "patient-allergy-records", "patient-vitals", "addresses",
   // Organisation & HR
-  "organisation", "financial-years", "prescription-templates",
+  "organisation", "prescription-templates",
   "users", "roles", "permissions", "shifts", "employee-schedules",
   // System
   "documents", "settings", "dashboard", "reports", "developer", "health",
@@ -90,12 +89,11 @@ export const defaultActions = ["read", "create", "update", "delete", "manage"];
 
 /** Role color mapping for badges */
 export const roleColors: Record<string, string> = {
-  "Super Admin": "bg-red-100 text-red-700 border-red-200",
+  "Developer": "bg-red-100 text-red-700 border-red-200",
   "Receptionist": "bg-blue-100 text-blue-700 border-blue-200",
   "Doctor": "bg-green-100 text-green-700 border-green-200",
   "Nurse": "bg-pink-100 text-pink-700 border-pink-200",
   "Pharmacist": "bg-orange-100 text-orange-700 border-orange-200",
   "Lab Technician": "bg-purple-100 text-purple-700 border-purple-200",
   "Assistant": "bg-teal-100 text-teal-700 border-teal-200",
-  "Developer": "bg-slate-100 text-slate-700 border-slate-200",
 };

@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Globe, Mail, MapPin, ShieldCheck, Users, Settings } from "lucide-react";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
-import { FinancialYearCard } from "@/modules/organisation/components/financial-year-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
@@ -173,9 +172,6 @@ export function OrganisationPage() {
             {!organisation && <p className="text-sm text-muted-foreground">Set up the organisation profile first.</p>}
           </CardContent>
         </Card>
-
-        {/* Financial Year card */}
-        {organisation && <FinancialYearCard />}
 
         <Card>
           <CardHeader>

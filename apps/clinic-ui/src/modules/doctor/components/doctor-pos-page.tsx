@@ -464,7 +464,7 @@ export function DoctorPosPage() {
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">My Patients</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">My Appointments</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {waiting.length} waiting &middot; {sendIn.length} to see &middot; {inProgress.length} in progress
           </p>

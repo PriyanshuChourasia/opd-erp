@@ -58,7 +58,6 @@ model User {
   createdPatientVitals         PatientVitals[]        @relation("PatientVitalsCreated")
   createdPatientAllergyRecords PatientAllergyRecord[] @relation("PatientAllergyRecordCreated")
   createdDiagnosisSystems      DiagnosisSystem[]      @relation("DiagnosisSystemCreated")
-  createdFinancialYears        FinancialYear[]        @relation("FinancialYearCreated")
   createdPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateCreated")
   createdSpecializations       Specialization[]        @relation("SpecializationCreated")
   createdPrescriptionHistories PrescriptionHistory[]  @relation("PrescriptionHistoryCreated")
@@ -90,7 +89,6 @@ model User {
   updatedOrganisations         Organisation[]         @relation("OrganisationUpdated")
   updatedPatientAllergyRecords PatientAllergyRecord[] @relation("PatientAllergyRecordUpdated")
   updatedDiagnosisSystems      DiagnosisSystem[]      @relation("DiagnosisSystemUpdated")
-  updatedFinancialYears        FinancialYear[]        @relation("FinancialYearUpdated")
   updatedPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateUpdated")
   updatedSpecializations       Specialization[]        @relation("SpecializationUpdated")
 
@@ -808,27 +806,6 @@ model Organisation {
   updatedById         String?
   createdBy           User?           @relation("OrganisationCreated", fields: [createdById], references: [id])
   updatedBy           User?           @relation("OrganisationUpdated", fields: [updatedById], references: [id])
-  financialYears      FinancialYear[]
-}
-
-model FinancialYear {
-  id             String       @id @default(uuid())
-  organisationId String
-  label          String // e.g. "FY 2025-26"
-  startDate      DateTime
-  endDate        DateTime
-  isActive       Boolean      @default(false)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  createdById    String?
-  updatedById    String?
-  createdBy      User?        @relation("FinancialYearCreated", fields: [createdById], references: [id])
-  updatedBy      User?        @relation("FinancialYearUpdated", fields: [updatedById], references: [id])
-  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-
-  @@index([organisationId])
-  @@index([isActive])
-  @@index([startDate, endDate])
 }
 
 model PrescriptionTemplate {

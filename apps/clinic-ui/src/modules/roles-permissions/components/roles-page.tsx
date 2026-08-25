@@ -244,9 +244,9 @@ export function RolesPage() {
           </Sheet>
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild><Button onClick={openAdd}><Plus className="mr-2 size-4" />Create Role</Button></SheetTrigger>
-            <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+            <SheetContent side="right" className="sm:max-w-md flex flex-col">
               <SheetHeader><SheetTitle>{editingId ? "Edit Role" : "Create Role"}</SheetTitle><SheetDescription>{editingId ? "Update the role and its permissions." : "Define a new role and assign permissions."}</SheetDescription></SheetHeader>
-              <div className="flex-1 space-y-4 px-4 pb-4"><FieldGroup>
+              <div className="flex-1 overflow-y-auto space-y-4 px-4"><FieldGroup>
                 <Field><FieldLabel htmlFor="r-name">Role Name *</FieldLabel><Input id="r-name" placeholder="e.g. Manager" value={formName} onChange={(e) => setFormName(e.target.value)} /></Field>
                 <Field><FieldLabel htmlFor="r-desc">Description</FieldLabel><Input id="r-desc" placeholder="What this role can do" value={formDesc} onChange={(e) => setFormDesc(e.target.value)} /></Field>
               </FieldGroup>
@@ -288,7 +288,9 @@ export function RolesPage() {
                   </div>
                 )}
               </div></div>
-              <SheetFooter><Button variant="outline" onClick={closeSheet}>Cancel</Button><Button onClick={handleSave} disabled={!formName.trim() || createMutation.isPending || updateMutation.isPending}>{editingId ? "Save Changes" : "Create Role"}</Button></SheetFooter>
+              <div className="px-4 pb-4">
+                <SheetFooter><Button variant="outline" onClick={closeSheet}>Cancel</Button><Button onClick={handleSave} disabled={!formName.trim() || createMutation.isPending || updateMutation.isPending}>{editingId ? "Save Changes" : "Create Role"}</Button></SheetFooter>
+              </div>
             </SheetContent>
           </Sheet>
         </div>

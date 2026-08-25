@@ -26,7 +26,7 @@ import { HelpTip } from "@/modules/help/components/help-tip";
 import { BrandMark } from "@/components/brand-mark";
 
 const doctorNav = [
-  { to: "/doctor", label: "My Patients", icon: LayoutDashboard },
+  { to: "/doctor", label: "My Appointments", icon: LayoutDashboard },
   { to: "/doctor/prescriptions", label: "Prescriptions", icon: ClipboardList },
   { to: "/help", label: "Help", icon: LifeBuoy },
 ];

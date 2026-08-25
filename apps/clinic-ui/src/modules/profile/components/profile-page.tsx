@@ -226,7 +226,7 @@ export function ProfilePage() {
               <FieldGroup>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
-                    <FieldLabel htmlFor="profile-firstName">First Name</FieldLabel>
+                    <FieldLabel htmlFor="profile-firstName">First Name *</FieldLabel>
                     <Input
                       id="profile-firstName"
                       value={firstName}
@@ -235,7 +235,7 @@ export function ProfilePage() {
                     />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="profile-lastName">Last Name</FieldLabel>
+                    <FieldLabel htmlFor="profile-lastName">Last Name *</FieldLabel>
                     <Input
                       id="profile-lastName"
                       value={lastName}
@@ -244,7 +244,7 @@ export function ProfilePage() {
                     />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="profile-email">Email</FieldLabel>
+                    <FieldLabel htmlFor="profile-email">Email *</FieldLabel>
                     <Input
                       id="profile-email"
                       type="email"

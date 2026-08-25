@@ -183,6 +183,19 @@ export interface CreateDoctorInput {
  * Unified input for creating a Doctor together with its User account
  * and an optional Address in a single API call.
  */
+export interface AddressEntry {
+  addressType?: string;
+  addressLine1: string;
+  addressLine2?: string;
+  landmark?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  isPrimary?: boolean;
+}
+
 export interface CreateDoctorWithUserInput {
   // User account
   username: string;
@@ -207,7 +220,10 @@ export interface CreateDoctorWithUserInput {
   degreeCertificateUrl?: string;
   governmentIdUrl?: string;
 
-  // Address (optional)
+  // Addresses (new: supports multiple)
+  addresses?: AddressEntry[];
+
+  // Legacy flat address fields (backward compat)
   addressType?: string;
   addressLine1?: string;
   addressLine2?: string;
@@ -571,31 +587,6 @@ export interface Organisation {
   defaultDiscountType: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface FinancialYear {
-  id: string;
-  organisationId: string;
-  label: string;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateFinancialYearInput {
-  label?: string;
-  startDate: string;
-  endDate: string;
-  isActive?: boolean;
-}
-
-export interface UpdateFinancialYearInput {
-  label?: string;
-  startDate?: string;
-  endDate?: string;
-  isActive?: boolean;
 }
 
 export interface UpdateOrganisationInput {
@@ -1520,32 +1511,6 @@ export function updateOrganisation(data: UpdateOrganisationInput) {
     path: "/organisation",
     body: data,
   });
-}
-
-// ─── Financial Year API ──────────────────────────────────────
-
-export function fetchFinancialYears() {
-  return request<FinancialYear[]>({ method: "GET", path: "/financial-years" });
-}
-
-export function fetchActiveFinancialYear() {
-  return request<FinancialYear | null>({ method: "GET", path: "/financial-years/active" });
-}
-
-export function createFinancialYear(data: CreateFinancialYearInput) {
-  return request<FinancialYear>({ method: "POST", path: "/financial-years", body: data });
-}
-
-export function updateFinancialYear(id: string, data: UpdateFinancialYearInput) {
-  return request<FinancialYear>({ method: "PATCH", path: `/financial-years/${id}`, body: data });
-}
-
-export function activateFinancialYear(id: string) {
-  return request<FinancialYear>({ method: "PATCH", path: `/financial-years/${id}/activate` });
-}
-
-export function deleteFinancialYear(id: string) {
-  return request<void>({ method: "DELETE", path: `/financial-years/${id}` });
 }
 
 // ─── Prescription Template API ───────────────────────────────

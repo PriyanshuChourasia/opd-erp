@@ -4,49 +4,52 @@ import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Get()
+  @Permissions('read:users')
   findAll(@Query() query: FindUsersQueryDto) {
     return this.usersService.findAll(query);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('roles')
+  @Permissions('read:users')
   findAllRoles() {
     return this.usersService.findAllRoles();
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get(':id')
+  @Permissions('read:users')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post()
+  @Permissions('create:users')
   create(@Body() dto: CreateUserDto, @Req() req: { user: { id: string } }) {
     return this.usersService.create(dto, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch(':id')
+  @Permissions('update:users')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req: { user: { id: string } }) {
     return this.usersService.update(id, dto, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @Permissions('delete:users')
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch(':id/restore')
+  @Permissions('update:users')
   restore(@Param('id') id: string) {
     return this.usersService.restore(id);
   }

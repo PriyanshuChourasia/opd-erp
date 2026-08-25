@@ -382,7 +382,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
             {/* ── Left Column: Patient → Allergies → Doctor ── */}
             <div className="space-y-6">
               {/* ── Patient ── */}
-              <Field><FieldLabel>Patient</FieldLabel>
+              <Field><FieldLabel>Patient *</FieldLabel>
                 {form.patient && selectedPatient ? (
                   <div className="flex items-center justify-between rounded-none border border-input bg-background px-3 py-1.5">
                     <span className="truncate text-sm font-medium">{getPatientName(selectedPatient)}</span>

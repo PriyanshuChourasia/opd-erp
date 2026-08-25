@@ -879,7 +879,7 @@ export function ReceptionistDashboardPage() {
                   <Skeleton className="mt-1 h-6 w-12" />
                 ) : (
                   <p className="text-xl font-semibold">
-                    {stats ? (key === "todayRevenue" ? currency(stats[key]) : stats[key as keyof typeof stats]) : "—"}
+                    {stats ? (key === "todayRevenue" ? currency(stats[key]) : String(stats[key as keyof typeof stats] ?? '—')) : "—"}
                   </p>
                 )}
               </div>

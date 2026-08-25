@@ -37,7 +37,7 @@ export function QueuePage() {
   const navigate = useNavigate();
   const [filterDoctor, setFilterDoctor] = useState("");
   const [doctorFilterQuery, setDoctorFilterQuery] = useState("");
-  const [filterDate, setFilterDate] = useState(todayStr());
+  const [filterDate, setFilterDate] = useState("");
   const [tab, setTab] = useState<QueueTab>("ACTIVE");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);

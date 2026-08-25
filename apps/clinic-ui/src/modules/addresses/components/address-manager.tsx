@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const ADDRESS_TYPE_ICONS: Record<string, typeof Home> = {
   CLINIC: Building2,
@@ -52,6 +54,10 @@ function emptyAddressForm(addressableType: string, addressableId: string): Creat
 
 export function AddressManager({ addressableType, addressableId }: AddressManagerProps) {
   const queryClient = useQueryClient();
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canCreate = hasPermission(permissions, "create", "addresses");
+  const canUpdate = hasPermission(permissions, "update", "addresses");
+  const canDelete = hasPermission(permissions, "delete", "addresses");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -131,9 +137,11 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
           <MapPin className="size-4 text-muted-foreground" />
           Addresses
         </h4>
-        <Button variant="outline" size="sm" onClick={openAdd}>
-          <Plus className="mr-1 size-3.5" />Add Address
-        </Button>
+        {canCreate && (
+          <Button variant="outline" size="sm" onClick={openAdd}>
+            <Plus className="mr-1 size-3.5" />Add Address
+          </Button>
+        )}
       </div>
 
       {isLoading && <p className="text-xs text-muted-foreground py-2">Loading addresses...</p>}
@@ -141,9 +149,11 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
       {!isLoading && addresses.length === 0 && (
         <div className="py-4 text-center space-y-2">
           <p className="text-xs text-muted-foreground">No addresses added yet.</p>
-          <Button variant="outline" size="sm" onClick={openAdd}>
-            <Plus className="mr-1 size-3.5" />Add Address
-          </Button>
+          {canCreate && (
+            <Button variant="outline" size="sm" onClick={openAdd}>
+              <Plus className="mr-1 size-3.5" />Add Address
+            </Button>
+          )}
         </div>
       )}
 
@@ -166,15 +176,17 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
                   {address.landmark && <p className="text-xs text-muted-foreground">Near: {address.landmark}</p>}
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  {!address.isPrimary && (
+                  {!address.isPrimary && canUpdate && (
                     <Button variant="ghost" size="icon" className="size-7" title="Set as primary" onClick={() => primaryMutation.mutate(address.id)}>
                       <Star className="size-3 text-muted-foreground" />
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" className="size-7" title="Edit" onClick={() => openEdit(address)}>
-                    <Pencil className="size-3" />
-                  </Button>
-                  {deleteConfirm === address.id ? (
+                  {canUpdate && (
+                    <Button variant="ghost" size="icon" className="size-7" title="Edit" onClick={() => openEdit(address)}>
+                      <Pencil className="size-3" />
+                    </Button>
+                  )}
+                  {canDelete && (deleteConfirm === address.id ? (
                     <div className="flex items-center gap-0.5">
                       <Button variant="destructive" size="icon-sm" className="size-7" onClick={() => deleteMutation.mutate(address.id)}><Check className="size-3" /></Button>
                       <Button variant="ghost" size="icon" className="size-7" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3" /></Button>
@@ -183,7 +195,7 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
                     <Button variant="ghost" size="icon" className="size-7 text-destructive" title="Delete address" onClick={() => setDeleteConfirm(address.id)}>
                       <Trash2 className="size-3" />
                     </Button>
-                  )}
+                  ))}
                 </div>
               </div>
             );

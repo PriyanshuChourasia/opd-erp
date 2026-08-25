@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { AlertTriangle, CalendarClock, ClipboardList, Eye, FileText, HeartPulse, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, ClipboardList, Download, Eye, FileText, HeartPulse, Plus, Search, X } from "lucide-react";
+import * as XLSX from "xlsx";
 import {
   fetchAppointments,
   updateAppointmentStatus,
@@ -89,7 +90,7 @@ export function AppointmentsPage() {
   const location = useLocation();
   const isReceptionist = location.pathname.startsWith('/receptionist');
   const [filterDoctor, setFilterDoctor] = useState("");
-  const [filterDate, setFilterDate] = useState(todayStr());
+  const [filterDate, setFilterDate] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCreator, setFilterCreator] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -193,6 +194,75 @@ export function AppointmentsPage() {
     w.document.close();
     w.focus();
     w.print();
+  }
+
+  // ── Export to Excel ──
+  function exportToExcel() {
+    const rows = (appointmentsResponse?.data ?? []).map((appt) => ({
+      "Patient Name": `${appt.patient.firstName} ${appt.patient.lastName}`,
+      "Phone": appt.patient.contactNo ?? "",
+      "Doctor": appt.doctor.name ?? appt.doctor.medicalRegistrationNo ?? "",
+      "Specialization": appt.doctor.specialization ?? "",
+      "Date": appt.date ? new Date(appt.date).toLocaleDateString() : "",
+      "Type": appt.type ?? "",
+      "Status": appt.status,
+      "Fee": appt.fee ?? 0,
+      "Registration Fee": appt.registrationFee ?? 0,
+      "Token": appt.tokenNumber ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Appointments");
+    XLSX.writeFile(wb, `appointments_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  // ── Export to PDF ──
+  async function exportToPdf() {
+    const rows = appointmentsResponse?.data ?? [];
+    if (rows.length === 0) return;
+    const htmlContent = `
+      <html><head><style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+        h2 { text-align: center; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background: #f3f4f6; font-weight: bold; }
+        tr:nth-child(even) { background: #f9fafb; }
+      </style></head><body>
+      <h2>Appointments Report — ${filterDate || 'All Dates'}</h2>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Patient</th><th>Phone</th><th>Doctor</th><th>Specialization</th>
+          <th>Date</th><th>Type</th><th>Status</th><th>Fee</th><th>Token</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((appt, i) => `<tr>
+            <td>${i + 1}</td>
+            <td>${appt.patient.firstName} ${appt.patient.lastName}</td>
+            <td>${appt.patient.contactNo ?? ''}</td>
+            <td>${appt.doctor.name ?? appt.doctor.medicalRegistrationNo ?? ''}</td>
+            <td>${appt.doctor.specialization ?? ''}</td>
+            <td>${appt.date ? new Date(appt.date).toLocaleDateString() : ''}</td>
+            <td>${appt.type ?? ''}</td>
+            <td>${appt.status}</td>
+            <td>${appt.fee ?? 0}</td>
+            <td>${appt.tokenNumber ?? ''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      </body></html>`;
+    const element = document.createElement('div');
+    element.innerHTML = htmlContent;
+    document.body.appendChild(element);
+    const html2pdf = (await import('html2pdf.js')).default;
+    await html2pdf().set({
+      margin: 0.5,
+      filename: `appointments_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
+    }).from(element).save();
+    document.body.removeChild(element);
   }
 
   const { data: doctorsResponse } = useQuery({
@@ -683,6 +753,16 @@ export function AppointmentsPage() {
             <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
           ))}
         </select>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={exportToExcel} disabled={!appointments.length}>
+            <Download className="mr-1.5 size-3.5" />
+            Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToPdf} disabled={!appointments.length}>
+            <Download className="mr-1.5 size-3.5" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       <Card>

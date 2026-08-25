@@ -188,7 +188,6 @@ async function wipeAll() {
   await prisma.role.deleteMany();
   await prisma.address.deleteMany();
   await prisma.prescriptionTemplate.deleteMany();
-  await prisma.financialYear.deleteMany();
   await prisma.organisation.deleteMany();
   console.log('✅ All tables wiped.');
 }
@@ -444,29 +443,12 @@ async function seedDiagnoses() {
 }
 
 async function seedDoctors(): Promise<Doctor[]> {
-  const rows: Doctor[] = [];
-  for (const doc of doctorData) {
-    const existing = await prisma.doctor.findFirst({ where: { medicalRegistrationNo: doc.medicalRegistrationNo } });
-    if (existing) {
-      rows.push(existing);
-    } else {
-      rows.push(
-        await prisma.doctor.create({
-          data: {
-            qualification: doc.qualification,
-            specialization: doc.specialization,
-            medicalRegistrationNo: doc.medicalRegistrationNo,
-            consultationFee: doc.consultationFee,
-            yearsOfExperience: doc.yearsOfExperience,
-            consultationMode: 'OFFLINE',
-            isActive: true,
-          },
-        }),
-      );
-    }
-  }
-  console.log(`Seeded ${doctorData.length} doctors.`);
-  return rows;
+  // Doctor seeding disabled — doctors are onboarded manually through the app now.
+  // Every doctor-dependent seed function below (appointments, queue, prescriptions,
+  // lab/radiology/procedure orders, employee schedules, doctor logins) already
+  // guards on an empty doctorRows array, so returning [] here is sufficient.
+  console.log('Skipped doctor seeding (disabled).');
+  return [];
 }
 
 async function seedEmployeeSchedules(doctorRows: Doctor[]) {
@@ -528,46 +510,57 @@ async function seedPermissions(): Promise<Permission[]> {
   console.log(`Seeded ${permissions.length} permissions.`);
   return permissions;
 }async function seedRoles(permissions: Permission[]) {
-  // ── Super Admin: everything except developer ──
-  const superAdminPerms = permissions.filter((p) => p.resource !== 'developer');
+  // ── Developer (was Super Admin + Developer merged): everything ──
+  const superAdminPerms = [...permissions];
 
-  // ── Developer: developer tools + read-only on everything ──
-  const developerPerms = permissions.filter((p) => p.resource === 'developer' || p.action === 'read');
-
-  // ── Receptionist: front-desk operations ──
+  // ── Receptionist: front-desk operations + inline doctor/patient creation ──
   const receptionistResources = new Set([
     'patients', 'appointments', 'queue', 'billing',
     'prescriptions', 'dispensing', 'documents',
   ]);
-  const receptionistReadResources = new Set(['doctors', 'medicine-catalog', 'lab-orders', 'radiology-orders', 'procedure-orders']);
+  const receptionistReadResources = new Set([
+    'medicine-catalog', 'lab-orders', 'radiology-orders', 'procedure-orders',
+    // Needed to render available booking slots when scheduling/rescheduling appointments.
+    'employee-schedules',
+  ]);
+  const receptionistWriteResources = new Set(['doctors', 'users']);
   const receptionistPerms = permissions.filter(
     (p) =>
       receptionistResources.has(p.resource) ||
-      (receptionistReadResources.has(p.resource) && p.action === 'read'),
+      receptionistReadResources.has(p.resource) && p.action === 'read' ||
+      (receptionistWriteResources.has(p.resource) && (p.action === 'create' || p.action === 'read')) ||
+      (p.resource === 'doctors' && p.action === 'delete'),
   );
 
   // ── Doctor: clinical operations ──
   const doctorReadResources = new Set([
     'patients', 'appointments', 'queue', 'medicine-catalog',
     'allergies', 'patient-allergy-records', 'patient-vitals',
-    'diagnoses', 'diagnosis-systems', 'addresses',
+    'diagnoses', 'diagnosis-systems', 'addresses', 'doctors',
+    // Needed to render available slots when rescheduling from the consultation page.
+    'employee-schedules',
   ]);
   const doctorWriteResources = new Set([
     'prescriptions', 'lab-orders', 'radiology-orders', 'procedure-orders',
     'patient-vitals', 'patient-allergy-records',
   ]);
+  // Doctor's own consultation workflow (doctor-pos-page.tsx) advances queue
+  // status and appointment status/reschedule — needs update on these two,
+  // but not create (booking stays a Receptionist action).
+  const doctorUpdateOnlyResources = new Set(['queue', 'appointments']);
   const doctorPerms = permissions.filter(
     (p) =>
       (doctorReadResources.has(p.resource) && p.action === 'read') ||
       (doctorWriteResources.has(p.resource) &&
-        (p.action === 'create' || p.action === 'update' || p.action === 'read')),
+        (p.action === 'create' || p.action === 'update' || p.action === 'read')) ||
+      (doctorUpdateOnlyResources.has(p.resource) && p.action === 'update'),
   );
 
   // ── Nurse: patient vitals, allergies, queue ──
   const nurseReadResources = new Set([
     'patients', 'appointments', 'queue', 'medicine-catalog',
     'allergies', 'patient-allergy-records', 'patient-vitals',
-    'diagnoses', 'addresses',
+    'diagnoses', 'addresses', 'doctors',
   ]);
   const nurseWriteResources = new Set(['patient-vitals', 'patient-allergy-records', 'queue']);
   const nursePerms = permissions.filter(
@@ -589,7 +582,7 @@ async function seedPermissions(): Promise<Permission[]> {
 
   // ── Pharmacist: dispensing, prescriptions, medicine catalog ──
   const pharmacistReadResources = new Set([
-    'patients', 'prescriptions', 'medicine-catalog', 'dispensing', 'billing',
+    'patients', 'prescriptions', 'medicine-catalog', 'dispensing', 'billing', 'doctors',
   ]);
   const pharmacistWriteResources = new Set(['dispensing', 'billing']);
   const pharmacistPerms = permissions.filter(
@@ -602,7 +595,7 @@ async function seedPermissions(): Promise<Permission[]> {
   // ── Lab Technician: lab orders, radiology ──
   const labTechReadResources = new Set([
     'patients', 'lab-orders', 'radiology-orders', 'procedure-orders',
-    'appointments', 'diagnoses',
+    'appointments', 'diagnoses', 'doctors',
   ]);
   const labTechWriteResources = new Set(['lab-orders', 'radiology-orders', 'procedure-orders']);
   const labTechPerms = permissions.filter(
@@ -627,17 +620,16 @@ async function seedPermissions(): Promise<Permission[]> {
   }
 
 
-  const superAdmin = await upsertRoleWithPermissions('Super Admin', 'Full access to every module except Developer tools', superAdminPerms);
+  const superAdmin = await upsertRoleWithPermissions('Developer', 'Full access to every module including Developer tools', superAdminPerms);
   const receptionist = await upsertRoleWithPermissions('Receptionist', 'Front-desk: patients, appointments, queue, billing, prescriptions, dispensing', receptionistPerms);
   const doctor = await upsertRoleWithPermissions('Doctor', 'Clinical: prescriptions, vitals, allergies, lab/radiology/procedure orders', doctorPerms);
   const nurse = await upsertRoleWithPermissions('Nurse', 'Patient vitals, allergies, queue management', nursePerms);
   const assistant = await upsertRoleWithPermissions('Assistant', 'Support: view patients, manage queue', assistantPerms);
   const pharmacist = await upsertRoleWithPermissions('Pharmacist', 'Dispensing, prescriptions, medicine catalog, billing', pharmacistPerms);
   const labTech = await upsertRoleWithPermissions('Lab Technician', 'Lab orders, radiology orders, procedure orders', labTechPerms);
-  const developer = await upsertRoleWithPermissions('Developer', 'Developer tools: inspect modules, features, and API surface', developerPerms);
 
-  console.log(`Seeded roles: Super Admin (${superAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}), Developer (${developerPerms.length}).`);
-  return { superAdmin, receptionist, doctor, nurse, assistant, pharmacist, labTech, developer };
+  console.log(`Seeded roles: Developer (${superAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}).`);
+  return { superAdmin, receptionist, doctor, nurse, assistant, pharmacist, labTech };
 }
 
 async function seedUsers(
@@ -646,7 +638,6 @@ async function seedUsers(
   doctorRoleId: string,
   assistantRoleId: string,
   doctorRows: Doctor[],
-  developerRoleId: string,
   nurseRoleId?: string,
   pharmacistRoleId?: string,
   labTechRoleId?: string,
@@ -659,7 +650,6 @@ async function seedUsers(
     { username: 'superadmin', firstName: 'Super', lastName: 'Admin', email: 'superadmin@clinic.com', password, roleId: superAdminRoleId },
     { username: 'admin', firstName: 'Admin', lastName: 'User', email: 'admin@clinic.com', password, roleId: superAdminRoleId },
     { username: 'anitapatel', firstName: 'Anita', lastName: 'Patel', email: 'assistant@clinic.com', password, roleId: assistantRoleId },
-    { username: 'developer', firstName: 'Dev', lastName: 'Team', email: 'developer@clinic.com', password, roleId: developerRoleId },
   ];
 
   for (const u of systemUsers) {
@@ -709,8 +699,19 @@ async function seedUsers(
     const email = `${info.firstName.toLowerCase()}.${info.lastName.toLowerCase()}@clinic.com`;
     const username = `${info.firstName.toLowerCase()}${info.lastName.toLowerCase()}`;
 
-    const existing = await prisma.user.findFirst({ where: { userableType: 'Doctor', userableId: doc.id } });
-    if (!existing) {
+    // Check by linked doctor ID OR by email (handles orphaned users from deleted doctors)
+    const existing = await prisma.user.findFirst({
+      where: { OR: [
+        { userableType: 'Doctor', userableId: doc.id },
+        { email },
+      ]},
+    });
+    if (existing) {
+      // If user exists but linked to a different doctor, re-link it
+      if (existing.userableId !== doc.id) {
+        await prisma.user.update({ where: { id: existing.id }, data: { userableId: doc.id } });
+      }
+    } else {
       await prisma.user.create({
         data: {
           username,
@@ -812,7 +813,6 @@ async function seedUsers(
   console.log('  raj@clinic.com / Password@123 (Receptionist — Raj Kumar)');
   console.log('  rajesh.sharma@clinic.com / Doctor@123 (Doctor)');
   console.log('  assistant@clinic.com / Password@123 (Assistant)');
-  console.log('  developer@clinic.com / Password@123 (Developer)');
   console.log('  meera@clinic.com / Password@123 (Nurse — Meera Nair)');
   console.log('  deepak@clinic.com / Password@123 (Nurse — Deepak Yadav)');
   console.log('  rakesh@clinic.com / Password@123 (Pharmacist — Rakesh Joshi)');
@@ -2785,28 +2785,6 @@ async function seedPrescriptionTemplates() {
   console.log(`Seeded ${prescriptionTemplateData.length} prescription templates (prescription, diagnosis, and test).`);
 }
 
-// ─── Financial Years ─────────────────────────────────────
-
-async function seedFinancialYears() {
-  const existing = await prisma.financialYear.count();
-  if (existing > 0 && !FRESH) {
-    console.log('Financial years already seeded, skipping.');
-    return;
-  }
-  const orgId = '00000000-0000-0000-0000-000000000001';
-  const fyData = [
-    { label: 'FY 2024-25', startDate: new Date('2024-04-01'), endDate: new Date('2025-03-31'), isActive: false },
-    { label: 'FY 2025-26', startDate: new Date('2025-04-01'), endDate: new Date('2026-03-31'), isActive: true },
-    { label: 'FY 2026-27', startDate: new Date('2026-04-01'), endDate: new Date('2027-03-31'), isActive: false },
-  ];
-  for (const fy of fyData) {
-    await prisma.financialYear.create({
-      data: { ...fy, organisationId: orgId },
-    });
-  }
-  console.log(`Seeded ${fyData.length} financial years.`);
-}
-
 // ─── Appointments ─────────────────────────────────────────
 
 async function seedAppointments(doctorRows: Doctor[]) {
@@ -3609,13 +3587,12 @@ async function main() {
   const permissions = await seedPermissions();
   const roles = await seedRoles(permissions);
   await seedUsers(
-    roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors, roles.developer.id,
+    roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors,
     roles.nurse.id, roles.pharmacist.id, roles.labTech.id,
   );
 
   console.log('\n📊 Seeding demo transactional data...');
 
-  await seedFinancialYears();
   await seedPatientsWithHistory(doctors);
   await seedAppointments(doctors);
   await seedQueueEntries(doctors);

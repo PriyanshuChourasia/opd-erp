@@ -10,10 +10,26 @@ import { FONT_FAMILIES } from "./prescription-template-editor";
 interface Props {
   template: PrescriptionTemplate | null;
   onOpenChange: (open: boolean) => void;
+  /** When true, renders preview content inline (no Sheet wrapper) */
+  inline?: boolean;
 }
 
-export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
+export function PrescriptionTemplatePreview({ template, onOpenChange, inline = false }: Props) {
   if (!template) return null;
+
+  /** Wraps content in Sheet (default) or renders inline (editor preview) */
+  const PreviewWrapper = ({ children }: { children: React.ReactNode }) => {
+    if (inline) return <div className="mx-auto">{children}</div>;
+    return (
+      <Sheet open={!!template} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="w-[90vw] max-w-[700px] overflow-y-auto bg-muted/30">
+          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
+          <div className="mt-4">{children}</div>
+        </SheetContent>
+      </Sheet>
+    );
+  };
+
 
   const templateType: TemplateType = template.type ?? "prescription";
   const layout = (template.layout as Record<string, any>) ?? {};
@@ -332,10 +348,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // ═══════════════════════════════════════════════════════════
   if (layoutStyle === "classic") {
     return (
-      <Sheet open={!!template} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+      <PreviewWrapper>
+                <div style={{ fontFamily: fontCss }}>
             <div className="bg-white shadow-lg" style={{ border: showBorder ? `1px solid #e5e7eb` : "none", borderTop: showBorder ? `4px solid ${primaryColor}` : "none" }}>
               {/* Header */}
               <div className={`flex items-center gap-3 p-4 pb-3 ${headerStyle === "centered" ? "justify-center text-center" : headerStyle === "right" ? "justify-end text-right" : ""}`} style={{ borderBottom: `2px solid ${primaryColor}20` }}>
@@ -360,8 +374,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
               <Footer />
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </PreviewWrapper>
     );
   }
 
@@ -370,10 +383,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // ═══════════════════════════════════════════════════════════
   if (layoutStyle === "modern") {
     return (
-      <Sheet open={!!template} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+      <PreviewWrapper>
+                <div style={{ fontFamily: fontCss }}>
             <div className="bg-white shadow-lg rounded-xl overflow-hidden" style={{ border: showBorder ? `1px solid ${primaryColor}20` : "none" }}>
               {/* Colored Header Banner */}
               <div className="p-5 text-white relative" style={{ background: `linear-gradient(135deg, ${headerBgColor}, ${headerBgColor}dd)` }}>
@@ -402,8 +413,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
               <Footer />
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </PreviewWrapper>
     );
   }
 
@@ -412,10 +422,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // ═══════════════════════════════════════════════════════════
   if (layoutStyle === "minimal") {
     return (
-      <Sheet open={!!template} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+      <PreviewWrapper>
+                <div style={{ fontFamily: fontCss }}>
             <div className="bg-white shadow-sm" style={{ border: showBorder ? "1px solid #e5e7eb" : "none" }}>
               {/* Minimal Header — just name + Rx */}
               <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${primaryColor}30` }}>
@@ -437,8 +445,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
               )}
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </PreviewWrapper>
     );
   }
 
@@ -447,10 +454,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // ═══════════════════════════════════════════════════════════
   if (layoutStyle === "two-column") {
     return (
-      <Sheet open={!!template} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+      <PreviewWrapper>
+                <div style={{ fontFamily: fontCss }}>
             <div className="bg-white shadow-lg" style={{ border: showBorder ? `1px solid #e5e7eb` : "none", borderTop: showBorder ? `4px solid ${primaryColor}` : "none" }}>
               {/* Header */}
               <div className="flex items-center gap-3 p-4 pb-3" style={{ borderBottom: `2px solid ${primaryColor}20` }}>
@@ -526,8 +531,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
               <Footer />
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </PreviewWrapper>
     );
   }
 
@@ -536,10 +540,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // ═══════════════════════════════════════════════════════════
   if (layoutStyle === "compact") {
     return (
-      <Sheet open={!!template} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+      <PreviewWrapper>
+                <div style={{ fontFamily: fontCss }}>
             <div className="bg-white shadow-md text-xs" style={{ border: showBorder ? "1px solid #e5e7eb" : "none" }}>
               {/* Compact Header — single line */}
               <div className="flex items-center justify-between px-3 py-2" style={{ background: secondaryColor, borderBottom: `2px solid ${primaryColor}` }}>
@@ -598,8 +600,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
               )}
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </PreviewWrapper>
     );
   }
 
@@ -612,10 +613,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // ═══════════════════════════════════════════════════════════
   if (layoutStyle === "letterhead") {
     return (
-      <Sheet open={!!template} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+      <PreviewWrapper>
+                <div style={{ fontFamily: fontCss }}>
             <div className="bg-white shadow-lg" style={{ border: showBorder ? `1px solid #e5e7eb` : "none" }}>
               {/* Split Header */}
               <div className="flex items-start justify-between px-5 py-4" style={{ fontSize: baseFontSize }}>
@@ -654,8 +653,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
               )}
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </PreviewWrapper>
     );
   }
 
@@ -665,10 +663,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // ═══════════════════════════════════════════════════════════
   if (layoutStyle === "doctor-script") {
     return (
-      <Sheet open={!!template} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+      <PreviewWrapper>
+                <div style={{ fontFamily: fontCss }}>
             <div className="bg-white shadow-md" style={{ border: showBorder ? `1px solid #e5e7eb` : "none" }}>
               {/* Minimal Header */}
               <div className="flex items-center justify-between px-4 py-3">
@@ -699,8 +695,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
               )}
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </PreviewWrapper>
     );
   }
 
@@ -711,10 +706,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // ═══════════════════════════════════════════════════════════
   if (layoutStyle === "prescription-pad") {
     return (
-      <Sheet open={!!template} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-          <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+      <PreviewWrapper>
+                <div style={{ fontFamily: fontCss }}>
             <div className="bg-white shadow-lg" style={{ border: showBorder ? `1px solid #e5e7eb` : "none" }}>
               {/* Header — left doctor, right hospital with line below */}
               <div className="flex items-start justify-between px-5 py-4">
@@ -740,8 +733,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
               <SignatureLine />
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </PreviewWrapper>
     );
   }
 
@@ -749,10 +741,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
   // LAYOUT: BANNER (default fallback)
   // ═══════════════════════════════════════════════════════════
   return (
-    <Sheet open={!!template} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[90vw] max-w-[600px] overflow-y-auto bg-muted/30">
-        <SheetHeader><SheetTitle>Preview: {template.name}</SheetTitle></SheetHeader>
-        <div className="mt-4 mx-auto max-w-[520px]" style={{ fontFamily: fontCss }}>
+    <PreviewWrapper>
+              <div style={{ fontFamily: fontCss }}>
           <div className="bg-white shadow-xl overflow-hidden" style={{ border: showBorder ? `1px solid ${primaryColor}30` : "none" }}>
             {/* Full Banner Header */}
             <div className="relative p-6 pb-8 text-center text-white" style={{ background: `linear-gradient(180deg, ${headerBgColor}, ${headerBgColor}cc)` }}>
@@ -776,7 +766,6 @@ export function PrescriptionTemplatePreview({ template, onOpenChange }: Props) {
             <Footer />
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </PreviewWrapper>
   );
 }

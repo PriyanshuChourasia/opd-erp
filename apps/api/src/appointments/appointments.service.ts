@@ -121,8 +121,9 @@ export class AppointmentsService
     if (query.search) {
       const search = query.search.trim();
       where.OR = [
-        { patient: { name: { contains: search, mode: 'insensitive' } } },
-        { patient: { phone: { contains: search } } },
+        { patient: { firstName: { contains: search, mode: 'insensitive' } } },
+        { patient: { lastName: { contains: search, mode: 'insensitive' } } },
+        { patient: { contactNo: { contains: search } } },
         { tokenNumber: { contains: search, mode: 'insensitive' } },
       ];
     }

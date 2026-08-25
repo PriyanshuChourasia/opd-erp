@@ -62,7 +62,6 @@ import { Route as DashboardReportsDoctorPerformanceRouteImport } from './routes/
 import { Route as DashboardOrganisationUsersRouteImport } from './routes/_dashboard/organisation/users'
 import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
 import { Route as DashboardOrganisationPrescriptionTemplatesRouteImport } from './routes/_dashboard/organisation/prescription-templates'
-import { Route as DashboardOrganisationFinancialYearsRouteImport } from './routes/_dashboard/organisation/financial-years'
 import { Route as AppointmentsAppointmentsNewRouteImport } from './routes/_appointments/appointments/new'
 import { Route as ReceptionistReceptionistAppointmentsIndexRouteImport } from './routes/_receptionist/receptionist/appointments/index'
 import { Route as DeveloperDeveloperSchemaIndexRouteImport } from './routes/_developer/developer/schema/index'
@@ -349,12 +348,6 @@ const DashboardOrganisationPrescriptionTemplatesRoute =
     path: '/organisation/prescription-templates',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DashboardOrganisationFinancialYearsRoute =
-  DashboardOrganisationFinancialYearsRouteImport.update({
-    id: '/organisation/financial-years',
-    path: '/organisation/financial-years',
-    getParentRoute: () => DashboardRoute,
-  } as any)
 const AppointmentsAppointmentsNewRoute =
   AppointmentsAppointmentsNewRouteImport.update({
     id: '/appointments/new',
@@ -410,7 +403,6 @@ export interface FileRoutesByFullPath {
   '/profile': typeof DashboardProfileRoute
   '/shifts': typeof DashboardShiftsRoute
   '/appointments/new': typeof AppointmentsAppointmentsNewRoute
-  '/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
   '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
@@ -465,7 +457,6 @@ export interface FileRoutesByTo {
   '/profile': typeof DashboardProfileRoute
   '/shifts': typeof DashboardShiftsRoute
   '/appointments/new': typeof AppointmentsAppointmentsNewRoute
-  '/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
   '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
@@ -528,7 +519,6 @@ export interface FileRoutesById {
   '/_dashboard/profile': typeof DashboardProfileRoute
   '/_dashboard/shifts': typeof DashboardShiftsRoute
   '/_appointments/appointments/new': typeof AppointmentsAppointmentsNewRoute
-  '/_dashboard/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
   '/_dashboard/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/_dashboard/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/_dashboard/organisation/users': typeof DashboardOrganisationUsersRoute
@@ -585,7 +575,6 @@ export interface FileRouteTypes {
     | '/profile'
     | '/shifts'
     | '/appointments/new'
-    | '/organisation/financial-years'
     | '/organisation/prescription-templates'
     | '/organisation/roles'
     | '/organisation/users'
@@ -640,7 +629,6 @@ export interface FileRouteTypes {
     | '/profile'
     | '/shifts'
     | '/appointments/new'
-    | '/organisation/financial-years'
     | '/organisation/prescription-templates'
     | '/organisation/roles'
     | '/organisation/users'
@@ -702,7 +690,6 @@ export interface FileRouteTypes {
     | '/_dashboard/profile'
     | '/_dashboard/shifts'
     | '/_appointments/appointments/new'
-    | '/_dashboard/organisation/financial-years'
     | '/_dashboard/organisation/prescription-templates'
     | '/_dashboard/organisation/roles'
     | '/_dashboard/organisation/users'
@@ -1127,13 +1114,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrganisationPrescriptionTemplatesRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/organisation/financial-years': {
-      id: '/_dashboard/organisation/financial-years'
-      path: '/organisation/financial-years'
-      fullPath: '/organisation/financial-years'
-      preLoaderRoute: typeof DashboardOrganisationFinancialYearsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/_appointments/appointments/new': {
       id: '/_appointments/appointments/new'
       path: '/appointments/new'
@@ -1209,7 +1189,6 @@ interface DashboardRouteChildren {
   DashboardPrescriptionsRoute: typeof DashboardPrescriptionsRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardShiftsRoute: typeof DashboardShiftsRoute
-  DashboardOrganisationFinancialYearsRoute: typeof DashboardOrganisationFinancialYearsRoute
   DashboardOrganisationPrescriptionTemplatesRoute: typeof DashboardOrganisationPrescriptionTemplatesRoute
   DashboardOrganisationRolesRoute: typeof DashboardOrganisationRolesRoute
   DashboardOrganisationUsersRoute: typeof DashboardOrganisationUsersRoute
@@ -1233,8 +1212,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPrescriptionsRoute: DashboardPrescriptionsRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardShiftsRoute: DashboardShiftsRoute,
-  DashboardOrganisationFinancialYearsRoute:
-    DashboardOrganisationFinancialYearsRoute,
   DashboardOrganisationPrescriptionTemplatesRoute:
     DashboardOrganisationPrescriptionTemplatesRoute,
   DashboardOrganisationRolesRoute: DashboardOrganisationRolesRoute,

@@ -29,10 +29,8 @@ interface TestAccount {
 const testAccounts: TestAccount[] = [
   { role: "Super Admin", email: "superadmin@clinic.com", password: "Password@123" },
   { role: "Admin", email: "admin@clinic.com", password: "Password@123" },
-  { role: "Doctor", email: "rajesh.sharma@clinic.com", password: "Doctor@123" },
   { role: "Receptionist", email: "receptionist@clinic.com", password: "Password@123" },
   { role: "Assistant", email: "assistant@clinic.com", password: "Password@123" },
-  { role: "Developer", email: "developer@clinic.com", password: "Password@123" },
 ];
 
 const workflowSteps = [
@@ -154,12 +152,12 @@ export function LoginPage() {
               >
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="email">Email or Username</FieldLabel>
+                    <FieldLabel htmlFor="email">Email or Username *</FieldLabel>
                     <Input id="email" placeholder="email@clinic.com or username" autoComplete="username" {...form.register("email")} />
                     <FieldError errors={form.formState.errors.email ? [form.formState.errors.email] : undefined} />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="password">Password</FieldLabel>
+                    <FieldLabel htmlFor="password">Password *</FieldLabel>
                     <Input
                       id="password"
                       type="password"

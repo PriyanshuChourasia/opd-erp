@@ -658,7 +658,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                       </div>
                     )
                   ) : (
-                    <div className="flex h-[calc(2.25rem+2px)] items-center rounded-none border border-dashed border-input bg-muted/30 px-3">
+                    <div className="flex h-9.5 items-center rounded-none border border-dashed border-input bg-muted/30 px-3">
                       <p className="text-sm text-muted-foreground/60">Select a doctor to view available slots</p>
                     </div>
                   )}

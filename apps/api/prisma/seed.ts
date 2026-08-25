@@ -3645,8 +3645,92 @@ async function main() {
   await seedPatientAllergies();
 
   await seedPrescriptionTemplates();
+  await seedSidebarConfig();
 
   console.log('✅ Seed complete.');
+}
+
+async function seedSidebarConfig() {
+  const existing = await prisma.sidebarMenu.count();
+  if (existing > 0) {
+    console.log('⏭️  Sidebar config already seeded, skipping.');
+    return;
+  }
+
+  // Fetch all roles
+  const roles = await prisma.role.findMany();
+  const roleMap = new Map(roles.map(r => [r.name, r.id]));
+
+  const adminId = roleMap.get('Admin');
+  const doctorId = roleMap.get('Doctor');
+  const receptionistId = roleMap.get('Receptionist');
+  const pharmacistId = roleMap.get('Pharmacist');
+  const nurseId = roleMap.get('Nurse');
+  const developerId = roleMap.get('Developer');
+  const superAdminId = roleMap.get('Super Admin');
+
+  const allRoleIds = Array.from(roleMap.values());
+  const clinicalRoles = [adminId, doctorId, receptionistId, nurseId, superAdminId].filter(Boolean);
+  const frontDeskRoles = [adminId, receptionistId, superAdminId].filter(Boolean);
+  const pharmacyRoles = [adminId, pharmacistId, superAdminId].filter(Boolean);
+
+  const menuItems = [
+    // Clinic group
+    { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', group: 'Clinic', sortOrder: 0, roleIds: allRoleIds },
+    { label: 'Appointments', path: '/appointments', icon: 'CalendarClock', group: 'Clinic', sortOrder: 1, roleIds: [...frontDeskRoles, doctorId, nurseId].filter(Boolean) },
+    { label: 'Patients', path: '/patients', icon: 'Users', group: 'Clinic', sortOrder: 2, roleIds: frontDeskRoles },
+    { label: 'Doctors', path: '/doctors', icon: 'UserCog', group: 'Clinic', sortOrder: 3, roleIds: frontDeskRoles },
+    { label: 'Prescriptions', path: '/prescriptions', icon: 'ClipboardList', group: 'Clinic', sortOrder: 4, roleIds: clinicalRoles },
+    { label: 'Diagnoses', path: '/diagnoses', icon: 'Stethoscope', group: 'Clinic', sortOrder: 5, roleIds: clinicalRoles },
+
+    // Reports group
+    { label: 'Revenue by Category', path: '/reports/revenue-by-category', icon: 'BarChart3', group: 'Reports', sortOrder: 0, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Outstanding Bills', path: '/reports/outstanding-bills', icon: 'AlertCircle', group: 'Reports', sortOrder: 1, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Doctor Performance', path: '/reports/doctor-performance', icon: 'UserCog', group: 'Reports', sortOrder: 2, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Top Medicines', path: '/reports/top-medicines', icon: 'Pill', group: 'Reports', sortOrder: 3, roleIds: [adminId, superAdminId].filter(Boolean) },
+
+    // Pharmacy & Billing group
+    { label: 'Medicine Catalog', path: '/medicine-catalog', icon: 'Pill', group: 'Pharmacy & Billing', sortOrder: 0, roleIds: pharmacyRoles },
+    { label: 'Billing', path: '/billing', icon: 'Receipt', group: 'Pharmacy & Billing', sortOrder: 1, roleIds: pharmacyRoles },
+    { label: 'Dispensing', path: '/dispensing', icon: 'Package', group: 'Pharmacy & Billing', sortOrder: 2, roleIds: pharmacyRoles },
+
+    // Organisation group
+    { label: 'Overview', path: '/organisation', icon: 'Building2', group: 'Organisation', sortOrder: 0, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Rx Templates', path: '/organisation/prescription-templates', icon: 'FileText', group: 'Organisation', sortOrder: 1, roleIds: [adminId, doctorId, superAdminId].filter(Boolean) },
+    { label: 'Shifts', path: '/shifts', icon: 'Clock', group: 'Organisation', sortOrder: 2, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Addresses', path: '/addresses', icon: 'MapPin', group: 'Organisation', sortOrder: 3, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Users', path: '/organisation/users', icon: 'UserCog', group: 'Organisation', sortOrder: 4, roleIds: [adminId, superAdminId].filter(Boolean) },
+    { label: 'Sidebar Config', path: '/organisation/sidebar-config', icon: 'Settings', group: 'Organisation', sortOrder: 5, roleIds: [adminId, superAdminId].filter(Boolean) },
+
+    // Access Control group
+    { label: 'Roles & Permissions', path: '/organisation/roles', icon: 'ShieldCheck', group: 'Access Control', sortOrder: 0, roleIds: [adminId, superAdminId].filter(Boolean) },
+
+    // Developer group
+    { label: 'Overview', path: '/developer', icon: 'Cpu', group: 'Developer', sortOrder: 0, roleIds: [developerId, superAdminId].filter(Boolean) },
+    { label: 'Modules', path: '/developer/modules', icon: 'Box', group: 'Developer', sortOrder: 1, roleIds: [developerId, superAdminId].filter(Boolean) },
+    { label: 'Features', path: '/developer/features', icon: 'Zap', group: 'Developer', sortOrder: 2, roleIds: [developerId, superAdminId].filter(Boolean) },
+
+    // Account group
+    { label: 'Profile', path: '/profile', icon: 'User', group: 'Account', sortOrder: 0, roleIds: allRoleIds },
+    { label: 'Help', path: '/help', icon: 'LifeBuoy', group: 'Account', sortOrder: 1, roleIds: allRoleIds },
+  ];
+
+  for (const item of menuItems) {
+    await prisma.sidebarMenu.create({
+      data: {
+        label: item.label,
+        path: item.path,
+        icon: item.icon,
+        group: item.group,
+        sortOrder: item.sortOrder,
+        roleMenus: {
+          create: item.roleIds.map(roleId => ({ roleId })),
+        },
+      },
+    });
+  }
+
+  console.log(`✅ Sidebar config seeded (${menuItems.length} items).`);
 }
 
 main()

@@ -41,6 +41,12 @@ export class RolesController {
     return this.rolesService.findOne(id);
   }
 
+  @Get(':id/users')
+  @Permissions('read:roles')
+  findUsersByRole(@Param('id') id: string) {
+    return this.rolesService.findUsersByRole(id);
+  }
+
   @Patch(':id')
   @Permissions('update:roles')
   update(@Param('id') id: string, @Body() dto: UpdateRoleDto, @Req() req: { user: { id: string } }) {

@@ -86,6 +86,25 @@ export class RolesService
     return this.findOne(id);
   }
 
+  /** List all users assigned to a specific role */
+  async findUsersByRole(roleId: string) {
+    await this.findOne(roleId);
+    return this.prisma.user.findMany({
+      where: { roleId, isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        email: true,
+        mobileNumber: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+    });
+  }
+
   async remove(id: string) {
     await this.findOne(id);
     return this.prisma.role.delete({ where: { id } });

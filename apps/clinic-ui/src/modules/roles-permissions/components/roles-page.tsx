@@ -1,7 +1,8 @@
 import { Fragment, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { Check, Pencil, Plus, ShieldCheck, Trash2, Users, X } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Check, Pencil, Plus, ShieldCheck, Trash2, Users, X, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
@@ -13,11 +14,13 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
   Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table/data-table";
-import { fetchRoles, fetchRole, createRole, updateRole, deleteRole, fetchPermissions, createPermission, deletePermission, type Role, type Permission } from "@/lib/api";
+import { fetchRoles, fetchRole, createRole, updateRole, deleteRole, fetchPermissions, createPermission, deletePermission, fetchUsersByRole, fetchUsers, type Role, type Permission, type RoleUser } from "@/lib/api";
 import { resourceLabels, resourceCategories, defaultResources, defaultActions, roleColors } from "../data/interface";
 import { useAppSelector } from "@/store/hooks";
 import { isDeveloperRole } from "@/lib/roles";
+import { initials } from "@/lib/utils";
 
 // Large-enough limit to cover "give me every role/permission" use cases
 // (the permission matrix, and the permission-picker inside the role sheet)
@@ -39,6 +42,10 @@ export function RolesPage() {
   const [deletePermConfirm, setDeletePermConfirm] = useState<string | null>(null);
   const [formName, setFormName] = useState(""); const [formDesc, setFormDesc] = useState(""); const [formPermissions, setFormPermissions] = useState<string[]>([]);
   const [permResource, setPermResource] = useState(""); const [permAction, setPermAction] = useState(""); const [permName, setPermName] = useState("");
+
+  // User-role management state
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  const [usersSheetOpen, setUsersSheetOpen] = useState(false);
 
   const user = useAppSelector((state) => state.auth.user);
   const canManage = isDeveloperRole(user?.roleName);
@@ -76,6 +83,20 @@ export function RolesPage() {
   const allRoles = allRolesResponse?.data ?? [];
   const allPermissions = allPermissionsResponse?.data ?? [];
 
+  // Fetch all users for the user-role matrix
+  const { data: allUsersResponse } = useQuery({
+    queryKey: ["users", "all"],
+    queryFn: () => fetchUsers({ limit: ALL_LIMIT, isActive: "true" }),
+  });
+  const allUsers = allUsersResponse?.data ?? [];
+
+  // Fetch users for the selected role (when users sheet is open)
+  const { data: roleUsers = [], isLoading: roleUsersLoading } = useQuery({
+    queryKey: ["role-users", selectedRoleId],
+    queryFn: () => fetchUsersByRole(selectedRoleId!),
+    enabled: !!selectedRoleId && usersSheetOpen,
+  });
+
   const seedPermissionsMutation = useMutation({
     mutationFn: async () => {
       const existing = await queryClient.fetchQuery({ queryKey: ["permissions", "all"], queryFn: () => fetchPermissions({ limit: ALL_LIMIT }) });
@@ -103,6 +124,8 @@ export function RolesPage() {
   function togglePermission(permissionId: string) { setFormPermissions((prev) => prev.includes(permissionId) ? prev.filter((id) => id !== permissionId) : [...prev, permissionId]); }
   function handleSave() { if (!formName.trim()) return; const data = { name: formName.trim(), description: formDesc.trim() || undefined, permissionIds: formPermissions.length > 0 ? formPermissions : undefined }; if (editingId) updateMutation.mutate({ id: editingId, data }); else createMutation.mutate(data as any); }
 
+  function openUsersForRole(roleId: string) { setSelectedRoleId(roleId); setUsersSheetOpen(true); }
+
   const groupedPermissions: Record<string, Permission[]> = {};
   for (const perm of allPermissions) { const key = perm.resource; if (!groupedPermissions[key]) groupedPermissions[key] = []; groupedPermissions[key]!.push(perm); }
 
@@ -115,6 +138,15 @@ export function RolesPage() {
     if (perms.includes("read") || perms.includes("create") || perms.includes("update") || perms.includes("delete")) return "read";
     return null;
   }
+
+  // Build a map of userId → role for the user-role matrix
+  const userRoleMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const u of allUsers) {
+      map[u.id] = u.role?.name ?? "Unknown";
+    }
+    return map;
+  }, [allUsers]);
 
   const roleColumns = useMemo<ColumnDef<Role>[]>(() => [
     {
@@ -151,11 +183,18 @@ export function RolesPage() {
     {
       id: "userCount",
       header: "Users",
-      cell: ({ row }) => (
-        <Badge variant="secondary" className="text-[10px]">
-          <Users className="mr-1 size-2.5" />{row.original._count?.users ?? 0}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const count = row.original._count?.users ?? 0;
+        return (
+          <button
+            onClick={() => openUsersForRole(row.original.id)}
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
+          >
+            <Users className="size-2.5" />{count}
+            {count > 0 && <ChevronRight className="size-2.5" />}
+          </button>
+        );
+      },
     },
     {
       id: "actions",
@@ -228,6 +267,8 @@ export function RolesPage() {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [deletePermConfirm, canManage]);
+
+  const selectedRole = allRoles.find((r) => r.id === selectedRoleId);
 
   return (
     <div className="space-y-6">
@@ -320,6 +361,122 @@ export function RolesPage() {
           />
         </CardContent>
       </Card>
+
+      {/* ─── User-Role Matrix ─── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">User–Role Matrix</CardTitle>
+          <CardDescription>Which users are assigned to each role — click a role badge to manage its members</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="sticky left-0 bg-background min-w-[180px]">User</TableHead>
+                {allRoles.map((role) => (
+                  <TableHead key={role.id} className="text-center min-w-[100px]">
+                    <button
+                      onClick={() => openUsersForRole(role.id)}
+                      className="hover:underline underline-offset-2 cursor-pointer"
+                    >
+                      <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${roleColors[role.name] ?? "bg-muted text-muted-foreground"}`}>
+                        {role.name}
+                      </span>
+                    </button>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {allUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={allRoles.length + 1} className="text-center py-6 text-sm text-muted-foreground">
+                    No active users found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                allUsers.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="sticky left-0 bg-background">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="size-6">
+                          <AvatarFallback className="text-[10px]">{initials(u.firstName)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{u.firstName} {u.lastName}</p>
+                          <p className="truncate text-[10px] text-muted-foreground">{u.email}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    {allRoles.map((role) => {
+                      const hasRole = userRoleMap[u.id] === role.name;
+                      return (
+                        <TableCell key={role.id} className="text-center">
+                          {hasRole ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                              <Check className="size-3.5" />
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/30">—</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* ─── Users-in-Role Sheet ─── */}
+      <Sheet open={usersSheetOpen} onOpenChange={setUsersSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Users className="size-4" />
+              Users in {selectedRole?.name ?? "Role"}
+            </SheetTitle>
+            <SheetDescription>
+              {roleUsers.length} user{roleUsers.length !== 1 ? "s" : ""} assigned to this role
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4 py-2">
+            {roleUsersLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-sm text-muted-foreground">Loading users...</p>
+              </div>
+            ) : roleUsers.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-center">
+                <Users className="size-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">No users assigned to this role</p>
+                <p className="text-xs text-muted-foreground">Assign users via the Users page</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {roleUsers.map((ru) => (
+                  <div key={ru.id} className="flex items-center gap-3 rounded-lg border p-3">
+                    <Avatar className="size-9">
+                      <AvatarFallback className="text-xs">{initials(ru.firstName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-sm font-medium">{ru.firstName} {ru.lastName}</p>
+                      <p className="truncate text-xs text-muted-foreground">{ru.email}</p>
+                    </div>
+                    {ru.mobileNumber && (
+                      <span className="text-xs text-muted-foreground">{ru.mobileNumber}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setUsersSheetOpen(false)}>Close</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <Card>
         <CardHeader>

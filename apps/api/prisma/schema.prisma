@@ -108,6 +108,7 @@ model Role {
   updatedBy       User?            @relation("RoleUpdated", fields: [updatedById], references: [id])
   users           User[]
   rolePermissions RolePermission[]
+  roleMenus       RoleSidebarMenu[]
 }
 
 model Permission {
@@ -893,4 +894,29 @@ model CustomModule {
   definition Json
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+/// Configurable sidebar menu items — controls what each role can see in the nav.
+model SidebarMenu {
+  id          String   @id @default(uuid())
+  label       String
+  path        String
+  icon        String?
+  group       String   // "Clinic", "Reports", "Pharmacy & Billing", "Organisation", "Access Control", "Developer", "Account"
+  sortOrder   Int      @default(0)
+  isHidden    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  roleMenus   RoleSidebarMenu[]
+
+  @@unique([path])
+}
+
+model RoleSidebarMenu {
+  roleId        String
+  sidebarMenuId String
+  role          Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  sidebarMenu   SidebarMenu @relation(fields: [sidebarMenuId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, sidebarMenuId])
 }

@@ -30,7 +30,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      'https://opddev.codymitra.com',
+      'https://opd.codymitra.com',
       /^https?:\/\/localhost(?:\:\d+)?$/,
       ...extraOrigins,
     ],

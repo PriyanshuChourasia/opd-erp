@@ -31,7 +31,7 @@ services:
       - "4003:4003"
     environment:
       NODE_ENV: production
-      PORT: "4000"
+      PORT: "4003"
       DATABASE_URL: postgresql://${POSTGRES_USER:-nest_user}:${POSTGRES_PASSWORD:-changeme_in_production}@postgres_db:5432/${POSTGRES_DB:-opd_db}?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production_access}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_refresh}

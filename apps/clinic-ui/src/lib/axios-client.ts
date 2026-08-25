@@ -66,19 +66,12 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // 403 — the logged-in user's role lacks a required permission for this
-    // request. The backend only ever throws 403 from the permissions/roles
-    // guards (never for business-logic errors), so treat it the same as an
-    // invalid session: clear auth & force a fresh login.
+    // 403 — the logged-in user's session is valid but their role lacks a
+    // required permission for this specific request. This is not an auth
+    // failure, so it must not clear the token or log the user out — just
+    // surface it as an error for this request.
     if (error.response?.status === 403) {
-      localStorage.removeItem("clinic_access_token");
-      localStorage.removeItem("clinic_user");
-
-      const path = window.location.pathname;
-      if (path !== "/login" && path !== "/") {
-        toast.error("You don't have permission to do that. You've been logged out.");
-        window.location.href = "/login";
-      }
+      toast.error("You don't have permission to do that.");
     }
 
     return Promise.reject(error);

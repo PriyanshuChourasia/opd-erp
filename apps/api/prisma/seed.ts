@@ -450,6 +450,8 @@ async function seedPermissions(): Promise<Permission[]> {
     'dispensing:create', 'dispensing:delete', 'dispensing:manage', 'dispensing:read', 'dispensing:update',
     'doctors:create', 'doctors:delete', 'doctors:manage', 'doctors:read', 'doctors:update',
     'documents:create', 'documents:read', 'documents:update',
+    // Needed to render available booking slots when scheduling/rescheduling appointments.
+    'employee-schedules:read',
     'financial-years:create', 'financial-years:delete', 'financial-years:manage', 'financial-years:read', 'financial-years:update',
     'health:read',
     'lab-orders:read', 'lab-orders:update',
@@ -2759,358 +2761,68 @@ async function seedAppointments(doctorRows: Doctor[]) {
   }
   const patients = await prisma.patient.findMany();
   if (patients.length === 0) return;
-  const now = Date.now();
-  // Use UTC-based date construction to match the API's filter boundaries
-  function utcDate(daysOffset: number, hours: number, minutes: number): Date {
-    const d = new Date(now + daysOffset * DAY);
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hours, minutes, 0, 0));
-  }
-
-  // Completed appointments (past)
-  const completedAppts = [
-    { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 21, type: 'WALK_IN', fee: 0, status: 'COMPLETED', notes: 'General check-up — mild fever' },
-    { patientPhone: '9876543210', doctorIdx: 1, daysAgo: 14, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Pediatric follow-up for child' },
-    { patientPhone: '9876543210', doctorIdx: 2, daysAgo: 10, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Orthopedic consult for knee pain' },
-    { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Follow-up — fever resolved' },
-    { patientPhone: '9876543210', doctorIdx: 4, daysAgo: 3, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology check-up — chest discomfort' },
-    { patientPhone: '9876543212', doctorIdx: 2, daysAgo: 30, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Orthopedic consult — chronic knee pain' },
-    { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 18, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology follow-up — hypertension' },
-    { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 5, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP check — stable' },
-    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 45, type: 'WALK_IN', fee: 0, status: 'COMPLETED', notes: 'Newborn check-up — weight & vaccinations' },
-    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 28, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Routine vaccination visit' },
-    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 12, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Milk allergy assessment — improving' },
-    { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 35, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Skin rash — diagnosed as eczema' },
-    { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 20, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Dermatology follow-up — improved' },
-    { patientPhone: '9876543216', doctorIdx: 3, daysAgo: 8, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Gynecology consult — routine check-up' },
-    { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 40, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Neurology consult — chronic headaches' },
-    { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 25, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'ENT check — hearing difficulty' },
-    { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 10, type: 'FOLLOW_UP', fee: 600, status: 'COMPLETED', notes: 'Headache follow-up — MRI reports normal' },
-    { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 2, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'ENT follow-up — hearing aid trial' },
-    { patientPhone: '9876543220', doctorIdx: 3, daysAgo: 15, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Regular gynecology check-up' },
-    { patientPhone: '9876543220', doctorIdx: 5, daysAgo: 5, type: 'SPECIALIST', fee: 600, status: 'COMPLETED', notes: 'Acne treatment follow-up' },
-    { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 20, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Sports injury — ankle sprain' },
-    { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 8, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Ankle healing well, physiotherapy advised' },
-    { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 60, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes screening — borderline' },
-    { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 30, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'HbA1c results reviewed — lifestyle changes advised' },
-    { patientPhone: '9876543226', doctorIdx: 7, daysAgo: 10, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Vision check — mild myopia detected' },
-    { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 45, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology consult — uncontrolled hypertension' },
-    { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 15, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP medication adjusted — monitor weekly' },
-    // ── Batch 2 completed appointments ──
-    { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 40, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology — chest pain on exertion' },
-    { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 15, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Stress test recommended' },
-    { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 3, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'General check-up — fatigue' },
-    { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 60, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Back pain — spondylosis' },
-    { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 30, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Physiotherapy started' },
-    { patientPhone: '9876543232', doctorIdx: 0, daysAgo: 5, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes check' },
-    { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 12, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Acne treatment started' },
-    { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Skin improving' },
-    { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 50, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'CHF evaluation' },
-    { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 20, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP improved' },
-    { patientPhone: '9876543236', doctorIdx: 0, daysAgo: 2, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'HbA1c review' },
-    { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 30, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Prenatal 16 weeks' },
-    { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 7, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Routine antenatal' },
-    { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 8, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'Chronic sinusitis' },
-    { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 1, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'CT results reviewed' },
-    { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 45, type: 'SPECIALIST', fee: 650, status: 'COMPLETED', notes: 'Cataract evaluation' },
-    { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 10, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Pre-op assessment' },
-    { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 20, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'Anxiety and insomnia' },
-    { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 5, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Dosage adjusted' },
-    { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 35, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Resistant HTN' },
-    { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 10, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Added Spironolactone' },
-    { patientPhone: '9876543248', doctorIdx: 8, daysAgo: 15, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Tension headaches' },
-    { patientPhone: '9876543248', doctorIdx: 0, daysAgo: 2, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Viral fever' },
-    { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 30, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes screening' },
-    { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'HbA1c 7.8%' },
-    { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 20, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Acute bronchitis' },
-    { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 5, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Bronchitis resolving' },
-    { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 10, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'PCOD evaluation' },
-    { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'USG confirmed PCOD' },
-    { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 25, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Knee OA Grade 3' },
-    { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 5, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Viscosupplementation' },
-    { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 14, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Eczema flare-up' },
-    { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 4, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Eczema improving' },
-    { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 42, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Obesity consult' },
-    { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 14, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Weight loss 2kg' },
-    // ── Batch 3 completed appointments ──
-    { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 50, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Migraine evaluation' },
-    { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 20, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Headache frequency reduced' },
-    { patientPhone: '9876543262', doctorIdx: 5, daysAgo: 3, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Psoriasis flare-up' },
-    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 60, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Angina evaluation' },
-    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 25, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'TMT positive' },
-    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 5, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Post-angiography' },
-    { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 18, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Dysmenorrhea' },
-    { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 6, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Pain improved' },
-    { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 45, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Stroke evaluation' },
-    { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 12, type: 'FOLLOW_UP', fee: 600, status: 'COMPLETED', notes: 'MRI review' },
-    { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 22, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'Depression screening' },
-    { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 8, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'SSRI started' },
-    { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 40, type: 'SPECIALIST', fee: 650, status: 'COMPLETED', notes: 'Glaucoma screening' },
-    { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 10, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Timolol started' },
-    { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 15, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'Recurrent tonsillitis' },
-    { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Improved' },
-    { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 55, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Uncontrolled HTN' },
-    { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 20, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP improving' },
-    { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 12, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'ACL tear' },
-    { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Brace fitted' },
-    { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 35, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Menorrhagia eval' },
-    { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 8, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Conservative mgmt' },
-    { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 30, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'GERD eval' },
-    { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'PPI working' },
-    { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 16, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Child fever' },
-    { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 4, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Child recovered' },
-    { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 35, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Hypothyroid eval' },
-    { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Levothyroxine started' },
-    { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 20, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'PCOD eval' },
-    { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 5, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Hormones reviewed' },
-    { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 50, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Frozen shoulder eval' },
-    { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 18, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Physiotherapy started' },
-    // ── Cancelled and No-Show appointments ──
-    { patientPhone: '9876543262', doctorIdx: 9, daysAgo: 10, type: 'CONSULTATION', fee: 800, status: 'CANCELLED', notes: 'Patient cancelled — personal reasons' },
-    { patientPhone: '9876543270', doctorIdx: 5, daysAgo: 15, type: 'CONSULTATION', fee: 600, status: 'CANCELLED', notes: 'Patient cancelled — felt better' },
-    { patientPhone: '9876543276', doctorIdx: 0, daysAgo: 8, type: 'FOLLOW_UP', fee: 300, status: 'NO_SHOW', notes: 'Patient did not attend' },
-    { patientPhone: '9876543284', doctorIdx: 6, daysAgo: 12, type: 'CONSULTATION', fee: 550, status: 'NO_SHOW', notes: 'Patient did not attend' },
-    { patientPhone: '9876543288', doctorIdx: 5, daysAgo: 18, type: 'CONSULTATION', fee: 600, status: 'RESCHEDULED', notes: 'Rescheduled to later date' },
-    { patientPhone: '9876543264', doctorIdx: 0, daysAgo: 15, type: 'CONSULTATION', fee: 500, status: 'CANCELLED', notes: 'Doctor unavailable — rescheduled' },
-    // ── Confirmed / Checked-In appointments ──
-    { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 1, type: 'CONSULTATION', fee: 500, status: 'CONFIRMED', notes: 'General check-up confirmed' },
-    { patientPhone: '9876543252', doctorIdx: 2, daysAgo: 1, type: 'SPECIALIST', fee: 800, status: 'CHECKED_IN', notes: 'Checked in for ortho consult' },
-  ];
-
   const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
-  let apptCount = 0;
+  const doctor = doctorRows[0];
+  if (!doctor) return;
 
-  for (const a of completedAppts) {
-    const patient = patientByPhone.get(a.patientPhone);
-    if (!patient) continue;
-    const doctor = doctorRows[a.doctorIdx];
-    if (!doctor) continue;
-    const date = utcDate(-a.daysAgo, 9 + (a.doctorIdx % 8), (a.doctorIdx * 15) % 60);
+  // Minimal, intentionally-small seed: two "today" appointments only, so the
+  // live Appointments/Queue views aren't cluttered with fake history that's
+  // indistinguishable from real bookings. One IN_PROGRESS (with vitals) to
+  // exercise the doctor's active-consultation view, one SCHEDULED (with
+  // vitals) to exercise the upcoming-booking view.
+  const superadmin = await prisma.user.findFirst({ where: { email: 'superadmin@clinic.com' } });
+  const createdById = superadmin?.id ?? null;
+  const now = new Date();
 
-    await prisma.appointment.create({
+  const seedTodayAppointment = async (
+    patientPhone: string,
+    status: string,
+    minutesFromNow: number,
+    vitals: { heightCm: number; weightKg: number; temperatureC: number; pulseBpm: number; systolicBp: number; diastolicBp: number; spo2Percent: number; respiratoryRate: number },
+  ) => {
+    const patient = patientByPhone.get(patientPhone);
+    if (!patient) return null;
+    const appt = await prisma.appointment.create({
       data: {
         patientId: patient.id,
         doctorId: doctor.id,
-        date,
-        type: a.type,
-        status: a.status,
-        fee: a.fee,
-        registrationFee: a.daysAgo > 30 ? 100 : 0,
-        notes: a.notes,
+        date: new Date(now.getTime() + minutesFromNow * 60_000),
+        type: 'CONSULTATION',
+        status,
+        fee: doctor.consultationFee || 500,
       },
     });
-    apptCount++;
-  }
-
-  // Upcoming appointments (next 7 days)
-  const upcomingAppts = [
-    { patientPhone: '9876543210', doctorIdx: 0, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP follow-up' },
-    { patientPhone: '9876543212', doctorIdx: 4, daysAhead: 3, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiology review' },
-    { patientPhone: '9876543214', doctorIdx: 1, daysAhead: 1, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Growth assessment' },
-    { patientPhone: '9876543216', doctorIdx: 3, daysAhead: 5, type: 'SPECIALIST', fee: 700, status: 'SCHEDULED', notes: 'Gynecology follow-up' },
-    { patientPhone: '9876543218', doctorIdx: 9, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Psychiatry session' },
-    { patientPhone: '9876543220', doctorIdx: 3, daysAhead: 7, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Prenatal check-up' },
-    { patientPhone: '9876543222', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Ankle rehab check' },
-    { patientPhone: '9876543224', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
-    { patientPhone: '9876543226', doctorIdx: 7, daysAhead: 2, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Glasses fitting' },
-    { patientPhone: '9876543228', doctorIdx: 4, daysAhead: 1, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
-    // ── Batch 2 upcoming appointments ──
-    { patientPhone: '9876543230', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiology review' },
-    { patientPhone: '9876543232', doctorIdx: 2, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Back pain check' },
-    { patientPhone: '9876543234', doctorIdx: 5, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Acne review' },
-    { patientPhone: '9876543236', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'CHF follow-up' },
-    { patientPhone: '9876543238', doctorIdx: 3, daysAhead: 5, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Prenatal 20 weeks' },
-    { patientPhone: '9876543242', doctorIdx: 7, daysAhead: 3, type: 'SPECIALIST', fee: 650, status: 'SCHEDULED', notes: 'Cataract surgery' },
-    { patientPhone: '9876543244', doctorIdx: 9, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Anxiety review' },
-    { patientPhone: '9876543246', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
-    { patientPhone: '9876543250', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
-    { patientPhone: '9876543254', doctorIdx: 3, daysAhead: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
-    { patientPhone: '9876543256', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Knee review' },
-    { patientPhone: '9876543260', doctorIdx: 0, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Weight check' },
-    // ── Batch 3 upcoming ──
-    { patientPhone: '9876543262', doctorIdx: 5, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Psoriasis review' },
-    { patientPhone: '9876543264', doctorIdx: 4, daysAhead: 2, type: 'SPECIALIST', fee: 1000, status: 'SCHEDULED', notes: 'Pre-PCI assessment' },
-    { patientPhone: '9876543268', doctorIdx: 8, daysAhead: 4, type: 'FOLLOW_UP', fee: 600, status: 'SCHEDULED', notes: 'Stroke secondary prevention' },
-    { patientPhone: '9876543270', doctorIdx: 9, daysAhead: 3, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'SSRI review' },
-    { patientPhone: '9876543272', doctorIdx: 7, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'IOP recheck' },
-    { patientPhone: '9876543276', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
-    { patientPhone: '9876543278', doctorIdx: 2, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'ACL rehab check' },
-    { patientPhone: '9876543280', doctorIdx: 3, daysAhead: 6, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Fibroid review' },
-    { patientPhone: '9876543282', doctorIdx: 0, daysAhead: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PPI review' },
-    { patientPhone: '9876543286', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'TSH recheck' },
-    { patientPhone: '9876543288', doctorIdx: 3, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
-    { patientPhone: '9876543290', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Frozen shoulder rehab' },
-  ];
-
-  for (const a of upcomingAppts) {
-    const patient = patientByPhone.get(a.patientPhone);
-    if (!patient) continue;
-    const doctor = doctorRows[a.doctorIdx];
-    if (!doctor) continue;
-    const date = utcDate(a.daysAhead, 9 + (a.doctorIdx % 8), (a.doctorIdx * 15) % 60);
-
-    await prisma.appointment.create({
-      data: {
-        patientId: patient.id,
-        doctorId: doctor.id,
-        date,
-        type: a.type,
-        status: a.status,
-        fee: a.fee,
-        notes: a.notes,
-      },
+    const bmi = Math.round((vitals.weightKg / ((vitals.heightCm / 100) ** 2)) * 10) / 10;
+    await prisma.patientVitals.create({
+      data: { patientId: patient.id, appointmentId: appt.id, bmi, createdById, ...vitals },
     });
-    apptCount++;
-  }
+    return appt;
+  };
 
-  // Today's appointments (one per doctor with a queue entry)
-  const todayAppts = [
-    { patientPhone: '9876543210', doctorIdx: 0, type: 'FOLLOW_UP', fee: 500, status: 'IN_PROGRESS', notes: 'Routine follow-up' },
-    { patientPhone: '9876543224', doctorIdx: 0, type: 'CONSULTATION', fee: 500, status: 'SCHEDULED', notes: 'Diabetes review' },
-    { patientPhone: '9876543214', doctorIdx: 1, type: 'CONSULTATION', fee: 600, status: 'IN_PROGRESS', notes: 'Growth assessment' },
-    { patientPhone: '9876543222', doctorIdx: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Ankle rehab check' },
-    { patientPhone: '9876543220', doctorIdx: 3, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Prenatal check-up' },
-    { patientPhone: '9876543228', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP monitoring' },
-    { patientPhone: '9876543212', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Hypertension review' },
-    { patientPhone: '9876543216', doctorIdx: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Eczema follow-up' },
-    { patientPhone: '9876543218', doctorIdx: 6, type: 'CONSULTATION', fee: 550, status: 'IN_PROGRESS', notes: 'Ear pain' },
-    { patientPhone: '9876543226', doctorIdx: 7, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Vision check' },
-    { patientPhone: '9876543218', doctorIdx: 8, type: 'FOLLOW_UP', fee: 600, status: 'SCHEDULED', notes: 'Headache follow-up' },
-    { patientPhone: '9876543210', doctorIdx: 9, type: 'CONSULTATION', fee: 800, status: 'SCHEDULED', notes: 'Anxiety session' },
-    // ── Batch 2 today appointments ──
-    { patientPhone: '9876543230', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiac follow-up' },
-    { patientPhone: '9876543236', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'CHF review' },
-    { patientPhone: '9876543246', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Resistant HTN' },
-    { patientPhone: '9876543250', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
-    { patientPhone: '9876543242', doctorIdx: 7, type: 'SPECIALIST', fee: 650, status: 'SCHEDULED', notes: 'Pre-op drops check' },
-    { patientPhone: '9876543260', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'IN_PROGRESS', notes: 'Weight management' },
-    // ── Batch 3 today appointments ──
-    { patientPhone: '9876543262', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Migraine follow-up' },
-    { patientPhone: '9876543264', doctorIdx: 4, type: 'SPECIALIST', fee: 1000, status: 'SCHEDULED', notes: 'Pre-PCI assessment' },
-    { patientPhone: '9876543268', doctorIdx: 8, type: 'FOLLOW_UP', fee: 600, status: 'IN_PROGRESS', notes: 'Stroke follow-up' },
-    { patientPhone: '9876543270', doctorIdx: 9, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Depression review' },
-    { patientPhone: '9876543272', doctorIdx: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Glaucoma check' },
-    { patientPhone: '9876543276', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
-    { patientPhone: '9876543280', doctorIdx: 3, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Fibroid review' },
-    { patientPhone: '9876543286', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Thyroid recheck' },
-    { patientPhone: '9876543288', doctorIdx: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
-    { patientPhone: '9876543290', doctorIdx: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Frozen shoulder check' },
-  ];  for (let i = 0; i < todayAppts.length; i++) {
-    const a = todayAppts[i];
-    const patient = patientByPhone.get(a.patientPhone);
-    if (!patient) continue;
-    const doctor = doctorRows[a.doctorIdx];
-    if (!doctor) continue;
+  const inProgress = await seedTodayAppointment('9876543210', 'IN_PROGRESS', 0, {
+    heightCm: 172, weightKg: 70, temperatureC: 98.4, pulseBpm: 78, systolicBp: 120, diastolicBp: 80, spo2Percent: 98, respiratoryRate: 16,
+  });
+  await seedTodayAppointment('9876543212', 'SCHEDULED', 30, {
+    heightCm: 160, weightKg: 58, temperatureC: 98.6, pulseBpm: 74, systolicBp: 118, diastolicBp: 76, spo2Percent: 99, respiratoryRate: 15,
+  });
 
-    const date = utcDate(0, 9 + i, (i * 15) % 60);
-
-    await prisma.appointment.create({
-      data: {
-        patientId: patient.id,
-        doctorId: doctor.id,
-        date,
-        type: a.type,
-        status: a.status,
-        fee: a.fee,
-        notes: a.notes,
-      },
-    });
-    apptCount++;
-  }
-
-  console.log(`Seeded ${apptCount} appointments (${completedAppts.length} completed, ${upcomingAppts.length} upcoming, ${todayAppts.length} today).`);
-}
-
-// ─── Queue Entries ────────────────────────────────────────
-
-async function seedQueueEntries(doctorRows: Doctor[]) {
-  const existing = await prisma.queueEntry.count();
-  if (existing > 0 && !FRESH) {
-    console.log('Queue entries already seeded, skipping.');
-    return;
-  }
-  const patients = await prisma.patient.findMany();
-  if (patients.length === 0) return;
-  const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
-  // Use UTC midnight to match the queue service's filter boundaries
-  const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
-
-  const queueData = [
-    // Dr. Rajesh Sharma (idx 0) — General Medicine
-    { patientPhone: '9876543210', doctorIdx: 0, token: 'T001', status: 'IN_PROGRESS' },
-    { patientPhone: '9876543224', doctorIdx: 0, token: 'T002', status: 'WAITING' },
-    // Dr. Sunita Verma (idx 1) — Pediatrics
-    { patientPhone: '9876543214', doctorIdx: 1, token: 'T003', status: 'IN_PROGRESS' },
-    // Dr. Vivek Mehta (idx 2) — Orthopedics
-    { patientPhone: '9876543222', doctorIdx: 2, token: 'T004', status: 'COMPLETED' },
-    // Dr. Lakshmi Iyer (idx 3) — Gynecology
-    { patientPhone: '9876543220', doctorIdx: 3, token: 'T005', status: 'WAITING' },
-    // Dr. Arun Singh (idx 4) — Cardiology
-    { patientPhone: '9876543228', doctorIdx: 4, token: 'T006', status: 'WAITING' },
-    { patientPhone: '9876543212', doctorIdx: 4, token: 'T007', status: 'WAITING' },
-    // Dr. Priya Kapoor (idx 5) — Dermatology
-    { patientPhone: '9876543216', doctorIdx: 5, token: 'T008', status: 'WAITING' },
-    // Dr. Mohammed Farooq (idx 6) — ENT
-    { patientPhone: '9876543218', doctorIdx: 6, token: 'T009', status: 'IN_PROGRESS' },
-    // Dr. Deepa Nair (idx 7) — Ophthalmology
-    { patientPhone: '9876543226', doctorIdx: 7, token: 'T010', status: 'WAITING' },
-    // Dr. Sanjay Gupta (idx 8) — Neurology
-    { patientPhone: '9876543218', doctorIdx: 8, token: 'T011', status: 'WAITING' },
-    // Dr. Anjali Desai (idx 9) — Psychiatry
-    { patientPhone: '9876543210', doctorIdx: 9, token: 'T012', status: 'WAITING' },
-    // ── Batch 2 queue entries ──
-    { patientPhone: '9876543230', doctorIdx: 4, token: 'T013', status: 'WAITING' },
-    { patientPhone: '9876543236', doctorIdx: 4, token: 'T014', status: 'WAITING' },
-    { patientPhone: '9876543246', doctorIdx: 4, token: 'T015', status: 'WAITING' },
-    { patientPhone: '9876543250', doctorIdx: 0, token: 'T016', status: 'WAITING' },
-    { patientPhone: '9876543242', doctorIdx: 7, token: 'T017', status: 'WAITING' },
-    { patientPhone: '9876543260', doctorIdx: 0, token: 'T018', status: 'IN_PROGRESS' },
-    { patientPhone: '9876543234', doctorIdx: 5, token: 'T019', status: 'WAITING' },
-    { patientPhone: '9876543258', doctorIdx: 5, token: 'T020', status: 'WAITING' },
-    { patientPhone: '9876543238', doctorIdx: 3, token: 'T021', status: 'WAITING' },
-    { patientPhone: '9876543254', doctorIdx: 3, token: 'T022', status: 'WAITING' },
-    { patientPhone: '9876543232', doctorIdx: 2, token: 'T023', status: 'WAITING' },
-    { patientPhone: '9876543256', doctorIdx: 2, token: 'T024', status: 'COMPLETED' },
-    { patientPhone: '9876543244', doctorIdx: 9, token: 'T025', status: 'WAITING' },
-    { patientPhone: '9876543240', doctorIdx: 6, token: 'T026', status: 'WAITING' },
-    // ── Batch 3 queue entries ──
-    { patientPhone: '9876543262', doctorIdx: 0, token: 'T027', status: 'WAITING' },
-    { patientPhone: '9876543268', doctorIdx: 8, token: 'T028', status: 'SEND_IN' },
-    { patientPhone: '9876543270', doctorIdx: 9, token: 'T029', status: 'SEND_IN' },
-    { patientPhone: '9876543272', doctorIdx: 7, token: 'T030', status: 'WAITING' },
-    { patientPhone: '9876543274', doctorIdx: 6, token: 'T031', status: 'WAITING' },
-    { patientPhone: '9876543276', doctorIdx: 4, token: 'T032', status: 'WAITING' },
-    { patientPhone: '9876543278', doctorIdx: 2, token: 'T033', status: 'WAITING' },
-    { patientPhone: '9876543280', doctorIdx: 3, token: 'T034', status: 'WAITING' },
-    { patientPhone: '9876543282', doctorIdx: 0, token: 'T035', status: 'WAITING' },
-    { patientPhone: '9876543284', doctorIdx: 1, token: 'T036', status: 'WAITING' },
-    { patientPhone: '9876543286', doctorIdx: 0, token: 'T037', status: 'SEND_IN' },
-    { patientPhone: '9876543288', doctorIdx: 3, token: 'T038', status: 'WAITING' },
-    { patientPhone: '9876543290', doctorIdx: 2, token: 'T039', status: 'SKIPPED' },
-    { patientPhone: '9876543266', doctorIdx: 3, token: 'T040', status: 'NO_SHOW' },
-    { patientPhone: '9876543264', doctorIdx: 4, token: 'T041', status: 'SKIPPED' },
-  ];
-
-  let count = 0;
-  for (const q of queueData) {
-    const patient = patientByPhone.get(q.patientPhone);
-    if (!patient) continue;
-    const doctor = doctorRows[q.doctorIdx];
-    if (!doctor) continue;
-
+  if (inProgress) {
     await prisma.queueEntry.create({
       data: {
-        patientId: patient.id,
+        patientId: inProgress.patientId,
         doctorId: doctor.id,
-        tokenNumber: q.token,
-        status: q.status,
-        queueDate: today,
-        checkedInAt: new Date(),
+        appointmentId: inProgress.id,
+        tokenNumber: '1',
+        status: 'IN_PROGRESS',
+        queueDate: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+        checkedInAt: now,
       },
     });
-    count++;
   }
-  console.log(`Seeded ${count} queue entries for today.`);
+
+  console.log('Seeded 2 appointments (1 in-progress, 1 scheduled) with vitals, and 1 queue entry.');
 }
+
 
 // ─── Bills ────────────────────────────────────────────────
 
@@ -3559,7 +3271,6 @@ async function main() {
 
   await seedPatientsWithHistory(doctors);
   await seedAppointments(doctors);
-  await seedQueueEntries(doctors);
   await seedBills();
   await seedOrders(doctors);
   await seedDispensing();

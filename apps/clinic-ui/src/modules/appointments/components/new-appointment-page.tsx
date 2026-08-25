@@ -213,7 +213,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     queryFn: () => fetchPatients({ search: patientQuery, limit: 8 }),
     enabled: patientQuery.trim().length >= 1 && !form.patient,
   });
-  const slotsQuery = useQuery({ queryKey: ["doctor-slots", form.doctorId, form.date], queryFn: () => fetchDoctorSlots(form.doctorId, form.date), enabled: !!form.doctorId && !!form.date });
+  const slotsQuery = useQuery({ queryKey: ["doctor-slots", form.doctorId, form.date], queryFn: () => fetchDoctorSlots(form.doctorId, form.date), enabled: canReadEmployeeSchedules && !!form.doctorId && !!form.date });
 
   // ── Selected doctor's schedule for the chosen date ──
   const selectedDoctorSchedule = useMemo(() => {

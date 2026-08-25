@@ -33,6 +33,17 @@ export class SidebarConfigService {
     });
   }
 
+  /**
+   * All known sidebar menu paths, with no role information — used by the
+   * frontend route guard to tell "not allowed for my role" apart from
+   * "not a gated module at all". Safe for any authenticated user.
+   */
+  async findAllPaths() {
+    return this.prisma.sidebarMenu.findMany({
+      select: { path: true },
+    });
+  }
+
   /** Get sidebar menu items for multiple roles (used by auth/me). */
   async findForRoles(roleIds: string[]) {
     return this.prisma.sidebarMenu.findMany({

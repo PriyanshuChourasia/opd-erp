@@ -1,5 +1,5 @@
 import { getPatientName } from "@/lib/api";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, FileDown, FileText, Eye, Pill, Plus, X, Clock } from "lucide-react";
@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -83,6 +84,9 @@ export function PrescriptionsPage() {
   // doesn't imply they could browse other doctors' prescriptions.
   const user = useAppSelector((state) => state.auth.user);
   const isDoctor = user?.userableType === "Doctor";
+  const canReadOrganisation = hasPermission(user?.permissions, "read", "organisation");
+  const canCreate = hasPermission(user?.permissions, "create", "prescriptions");
+  const canUpdate = hasPermission(user?.permissions, "update", "prescriptions");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [invoicesOpen, setInvoicesOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
@@ -142,7 +146,7 @@ export function PrescriptionsPage() {
   });
   const doctors = doctorsResponse?.data ?? [];
 
-  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation });
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
 
   const { data: billsResponse, isLoading: billsLoading } = useQuery({
     queryKey: ["bills", "patient", selectedPatient?.id],
@@ -332,7 +336,6 @@ export function PrescriptionsPage() {
   });
 
   // ── PDF Preview and Export Word ──
-  const pdfPreviewRef = useRef<HTMLDivElement>(null);
   const [pdfPreviewRx, setPdfPreviewRx] = useState<Prescription | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
@@ -347,19 +350,62 @@ export function PrescriptionsPage() {
   async function downloadPdfFromPreview() {
     const rx = pdfPreviewRx;
     if (!rx) return;
-    const element = pdfPreviewRef.current;
-    if (!element) return;
     setGeneratingPdf(true);
+    let iframe: HTMLIFrameElement | null = null;
     try {
-      await new Promise((r) => setTimeout(r, 50));
-      const html2pdf = (await import('html2pdf.js')).default;
-      const blob = await html2pdf().set({
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `prescription-${rx.patient ? getPatientName(rx.patient).replace(/\s+/g, '-') : rx.id}.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, letterRendering: true, useCORS: true },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
-      }).from(element).outputPdf('blob');
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+
+      // Render into an isolated iframe rather than screenshotting the live
+      // preview DOM: html2canvas clones the target element's *own* document,
+      // and the app's document uses Tailwind v4's oklch() colors, which
+      // html2canvas can't parse — cloning the whole app tree to find them is
+      // also what causes the multi-second freeze. An iframe with its own
+      // self-contained (inline-styled, Tailwind-free) document sidesteps both.
+      iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:820px;height:100px;border:0;';
+      document.body.appendChild(iframe);
+      await new Promise<void>((resolve, reject) => {
+        iframe!.onload = () => resolve();
+        iframe!.onerror = () => reject(new Error('Failed to load PDF render frame'));
+        iframe!.srcdoc = buildPrescriptionHtml(rx);
+      });
+      const doc = iframe.contentDocument;
+      if (!doc?.body) throw new Error('PDF render frame did not initialize');
+      const contentHeight = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+      iframe.style.height = `${contentHeight}px`;
+
+      const canvas = await html2canvas(doc.body, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        windowWidth: 820,
+        windowHeight: contentHeight,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      const margin = 0.5; // inches
+      const pageWidth = 8.27;
+      const pageHeight = 11.69; // A4
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const usableHeight = pageHeight - margin * 2;
+
+      const pdf = new jsPDF({ unit: 'in', format: 'a4', orientation: 'portrait' });
+      let heightLeft = imgHeight;
+      let position = margin;
+      pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+      heightLeft -= usableHeight;
+      while (heightLeft > 0) {
+        position = margin - (imgHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+        heightLeft -= usableHeight;
+      }
+
+      const blob = pdf.output('blob');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -371,11 +417,17 @@ export function PrescriptionsPage() {
       console.error('PDF generation failed', err);
       toast.error('Failed to generate PDF');
     } finally {
+      iframe?.remove();
       setGeneratingPdf(false);
     }
   }
 
-  function buildPrescriptionHtml(rx: Prescription): string {
+  /**
+   * Self-contained prescription markup — every style is inline (no Tailwind
+   * classes, no CSS custom properties), so it renders identically whether
+   * it's placed in a .doc file or an isolated iframe for PDF capture.
+   */
+  function buildPrescriptionBodyHtml(rx: Prescription): string {
     const rxDate = new Date(rx.createdAt);
     const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
     const orgName = organisation?.name ?? 'CLINIC';
@@ -413,26 +465,7 @@ export function PrescriptionsPage() {
          </div>`
       : '';
 
-    return `<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="utf-8">
-<title>Medical Prescription</title>
-<!--[if gte mso 9]>
-<xml>
-  <w:WordDocument>
-    <w:View>Print</w:View>
-  </w:WordDocument>
-</xml>
-<![endif]-->
-<style>
-  body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 20px; }
-  table { border-collapse: collapse; }
-  @page { size: A4; margin: 1cm; }
-</style>
-</head>
-<body>
-<div style="border:2px solid #1e3a5f;max-width:800px;margin:0 auto;">
+    return `<div style="border:2px solid #1e3a5f;max-width:800px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#000;">
   <div style="background:#1e3a5f;color:#fff;padding:18px 24px;text-align:center;">
     <h1 style="margin:0;font-size:22px;font-weight:bold;letter-spacing:1px;">${orgName}</h1>
     <p style="margin:4px 0 0;font-size:11px;opacity:0.85;">${orgInfo}</p>
@@ -492,7 +525,31 @@ export function PrescriptionsPage() {
   <div style="background:#f0f2f5;padding:8px 24px;text-align:center;font-size:10px;color:#666;border-top:1px solid #ddd;">
     Computer-generated prescription | Generated on ${new Date().toLocaleString('en-IN')} | ${orgEmail ? `Email: ${orgEmail}` : ''}
   </div>
-</div>
+</div>`;
+  }
+
+  /** Full HTML document (Word-compatible) wrapping {@link buildPrescriptionBodyHtml} — used for Export Word. */
+  function buildPrescriptionHtml(rx: Prescription): string {
+    return `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>Medical Prescription</title>
+<!--[if gte mso 9]>
+<xml>
+  <w:WordDocument>
+    <w:View>Print</w:View>
+  </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 20px; }
+  table { border-collapse: collapse; }
+  @page { size: A4; margin: 1cm; }
+</style>
+</head>
+<body>
+${buildPrescriptionBodyHtml(rx)}
 </body>
 </html>`;
   }
@@ -605,7 +662,7 @@ export function PrescriptionsPage() {
                   <FileDown className="mr-2 size-3.5" />
                   Export Word
                 </SelectItem>
-                {rx.status === "ACTIVE" ? (
+                {rx.status === "ACTIVE" && canUpdate ? (
                   <SelectItem value="edit">
                     <Pencil className="mr-2 size-3.5" />
                     Edit
@@ -640,9 +697,11 @@ export function PrescriptionsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Prescriptions</h1>
           <p className="mt-1 text-sm text-muted-foreground">Consultation diagnoses and prescribed medicines</p>
         </div>
-        <Button onClick={() => { resetCreateForm(); setCreateSheetOpen(true); }}>
-          <Plus className="mr-2 size-4" />Create Prescription
-        </Button>
+        {canCreate && (
+          <Button onClick={() => { resetCreateForm(); setCreateSheetOpen(true); }}>
+            <Plus className="mr-2 size-4" />Create Prescription
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -1100,7 +1159,7 @@ export function PrescriptionsPage() {
             <DialogTitle>Prescription Preview</DialogTitle>
           </DialogHeader>
 
-          <div ref={pdfPreviewRef} className="bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
+          <div className="bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
             {pdfPreviewRx && (() => {
               const rxDate = new Date(pdfPreviewRx.createdAt);
               const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });

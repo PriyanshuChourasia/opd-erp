@@ -17,6 +17,8 @@ import {
   updateOrganisation,
   type UpdateOrganisationInput,
 } from "@/lib/api";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const emptyForm: UpdateOrganisationInput = {
   name: "",
@@ -35,10 +37,13 @@ export function OrganisationPage() {
   const queryClient = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [form, setForm] = useState<UpdateOrganisationInput>(emptyForm);
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
 
   const { data: organisation, isLoading: orgLoading } = useQuery({
     queryKey: ["organisation"],
     queryFn: fetchOrganisation,
+    enabled: canReadOrganisation,
   });
 
   const { data: usersResponse } = useQuery({

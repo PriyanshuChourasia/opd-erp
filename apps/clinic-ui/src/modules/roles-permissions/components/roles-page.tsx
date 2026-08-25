@@ -24,8 +24,11 @@ import { initials } from "@/lib/utils";
 
 // Large-enough limit to cover "give me every role/permission" use cases
 // (the permission matrix, and the permission-picker inside the role sheet)
-// without pagination — there are only ever a handful of roles/permissions.
-const ALL_LIMIT = 100;
+// without pagination. The seed creates 31 resources x 5 actions = 155
+// permissions, so this must stay above that (backend caps limit at 500) —
+// a lower value silently drops resources from the matrix/picker instead of
+// erroring, which is exactly what happened to "prescriptions" at 100.
+const ALL_LIMIT = 500;
 
 function PermissionIcon({ value }: { value: string | null | undefined }) {
   if (value === "manage") return <span className="inline-flex items-center gap-1 text-xs font-medium text-primary"><Check className="size-3.5" />Manage</span>;

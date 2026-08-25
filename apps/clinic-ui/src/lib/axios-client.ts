@@ -1,5 +1,6 @@
 import axios from "axios";
 import axiosRetry from "axios-retry";
+import { toast } from "sonner";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
@@ -61,6 +62,21 @@ apiClient.interceptors.response.use(
       // Only redirect if we're not already on the login/landing page
       const path = window.location.pathname;
       if (path !== "/login" && path !== "/") {
+        window.location.href = "/login";
+      }
+    }
+
+    // 403 — the logged-in user's role lacks a required permission for this
+    // request. The backend only ever throws 403 from the permissions/roles
+    // guards (never for business-logic errors), so treat it the same as an
+    // invalid session: clear auth & force a fresh login.
+    if (error.response?.status === 403) {
+      localStorage.removeItem("clinic_access_token");
+      localStorage.removeItem("clinic_user");
+
+      const path = window.location.pathname;
+      if (path !== "/login" && path !== "/") {
+        toast.error("You don't have permission to do that. You've been logged out.");
         window.location.href = "/login";
       }
     }

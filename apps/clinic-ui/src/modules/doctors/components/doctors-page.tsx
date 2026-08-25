@@ -5,7 +5,7 @@ import { CalendarClock, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, Bad
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { DocumentManager } from "@/modules/documents/components/document-manager";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
-import { fetchDoctors, fetchDoctor, createDoctorWithUser, updateDoctor, fetchDoctorUser, updateDoctorWithUser, fetchDocumentsByEntity, uploadDocument, deleteDocument, deleteDoctor, restoreDoctor, type Doctor, type CreateDoctorInput, type CreateDoctorWithUserInput, type AddressEntry } from "@/lib/api";
+import { fetchDoctors, fetchDoctor, createDoctorWithUser, updateDoctor, fetchDoctorUser, updateDoctorWithUser, fetchDocumentsByEntity, uploadDocument, deleteDocument, deleteDoctor, restoreDoctor, type Doctor, type CreateDoctorInput, type CreateDoctorWithUserInput, type AddressEntry, INDIAN_STATES } from "@/lib/api";
 import { fetchDoctorSchedules, createEmployeeSchedule, updateEmployeeSchedule, deleteEmployeeSchedule } from "../data/api";
 import { fetchShifts, type Shift } from "@/lib/api";
 import { toast } from "sonner";
@@ -638,7 +638,14 @@ export function DoctorsPage() {
                       </Field>
                       <Field>
                         <FieldLabel>State</FieldLabel>
-                        <Input placeholder="Maharashtra" value={addr.state ?? ""} onChange={(e) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, state: e.target.value } : a))} />
+                        <Select value={addr.state ?? ""} onValueChange={(v) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, state: v } : a))}>
+                          <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+                          <SelectContent>
+                            {INDIAN_STATES.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </Field>
                       <Field>
                         <FieldLabel>Postal Code</FieldLabel>

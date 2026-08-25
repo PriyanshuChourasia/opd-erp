@@ -9,75 +9,98 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as HelpRouteImport } from './routes/help'
-import { Route as DisplayRouteImport } from './routes/display'
-import { Route as ReceptionistRouteImport } from './routes/_receptionist'
-import { Route as PosRouteImport } from './routes/_pos'
-import { Route as PatientRouteImport } from './routes/_patient'
-import { Route as DoctorRouteImport } from './routes/_doctor'
-import { Route as DeveloperRouteImport } from './routes/_developer'
-import { Route as DashboardRouteImport } from './routes/_dashboard'
-import { Route as AppointmentsRouteImport } from './routes/_appointments'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DashboardShiftsRouteImport } from './routes/_dashboard/shifts'
-import { Route as DashboardProfileRouteImport } from './routes/_dashboard/profile'
-import { Route as DashboardPrescriptionsRouteImport } from './routes/_dashboard/prescriptions'
-import { Route as DashboardPatientsRouteImport } from './routes/_dashboard/patients'
-import { Route as DashboardMedicineCatalogRouteImport } from './routes/_dashboard/medicine-catalog'
-import { Route as DashboardDoctorsRouteImport } from './routes/_dashboard/doctors'
-import { Route as DashboardDispensingRouteImport } from './routes/_dashboard/dispensing'
-import { Route as DashboardDiagnosesRouteImport } from './routes/_dashboard/diagnoses'
-import { Route as DashboardDashboardRouteImport } from './routes/_dashboard/dashboard'
-import { Route as DashboardBillingRouteImport } from './routes/_dashboard/billing'
-import { Route as DashboardAllergiesRouteImport } from './routes/_dashboard/allergies'
+import { Route as AppointmentsRouteImport } from './routes/_appointments'
+import { Route as DashboardRouteImport } from './routes/_dashboard'
+import { Route as DeveloperRouteImport } from './routes/_developer'
+import { Route as DoctorRouteImport } from './routes/_doctor'
+import { Route as PatientRouteImport } from './routes/_patient'
+import { Route as PosRouteImport } from './routes/_pos'
+import { Route as ReceptionistRouteImport } from './routes/_receptionist'
+import { Route as DisplayRouteImport } from './routes/display'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardAddressesRouteImport } from './routes/_dashboard/addresses'
-import { Route as ReceptionistReceptionistIndexRouteImport } from './routes/_receptionist/receptionist/index'
-import { Route as PosPosIndexRouteImport } from './routes/_pos/pos/index'
-import { Route as PatientPatientIndexRouteImport } from './routes/_patient/patient/index'
-import { Route as DoctorDoctorIndexRouteImport } from './routes/_doctor/doctor/index'
-import { Route as DeveloperDeveloperIndexRouteImport } from './routes/_developer/developer/index'
-import { Route as DashboardOrganisationIndexRouteImport } from './routes/_dashboard/organisation/index'
+import { Route as DashboardAllergiesRouteImport } from './routes/_dashboard/allergies'
+import { Route as DashboardBillingRouteImport } from './routes/_dashboard/billing'
+import { Route as DashboardDashboardRouteImport } from './routes/_dashboard/dashboard'
+import { Route as DashboardDiagnosesRouteImport } from './routes/_dashboard/diagnoses'
+import { Route as DashboardDispensingRouteImport } from './routes/_dashboard/dispensing'
+import { Route as DashboardDoctorsRouteImport } from './routes/_dashboard/doctors'
+import { Route as DashboardMedicineCatalogRouteImport } from './routes/_dashboard/medicine-catalog'
+import { Route as DashboardPatientsRouteImport } from './routes/_dashboard/patients'
+import { Route as DashboardPrescriptionsRouteImport } from './routes/_dashboard/prescriptions'
+import { Route as DashboardProfileRouteImport } from './routes/_dashboard/profile'
+import { Route as DashboardShiftsRouteImport } from './routes/_dashboard/shifts'
 import { Route as AppointmentsAppointmentsIndexRouteImport } from './routes/_appointments/appointments/index'
-import { Route as ReceptionistReceptionistProfileRouteImport } from './routes/_receptionist/receptionist/profile'
-import { Route as ReceptionistReceptionistPrescriptionsRouteImport } from './routes/_receptionist/receptionist/prescriptions'
-import { Route as ReceptionistReceptionistPatientsRouteImport } from './routes/_receptionist/receptionist/patients'
-import { Route as ReceptionistReceptionistDoctorsRouteImport } from './routes/_receptionist/receptionist/doctors'
-import { Route as ReceptionistReceptionistBillingRouteImport } from './routes/_receptionist/receptionist/billing'
-import { Route as PosPosPatientsRouteImport } from './routes/_pos/pos/patients'
-import { Route as PosPosBillingRouteImport } from './routes/_pos/pos/billing'
-import { Route as PosPosAppointmentsRouteImport } from './routes/_pos/pos/appointments'
-import { Route as PatientPatientPrescriptionsRouteImport } from './routes/_patient/patient/prescriptions'
-import { Route as PatientPatientLabOrdersRouteImport } from './routes/_patient/patient/lab-orders'
-import { Route as PatientPatientBillsRouteImport } from './routes/_patient/patient/bills'
-import { Route as PatientPatientAppointmentsRouteImport } from './routes/_patient/patient/appointments'
-import { Route as DoctorDoctorProfileRouteImport } from './routes/_doctor/doctor/profile'
-import { Route as DoctorDoctorPrescriptionsRouteImport } from './routes/_doctor/doctor/prescriptions'
-import { Route as DeveloperDeveloperModulesRouteImport } from './routes/_developer/developer/modules'
-import { Route as DeveloperDeveloperFeaturesRouteImport } from './routes/_developer/developer/features'
-import { Route as DashboardReportsTopMedicinesRouteImport } from './routes/_dashboard/reports/top-medicines'
-import { Route as DashboardReportsRevenueByCategoryRouteImport } from './routes/_dashboard/reports/revenue-by-category'
-import { Route as DashboardReportsOutstandingBillsRouteImport } from './routes/_dashboard/reports/outstanding-bills'
-import { Route as DashboardReportsDoctorPerformanceRouteImport } from './routes/_dashboard/reports/doctor-performance'
-import { Route as DashboardOrganisationUsersRouteImport } from './routes/_dashboard/organisation/users'
-import { Route as DashboardOrganisationSidebarConfigRouteImport } from './routes/_dashboard/organisation/sidebar-config'
-import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
-import { Route as DashboardOrganisationPrescriptionTemplatesRouteImport } from './routes/_dashboard/organisation/prescription-templates'
 import { Route as AppointmentsAppointmentsNewRouteImport } from './routes/_appointments/appointments/new'
-import { Route as ReceptionistReceptionistAppointmentsIndexRouteImport } from './routes/_receptionist/receptionist/appointments/index'
-import { Route as DeveloperDeveloperSchemaIndexRouteImport } from './routes/_developer/developer/schema/index'
-import { Route as ReceptionistReceptionistAppointmentsNewRouteImport } from './routes/_receptionist/receptionist/appointments/new'
-import { Route as DeveloperDeveloperSchemaModelRouteImport } from './routes/_developer/developer/schema/$model'
+import { Route as DashboardOrganisationIndexRouteImport } from './routes/_dashboard/organisation/index'
+import { Route as DashboardOrganisationPrescriptionTemplatesRouteImport } from './routes/_dashboard/organisation/prescription-templates'
+import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
+import { Route as DashboardOrganisationSidebarConfigRouteImport } from './routes/_dashboard/organisation/sidebar-config'
+import { Route as DashboardOrganisationUsersRouteImport } from './routes/_dashboard/organisation/users'
+import { Route as DashboardReportsDoctorPerformanceRouteImport } from './routes/_dashboard/reports/doctor-performance'
+import { Route as DashboardReportsOutstandingBillsRouteImport } from './routes/_dashboard/reports/outstanding-bills'
+import { Route as DashboardReportsRevenueByCategoryRouteImport } from './routes/_dashboard/reports/revenue-by-category'
+import { Route as DashboardReportsTopMedicinesRouteImport } from './routes/_dashboard/reports/top-medicines'
+import { Route as DeveloperDeveloperIndexRouteImport } from './routes/_developer/developer/index'
+import { Route as DeveloperDeveloperFeaturesRouteImport } from './routes/_developer/developer/features'
+import { Route as DeveloperDeveloperModulesRouteImport } from './routes/_developer/developer/modules'
+import { Route as DoctorDoctorIndexRouteImport } from './routes/_doctor/doctor/index'
+import { Route as DoctorDoctorPrescriptionsRouteImport } from './routes/_doctor/doctor/prescriptions'
+import { Route as DoctorDoctorProfileRouteImport } from './routes/_doctor/doctor/profile'
+import { Route as PatientPatientIndexRouteImport } from './routes/_patient/patient/index'
+import { Route as PatientPatientAppointmentsRouteImport } from './routes/_patient/patient/appointments'
+import { Route as PatientPatientBillsRouteImport } from './routes/_patient/patient/bills'
+import { Route as PatientPatientLabOrdersRouteImport } from './routes/_patient/patient/lab-orders'
+import { Route as PatientPatientPrescriptionsRouteImport } from './routes/_patient/patient/prescriptions'
+import { Route as PosPosIndexRouteImport } from './routes/_pos/pos/index'
+import { Route as PosPosAppointmentsRouteImport } from './routes/_pos/pos/appointments'
+import { Route as PosPosBillingRouteImport } from './routes/_pos/pos/billing'
+import { Route as PosPosPatientsRouteImport } from './routes/_pos/pos/patients'
+import { Route as ReceptionistReceptionistIndexRouteImport } from './routes/_receptionist/receptionist/index'
+import { Route as ReceptionistReceptionistBillingRouteImport } from './routes/_receptionist/receptionist/billing'
+import { Route as ReceptionistReceptionistDoctorsRouteImport } from './routes/_receptionist/receptionist/doctors'
+import { Route as ReceptionistReceptionistPatientsRouteImport } from './routes/_receptionist/receptionist/patients'
+import { Route as ReceptionistReceptionistPrescriptionsRouteImport } from './routes/_receptionist/receptionist/prescriptions'
+import { Route as ReceptionistReceptionistProfileRouteImport } from './routes/_receptionist/receptionist/profile'
 import { Route as AppointmentsAppointmentsAppointmentIdEditRouteImport } from './routes/_appointments/appointments/$appointmentId.edit'
+import { Route as DeveloperDeveloperSchemaIndexRouteImport } from './routes/_developer/developer/schema/index'
+import { Route as DeveloperDeveloperSchemaModelRouteImport } from './routes/_developer/developer/schema/$model'
+import { Route as ReceptionistReceptionistAppointmentsIndexRouteImport } from './routes/_receptionist/receptionist/appointments/index'
+import { Route as ReceptionistReceptionistAppointmentsNewRouteImport } from './routes/_receptionist/receptionist/appointments/new'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HelpRoute = HelpRouteImport.update({
-  id: '/help',
-  path: '/help',
+const AppointmentsRoute = AppointmentsRouteImport.update({
+  id: '/_appointments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/_dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeveloperRoute = DeveloperRouteImport.update({
+  id: '/_developer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DoctorRoute = DoctorRouteImport.update({
+  id: '/_doctor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PatientRoute = PatientRouteImport.update({
+  id: '/_patient',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PosRoute = PosRouteImport.update({
+  id: '/_pos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReceptionistRoute = ReceptionistRouteImport.update({
+  id: '/_receptionist',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DisplayRoute = DisplayRouteImport.update({
@@ -85,57 +108,49 @@ const DisplayRoute = DisplayRouteImport.update({
   path: '/display',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReceptionistRoute = ReceptionistRouteImport.update({
-  id: '/_receptionist',
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PosRoute = PosRouteImport.update({
-  id: '/_pos',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PatientRoute = PatientRouteImport.update({
-  id: '/_patient',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DoctorRoute = DoctorRouteImport.update({
-  id: '/_doctor',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DeveloperRoute = DeveloperRouteImport.update({
-  id: '/_developer',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/_dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppointmentsRoute = AppointmentsRouteImport.update({
-  id: '/_appointments',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
-  id: '/shifts',
-  path: '/shifts',
+const DashboardAddressesRoute = DashboardAddressesRouteImport.update({
+  id: '/addresses',
+  path: '/addresses',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardProfileRoute = DashboardProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
+const DashboardAllergiesRoute = DashboardAllergiesRouteImport.update({
+  id: '/allergies',
+  path: '/allergies',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardPrescriptionsRoute = DashboardPrescriptionsRouteImport.update({
-  id: '/prescriptions',
-  path: '/prescriptions',
+const DashboardBillingRoute = DashboardBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardPatientsRoute = DashboardPatientsRouteImport.update({
-  id: '/patients',
-  path: '/patients',
+const DashboardDashboardRoute = DashboardDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardDiagnosesRoute = DashboardDiagnosesRouteImport.update({
+  id: '/diagnoses',
+  path: '/diagnoses',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardDispensingRoute = DashboardDispensingRouteImport.update({
+  id: '/dispensing',
+  path: '/dispensing',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardDoctorsRoute = DashboardDoctorsRouteImport.update({
+  id: '/doctors',
+  path: '/doctors',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardMedicineCatalogRoute =
@@ -144,209 +159,42 @@ const DashboardMedicineCatalogRoute =
     path: '/medicine-catalog',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DashboardDoctorsRoute = DashboardDoctorsRouteImport.update({
-  id: '/doctors',
-  path: '/doctors',
+const DashboardPatientsRoute = DashboardPatientsRouteImport.update({
+  id: '/patients',
+  path: '/patients',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardDispensingRoute = DashboardDispensingRouteImport.update({
-  id: '/dispensing',
-  path: '/dispensing',
+const DashboardPrescriptionsRoute = DashboardPrescriptionsRouteImport.update({
+  id: '/prescriptions',
+  path: '/prescriptions',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardDiagnosesRoute = DashboardDiagnosesRouteImport.update({
-  id: '/diagnoses',
-  path: '/diagnoses',
+const DashboardProfileRoute = DashboardProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardDashboardRoute = DashboardDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
+  id: '/shifts',
+  path: '/shifts',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardBillingRoute = DashboardBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardAllergiesRoute = DashboardAllergiesRouteImport.update({
-  id: '/allergies',
-  path: '/allergies',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardAddressesRoute = DashboardAddressesRouteImport.update({
-  id: '/addresses',
-  path: '/addresses',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const ReceptionistReceptionistIndexRoute =
-  ReceptionistReceptionistIndexRouteImport.update({
-    id: '/receptionist/',
-    path: '/receptionist/',
-    getParentRoute: () => ReceptionistRoute,
-  } as any)
-const PosPosIndexRoute = PosPosIndexRouteImport.update({
-  id: '/pos/',
-  path: '/pos/',
-  getParentRoute: () => PosRoute,
-} as any)
-const PatientPatientIndexRoute = PatientPatientIndexRouteImport.update({
-  id: '/patient/',
-  path: '/patient/',
-  getParentRoute: () => PatientRoute,
-} as any)
-const DoctorDoctorIndexRoute = DoctorDoctorIndexRouteImport.update({
-  id: '/doctor/',
-  path: '/doctor/',
-  getParentRoute: () => DoctorRoute,
-} as any)
-const DeveloperDeveloperIndexRoute = DeveloperDeveloperIndexRouteImport.update({
-  id: '/developer/',
-  path: '/developer/',
-  getParentRoute: () => DeveloperRoute,
-} as any)
-const DashboardOrganisationIndexRoute =
-  DashboardOrganisationIndexRouteImport.update({
-    id: '/organisation/',
-    path: '/organisation/',
-    getParentRoute: () => DashboardRoute,
-  } as any)
 const AppointmentsAppointmentsIndexRoute =
   AppointmentsAppointmentsIndexRouteImport.update({
     id: '/appointments/',
     path: '/appointments/',
     getParentRoute: () => AppointmentsRoute,
   } as any)
-const ReceptionistReceptionistProfileRoute =
-  ReceptionistReceptionistProfileRouteImport.update({
-    id: '/receptionist/profile',
-    path: '/receptionist/profile',
-    getParentRoute: () => ReceptionistRoute,
+const AppointmentsAppointmentsNewRoute =
+  AppointmentsAppointmentsNewRouteImport.update({
+    id: '/appointments/new',
+    path: '/appointments/new',
+    getParentRoute: () => AppointmentsRoute,
   } as any)
-const ReceptionistReceptionistPrescriptionsRoute =
-  ReceptionistReceptionistPrescriptionsRouteImport.update({
-    id: '/receptionist/prescriptions',
-    path: '/receptionist/prescriptions',
-    getParentRoute: () => ReceptionistRoute,
-  } as any)
-const ReceptionistReceptionistPatientsRoute =
-  ReceptionistReceptionistPatientsRouteImport.update({
-    id: '/receptionist/patients',
-    path: '/receptionist/patients',
-    getParentRoute: () => ReceptionistRoute,
-  } as any)
-const ReceptionistReceptionistDoctorsRoute =
-  ReceptionistReceptionistDoctorsRouteImport.update({
-    id: '/receptionist/doctors',
-    path: '/receptionist/doctors',
-    getParentRoute: () => ReceptionistRoute,
-  } as any)
-const ReceptionistReceptionistBillingRoute =
-  ReceptionistReceptionistBillingRouteImport.update({
-    id: '/receptionist/billing',
-    path: '/receptionist/billing',
-    getParentRoute: () => ReceptionistRoute,
-  } as any)
-const PosPosPatientsRoute = PosPosPatientsRouteImport.update({
-  id: '/pos/patients',
-  path: '/pos/patients',
-  getParentRoute: () => PosRoute,
-} as any)
-const PosPosBillingRoute = PosPosBillingRouteImport.update({
-  id: '/pos/billing',
-  path: '/pos/billing',
-  getParentRoute: () => PosRoute,
-} as any)
-const PosPosAppointmentsRoute = PosPosAppointmentsRouteImport.update({
-  id: '/pos/appointments',
-  path: '/pos/appointments',
-  getParentRoute: () => PosRoute,
-} as any)
-const PatientPatientPrescriptionsRoute =
-  PatientPatientPrescriptionsRouteImport.update({
-    id: '/patient/prescriptions',
-    path: '/patient/prescriptions',
-    getParentRoute: () => PatientRoute,
-  } as any)
-const PatientPatientLabOrdersRoute = PatientPatientLabOrdersRouteImport.update({
-  id: '/patient/lab-orders',
-  path: '/patient/lab-orders',
-  getParentRoute: () => PatientRoute,
-} as any)
-const PatientPatientBillsRoute = PatientPatientBillsRouteImport.update({
-  id: '/patient/bills',
-  path: '/patient/bills',
-  getParentRoute: () => PatientRoute,
-} as any)
-const PatientPatientAppointmentsRoute =
-  PatientPatientAppointmentsRouteImport.update({
-    id: '/patient/appointments',
-    path: '/patient/appointments',
-    getParentRoute: () => PatientRoute,
-  } as any)
-const DoctorDoctorProfileRoute = DoctorDoctorProfileRouteImport.update({
-  id: '/doctor/profile',
-  path: '/doctor/profile',
-  getParentRoute: () => DoctorRoute,
-} as any)
-const DoctorDoctorPrescriptionsRoute =
-  DoctorDoctorPrescriptionsRouteImport.update({
-    id: '/doctor/prescriptions',
-    path: '/doctor/prescriptions',
-    getParentRoute: () => DoctorRoute,
-  } as any)
-const DeveloperDeveloperModulesRoute =
-  DeveloperDeveloperModulesRouteImport.update({
-    id: '/developer/modules',
-    path: '/developer/modules',
-    getParentRoute: () => DeveloperRoute,
-  } as any)
-const DeveloperDeveloperFeaturesRoute =
-  DeveloperDeveloperFeaturesRouteImport.update({
-    id: '/developer/features',
-    path: '/developer/features',
-    getParentRoute: () => DeveloperRoute,
-  } as any)
-const DashboardReportsTopMedicinesRoute =
-  DashboardReportsTopMedicinesRouteImport.update({
-    id: '/reports/top-medicines',
-    path: '/reports/top-medicines',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardReportsRevenueByCategoryRoute =
-  DashboardReportsRevenueByCategoryRouteImport.update({
-    id: '/reports/revenue-by-category',
-    path: '/reports/revenue-by-category',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardReportsOutstandingBillsRoute =
-  DashboardReportsOutstandingBillsRouteImport.update({
-    id: '/reports/outstanding-bills',
-    path: '/reports/outstanding-bills',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardReportsDoctorPerformanceRoute =
-  DashboardReportsDoctorPerformanceRouteImport.update({
-    id: '/reports/doctor-performance',
-    path: '/reports/doctor-performance',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardOrganisationUsersRoute =
-  DashboardOrganisationUsersRouteImport.update({
-    id: '/organisation/users',
-    path: '/organisation/users',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardOrganisationSidebarConfigRoute =
-  DashboardOrganisationSidebarConfigRouteImport.update({
-    id: '/organisation/sidebar-config',
-    path: '/organisation/sidebar-config',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardOrganisationRolesRoute =
-  DashboardOrganisationRolesRouteImport.update({
-    id: '/organisation/roles',
-    path: '/organisation/roles',
+const DashboardOrganisationIndexRoute =
+  DashboardOrganisationIndexRouteImport.update({
+    id: '/organisation/',
+    path: '/organisation/',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardOrganisationPrescriptionTemplatesRoute =
@@ -355,17 +203,169 @@ const DashboardOrganisationPrescriptionTemplatesRoute =
     path: '/organisation/prescription-templates',
     getParentRoute: () => DashboardRoute,
   } as any)
-const AppointmentsAppointmentsNewRoute =
-  AppointmentsAppointmentsNewRouteImport.update({
-    id: '/appointments/new',
-    path: '/appointments/new',
-    getParentRoute: () => AppointmentsRoute,
+const DashboardOrganisationRolesRoute =
+  DashboardOrganisationRolesRouteImport.update({
+    id: '/organisation/roles',
+    path: '/organisation/roles',
+    getParentRoute: () => DashboardRoute,
   } as any)
-const ReceptionistReceptionistAppointmentsIndexRoute =
-  ReceptionistReceptionistAppointmentsIndexRouteImport.update({
-    id: '/receptionist/appointments/',
-    path: '/receptionist/appointments/',
+const DashboardOrganisationSidebarConfigRoute =
+  DashboardOrganisationSidebarConfigRouteImport.update({
+    id: '/organisation/sidebar-config',
+    path: '/organisation/sidebar-config',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardOrganisationUsersRoute =
+  DashboardOrganisationUsersRouteImport.update({
+    id: '/organisation/users',
+    path: '/organisation/users',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardReportsDoctorPerformanceRoute =
+  DashboardReportsDoctorPerformanceRouteImport.update({
+    id: '/reports/doctor-performance',
+    path: '/reports/doctor-performance',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardReportsOutstandingBillsRoute =
+  DashboardReportsOutstandingBillsRouteImport.update({
+    id: '/reports/outstanding-bills',
+    path: '/reports/outstanding-bills',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardReportsRevenueByCategoryRoute =
+  DashboardReportsRevenueByCategoryRouteImport.update({
+    id: '/reports/revenue-by-category',
+    path: '/reports/revenue-by-category',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardReportsTopMedicinesRoute =
+  DashboardReportsTopMedicinesRouteImport.update({
+    id: '/reports/top-medicines',
+    path: '/reports/top-medicines',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DeveloperDeveloperIndexRoute = DeveloperDeveloperIndexRouteImport.update({
+  id: '/developer/',
+  path: '/developer/',
+  getParentRoute: () => DeveloperRoute,
+} as any)
+const DeveloperDeveloperFeaturesRoute =
+  DeveloperDeveloperFeaturesRouteImport.update({
+    id: '/developer/features',
+    path: '/developer/features',
+    getParentRoute: () => DeveloperRoute,
+  } as any)
+const DeveloperDeveloperModulesRoute =
+  DeveloperDeveloperModulesRouteImport.update({
+    id: '/developer/modules',
+    path: '/developer/modules',
+    getParentRoute: () => DeveloperRoute,
+  } as any)
+const DoctorDoctorIndexRoute = DoctorDoctorIndexRouteImport.update({
+  id: '/doctor/',
+  path: '/doctor/',
+  getParentRoute: () => DoctorRoute,
+} as any)
+const DoctorDoctorPrescriptionsRoute =
+  DoctorDoctorPrescriptionsRouteImport.update({
+    id: '/doctor/prescriptions',
+    path: '/doctor/prescriptions',
+    getParentRoute: () => DoctorRoute,
+  } as any)
+const DoctorDoctorProfileRoute = DoctorDoctorProfileRouteImport.update({
+  id: '/doctor/profile',
+  path: '/doctor/profile',
+  getParentRoute: () => DoctorRoute,
+} as any)
+const PatientPatientIndexRoute = PatientPatientIndexRouteImport.update({
+  id: '/patient/',
+  path: '/patient/',
+  getParentRoute: () => PatientRoute,
+} as any)
+const PatientPatientAppointmentsRoute =
+  PatientPatientAppointmentsRouteImport.update({
+    id: '/patient/appointments',
+    path: '/patient/appointments',
+    getParentRoute: () => PatientRoute,
+  } as any)
+const PatientPatientBillsRoute = PatientPatientBillsRouteImport.update({
+  id: '/patient/bills',
+  path: '/patient/bills',
+  getParentRoute: () => PatientRoute,
+} as any)
+const PatientPatientLabOrdersRoute = PatientPatientLabOrdersRouteImport.update({
+  id: '/patient/lab-orders',
+  path: '/patient/lab-orders',
+  getParentRoute: () => PatientRoute,
+} as any)
+const PatientPatientPrescriptionsRoute =
+  PatientPatientPrescriptionsRouteImport.update({
+    id: '/patient/prescriptions',
+    path: '/patient/prescriptions',
+    getParentRoute: () => PatientRoute,
+  } as any)
+const PosPosIndexRoute = PosPosIndexRouteImport.update({
+  id: '/pos/',
+  path: '/pos/',
+  getParentRoute: () => PosRoute,
+} as any)
+const PosPosAppointmentsRoute = PosPosAppointmentsRouteImport.update({
+  id: '/pos/appointments',
+  path: '/pos/appointments',
+  getParentRoute: () => PosRoute,
+} as any)
+const PosPosBillingRoute = PosPosBillingRouteImport.update({
+  id: '/pos/billing',
+  path: '/pos/billing',
+  getParentRoute: () => PosRoute,
+} as any)
+const PosPosPatientsRoute = PosPosPatientsRouteImport.update({
+  id: '/pos/patients',
+  path: '/pos/patients',
+  getParentRoute: () => PosRoute,
+} as any)
+const ReceptionistReceptionistIndexRoute =
+  ReceptionistReceptionistIndexRouteImport.update({
+    id: '/receptionist/',
+    path: '/receptionist/',
     getParentRoute: () => ReceptionistRoute,
+  } as any)
+const ReceptionistReceptionistBillingRoute =
+  ReceptionistReceptionistBillingRouteImport.update({
+    id: '/receptionist/billing',
+    path: '/receptionist/billing',
+    getParentRoute: () => ReceptionistRoute,
+  } as any)
+const ReceptionistReceptionistDoctorsRoute =
+  ReceptionistReceptionistDoctorsRouteImport.update({
+    id: '/receptionist/doctors',
+    path: '/receptionist/doctors',
+    getParentRoute: () => ReceptionistRoute,
+  } as any)
+const ReceptionistReceptionistPatientsRoute =
+  ReceptionistReceptionistPatientsRouteImport.update({
+    id: '/receptionist/patients',
+    path: '/receptionist/patients',
+    getParentRoute: () => ReceptionistRoute,
+  } as any)
+const ReceptionistReceptionistPrescriptionsRoute =
+  ReceptionistReceptionistPrescriptionsRouteImport.update({
+    id: '/receptionist/prescriptions',
+    path: '/receptionist/prescriptions',
+    getParentRoute: () => ReceptionistRoute,
+  } as any)
+const ReceptionistReceptionistProfileRoute =
+  ReceptionistReceptionistProfileRouteImport.update({
+    id: '/receptionist/profile',
+    path: '/receptionist/profile',
+    getParentRoute: () => ReceptionistRoute,
+  } as any)
+const AppointmentsAppointmentsAppointmentIdEditRoute =
+  AppointmentsAppointmentsAppointmentIdEditRouteImport.update({
+    id: '/appointments/$appointmentId/edit',
+    path: '/appointments/$appointmentId/edit',
+    getParentRoute: () => AppointmentsRoute,
   } as any)
 const DeveloperDeveloperSchemaIndexRoute =
   DeveloperDeveloperSchemaIndexRouteImport.update({
@@ -373,23 +373,23 @@ const DeveloperDeveloperSchemaIndexRoute =
     path: '/developer/schema/',
     getParentRoute: () => DeveloperRoute,
   } as any)
-const ReceptionistReceptionistAppointmentsNewRoute =
-  ReceptionistReceptionistAppointmentsNewRouteImport.update({
-    id: '/receptionist/appointments/new',
-    path: '/receptionist/appointments/new',
-    getParentRoute: () => ReceptionistRoute,
-  } as any)
 const DeveloperDeveloperSchemaModelRoute =
   DeveloperDeveloperSchemaModelRouteImport.update({
     id: '/developer/schema/$model',
     path: '/developer/schema/$model',
     getParentRoute: () => DeveloperRoute,
   } as any)
-const AppointmentsAppointmentsAppointmentIdEditRoute =
-  AppointmentsAppointmentsAppointmentIdEditRouteImport.update({
-    id: '/appointments/$appointmentId/edit',
-    path: '/appointments/$appointmentId/edit',
-    getParentRoute: () => AppointmentsRoute,
+const ReceptionistReceptionistAppointmentsIndexRoute =
+  ReceptionistReceptionistAppointmentsIndexRouteImport.update({
+    id: '/receptionist/appointments/',
+    path: '/receptionist/appointments/',
+    getParentRoute: () => ReceptionistRoute,
+  } as any)
+const ReceptionistReceptionistAppointmentsNewRoute =
+  ReceptionistReceptionistAppointmentsNewRouteImport.update({
+    id: '/receptionist/appointments/new',
+    path: '/receptionist/appointments/new',
+    getParentRoute: () => ReceptionistRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -756,67 +756,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/help': {
-      id: '/help'
-      path: '/help'
-      fullPath: '/help'
-      preLoaderRoute: typeof HelpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/display': {
-      id: '/display'
-      path: '/display'
-      fullPath: '/display'
-      preLoaderRoute: typeof DisplayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_receptionist': {
-      id: '/_receptionist'
-      path: ''
+    '/': {
+      id: '/'
+      path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof ReceptionistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_pos': {
-      id: '/_pos'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_patient': {
-      id: '/_patient'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PatientRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_doctor': {
-      id: '/_doctor'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof DoctorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_developer': {
-      id: '/_developer'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof DeveloperRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_dashboard': {
-      id: '/_dashboard'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof DashboardRouteImport
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_appointments': {
@@ -826,81 +770,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppointmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
+    '/_dashboard': {
+      id: '/_dashboard'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/shifts': {
-      id: '/_dashboard/shifts'
-      path: '/shifts'
-      fullPath: '/shifts'
-      preLoaderRoute: typeof DashboardShiftsRouteImport
-      parentRoute: typeof DashboardRoute
+    '/_developer': {
+      id: '/_developer'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DeveloperRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/profile': {
-      id: '/_dashboard/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof DashboardProfileRouteImport
-      parentRoute: typeof DashboardRoute
+    '/_doctor': {
+      id: '/_doctor'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DoctorRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/prescriptions': {
-      id: '/_dashboard/prescriptions'
-      path: '/prescriptions'
-      fullPath: '/prescriptions'
-      preLoaderRoute: typeof DashboardPrescriptionsRouteImport
-      parentRoute: typeof DashboardRoute
+    '/_patient': {
+      id: '/_patient'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PatientRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/patients': {
-      id: '/_dashboard/patients'
-      path: '/patients'
-      fullPath: '/patients'
-      preLoaderRoute: typeof DashboardPatientsRouteImport
-      parentRoute: typeof DashboardRoute
+    '/_pos': {
+      id: '/_pos'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PosRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/medicine-catalog': {
-      id: '/_dashboard/medicine-catalog'
-      path: '/medicine-catalog'
-      fullPath: '/medicine-catalog'
-      preLoaderRoute: typeof DashboardMedicineCatalogRouteImport
-      parentRoute: typeof DashboardRoute
+    '/_receptionist': {
+      id: '/_receptionist'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ReceptionistRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/doctors': {
-      id: '/_dashboard/doctors'
-      path: '/doctors'
-      fullPath: '/doctors'
-      preLoaderRoute: typeof DashboardDoctorsRouteImport
-      parentRoute: typeof DashboardRoute
+    '/display': {
+      id: '/display'
+      path: '/display'
+      fullPath: '/display'
+      preLoaderRoute: typeof DisplayRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/dispensing': {
-      id: '/_dashboard/dispensing'
-      path: '/dispensing'
-      fullPath: '/dispensing'
-      preLoaderRoute: typeof DashboardDispensingRouteImport
-      parentRoute: typeof DashboardRoute
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/diagnoses': {
-      id: '/_dashboard/diagnoses'
-      path: '/diagnoses'
-      fullPath: '/diagnoses'
-      preLoaderRoute: typeof DashboardDiagnosesRouteImport
-      parentRoute: typeof DashboardRoute
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_dashboard/dashboard': {
-      id: '/_dashboard/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardDashboardRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/billing': {
-      id: '/_dashboard/billing'
-      path: '/billing'
-      fullPath: '/billing'
-      preLoaderRoute: typeof DashboardBillingRouteImport
+    '/_dashboard/addresses': {
+      id: '/_dashboard/addresses'
+      path: '/addresses'
+      fullPath: '/addresses'
+      preLoaderRoute: typeof DashboardAddressesRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/allergies': {
@@ -910,53 +847,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAllergiesRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/addresses': {
-      id: '/_dashboard/addresses'
-      path: '/addresses'
-      fullPath: '/addresses'
-      preLoaderRoute: typeof DashboardAddressesRouteImport
+    '/_dashboard/billing': {
+      id: '/_dashboard/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof DashboardBillingRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_receptionist/receptionist/': {
-      id: '/_receptionist/receptionist/'
-      path: '/receptionist'
-      fullPath: '/receptionist/'
-      preLoaderRoute: typeof ReceptionistReceptionistIndexRouteImport
-      parentRoute: typeof ReceptionistRoute
+    '/_dashboard/dashboard': {
+      id: '/_dashboard/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardDashboardRouteImport
+      parentRoute: typeof DashboardRoute
     }
-    '/_pos/pos/': {
-      id: '/_pos/pos/'
-      path: '/pos'
-      fullPath: '/pos/'
-      preLoaderRoute: typeof PosPosIndexRouteImport
-      parentRoute: typeof PosRoute
+    '/_dashboard/diagnoses': {
+      id: '/_dashboard/diagnoses'
+      path: '/diagnoses'
+      fullPath: '/diagnoses'
+      preLoaderRoute: typeof DashboardDiagnosesRouteImport
+      parentRoute: typeof DashboardRoute
     }
-    '/_patient/patient/': {
-      id: '/_patient/patient/'
-      path: '/patient'
-      fullPath: '/patient/'
-      preLoaderRoute: typeof PatientPatientIndexRouteImport
-      parentRoute: typeof PatientRoute
+    '/_dashboard/dispensing': {
+      id: '/_dashboard/dispensing'
+      path: '/dispensing'
+      fullPath: '/dispensing'
+      preLoaderRoute: typeof DashboardDispensingRouteImport
+      parentRoute: typeof DashboardRoute
     }
-    '/_doctor/doctor/': {
-      id: '/_doctor/doctor/'
-      path: '/doctor'
-      fullPath: '/doctor/'
-      preLoaderRoute: typeof DoctorDoctorIndexRouteImport
-      parentRoute: typeof DoctorRoute
+    '/_dashboard/doctors': {
+      id: '/_dashboard/doctors'
+      path: '/doctors'
+      fullPath: '/doctors'
+      preLoaderRoute: typeof DashboardDoctorsRouteImport
+      parentRoute: typeof DashboardRoute
     }
-    '/_developer/developer/': {
-      id: '/_developer/developer/'
-      path: '/developer'
-      fullPath: '/developer/'
-      preLoaderRoute: typeof DeveloperDeveloperIndexRouteImport
-      parentRoute: typeof DeveloperRoute
+    '/_dashboard/medicine-catalog': {
+      id: '/_dashboard/medicine-catalog'
+      path: '/medicine-catalog'
+      fullPath: '/medicine-catalog'
+      preLoaderRoute: typeof DashboardMedicineCatalogRouteImport
+      parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/organisation/': {
-      id: '/_dashboard/organisation/'
-      path: '/organisation'
-      fullPath: '/organisation/'
-      preLoaderRoute: typeof DashboardOrganisationIndexRouteImport
+    '/_dashboard/patients': {
+      id: '/_dashboard/patients'
+      path: '/patients'
+      fullPath: '/patients'
+      preLoaderRoute: typeof DashboardPatientsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/prescriptions': {
+      id: '/_dashboard/prescriptions'
+      path: '/prescriptions'
+      fullPath: '/prescriptions'
+      preLoaderRoute: typeof DashboardPrescriptionsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/profile': {
+      id: '/_dashboard/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof DashboardProfileRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/shifts': {
+      id: '/_dashboard/shifts'
+      path: '/shifts'
+      fullPath: '/shifts'
+      preLoaderRoute: typeof DashboardShiftsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_appointments/appointments/': {
@@ -966,165 +924,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppointmentsAppointmentsIndexRouteImport
       parentRoute: typeof AppointmentsRoute
     }
-    '/_receptionist/receptionist/profile': {
-      id: '/_receptionist/receptionist/profile'
-      path: '/receptionist/profile'
-      fullPath: '/receptionist/profile'
-      preLoaderRoute: typeof ReceptionistReceptionistProfileRouteImport
-      parentRoute: typeof ReceptionistRoute
+    '/_appointments/appointments/new': {
+      id: '/_appointments/appointments/new'
+      path: '/appointments/new'
+      fullPath: '/appointments/new'
+      preLoaderRoute: typeof AppointmentsAppointmentsNewRouteImport
+      parentRoute: typeof AppointmentsRoute
     }
-    '/_receptionist/receptionist/prescriptions': {
-      id: '/_receptionist/receptionist/prescriptions'
-      path: '/receptionist/prescriptions'
-      fullPath: '/receptionist/prescriptions'
-      preLoaderRoute: typeof ReceptionistReceptionistPrescriptionsRouteImport
-      parentRoute: typeof ReceptionistRoute
-    }
-    '/_receptionist/receptionist/patients': {
-      id: '/_receptionist/receptionist/patients'
-      path: '/receptionist/patients'
-      fullPath: '/receptionist/patients'
-      preLoaderRoute: typeof ReceptionistReceptionistPatientsRouteImport
-      parentRoute: typeof ReceptionistRoute
-    }
-    '/_receptionist/receptionist/doctors': {
-      id: '/_receptionist/receptionist/doctors'
-      path: '/receptionist/doctors'
-      fullPath: '/receptionist/doctors'
-      preLoaderRoute: typeof ReceptionistReceptionistDoctorsRouteImport
-      parentRoute: typeof ReceptionistRoute
-    }
-    '/_receptionist/receptionist/billing': {
-      id: '/_receptionist/receptionist/billing'
-      path: '/receptionist/billing'
-      fullPath: '/receptionist/billing'
-      preLoaderRoute: typeof ReceptionistReceptionistBillingRouteImport
-      parentRoute: typeof ReceptionistRoute
-    }
-    '/_pos/pos/patients': {
-      id: '/_pos/pos/patients'
-      path: '/pos/patients'
-      fullPath: '/pos/patients'
-      preLoaderRoute: typeof PosPosPatientsRouteImport
-      parentRoute: typeof PosRoute
-    }
-    '/_pos/pos/billing': {
-      id: '/_pos/pos/billing'
-      path: '/pos/billing'
-      fullPath: '/pos/billing'
-      preLoaderRoute: typeof PosPosBillingRouteImport
-      parentRoute: typeof PosRoute
-    }
-    '/_pos/pos/appointments': {
-      id: '/_pos/pos/appointments'
-      path: '/pos/appointments'
-      fullPath: '/pos/appointments'
-      preLoaderRoute: typeof PosPosAppointmentsRouteImport
-      parentRoute: typeof PosRoute
-    }
-    '/_patient/patient/prescriptions': {
-      id: '/_patient/patient/prescriptions'
-      path: '/patient/prescriptions'
-      fullPath: '/patient/prescriptions'
-      preLoaderRoute: typeof PatientPatientPrescriptionsRouteImport
-      parentRoute: typeof PatientRoute
-    }
-    '/_patient/patient/lab-orders': {
-      id: '/_patient/patient/lab-orders'
-      path: '/patient/lab-orders'
-      fullPath: '/patient/lab-orders'
-      preLoaderRoute: typeof PatientPatientLabOrdersRouteImport
-      parentRoute: typeof PatientRoute
-    }
-    '/_patient/patient/bills': {
-      id: '/_patient/patient/bills'
-      path: '/patient/bills'
-      fullPath: '/patient/bills'
-      preLoaderRoute: typeof PatientPatientBillsRouteImport
-      parentRoute: typeof PatientRoute
-    }
-    '/_patient/patient/appointments': {
-      id: '/_patient/patient/appointments'
-      path: '/patient/appointments'
-      fullPath: '/patient/appointments'
-      preLoaderRoute: typeof PatientPatientAppointmentsRouteImport
-      parentRoute: typeof PatientRoute
-    }
-    '/_doctor/doctor/profile': {
-      id: '/_doctor/doctor/profile'
-      path: '/doctor/profile'
-      fullPath: '/doctor/profile'
-      preLoaderRoute: typeof DoctorDoctorProfileRouteImport
-      parentRoute: typeof DoctorRoute
-    }
-    '/_doctor/doctor/prescriptions': {
-      id: '/_doctor/doctor/prescriptions'
-      path: '/doctor/prescriptions'
-      fullPath: '/doctor/prescriptions'
-      preLoaderRoute: typeof DoctorDoctorPrescriptionsRouteImport
-      parentRoute: typeof DoctorRoute
-    }
-    '/_developer/developer/modules': {
-      id: '/_developer/developer/modules'
-      path: '/developer/modules'
-      fullPath: '/developer/modules'
-      preLoaderRoute: typeof DeveloperDeveloperModulesRouteImport
-      parentRoute: typeof DeveloperRoute
-    }
-    '/_developer/developer/features': {
-      id: '/_developer/developer/features'
-      path: '/developer/features'
-      fullPath: '/developer/features'
-      preLoaderRoute: typeof DeveloperDeveloperFeaturesRouteImport
-      parentRoute: typeof DeveloperRoute
-    }
-    '/_dashboard/reports/top-medicines': {
-      id: '/_dashboard/reports/top-medicines'
-      path: '/reports/top-medicines'
-      fullPath: '/reports/top-medicines'
-      preLoaderRoute: typeof DashboardReportsTopMedicinesRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/reports/revenue-by-category': {
-      id: '/_dashboard/reports/revenue-by-category'
-      path: '/reports/revenue-by-category'
-      fullPath: '/reports/revenue-by-category'
-      preLoaderRoute: typeof DashboardReportsRevenueByCategoryRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/reports/outstanding-bills': {
-      id: '/_dashboard/reports/outstanding-bills'
-      path: '/reports/outstanding-bills'
-      fullPath: '/reports/outstanding-bills'
-      preLoaderRoute: typeof DashboardReportsOutstandingBillsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/reports/doctor-performance': {
-      id: '/_dashboard/reports/doctor-performance'
-      path: '/reports/doctor-performance'
-      fullPath: '/reports/doctor-performance'
-      preLoaderRoute: typeof DashboardReportsDoctorPerformanceRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/organisation/users': {
-      id: '/_dashboard/organisation/users'
-      path: '/organisation/users'
-      fullPath: '/organisation/users'
-      preLoaderRoute: typeof DashboardOrganisationUsersRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/organisation/sidebar-config': {
-      id: '/_dashboard/organisation/sidebar-config'
-      path: '/organisation/sidebar-config'
-      fullPath: '/organisation/sidebar-config'
-      preLoaderRoute: typeof DashboardOrganisationSidebarConfigRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/organisation/roles': {
-      id: '/_dashboard/organisation/roles'
-      path: '/organisation/roles'
-      fullPath: '/organisation/roles'
-      preLoaderRoute: typeof DashboardOrganisationRolesRouteImport
+    '/_dashboard/organisation/': {
+      id: '/_dashboard/organisation/'
+      path: '/organisation'
+      fullPath: '/organisation/'
+      preLoaderRoute: typeof DashboardOrganisationIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/organisation/prescription-templates': {
@@ -1134,19 +945,208 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrganisationPrescriptionTemplatesRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_appointments/appointments/new': {
-      id: '/_appointments/appointments/new'
-      path: '/appointments/new'
-      fullPath: '/appointments/new'
-      preLoaderRoute: typeof AppointmentsAppointmentsNewRouteImport
-      parentRoute: typeof AppointmentsRoute
+    '/_dashboard/organisation/roles': {
+      id: '/_dashboard/organisation/roles'
+      path: '/organisation/roles'
+      fullPath: '/organisation/roles'
+      preLoaderRoute: typeof DashboardOrganisationRolesRouteImport
+      parentRoute: typeof DashboardRoute
     }
-    '/_receptionist/receptionist/appointments/': {
-      id: '/_receptionist/receptionist/appointments/'
-      path: '/receptionist/appointments'
-      fullPath: '/receptionist/appointments/'
-      preLoaderRoute: typeof ReceptionistReceptionistAppointmentsIndexRouteImport
+    '/_dashboard/organisation/sidebar-config': {
+      id: '/_dashboard/organisation/sidebar-config'
+      path: '/organisation/sidebar-config'
+      fullPath: '/organisation/sidebar-config'
+      preLoaderRoute: typeof DashboardOrganisationSidebarConfigRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/organisation/users': {
+      id: '/_dashboard/organisation/users'
+      path: '/organisation/users'
+      fullPath: '/organisation/users'
+      preLoaderRoute: typeof DashboardOrganisationUsersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/reports/doctor-performance': {
+      id: '/_dashboard/reports/doctor-performance'
+      path: '/reports/doctor-performance'
+      fullPath: '/reports/doctor-performance'
+      preLoaderRoute: typeof DashboardReportsDoctorPerformanceRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/reports/outstanding-bills': {
+      id: '/_dashboard/reports/outstanding-bills'
+      path: '/reports/outstanding-bills'
+      fullPath: '/reports/outstanding-bills'
+      preLoaderRoute: typeof DashboardReportsOutstandingBillsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/reports/revenue-by-category': {
+      id: '/_dashboard/reports/revenue-by-category'
+      path: '/reports/revenue-by-category'
+      fullPath: '/reports/revenue-by-category'
+      preLoaderRoute: typeof DashboardReportsRevenueByCategoryRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/reports/top-medicines': {
+      id: '/_dashboard/reports/top-medicines'
+      path: '/reports/top-medicines'
+      fullPath: '/reports/top-medicines'
+      preLoaderRoute: typeof DashboardReportsTopMedicinesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_developer/developer/': {
+      id: '/_developer/developer/'
+      path: '/developer'
+      fullPath: '/developer/'
+      preLoaderRoute: typeof DeveloperDeveloperIndexRouteImport
+      parentRoute: typeof DeveloperRoute
+    }
+    '/_developer/developer/features': {
+      id: '/_developer/developer/features'
+      path: '/developer/features'
+      fullPath: '/developer/features'
+      preLoaderRoute: typeof DeveloperDeveloperFeaturesRouteImport
+      parentRoute: typeof DeveloperRoute
+    }
+    '/_developer/developer/modules': {
+      id: '/_developer/developer/modules'
+      path: '/developer/modules'
+      fullPath: '/developer/modules'
+      preLoaderRoute: typeof DeveloperDeveloperModulesRouteImport
+      parentRoute: typeof DeveloperRoute
+    }
+    '/_doctor/doctor/': {
+      id: '/_doctor/doctor/'
+      path: '/doctor'
+      fullPath: '/doctor/'
+      preLoaderRoute: typeof DoctorDoctorIndexRouteImport
+      parentRoute: typeof DoctorRoute
+    }
+    '/_doctor/doctor/prescriptions': {
+      id: '/_doctor/doctor/prescriptions'
+      path: '/doctor/prescriptions'
+      fullPath: '/doctor/prescriptions'
+      preLoaderRoute: typeof DoctorDoctorPrescriptionsRouteImport
+      parentRoute: typeof DoctorRoute
+    }
+    '/_doctor/doctor/profile': {
+      id: '/_doctor/doctor/profile'
+      path: '/doctor/profile'
+      fullPath: '/doctor/profile'
+      preLoaderRoute: typeof DoctorDoctorProfileRouteImport
+      parentRoute: typeof DoctorRoute
+    }
+    '/_patient/patient/': {
+      id: '/_patient/patient/'
+      path: '/patient'
+      fullPath: '/patient/'
+      preLoaderRoute: typeof PatientPatientIndexRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/_patient/patient/appointments': {
+      id: '/_patient/patient/appointments'
+      path: '/patient/appointments'
+      fullPath: '/patient/appointments'
+      preLoaderRoute: typeof PatientPatientAppointmentsRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/_patient/patient/bills': {
+      id: '/_patient/patient/bills'
+      path: '/patient/bills'
+      fullPath: '/patient/bills'
+      preLoaderRoute: typeof PatientPatientBillsRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/_patient/patient/lab-orders': {
+      id: '/_patient/patient/lab-orders'
+      path: '/patient/lab-orders'
+      fullPath: '/patient/lab-orders'
+      preLoaderRoute: typeof PatientPatientLabOrdersRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/_patient/patient/prescriptions': {
+      id: '/_patient/patient/prescriptions'
+      path: '/patient/prescriptions'
+      fullPath: '/patient/prescriptions'
+      preLoaderRoute: typeof PatientPatientPrescriptionsRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/_pos/pos/': {
+      id: '/_pos/pos/'
+      path: '/pos'
+      fullPath: '/pos/'
+      preLoaderRoute: typeof PosPosIndexRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/_pos/pos/appointments': {
+      id: '/_pos/pos/appointments'
+      path: '/pos/appointments'
+      fullPath: '/pos/appointments'
+      preLoaderRoute: typeof PosPosAppointmentsRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/_pos/pos/billing': {
+      id: '/_pos/pos/billing'
+      path: '/pos/billing'
+      fullPath: '/pos/billing'
+      preLoaderRoute: typeof PosPosBillingRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/_pos/pos/patients': {
+      id: '/_pos/pos/patients'
+      path: '/pos/patients'
+      fullPath: '/pos/patients'
+      preLoaderRoute: typeof PosPosPatientsRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/_receptionist/receptionist/': {
+      id: '/_receptionist/receptionist/'
+      path: '/receptionist'
+      fullPath: '/receptionist/'
+      preLoaderRoute: typeof ReceptionistReceptionistIndexRouteImport
       parentRoute: typeof ReceptionistRoute
+    }
+    '/_receptionist/receptionist/billing': {
+      id: '/_receptionist/receptionist/billing'
+      path: '/receptionist/billing'
+      fullPath: '/receptionist/billing'
+      preLoaderRoute: typeof ReceptionistReceptionistBillingRouteImport
+      parentRoute: typeof ReceptionistRoute
+    }
+    '/_receptionist/receptionist/doctors': {
+      id: '/_receptionist/receptionist/doctors'
+      path: '/receptionist/doctors'
+      fullPath: '/receptionist/doctors'
+      preLoaderRoute: typeof ReceptionistReceptionistDoctorsRouteImport
+      parentRoute: typeof ReceptionistRoute
+    }
+    '/_receptionist/receptionist/patients': {
+      id: '/_receptionist/receptionist/patients'
+      path: '/receptionist/patients'
+      fullPath: '/receptionist/patients'
+      preLoaderRoute: typeof ReceptionistReceptionistPatientsRouteImport
+      parentRoute: typeof ReceptionistRoute
+    }
+    '/_receptionist/receptionist/prescriptions': {
+      id: '/_receptionist/receptionist/prescriptions'
+      path: '/receptionist/prescriptions'
+      fullPath: '/receptionist/prescriptions'
+      preLoaderRoute: typeof ReceptionistReceptionistPrescriptionsRouteImport
+      parentRoute: typeof ReceptionistRoute
+    }
+    '/_receptionist/receptionist/profile': {
+      id: '/_receptionist/receptionist/profile'
+      path: '/receptionist/profile'
+      fullPath: '/receptionist/profile'
+      preLoaderRoute: typeof ReceptionistReceptionistProfileRouteImport
+      parentRoute: typeof ReceptionistRoute
+    }
+    '/_appointments/appointments/$appointmentId/edit': {
+      id: '/_appointments/appointments/$appointmentId/edit'
+      path: '/appointments/$appointmentId/edit'
+      fullPath: '/appointments/$appointmentId/edit'
+      preLoaderRoute: typeof AppointmentsAppointmentsAppointmentIdEditRouteImport
+      parentRoute: typeof AppointmentsRoute
     }
     '/_developer/developer/schema/': {
       id: '/_developer/developer/schema/'
@@ -1155,13 +1155,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeveloperDeveloperSchemaIndexRouteImport
       parentRoute: typeof DeveloperRoute
     }
-    '/_receptionist/receptionist/appointments/new': {
-      id: '/_receptionist/receptionist/appointments/new'
-      path: '/receptionist/appointments/new'
-      fullPath: '/receptionist/appointments/new'
-      preLoaderRoute: typeof ReceptionistReceptionistAppointmentsNewRouteImport
-      parentRoute: typeof ReceptionistRoute
-    }
     '/_developer/developer/schema/$model': {
       id: '/_developer/developer/schema/$model'
       path: '/developer/schema/$model'
@@ -1169,12 +1162,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeveloperDeveloperSchemaModelRouteImport
       parentRoute: typeof DeveloperRoute
     }
-    '/_appointments/appointments/$appointmentId/edit': {
-      id: '/_appointments/appointments/$appointmentId/edit'
-      path: '/appointments/$appointmentId/edit'
-      fullPath: '/appointments/$appointmentId/edit'
-      preLoaderRoute: typeof AppointmentsAppointmentsAppointmentIdEditRouteImport
-      parentRoute: typeof AppointmentsRoute
+    '/_receptionist/receptionist/appointments/': {
+      id: '/_receptionist/receptionist/appointments/'
+      path: '/receptionist/appointments'
+      fullPath: '/receptionist/appointments/'
+      preLoaderRoute: typeof ReceptionistReceptionistAppointmentsIndexRouteImport
+      parentRoute: typeof ReceptionistRoute
+    }
+    '/_receptionist/receptionist/appointments/new': {
+      id: '/_receptionist/receptionist/appointments/new'
+      path: '/receptionist/appointments/new'
+      fullPath: '/receptionist/appointments/new'
+      preLoaderRoute: typeof ReceptionistReceptionistAppointmentsNewRouteImport
+      parentRoute: typeof ReceptionistRoute
     }
   }
 }

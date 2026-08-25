@@ -660,6 +660,46 @@ export interface UpdateAddressInput {
 export const ADDRESS_TYPES = ['CLINIC', 'HOME', 'BILLING', 'OTHER'] as const;
 export type AddressType = (typeof ADDRESS_TYPES)[number];
 
+export const INDIAN_STATES = [
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Andaman and Nicobar Islands',
+  'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Jammu and Kashmir',
+  'Ladakh',
+  'Lakshadweep',
+  'Puducherry',
+] as const;
+export type IndianState = (typeof INDIAN_STATES)[number];
+
 // ─── Address API ──────────────────────────────────────────────
 
 export function fetchAddresses(params: { addressType?: string; addressableType?: string; addressableId?: string } & PaginationParams = {}) {
@@ -1642,6 +1682,11 @@ export function fetchSidebarConfig() {
 /** Fetch sidebar menu items for the currently authenticated user (no special permission needed). */
 export function fetchMySidebarConfig() {
   return request<SidebarMenuItem[]>({ method: "GET", path: "/sidebar-config/my" });
+}
+
+/** All known sidebar menu paths (no role data) — used by the route guard. */
+export function fetchAllSidebarPaths() {
+  return request<{ path: string }[]>({ method: "GET", path: "/sidebar-config/all-paths" });
 }
 
 export function fetchSidebarConfigForRole(roleId: string) {

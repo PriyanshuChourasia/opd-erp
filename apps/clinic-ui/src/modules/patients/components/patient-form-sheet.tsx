@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCreatePatient, useUpdatePatient } from "../data/hooks";
 import type { Patient } from "../data/interface";
-import { uploadDocument, createPatientVitals, fetchPatientVitalsLatest, createAddress, type CreateAddressInput } from "@/lib/api";
+import { uploadDocument, createPatientVitals, fetchPatientVitalsLatest, createAddress, type CreateAddressInput, INDIAN_STATES } from "@/lib/api";
 import {
   Sheet,
   SheetContent,
@@ -389,7 +389,16 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                     <div className="grid grid-cols-3 gap-3">
                       <Field>
                         <FieldLabel className="text-[10px]">State</FieldLabel>
-                        <Input className="h-8 text-xs" placeholder="Maharashtra" value={newPatientAddress.state} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, state: e.target.value })} />
+                        <select
+                          className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
+                          value={newPatientAddress.state}
+                          onChange={(e) => setNewPatientAddress({ ...newPatientAddress, state: e.target.value })}
+                        >
+                          <option value="">Select...</option>
+                          {INDIAN_STATES.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
                       </Field>
                       <Field>
                         <FieldLabel className="text-[10px]">Country</FieldLabel>

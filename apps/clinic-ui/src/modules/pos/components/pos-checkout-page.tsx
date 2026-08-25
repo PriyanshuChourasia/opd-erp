@@ -15,6 +15,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CartItem, DiscountMode, PaymentMethod } from "../data/interface";
 import { paymentMethods, currency } from "../data/interface";
+import { useAppSelector } from "@/store/hooks";
+import { hasPermission } from "@/lib/roles";
 
 const posIndexRoute = getRouteApi("/_pos/pos/");
 
@@ -22,6 +24,8 @@ export function PosCheckoutPage() {
   const { appointmentId } = posIndexRoute.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
   const [patientQuery, setPatientQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
   const [itemQuery, setItemQuery] = useState("");
@@ -29,6 +33,7 @@ export function PosCheckoutPage() {
   const { data: organisation } = useQuery({
     queryKey: ["organisation"],
     queryFn: fetchOrganisation,
+    enabled: canReadOrganisation,
   });
 
   const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");

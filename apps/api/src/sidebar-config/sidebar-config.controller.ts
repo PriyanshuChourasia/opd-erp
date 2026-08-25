@@ -31,6 +31,16 @@ export class SidebarConfigController {
     return this.sidebarConfigService.findForRole(user.roleId);
   }
 
+  /**
+   * All known sidebar menu paths (no role data) — lets the frontend route
+   * guard tell "known module, not allowed for my role" apart from "not a
+   * gated module at all". No special permission required.
+   */
+  @Get('all-paths')
+  findAllPaths() {
+    return this.sidebarConfigService.findAllPaths();
+  }
+
   @Get()
   @Permissions('read:roles')
   findAll() {

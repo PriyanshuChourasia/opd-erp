@@ -95,4 +95,39 @@ export class PrescriptionTemplateService {
       data: { isDefault: true, updatedById: userId ?? null },
     });
   }
+
+  async assignToDoctor(id: string, doctorId: string, userId?: string): Promise<PrescriptionTemplate> {
+    await this.findOne(id);
+
+    const doctor = await this.prisma.doctor.findUnique({ where: { id: doctorId } });
+    if (!doctor) throw new NotFoundException('Doctor not found');
+
+    return this.prisma.$transaction(async (tx) => {
+      // A doctor can only have one assigned template — unassign it from
+      // whichever other template currently holds it (doctorId is @unique).
+      await tx.prescriptionTemplate.updateMany({
+        where: { doctorId, id: { not: id } },
+        data: { doctorId: null, updatedById: userId ?? null },
+      });
+
+      return tx.prescriptionTemplate.update({
+        where: { id },
+        data: { doctorId, updatedById: userId ?? null },
+      });
+    });
+  }
+
+  async unassignFromDoctor(id: string, userId?: string): Promise<PrescriptionTemplate> {
+    await this.findOne(id);
+    return this.prisma.prescriptionTemplate.update({
+      where: { id },
+      data: { doctorId: null, updatedById: userId ?? null },
+    });
+  }
+
+  async findForDoctor(doctorId: string): Promise<PrescriptionTemplate | null> {
+    const assigned = await this.prisma.prescriptionTemplate.findFirst({ where: { doctorId } });
+    if (assigned) return assigned;
+    return this.findDefault();
+  }
 }

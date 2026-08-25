@@ -27,7 +27,6 @@ interface TestAccount {
 }
 
 const testAccounts: TestAccount[] = [
-  { role: "Super Admin", email: "superadmin@clinic.com", password: "Password@123" },
   { role: "Admin", email: "admin@clinic.com", password: "Password@123" },
   { role: "Receptionist", email: "receptionist@clinic.com", password: "Password@123" },
   { role: "Assistant", email: "assistant@clinic.com", password: "Password@123" },
@@ -42,7 +41,7 @@ const workflowSteps = [
   { icon: Pill, label: "Pharmacy dispensing" },
 ];
 
-const DEFAULT_ACCOUNT = { email: "superadmin@clinic.com", password: "Password@123" };
+const DEFAULT_ACCOUNT = { email: "admin@clinic.com", password: "Password@123" };
 
 export function LoginPage() {
   const loginMutation = useLogin();
@@ -118,7 +117,7 @@ export function LoginPage() {
             <div className="mb-2 flex items-center gap-2">
               <Shield className="size-3.5 text-muted-foreground" />
               <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Demo accounts — Super Admin selected by default
+                Demo accounts — Admin selected by default
               </span>
             </div>
             <div className="flex flex-wrap gap-2">

@@ -513,6 +513,43 @@ async function seedPermissions(): Promise<Permission[]> {
   // ── Developer (was Super Admin + Developer merged): everything ──
   const superAdminPerms = [...permissions];
 
+  // ── Admin: full operational access, minus Organisation profile and Developer tools ──
+  // Explicit resource:action list (not a Set-of-resources pattern like the other roles)
+  // because this mirrors an exact hand-configured permission grant — some resources are
+  // full CRUD+manage, others are read/update-only. Keep this list in sync if the Admin
+  // role's permissions are adjusted through the Roles & Permissions UI.
+  const adminPermKeys = new Set([
+    'addresses:create', 'addresses:delete', 'addresses:manage', 'addresses:read', 'addresses:update',
+    'allergies:create', 'allergies:delete', 'allergies:manage', 'allergies:read', 'allergies:update',
+    'appointments:create', 'appointments:manage', 'appointments:read', 'appointments:update',
+    'billing:create', 'billing:delete', 'billing:manage', 'billing:read', 'billing:update',
+    'dashboard:read', 'dashboard:update',
+    'diagnoses:read', 'diagnoses:update',
+    'diagnosis-systems:read', 'diagnosis-systems:update',
+    'dispensing:create', 'dispensing:delete', 'dispensing:manage', 'dispensing:read', 'dispensing:update',
+    'doctors:create', 'doctors:delete', 'doctors:manage', 'doctors:read', 'doctors:update',
+    'documents:create', 'documents:read', 'documents:update',
+    'financial-years:create', 'financial-years:delete', 'financial-years:manage', 'financial-years:read', 'financial-years:update',
+    'health:read',
+    'lab-orders:read', 'lab-orders:update',
+    'medicine-catalog:create', 'medicine-catalog:delete', 'medicine-catalog:manage', 'medicine-catalog:read', 'medicine-catalog:update',
+    'patient-allergy-records:create', 'patient-allergy-records:delete', 'patient-allergy-records:manage', 'patient-allergy-records:read', 'patient-allergy-records:update',
+    'patient-vitals:create', 'patient-vitals:delete', 'patient-vitals:manage', 'patient-vitals:read', 'patient-vitals:update',
+    'patients:create', 'patients:delete', 'patients:manage', 'patients:read', 'patients:update',
+    'permissions:create', 'permissions:delete', 'permissions:manage', 'permissions:read', 'permissions:update',
+    'prescription-templates:create', 'prescription-templates:delete', 'prescription-templates:manage', 'prescription-templates:read', 'prescription-templates:update',
+    'prescriptions:create', 'prescriptions:delete', 'prescriptions:manage', 'prescriptions:read', 'prescriptions:update',
+    'procedure-orders:create', 'procedure-orders:delete', 'procedure-orders:manage', 'procedure-orders:read', 'procedure-orders:update',
+    'queue:create', 'queue:delete', 'queue:manage', 'queue:read', 'queue:update',
+    'radiology-orders:create', 'radiology-orders:delete', 'radiology-orders:manage', 'radiology-orders:read', 'radiology-orders:update',
+    'reports:create', 'reports:delete', 'reports:manage', 'reports:read', 'reports:update',
+    'roles:create', 'roles:delete', 'roles:manage', 'roles:read', 'roles:update',
+    'settings:create', 'settings:delete', 'settings:manage', 'settings:read', 'settings:update',
+    'shifts:create', 'shifts:delete', 'shifts:manage', 'shifts:read', 'shifts:update',
+    'users:create', 'users:delete', 'users:manage', 'users:read', 'users:update',
+  ]);
+  const adminPerms = permissions.filter((p) => adminPermKeys.has(`${p.resource}:${p.action}`));
+
   // ── Receptionist: front-desk operations + inline doctor/patient creation ──
   const receptionistResources = new Set([
     'patients', 'appointments', 'queue', 'billing',
@@ -522,6 +559,8 @@ async function seedPermissions(): Promise<Permission[]> {
     'medicine-catalog', 'lab-orders', 'radiology-orders', 'procedure-orders',
     // Needed to render available booking slots when scheduling/rescheduling appointments.
     'employee-schedules',
+    // Needed to reprint a prescription on its doctor's assigned template.
+    'prescription-templates',
   ]);
   const receptionistWriteResources = new Set(['doctors', 'users']);
   const receptionistPerms = permissions.filter(
@@ -539,6 +578,8 @@ async function seedPermissions(): Promise<Permission[]> {
     'diagnoses', 'diagnosis-systems', 'addresses', 'doctors',
     // Needed to render available slots when rescheduling from the consultation page.
     'employee-schedules',
+    // Needed to print a prescription on the doctor's own assigned template.
+    'prescription-templates',
   ]);
   const doctorWriteResources = new Set([
     'prescriptions', 'lab-orders', 'radiology-orders', 'procedure-orders',
@@ -621,6 +662,7 @@ async function seedPermissions(): Promise<Permission[]> {
 
 
   const superAdmin = await upsertRoleWithPermissions('Developer', 'Full access to every module including Developer tools', superAdminPerms);
+  const admin = await upsertRoleWithPermissions('Admin', 'Full operational access — clinical, billing, staff, and system config — excluding Organisation profile and Developer tools', adminPerms);
   const receptionist = await upsertRoleWithPermissions('Receptionist', 'Front-desk: patients, appointments, queue, billing, prescriptions, dispensing', receptionistPerms);
   const doctor = await upsertRoleWithPermissions('Doctor', 'Clinical: prescriptions, vitals, allergies, lab/radiology/procedure orders', doctorPerms);
   const nurse = await upsertRoleWithPermissions('Nurse', 'Patient vitals, allergies, queue management', nursePerms);
@@ -628,8 +670,8 @@ async function seedPermissions(): Promise<Permission[]> {
   const pharmacist = await upsertRoleWithPermissions('Pharmacist', 'Dispensing, prescriptions, medicine catalog, billing', pharmacistPerms);
   const labTech = await upsertRoleWithPermissions('Lab Technician', 'Lab orders, radiology orders, procedure orders', labTechPerms);
 
-  console.log(`Seeded roles: Developer (${superAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}).`);
-  return { superAdmin, receptionist, doctor, nurse, assistant, pharmacist, labTech };
+  console.log(`Seeded roles: Developer (${superAdminPerms.length}), Admin (${adminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}).`);
+  return { superAdmin, admin, receptionist, doctor, nurse, assistant, pharmacist, labTech };
 }
 
 async function seedUsers(
@@ -641,6 +683,7 @@ async function seedUsers(
   nurseRoleId?: string,
   pharmacistRoleId?: string,
   labTechRoleId?: string,
+  adminRoleId?: string,
 ) {
   const password = await bcrypt.hash('Password@123', 10);
   const doctorPassword = await bcrypt.hash('Doctor@123', 10);
@@ -648,7 +691,7 @@ async function seedUsers(
   // System users (no doctor link)
   const systemUsers = [
     { username: 'superadmin', firstName: 'Super', lastName: 'Admin', email: 'superadmin@clinic.com', password, roleId: superAdminRoleId },
-    { username: 'admin', firstName: 'Admin', lastName: 'User', email: 'admin@clinic.com', password, roleId: superAdminRoleId },
+    { username: 'admin', firstName: 'Admin', lastName: 'User', email: 'admin@clinic.com', password, roleId: adminRoleId ?? superAdminRoleId },
     { username: 'anitapatel', firstName: 'Anita', lastName: 'Patel', email: 'assistant@clinic.com', password, roleId: assistantRoleId },
   ];
 
@@ -806,8 +849,8 @@ async function seedUsers(
   const extraCount = (nurseRoleId ? 2 : 0) + (pharmacistRoleId ? 2 : 0) + (labTechRoleId ? 2 : 0);
   console.log(`Seeded ${systemUsers.length} system users + ${receptionistUsers.length} receptionists + ${doctorRows.length} doctor users + ${extraCount} staff users.`);
   console.log('Login credentials:');
-  console.log('  superadmin@clinic.com / Password@123 (Super Admin)');
-  console.log('  admin@clinic.com / Password@123 (Super Admin)');
+  console.log('  superadmin@clinic.com / Password@123 (Developer)');
+  console.log('  admin@clinic.com / Password@123 (Admin)');
   console.log('  receptionist@clinic.com / Password@123 (Receptionist — Priya Kapoor)');
   console.log('  meenakshi@clinic.com / Password@123 (Receptionist — Meenakshi Reddy)');
   console.log('  raj@clinic.com / Password@123 (Receptionist — Raj Kumar)');
@@ -3588,7 +3631,7 @@ async function main() {
   const roles = await seedRoles(permissions);
   await seedUsers(
     roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors,
-    roles.nurse.id, roles.pharmacist.id, roles.labTech.id,
+    roles.nurse.id, roles.pharmacist.id, roles.labTech.id, roles.admin.id,
   );
 
   console.log('\n📊 Seeding demo transactional data...');

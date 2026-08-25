@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { fetchPrescriptions } from "@/lib/api";
 import type { Prescription } from "@/lib/api";
+import { PrintPrescriptionButton } from "@/modules/prescriptions/components/print-prescription-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -343,9 +344,12 @@ export function PatientHistorySheet({
                                     minute: "2-digit",
                                   })}
                                 </span>
-                                <span className="font-mono">
-                                  #{rx.id.slice(0, 8).toUpperCase()}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono">
+                                    #{rx.id.slice(0, 8).toUpperCase()}
+                                  </span>
+                                  <PrintPrescriptionButton prescription={rx} variant="icon" />
+                                </div>
                               </div>
                             </div>
                           )}

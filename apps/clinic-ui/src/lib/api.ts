@@ -870,6 +870,7 @@ export function deleteDiagnosis(id: string) {
 export interface PatientVitals {
   id: string;
   patientId: string;
+  appointmentId?: string | null;
   heightCm?: number | null;
   weightKg?: number | null;
   bmi?: number | null;
@@ -886,6 +887,7 @@ export interface PatientVitals {
 
 export interface CreatePatientVitalsInput {
   patientId: string;
+  appointmentId?: string;
   heightCm?: number;
   weightKg?: number;
   temperatureC?: number;
@@ -1523,6 +1525,7 @@ export interface PrescriptionTemplate {
   type: TemplateType;
   description?: string | null;
   isDefault: boolean;
+  doctorId?: string | null;
   logoUrl?: string | null;
   clinicName?: string | null;
   doctorName?: string | null;
@@ -1584,6 +1587,18 @@ export function setDefaultPrescriptionTemplate(id: string) {
 
 export function deletePrescriptionTemplate(id: string) {
   return request<void>({ method: "DELETE", path: `/prescription-templates/${id}` });
+}
+
+export function fetchPrescriptionTemplateForDoctor(doctorId: string) {
+  return request<PrescriptionTemplate | null>({ method: "GET", path: `/prescription-templates/for-doctor/${doctorId}` });
+}
+
+export function assignPrescriptionTemplateToDoctor(id: string, doctorId: string) {
+  return request<PrescriptionTemplate>({ method: "PATCH", path: `/prescription-templates/${id}/assign-doctor`, body: { doctorId } });
+}
+
+export function unassignPrescriptionTemplateFromDoctor(id: string) {
+  return request<PrescriptionTemplate>({ method: "PATCH", path: `/prescription-templates/${id}/unassign-doctor` });
 }
 
 // ─── Search helpers ───────────────────────────────────────────

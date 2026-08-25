@@ -40,6 +40,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DataTable } from "@/components/data-table/data-table";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
+import { PrintPrescriptionButton } from "./print-prescription-button";
 
 const RX_STATUS_STYLES: Record<string, string> = {
   ACTIVE: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -583,7 +584,8 @@ export function PrescriptionsPage() {
       cell: ({ row }) => {
         const rx = row.original;
         return (
-          <div className="flex justify-end">
+          <div className="flex justify-end items-center gap-1">
+            <PrintPrescriptionButton prescription={rx} variant="icon" />
             <Select onValueChange={(value) => {
               if (value === "pdf-preview") setPdfPreviewRx(rx);
               else if (value === "export-word") exportWord(rx);

@@ -279,8 +279,9 @@ model PatientAllergyRecord {
 // ─── Patient Vitals (immutable once created) ────────────────
 
 model PatientVitals {
-  id              String   @id @default(uuid())
+  id              String       @id @default(uuid())
   patientId       String
+  appointmentId   String?
   heightCm        Float?
   weightKg        Float?
   bmi             Float?
@@ -291,14 +292,16 @@ model PatientVitals {
   spo2Percent     Float?
   respiratoryRate Int?
   medicalStatus   String?
-  recordedAt      DateTime @default(now())
-  createdAt       DateTime @default(now())
+  recordedAt      DateTime     @default(now())
+  createdAt       DateTime     @default(now())
   createdById     String?
-  createdBy       User?    @relation("PatientVitalsCreated", fields: [createdById], references: [id])
-  patient         Patient  @relation(fields: [patientId], references: [id])
+  createdBy       User?        @relation("PatientVitalsCreated", fields: [createdById], references: [id])
+  patient         Patient      @relation(fields: [patientId], references: [id])
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
 
   @@index([patientId])
   @@index([patientId, createdAt])
+  @@index([appointmentId])
   @@index([createdById])
 }
 
@@ -391,6 +394,8 @@ model Doctor {
   radiologyOrders RadiologyOrder[]
   procedureOrders ProcedureOrder[]
 
+  assignedPrescriptionTemplate PrescriptionTemplate?
+
   @@index([specialization])
 }
 
@@ -441,6 +446,7 @@ model Appointment {
   doctor             Doctor      @relation(fields: [doctorId], references: [id])
   bill               Bill?
   queueEntry         QueueEntry?
+  patientVitals      PatientVitals[]
 
   @@index([patientId])
   @@index([doctorId])
@@ -814,6 +820,11 @@ model PrescriptionTemplate {
   type        String  @default("prescription") // prescription | diagnosis | test
   description String?
   isDefault   Boolean @default(false)
+
+  // Doctor assignment (1:1, optional) — prescriptions print on this template
+  // for this doctor, falling back to the global default when unassigned.
+  doctorId String?  @unique
+  doctor   Doctor?  @relation(fields: [doctorId], references: [id])
 
   // Header / branding
   logoUrl              String?

@@ -28,6 +28,11 @@ export class PatientVitalsService {
     const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
     if (!patient) throw new NotFoundException(`Patient ${dto.patientId} not found`);
 
+    if (dto.appointmentId) {
+      const appointment = await this.prisma.appointment.findUnique({ where: { id: dto.appointmentId } });
+      if (!appointment) throw new NotFoundException(`Appointment ${dto.appointmentId} not found`);
+    }
+
     // Auto-calculate BMI if height and weight are provided
     let bmi: number | null = null;
     if (dto.heightCm && dto.weightKg && dto.heightCm > 0) {
@@ -38,6 +43,7 @@ export class PatientVitalsService {
     return this.prisma.patientVitals.create({
       data: {
         patientId: dto.patientId,
+        appointmentId: dto.appointmentId ?? null,
         heightCm: dto.heightCm ?? null,
         weightKg: dto.weightKg ?? null,
         bmi,

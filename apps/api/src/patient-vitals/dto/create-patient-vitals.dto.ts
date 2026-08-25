@@ -6,6 +6,10 @@ export class CreatePatientVitalsDto {
   patientId!: string;
 
   @IsOptional()
+  @IsString()
+  appointmentId?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(300)

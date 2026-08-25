@@ -16,7 +16,7 @@ import { registry } from './registry';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_ACCESS_SECRET'),
         signOptions: {
-          expiresIn: (config.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m') as any,
+          expiresIn: (config.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '7d') as any,
         },
       }),
     }),

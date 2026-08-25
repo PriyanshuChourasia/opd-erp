@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Plus, Trash2, Check, Star, Eye, ArrowLeft, Pencil, Stethoscope, TestTube } from "lucide-react";
+import { FileText, Plus, Trash2, Check, Star, Eye, ArrowLeft, Pencil, Stethoscope, TestTube, UserRound, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   fetchPrescriptionTemplates,
   deletePrescriptionTemplate,
   setDefaultPrescriptionTemplate,
+  assignPrescriptionTemplateToDoctor,
+  unassignPrescriptionTemplateFromDoctor,
+  fetchDoctors,
   type PrescriptionTemplate,
   type TemplateType,
 } from "@/lib/api";
@@ -35,6 +39,18 @@ export function PrescriptionTemplateList() {
     queryFn: fetchPrescriptionTemplates,
   });
 
+  // All doctors, for the assignment picker and resolving doctorId -> name badges.
+  const { data: doctorsResponse } = useQuery({
+    queryKey: ["doctors", "for-template-assignment"],
+    queryFn: () => fetchDoctors({ limit: 200 }),
+  });
+  const doctors = doctorsResponse?.data ?? [];
+  const doctorName = (id: string) => doctors.find((d) => d.id === id)?.name ?? "Unknown doctor";
+
+  // A doctor can only be assigned to one template (enforced server-side too) —
+  // used to grey out doctors already assigned to a different template.
+  const assignedDoctorIds = new Set(templates.filter((t) => t.doctorId).map((t) => t.doctorId as string));
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deletePrescriptionTemplate(id),
     onSuccess: () => {
@@ -49,6 +65,24 @@ export function PrescriptionTemplateList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prescription-templates"] });
       toast.success("Default template updated");
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const assignDoctorMutation = useMutation({
+    mutationFn: ({ id, doctorId }: { id: string; doctorId: string }) => assignPrescriptionTemplateToDoctor(id, doctorId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prescription-templates"] });
+      toast.success("Template assigned to doctor");
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const unassignDoctorMutation = useMutation({
+    mutationFn: (id: string) => unassignPrescriptionTemplateFromDoctor(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prescription-templates"] });
+      toast.success("Doctor unassigned");
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
@@ -175,10 +209,44 @@ export function PrescriptionTemplateList() {
                       {tpl.description && (
                         <p className="text-xs text-muted-foreground mt-0.5">{tpl.description}</p>
                       )}
+                      {tpl.doctorId && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-700">
+                          <UserRound className="size-2.5" />
+                          {doctorName(tpl.doctorId)}
+                        </span>
+                      )}
                     </div>
                     {tpl.isDefault && <Star className="size-4 shrink-0 text-primary fill-primary" />}
                   </div>
-                  <div className="mt-3 flex items-center gap-1.5">
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <Select
+                      value={tpl.doctorId ?? "__none__"}
+                      onValueChange={(value) => {
+                        if (value === "__none__") unassignDoctorMutation.mutate(tpl.id);
+                        else assignDoctorMutation.mutate({ id: tpl.id, doctorId: value });
+                      }}
+                    >
+                      <SelectTrigger className="h-7 flex-1 text-[11px]">
+                        <SelectValue placeholder="Assign to doctor..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">
+                          <X className="mr-1 size-3" />No doctor assigned
+                        </SelectItem>
+                        {doctors.map((d) => (
+                          <SelectItem
+                            key={d.id}
+                            value={d.id}
+                            disabled={assignedDoctorIds.has(d.id) && d.id !== tpl.doctorId}
+                          >
+                            {d.name ?? d.medicalRegistrationNo}
+                            {assignedDoctorIds.has(d.id) && d.id !== tpl.doctorId ? " (assigned elsewhere)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
                     <Button
                       size="sm"
                       variant="outline"

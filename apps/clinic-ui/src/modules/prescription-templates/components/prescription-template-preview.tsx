@@ -7,14 +7,35 @@ import {
 import type { PrescriptionTemplate, TemplateType } from "@/lib/api";
 import { FONT_FAMILIES } from "./prescription-template-editor";
 
+/** Real prescription data to fill the template with, instead of blank
+ *  design-time placeholders. Omit this prop entirely for the editor's
+ *  design preview, which must keep rendering blanks unchanged. */
+export interface PrescriptionPrintData {
+  patient: { firstName: string; lastName: string; dateOfBirth?: string | null; gender?: string | null };
+  items: Array<{ medicineName: string; dosage: string; duration?: string | null; instructions?: string | null }>;
+  diagnosis?: string | null;
+  notes?: string | null;
+  date: string;
+}
+
 interface Props {
   template: PrescriptionTemplate | null;
   onOpenChange: (open: boolean) => void;
   /** When true, renders preview content inline (no Sheet wrapper) */
   inline?: boolean;
+  /** When present, renders real prescription data instead of blank placeholders */
+  data?: PrescriptionPrintData;
 }
 
-export function PrescriptionTemplatePreview({ template, onOpenChange, inline = false }: Props) {
+function calculateAge(dateOfBirth?: string | null): string {
+  if (!dateOfBirth) return "";
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return "";
+  const diffMs = Date.now() - dob.getTime();
+  return String(Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000)));
+}
+
+export function PrescriptionTemplatePreview({ template, onOpenChange, inline = false, data }: Props) {
   if (!template) return null;
 
   /** Wraps content in Sheet (default) or renders inline (editor preview) */
@@ -74,14 +95,19 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
   );
 
   // ─── Helper: Patient Fields ───
+  const patientName = data ? `${data.patient.firstName} ${data.patient.lastName}` : "";
+  const patientAge = data ? calculateAge(data.patient.dateOfBirth) : "";
+  const patientGender = data?.patient.gender ?? "";
+  const patientDate = data?.date ?? "";
+
   const PatientFields = ({ inline = false }: { inline?: boolean }) => (
     inline ? (
       // Single-line patient fields (for letterhead/compact)
       <div className="flex items-center gap-4 px-4 py-2.5 text-xs" style={{ borderBottom: `1px solid ${primaryColor}15`, fontSize: baseFontSize }}>
-        <span className="text-muted-foreground">Name: <span className="text-foreground">___________</span></span>
-        <span className="text-muted-foreground">Age: <span className="text-foreground">___</span></span>
-        <span className="text-muted-foreground">Gender: <span className="text-foreground">___</span></span>
-        <span className="text-muted-foreground">Date: <span className="text-foreground">___________</span></span>
+        <span className="text-muted-foreground">Name: <span className="text-foreground">{data ? patientName : "___________"}</span></span>
+        <span className="text-muted-foreground">Age: <span className="text-foreground">{data ? patientAge : "___"}</span></span>
+        <span className="text-muted-foreground">Gender: <span className="text-foreground">{data ? patientGender : "___"}</span></span>
+        <span className="text-muted-foreground">Date: <span className="text-foreground">{data ? patientDate : "___________"}</span></span>
       </div>
     ) : (
       // Standard 2-column patient fields
@@ -89,19 +115,19 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div className="flex items-baseline gap-2">
             <span className="text-xs text-muted-foreground shrink-0">Name:</span>
-            <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
+            {data ? <span className="flex-1">{patientName}</span> : <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>}
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xs text-muted-foreground shrink-0">Date:</span>
-            <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
+            {data ? <span className="flex-1">{patientDate}</span> : <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>}
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xs text-muted-foreground shrink-0">Age:</span>
-            <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
+            {data ? <span className="flex-1">{patientAge}</span> : <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>}
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xs text-muted-foreground shrink-0">Sex:</span>
-            <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
+            {data ? <span className="flex-1">{patientGender}</span> : <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>}
           </div>
         </div>
         <div className="flex items-baseline gap-2">
@@ -127,15 +153,27 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
             </tr>
           </thead>
           <tbody>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <tr key={i} style={{ borderBottom: `1px solid ${primaryColor}10` }}>
-                <td className="py-2 px-2 text-muted-foreground">{i}.</td>
-                <td className="py-2 px-2">&nbsp;</td>
-                <td className="py-2 px-2">&nbsp;</td>
-                <td className="py-2 px-2">&nbsp;</td>
-                <td className="py-2 px-2">&nbsp;</td>
-              </tr>
-            ))}
+            {data ? (
+              data.items.map((item, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${primaryColor}10` }}>
+                  <td className="py-2 px-2 text-muted-foreground">{i + 1}.</td>
+                  <td className="py-2 px-2">{item.medicineName}</td>
+                  <td className="py-2 px-2">{item.dosage}</td>
+                  <td className="py-2 px-2">{item.duration || "—"}</td>
+                  <td className="py-2 px-2">{item.instructions || "—"}</td>
+                </tr>
+              ))
+            ) : (
+              [1, 2, 3, 4, 5].map((i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${primaryColor}10` }}>
+                  <td className="py-2 px-2 text-muted-foreground">{i}.</td>
+                  <td className="py-2 px-2">&nbsp;</td>
+                  <td className="py-2 px-2">&nbsp;</td>
+                  <td className="py-2 px-2">&nbsp;</td>
+                  <td className="py-2 px-2">&nbsp;</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -146,9 +184,15 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
   const WritingLines = () => (
     freeFormMode && showWritingLines ? (
       <div className="px-4 py-3" style={{ fontSize: baseFontSize }}>
-        {Array.from({ length: writingLineCount }).map((_, i) => (
-          <div key={i} className="border-b border-muted-foreground/20" style={{ height: "24px" }} />
-        ))}
+        {data ? (
+          <div className="space-y-2 whitespace-pre-wrap">
+            {data.notes || data.diagnosis || ""}
+          </div>
+        ) : (
+          Array.from({ length: writingLineCount }).map((_, i) => (
+            <div key={i} className="border-b border-muted-foreground/20" style={{ height: "24px" }} />
+          ))
+        )}
       </div>
     ) : null
   );
@@ -188,13 +232,21 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
       {showDiagnosis && (
         <div>
           <p className="text-xs font-semibold mb-1" style={{ color: primaryColor }}>Diagnosis</p>
-          <div className="border-b border-dashed border-muted-foreground/30 h-5">&nbsp;</div>
+          {data ? (
+            <p className="min-h-5 whitespace-pre-wrap">{data.diagnosis || "—"}</p>
+          ) : (
+            <div className="border-b border-dashed border-muted-foreground/30 h-5">&nbsp;</div>
+          )}
         </div>
       )}
       {showNotes && (
         <div>
           <p className="text-xs font-semibold mb-1" style={{ color: primaryColor }}>Notes</p>
-          <div className="border border-dashed border-muted-foreground/20 rounded h-12">&nbsp;</div>
+          {data ? (
+            <p className="min-h-12 whitespace-pre-wrap">{data.notes || "—"}</p>
+          ) : (
+            <div className="border border-dashed border-muted-foreground/20 rounded h-12">&nbsp;</div>
+          )}
         </div>
       )}
     </div>
@@ -472,17 +524,30 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                 <div className="w-1/2 p-4 text-xs" style={{ borderRight: `1px solid ${primaryColor}15` }}>
                   <p className="font-semibold text-xs mb-2" style={{ color: primaryColor }}>Patient Details</p>
                   <div className="space-y-2">
-                    {["Name", "Age", "Sex", "Date", "Address", "Phone"].map((field) => (
-                      <div key={field} className="flex items-baseline gap-1">
-                        <span className="text-muted-foreground shrink-0">{field}:</span>
-                        <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
-                      </div>
-                    ))}
+                    {(["Name", "Age", "Sex", "Date", "Address", "Phone"] as const).map((field) => {
+                      const value = data
+                        ? field === "Name" ? patientName
+                          : field === "Age" ? patientAge
+                          : field === "Sex" ? patientGender
+                          : field === "Date" ? patientDate
+                          : ""
+                        : "";
+                      return (
+                        <div key={field} className="flex items-baseline gap-1">
+                          <span className="text-muted-foreground shrink-0">{field}:</span>
+                          {data ? <span className="flex-1">{value || "—"}</span> : <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>}
+                        </div>
+                      );
+                    })}
                   </div>
                   {showDiagnosis && (
                     <div className="mt-4">
                       <p className="font-semibold text-xs mb-1" style={{ color: primaryColor }}>Diagnosis</p>
-                      <div className="border-b border-dashed border-muted-foreground/30 h-4">&nbsp;</div>
+                      {data ? (
+                        <p className="min-h-4 whitespace-pre-wrap">{data.diagnosis || "—"}</p>
+                      ) : (
+                        <div className="border-b border-dashed border-muted-foreground/30 h-4">&nbsp;</div>
+                      )}
                     </div>
                   )}
                   {showRecommendations && recommendations.length > 0 && (
@@ -510,20 +575,35 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                       </tr>
                     </thead>
                     <tbody>
-                      {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <tr key={i} style={{ borderBottom: `1px solid ${primaryColor}08` }}>
-                          <td className="py-1.5 px-1 text-muted-foreground">{i}.</td>
-                          <td className="py-1.5 px-1">&nbsp;</td>
-                          <td className="py-1.5 px-1">&nbsp;</td>
-                          <td className="py-1.5 px-1">&nbsp;</td>
-                        </tr>
-                      ))}
+                      {data ? (
+                        data.items.map((item, i) => (
+                          <tr key={i} style={{ borderBottom: `1px solid ${primaryColor}08` }}>
+                            <td className="py-1.5 px-1 text-muted-foreground">{i + 1}.</td>
+                            <td className="py-1.5 px-1">{item.medicineName}</td>
+                            <td className="py-1.5 px-1">{item.dosage}</td>
+                            <td className="py-1.5 px-1">{item.duration || "—"}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        [1, 2, 3, 4, 5, 6].map((i) => (
+                          <tr key={i} style={{ borderBottom: `1px solid ${primaryColor}08` }}>
+                            <td className="py-1.5 px-1 text-muted-foreground">{i}.</td>
+                            <td className="py-1.5 px-1">&nbsp;</td>
+                            <td className="py-1.5 px-1">&nbsp;</td>
+                            <td className="py-1.5 px-1">&nbsp;</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                   {showNotes && (
                     <div className="mt-3">
                       <p className="font-semibold text-xs mb-1" style={{ color: primaryColor }}>Notes</p>
-                      <div className="border border-dashed border-muted-foreground/20 rounded h-10 text-[10px]">&nbsp;</div>
+                      {data ? (
+                        <p className="min-h-10 text-[10px] whitespace-pre-wrap">{data.notes || "—"}</p>
+                      ) : (
+                        <div className="border border-dashed border-muted-foreground/20 rounded h-10 text-[10px]">&nbsp;</div>
+                      )}
                     </div>
                   )}
                 </div>

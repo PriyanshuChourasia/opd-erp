@@ -33,4 +33,4 @@ Handles user authentication, registration, profile management, and password mana
 ## Important Notes
 - Passwords are hashed with bcryptjs (salt rounds = 10).
 - Tokens use configurable secrets from env: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`.
-- Token expiry: `JWT_ACCESS_EXPIRES_IN` (default 15m), `JWT_REFRESH_EXPIRES_IN` (default 7d).
+- Token expiry: `JWT_ACCESS_EXPIRES_IN` (default 7d). `JWT_REFRESH_EXPIRES_IN` is unused — no refresh token flow is implemented; the access token is the entire session.

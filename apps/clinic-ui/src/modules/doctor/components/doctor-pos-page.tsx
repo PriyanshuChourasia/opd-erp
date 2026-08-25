@@ -304,11 +304,14 @@ export function DoctorPosPage() {
     setRescheduleDoctorId(entry.doctorId);
   }
 
+  const emptyVitals = { heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" };
+
   // ── Vitals mutation ──
   const vitalsMutation = useMutation({
     mutationFn: async () => {
       if (!vitalsTarget) return;
       const payload: Record<string, string | number> = { patientId: vitalsTarget.patientId };
+      if (vitalsTarget.appointment?.id) payload.appointmentId = vitalsTarget.appointment.id;
       if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
       if (vitals.weightCm) payload.weightKg = parseFloat(vitals.weightCm);
       if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
@@ -325,16 +328,30 @@ export function DoctorPosPage() {
       toast.success("Vitals recorded successfully");
       setVitalsOpen(false);
       setVitalsTarget(null);
-      setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+      setVitals(emptyVitals);
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
 
-  function openVitals(entry: QueueEntry) {
+  async function openVitals(entry: QueueEntry) {
     setVitalsTarget(entry);
-    // Pre-fill from latest vitals if available
-    setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
+    setVitals(emptyVitals);
     setVitalsOpen(true);
+    // Pre-fill with the patient's last known vitals as editable defaults —
+    // the new entry is still saved tagged to this specific appointment.
+    const latest = await fetchPatientVitalsLatest(entry.patientId).catch(() => null);
+    if (!latest) return;
+    setVitals({
+      heightCm: latest.heightCm?.toString() ?? "",
+      weightCm: latest.weightKg?.toString() ?? "",
+      temperatureC: latest.temperatureC?.toString() ?? "",
+      pulseBpm: latest.pulseBpm?.toString() ?? "",
+      systolicBp: latest.systolicBp?.toString() ?? "",
+      diastolicBp: latest.diastolicBp?.toString() ?? "",
+      spo2Percent: latest.spo2Percent?.toString() ?? "",
+      respiratoryRate: latest.respiratoryRate?.toString() ?? "",
+      medicalStatus: latest.medicalStatus ?? "",
+    });
   }
 
   const completeMutation = useMutation({

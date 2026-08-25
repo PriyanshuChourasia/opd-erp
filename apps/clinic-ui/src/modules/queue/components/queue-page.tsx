@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { FileText, HeartPulse, ListOrdered, Pencil, Receipt, Search, Trash2, X } from "lucide-react";
-import { fetchQueue, updateQueueStatus, deleteQueueEntry, checkoutAppointment, createPatientVitals, type QueueEntry } from "@/lib/api";
+import { fetchQueue, updateQueueStatus, deleteQueueEntry, checkoutAppointment, createPatientVitals, fetchPatientVitalsLatest, type QueueEntry } from "@/lib/api";
 import { fetchDoctors, fetchPatients } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
@@ -107,10 +107,13 @@ export function QueuePage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
+  const emptyVitals = { heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" };
+
   const vitalsMutation = useMutation({
     mutationFn: async () => {
       if (!vitalsEntry) return;
       const payload: Record<string, string | number> = { patientId: vitalsEntry.patientId };
+      if (vitalsEntry.appointment?.id) payload.appointmentId = vitalsEntry.appointment.id;
       if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
       if (vitals.weightCm) payload.weightKg = parseFloat(vitals.weightCm);
       if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
@@ -127,15 +130,30 @@ export function QueuePage() {
       toast.success("Vitals recorded successfully");
       setVitalsOpen(false);
       setVitalsEntry(null);
-      setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+      setVitals(emptyVitals);
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
 
-  function openVitals(entry: QueueEntry) {
+  async function openVitals(entry: QueueEntry) {
     setVitalsEntry(entry);
-    setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "" });
+    setVitals(emptyVitals);
     setVitalsOpen(true);
+    // Pre-fill with the patient's last known vitals as editable defaults —
+    // the new entry is still saved tagged to this specific appointment.
+    const latest = await fetchPatientVitalsLatest(entry.patientId).catch(() => null);
+    if (!latest) return;
+    setVitals({
+      heightCm: latest.heightCm?.toString() ?? "",
+      weightCm: latest.weightKg?.toString() ?? "",
+      temperatureC: latest.temperatureC?.toString() ?? "",
+      pulseBpm: latest.pulseBpm?.toString() ?? "",
+      systolicBp: latest.systolicBp?.toString() ?? "",
+      diastolicBp: latest.diastolicBp?.toString() ?? "",
+      spo2Percent: latest.spo2Percent?.toString() ?? "",
+      respiratoryRate: latest.respiratoryRate?.toString() ?? "",
+      medicalStatus: latest.medicalStatus ?? "",
+    });
   }
 
   const checkoutMutation = useMutation({

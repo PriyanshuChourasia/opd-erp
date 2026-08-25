@@ -9,6 +9,11 @@ export function isAdminRole(roleName: string | undefined): boolean {
   return !!role && ADMIN_ROLES.has(role);
 }
 
+/** Only the Developer role gets Developer tools — Admin is deliberately excluded. */
+export function isDeveloperRole(roleName: string | undefined): boolean {
+  return roleName?.toUpperCase() === "DEVELOPER";
+}
+
 export function getHomeRoute(
   roleName: string | undefined,
 ): "/receptionist" | "/doctor" | "/dashboard" {

@@ -59,6 +59,16 @@ export class CreatePrescriptionTemplateDto {
 
   @IsOptional()
   layout?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  doctorId?: string;
+}
+
+export class AssignDoctorDto {
+  @IsString()
+  @IsNotEmpty()
+  doctorId!: string;
 }
 
 export class UpdatePrescriptionTemplateDto {
@@ -120,4 +130,8 @@ export class UpdatePrescriptionTemplateDto {
 
   @IsOptional()
   layout?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  doctorId?: string;
 }

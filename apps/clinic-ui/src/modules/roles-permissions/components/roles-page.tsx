@@ -16,6 +16,8 @@ import {
 import { DataTable } from "@/components/data-table/data-table";
 import { fetchRoles, fetchRole, createRole, updateRole, deleteRole, fetchPermissions, createPermission, deletePermission, type Role, type Permission } from "@/lib/api";
 import { resourceLabels, resourceCategories, defaultResources, defaultActions, roleColors } from "../data/interface";
+import { useAppSelector } from "@/store/hooks";
+import { isDeveloperRole } from "@/lib/roles";
 
 // Large-enough limit to cover "give me every role/permission" use cases
 // (the permission matrix, and the permission-picker inside the role sheet)
@@ -37,6 +39,9 @@ export function RolesPage() {
   const [deletePermConfirm, setDeletePermConfirm] = useState<string | null>(null);
   const [formName, setFormName] = useState(""); const [formDesc, setFormDesc] = useState(""); const [formPermissions, setFormPermissions] = useState<string[]>([]);
   const [permResource, setPermResource] = useState(""); const [permAction, setPermAction] = useState(""); const [permName, setPermName] = useState("");
+
+  const user = useAppSelector((state) => state.auth.user);
+  const canManage = isDeveloperRole(user?.roleName);
 
   const [rolesPagination, setRolesPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [permsPagination, setPermsPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
@@ -159,10 +164,10 @@ export function RolesPage() {
         const role = row.original;
         return (
           <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" className="size-8" title="Edit role" onClick={() => openEdit(role.id)}>
+            {canManage && <Button variant="ghost" size="icon" className="size-8" title="Edit role" onClick={() => openEdit(role.id)}>
               <Pencil className="size-3.5" />
-            </Button>
-            {!role.isSystem && (deleteConfirm === role.id ? (
+            </Button>}
+            {canManage && !role.isSystem && (deleteConfirm === role.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deleteMutation.mutate(role.id)}>Confirm</Button>
                 <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeleteConfirm(null)}><X className="size-3.5" /></Button>
@@ -177,7 +182,7 @@ export function RolesPage() {
       },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [deleteConfirm]);
+  ], [deleteConfirm, canManage]);
 
   const permissionColumns = useMemo<ColumnDef<Permission>[]>(() => [
     {
@@ -207,7 +212,7 @@ export function RolesPage() {
         const perm = row.original;
         return (
           <div className="flex justify-end gap-1">
-            {deletePermConfirm === perm.id ? (
+            {canManage && (deletePermConfirm === perm.id ? (
               <div className="flex items-center gap-1">
                 <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => deletePermMutation.mutate(perm.id)}>Confirm</Button>
                 <Button variant="ghost" size="icon" className="size-8" title="Cancel" onClick={() => setDeletePermConfirm(null)}><X className="size-3.5" /></Button>
@@ -216,21 +221,21 @@ export function RolesPage() {
               <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" title="Delete permission" onClick={() => setDeletePermConfirm(perm.id)}>
                 <Trash2 className="size-3.5" />
               </Button>
-            )}
+            ))}
           </div>
         );
       },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [deletePermConfirm]);
+  ], [deletePermConfirm, canManage]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-semibold tracking-tight">Roles & Permissions</h1><p className="mt-1 text-sm text-muted-foreground">Define roles and control access to system features</p></div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => seedPermissionsMutation.mutate()} disabled={seedPermissionsMutation.isPending}>Seed Permissions</Button>
-          <Sheet open={permSheetOpen} onOpenChange={setPermSheetOpen}>
+          {canManage && <Button variant="outline" onClick={() => seedPermissionsMutation.mutate()} disabled={seedPermissionsMutation.isPending}>Seed Permissions</Button>}
+          {canManage && <Sheet open={permSheetOpen} onOpenChange={setPermSheetOpen}>
             <SheetTrigger asChild><Button variant="outline" onClick={() => { setPermResource(""); setPermAction(""); setPermName(""); setPermSheetOpen(true); }}><Plus className="mr-2 size-4" />New Permission</Button></SheetTrigger>
             <SheetContent side="right" className="sm:max-w-md">
               <SheetHeader><SheetTitle>Create Permission</SheetTitle><SheetDescription>Add a new permission rule.</SheetDescription></SheetHeader>
@@ -241,8 +246,8 @@ export function RolesPage() {
               </FieldGroup></div>
               <SheetFooter><Button variant="outline" onClick={() => setPermSheetOpen(false)}>Cancel</Button><Button onClick={async () => { await createPermission({ resource: permResource, action: permAction, name: permName }); queryClient.invalidateQueries({ queryKey: ["permissions"] }); setPermSheetOpen(false); toast.success("Permission created"); }} disabled={!permResource || !permAction || !permName}>Create</Button></SheetFooter>
             </SheetContent>
-          </Sheet>
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          </Sheet>}
+          {canManage && <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild><Button onClick={openAdd}><Plus className="mr-2 size-4" />Create Role</Button></SheetTrigger>
             <SheetContent side="right" className="sm:max-w-md flex flex-col">
               <SheetHeader><SheetTitle>{editingId ? "Edit Role" : "Create Role"}</SheetTitle><SheetDescription>{editingId ? "Update the role and its permissions." : "Define a new role and assign permissions."}</SheetDescription></SheetHeader>
@@ -292,7 +297,7 @@ export function RolesPage() {
                 <SheetFooter><Button variant="outline" onClick={closeSheet}>Cancel</Button><Button onClick={handleSave} disabled={!formName.trim() || createMutation.isPending || updateMutation.isPending}>{editingId ? "Save Changes" : "Create Role"}</Button></SheetFooter>
               </div>
             </SheetContent>
-          </Sheet>
+          </Sheet>}
         </div>
       </div>
 

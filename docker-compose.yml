@@ -34,7 +34,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-nest_user}:${POSTGRES_PASSWORD:-changeme_in_production}@postgres_db:5432/${POSTGRES_DB:-opd_db}?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production_access}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_refresh}
-      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-7d}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
     volumes:
       - uploads:/app/apps/api/uploads

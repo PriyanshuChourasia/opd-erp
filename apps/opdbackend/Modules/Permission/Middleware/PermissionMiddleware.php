@@ -1,0 +1,15 @@
+<?php
+
+namespace Modules\Permission\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class PermissionMiddleware
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        return $next($request);
+    }
+}

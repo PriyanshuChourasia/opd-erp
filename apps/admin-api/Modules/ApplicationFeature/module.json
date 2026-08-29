@@ -1,0 +1,12 @@
+{
+    "name": "ApplicationFeature",
+    "alias": "applicationfeature",
+    "description": "ApplicationFeature module for the admin-api",
+    "keywords": [
+        "applicationfeature"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\ApplicationFeature\\Providers\\ApplicationFeatureServiceProvider"
+    ]
+}

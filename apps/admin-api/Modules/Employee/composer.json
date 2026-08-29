@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/employee",
+    "description": "Employee module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Employee\\": "",
+            "Modules\\Employee\\Database\\Factories\\": "database/factories/",
+            "Modules\\Employee\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Employee\\Tests\\": "tests/"
+        }
+    }
+}

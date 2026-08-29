@@ -1,0 +1,12 @@
+{
+    "name": "Employee",
+    "alias": "employee",
+    "description": "Employee module for the admin-api",
+    "keywords": [
+        "employee"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\Employee\\Providers\\EmployeeServiceProvider"
+    ]
+}

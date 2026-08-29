@@ -1,0 +1,5 @@
+api/.env.development
+api/.env.example
+api/prisma
+api/dist
+api/docker-compose.yml

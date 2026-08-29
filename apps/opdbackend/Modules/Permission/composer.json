@@ -1,0 +1,8 @@
+{
+    "name": "opdbackend/permission",
+    "autoload": {
+        "psr-4": {
+            "Modules\\Permission\\": ""
+        }
+    }
+}

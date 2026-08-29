@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/role",
+    "description": "Role module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Role\\": "",
+            "Modules\\Role\\Database\\Factories\\": "database/factories/",
+            "Modules\\Role\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Role\\Tests\\": "tests/"
+        }
+    }
+}

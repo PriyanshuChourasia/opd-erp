@@ -1,0 +1,12 @@
+{
+    "name": "Department",
+    "alias": "department",
+    "description": "Department module for the admin-api",
+    "keywords": [
+        "department"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\Department\\Providers\\DepartmentServiceProvider"
+    ]
+}

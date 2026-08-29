@@ -1,0 +1,14 @@
+{
+    "Auth": true,
+    "User": true,
+    "Department": true,
+    "Designation": true,
+    "Employee": true,
+    "Role": true,
+    "Permission": true,
+    "ApplicationModule": true,
+    "ApplicationFeature": true,
+    "UserRole": true,
+    "UserPermission": true,
+    "Customer": true
+}

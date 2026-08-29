@@ -1,0 +1,11 @@
+{
+    "name": "Auth",
+    "alias": "auth",
+    "description": "Admin authentication (login, logout, current user)",
+    "keywords": ["auth", "login", "token"],
+    "priority": 100,
+    "providers": [
+        "Modules\\Auth\\Providers\\AuthServiceProvider"
+    ],
+    "files": []
+}

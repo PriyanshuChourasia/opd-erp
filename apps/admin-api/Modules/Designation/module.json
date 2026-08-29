@@ -1,0 +1,12 @@
+{
+    "name": "Designation",
+    "alias": "designation",
+    "description": "Designation module for the admin-api",
+    "keywords": [
+        "designation"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\Designation\\Providers\\DesignationServiceProvider"
+    ]
+}

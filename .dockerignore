@@ -1,0 +1,13 @@
+.git
+.gitignore
+.gitattributes
+.claude
+.turbo
+node_modules
+graphify-out
+/images
+*.md
+*.log
+.DS_Store
+dist
+.cache

@@ -1,0 +1,12 @@
+{
+    "name": "Role",
+    "alias": "role",
+    "description": "Role module for the admin-api",
+    "keywords": [
+        "role"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\Role\\Providers\\RoleServiceProvider"
+    ]
+}

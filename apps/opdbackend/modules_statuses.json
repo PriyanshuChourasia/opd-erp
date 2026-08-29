@@ -1,0 +1,6 @@
+{
+    "Auth": true,
+    "User": true,
+    "Permission": true,
+    "Role": true
+}

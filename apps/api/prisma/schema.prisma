@@ -1,0 +1,1102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String         @id @default(uuid())
+  username        String         @unique
+  firstName       String
+  middleName      String?
+  lastName        String
+  gender          String? // MALE | FEMALE | OTHER
+  dateOfBirth     DateTime?
+  email           String         @unique
+  mobileNumber    String?
+  countryCode     String         @default("+91")
+  profilePhotoUrl String?
+  qualification   String?
+  password        String
+  isActive        Boolean        @default(true)
+  roleId          String
+  userableType    String? // "Doctor" | "Patient" | "Nurse" | "Receptionist" | "Pharmacist" | "LabStaff"
+  userableId      String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  role            Role           @relation(fields: [roleId], references: [id])
+  refreshTokens   RefreshToken[]
+
+  // Audit relations — Created by
+  createdRoles                 Role[]                 @relation("RoleCreated")
+  createdPermissions           Permission[]           @relation("PermissionCreated")
+  createdRefreshTokens         RefreshToken[]         @relation("RefreshTokenCreated")
+  createdAllergies             Allergy[]              @relation("AllergyCreated")
+  createdPatientAllergies      PatientAllergy[]       @relation("PatientAllergyCreated")
+  createdDiagnoses             Diagnosis[]            @relation("DiagnosisCreated")
+  createdPatients              Patient[]              @relation("PatientCreated")
+  createdDoctors               Doctor[]               @relation("DoctorCreated")
+  createdQueueEntries          QueueEntry[]           @relation("QueueEntryCreated")
+  createdAppointments          Appointment[]          @relation("AppointmentCreated")
+  createdMedicines             Medicine[]             @relation("MedicineCreated")
+  createdPrescriptions         Prescription[]         @relation("PrescriptionCreated")
+  createdPrescriptionItems     PrescriptionItem[]     @relation("PrescriptionItemCreated")
+  createdLabOrders             LabOrder[]             @relation("LabOrderCreated")
+  createdRadiologyOrders       RadiologyOrder[]       @relation("RadiologyOrderCreated")
+  createdProcedureOrders       ProcedureOrder[]       @relation("ProcedureOrderCreated")
+  createdBills                 Bill[]                 @relation("BillCreated")
+  createdBillItems             BillItem[]             @relation("BillItemCreated")
+  createdDispensings           Dispensing[]           @relation("DispensingCreated")
+  createdShifts                Shift[]                @relation("ShiftCreated")
+  createdEmployeeSchedules     EmployeeSchedule[]     @relation("EmployeeScheduleCreated")
+  createdAddresses             Address[]              @relation("AddressCreated")
+  createdDocuments             Document[]             @relation("DocumentCreated")
+  createdCompanies             Company[]              @relation("CompanyCreated")
+  createdPatientVitals         PatientVitals[]        @relation("PatientVitalsCreated")
+  createdPatientAllergyRecords PatientAllergyRecord[] @relation("PatientAllergyRecordCreated")
+  createdDiagnosisSystems      DiagnosisSystem[]      @relation("DiagnosisSystemCreated")
+  createdPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateCreated")
+  createdSpecializations       Specialization[]        @relation("SpecializationCreated")
+  createdPrescriptionHistories PrescriptionHistory[]  @relation("PrescriptionHistoryCreated")
+  createdMedicineGroups         MedicineGroup[]       @relation("MedicineGroupCreated")
+  createdUnits                  Unit[]                @relation("UnitCreated")
+  createdDepartments            Department[]          @relation("DepartmentCreated")
+  createdDesignations           Designation[]         @relation("DesignationCreated")
+  createdFinancialYears         FinancialYear[]       @relation("FinancialYearCreated")
+  createdDoctorDepartments      DoctorDepartment[]    @relation("DoctorDepartmentCreated")
+  createdDoctorSpecializations  DoctorSpecialization[] @relation("DoctorSpecializationCreated")
+  createdBloodGroups            BloodGroup[]          @relation("BloodGroupCreated")
+
+  // Audit relations — Updated by
+  updatedRoles                 Role[]                 @relation("RoleUpdated")
+  updatedPermissions           Permission[]           @relation("PermissionUpdated")
+  updatedRefreshTokens         RefreshToken[]         @relation("RefreshTokenUpdated")
+  updatedAllergies             Allergy[]              @relation("AllergyUpdated")
+  updatedPatientAllergies      PatientAllergy[]       @relation("PatientAllergyUpdated")
+  updatedDiagnoses             Diagnosis[]            @relation("DiagnosisUpdated")
+  updatedPatients              Patient[]              @relation("PatientUpdated")
+  updatedDoctors               Doctor[]               @relation("DoctorUpdated")
+  updatedQueueEntries          QueueEntry[]           @relation("QueueEntryUpdated")
+  updatedAppointments          Appointment[]          @relation("AppointmentUpdated")
+  updatedMedicines             Medicine[]             @relation("MedicineUpdated")
+  updatedPrescriptions         Prescription[]         @relation("PrescriptionUpdated")
+  updatedPrescriptionItems     PrescriptionItem[]     @relation("PrescriptionItemUpdated")
+  updatedLabOrders             LabOrder[]             @relation("LabOrderUpdated")
+  updatedRadiologyOrders       RadiologyOrder[]       @relation("RadiologyOrderUpdated")
+  updatedProcedureOrders       ProcedureOrder[]       @relation("ProcedureOrderUpdated")
+  updatedBills                 Bill[]                 @relation("BillUpdated")
+  updatedBillItems             BillItem[]             @relation("BillItemUpdated")
+  updatedDispensings           Dispensing[]           @relation("DispensingUpdated")
+  updatedShifts                Shift[]                @relation("ShiftUpdated")
+  updatedEmployeeSchedules     EmployeeSchedule[]     @relation("EmployeeScheduleUpdated")
+  updatedAddresses             Address[]              @relation("AddressUpdated")
+  updatedDocuments             Document[]             @relation("DocumentUpdated")
+  updatedCompanies             Company[]              @relation("CompanyUpdated")
+  updatedPatientAllergyRecords PatientAllergyRecord[] @relation("PatientAllergyRecordUpdated")
+  updatedDiagnosisSystems      DiagnosisSystem[]      @relation("DiagnosisSystemUpdated")
+  updatedPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateUpdated")
+  updatedSpecializations       Specialization[]        @relation("SpecializationUpdated")
+  updatedMedicineGroups        MedicineGroup[]         @relation("MedicineGroupUpdated")
+  updatedUnits                 Unit[]                  @relation("UnitUpdated")
+  updatedDepartments           Department[]            @relation("DepartmentUpdated")
+  updatedDesignations          Designation[]           @relation("DesignationUpdated")
+  updatedFinancialYears        FinancialYear[]         @relation("FinancialYearUpdated")
+  updatedBloodGroups           BloodGroup[]          @relation("BloodGroupUpdated")
+
+  @@index([userableType, userableId])
+}
+
+model Role {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  description     String?
+  isSystem        Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdById     String?
+  updatedById     String?
+  createdBy       User?            @relation("RoleCreated", fields: [createdById], references: [id])
+  updatedBy       User?            @relation("RoleUpdated", fields: [updatedById], references: [id])
+  users           User[]
+  rolePermissions RolePermission[]
+  roleMenus       RoleSidebarMenu[]
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  resource        String
+  action          String // "read" | "create" | "update" | "delete" | "manage"
+  name            String // Display name e.g. "Read Patients"
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdById     String?
+  updatedById     String?
+  createdBy       User?            @relation("PermissionCreated", fields: [createdById], references: [id])
+  updatedBy       User?            @relation("PermissionUpdated", fields: [updatedById], references: [id])
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid())
+  token       String    @unique
+  userId      String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  userAgent   String?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("RefreshTokenCreated", fields: [createdById], references: [id])
+  updatedBy   User?     @relation("RefreshTokenUpdated", fields: [updatedById], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Allergy Catalog ────────────────────────────────────────
+
+enum AllergySeverity {
+  MILD
+  MODERATE
+  SEVERE
+  LIFE_THREATENING
+}
+
+enum AllergyCategory {
+  DRUG
+  FOOD
+  ENVIRONMENTAL
+  OTHER
+}
+
+model Allergy {
+  id          String          @id @default(uuid())
+  name        String          @unique
+  description String?
+  severity    AllergySeverity @default(MODERATE)
+  category    AllergyCategory @default(OTHER)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?           @relation("AllergyCreated", fields: [createdById], references: [id])
+  updatedBy   User?           @relation("AllergyUpdated", fields: [updatedById], references: [id])
+
+  patientAllergies PatientAllergy[]
+}
+
+model PatientAllergy {
+  id               String           @id @default(uuid())
+  patientId        String
+  allergyId        String
+  notes            String?
+  severityOverride AllergySeverity?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  createdById      String?
+  updatedById      String?
+  createdBy        User?            @relation("PatientAllergyCreated", fields: [createdById], references: [id])
+  updatedBy        User?            @relation("PatientAllergyUpdated", fields: [updatedById], references: [id])
+  patient          Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  allergy          Allergy          @relation(fields: [allergyId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, allergyId])
+  @@index([patientId])
+  @@index([allergyId])
+}
+
+// ─── Diagnosis System ───────────────────────────────────────
+
+model DiagnosisSystem {
+  id          String      @id @default(uuid())
+  code        String      @unique
+  name        String
+  version     String?
+  status      String      @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?       @relation("DiagnosisSystemCreated", fields: [createdById], references: [id])
+  updatedBy   User?       @relation("DiagnosisSystemUpdated", fields: [updatedById], references: [id])
+  diagnoses   Diagnosis[]
+
+  @@index([code])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Diagnosis Catalog ──────────────────────────────────────
+
+model Diagnosis {
+  id                String           @id @default(uuid())
+  diagnosisSystemId String?
+  code              String
+  name              String
+  description       String?
+  status            String           @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  createdById       String?
+  updatedById       String?
+  createdBy         User?            @relation("DiagnosisCreated", fields: [createdById], references: [id])
+  updatedBy         User?            @relation("DiagnosisUpdated", fields: [updatedById], references: [id])
+  diagnosisSystem   DiagnosisSystem? @relation(fields: [diagnosisSystemId], references: [id])
+
+  @@index([diagnosisSystemId])
+  @@index([code])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Patient Allergy Record ─────────────────────────────────
+
+model PatientAllergyRecord {
+  id          String   @id @default(uuid())
+  patientId   String
+  allergen    String
+  allergyType String? // DRUG | FOOD | ENVIRONMENTAL | OTHER
+  reaction    String?
+  severity    String? // MILD | MODERATE | SEVERE | LIFE_THREATENING
+  status      String   @default("ACTIVE") // ACTIVE | INACTIVE | RESOLVED
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("PatientAllergyRecordCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("PatientAllergyRecordUpdated", fields: [updatedById], references: [id])
+  patient     Patient  @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@index([patientId, status])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Patient Vitals (immutable once created) ────────────────
+
+model PatientVitals {
+  id              String       @id @default(uuid())
+  patientId       String
+  appointmentId   String?
+  heightCm        Float?
+  weightKg        Float?
+  bmi             Float?
+  temperatureC    Float?
+  pulseBpm        Int?
+  systolicBp      Int?
+  diastolicBp     Int?
+  spo2Percent     Float?
+  respiratoryRate Int?
+  medicalStatus   String?
+  recordedAt      DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  createdById     String?
+  createdBy       User?        @relation("PatientVitalsCreated", fields: [createdById], references: [id])
+  patient         Patient      @relation(fields: [patientId], references: [id])
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([patientId])
+  @@index([patientId, createdAt])
+  @@index([appointmentId])
+  @@index([createdById])
+}
+
+// ─── Doctor Specialization Catalog ──────────────────────────
+
+model Specialization {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("SpecializationCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("SpecializationUpdated", fields: [updatedById], references: [id])
+  doctorSpecializations DoctorSpecialization[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Department ──────────────────────────────────────────────
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("DepartmentCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("DepartmentUpdated", fields: [updatedById], references: [id])
+  doctorDepartments DoctorDepartment[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Designation ─────────────────────────────────────────────
+
+model Designation {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("DesignationCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("DesignationUpdated", fields: [updatedById], references: [id])
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Financial Year ──────────────────────────────────────────
+
+model FinancialYear {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("FinancialYearCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("FinancialYearUpdated", fields: [updatedById], references: [id])
+
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([isCurrent])
+  @@index([companyId])
+}
+
+// ─── Doctor–Department join ──────────────────────────────────
+
+model DoctorDepartment {
+  id           String   @id @default(uuid())
+  doctorId     String
+  departmentId String
+  createdAt    DateTime @default(now())
+  createdById  String?
+  createdBy    User?    @relation("DoctorDepartmentCreated", fields: [createdById], references: [id])
+  doctor       Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  @@unique([doctorId, departmentId])
+  @@index([doctorId])
+  @@index([departmentId])
+}
+
+// ─── Doctor–Specialization join ──────────────────────────────
+
+model DoctorSpecialization {
+  id                String   @id @default(uuid())
+  doctorId          String
+  specializationId  String
+  createdAt         DateTime @default(now())
+  createdById       String?
+  createdBy         User?    @relation("DoctorSpecializationCreated", fields: [createdById], references: [id])
+  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialization    Specialization @relation(fields: [specializationId], references: [id])
+
+  @@unique([doctorId, specializationId])
+  @@index([doctorId])
+  @@index([specializationId])
+}
+
+// ─── Medicine Group ─────────────────────────────────────────
+
+model MedicineGroup {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("MedicineGroupCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("MedicineGroupUpdated", fields: [updatedById], references: [id])
+  medicines   Medicine[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Unit ────────────────────────────────────────────────────
+
+model Unit {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  symbol      String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("UnitCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("UnitUpdated", fields: [updatedById], references: [id])
+  medicines   Medicine[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model BloodGroup {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("BloodGroupCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("BloodGroupUpdated", fields: [updatedById], references: [id])
+  patients    Patient[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Clinical Models ────────────────────────────────────────
+
+model Patient {
+  id               String    @id @default(uuid())
+  patientCode      String    @unique
+  firstName        String
+  middleName       String?
+  lastName         String
+  contactNo        String
+  altContactNo     String?
+  email            String?
+  dateOfBirth      DateTime?
+  gender           String?
+  bloodGroup       String?
+  bloodGroupId     String?
+  bloodGroupRef    BloodGroup? @relation(fields: [bloodGroupId], references: [id])
+  address          String?
+  emergencyContact String?
+  allergies        String[]
+  isFollowUp       Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?
+  updatedById      String?
+  createdBy        User?     @relation("PatientCreated", fields: [createdById], references: [id])
+  updatedBy        User?     @relation("PatientUpdated", fields: [updatedById], references: [id])
+
+  appointments     Appointment[]
+  queueEntries     QueueEntry[]
+  prescriptions    Prescription[]
+  labOrders        LabOrder[]
+  radiologyOrders  RadiologyOrder[]
+  procedureOrders  ProcedureOrder[]
+  bills            Bill[]
+  patientAllergies PatientAllergy[]
+  allergyRecords   PatientAllergyRecord[]
+  vitals           PatientVitals[]
+
+  @@index([patientCode])
+  @@index([firstName])
+  @@index([lastName])
+}
+
+model Doctor {
+  id                         String   @id @default(uuid())
+  qualification              String?
+  specialization             String?
+  medicalRegistrationNo      String   @unique
+  medicalCouncil             String?
+  registrationYear           Int?
+  yearsOfExperience          Int?
+  consultationFee            Int      @default(0)
+  consultationMode           String   @default("OFFLINE") // OFFLINE | ONLINE | BOTH
+  signature                  String?
+  registrationCertificateUrl String?
+  degreeCertificateUrl       String?
+  governmentIdUrl            String?
+  isActive                   Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  createdById                String?
+  updatedById                String?
+  createdBy                  User?    @relation("DoctorCreated", fields: [createdById], references: [id])
+  updatedBy                  User?    @relation("DoctorUpdated", fields: [updatedById], references: [id])
+
+  appointments    Appointment[]
+  queueEntries    QueueEntry[]
+  prescriptions   Prescription[]
+  labOrders       LabOrder[]
+  radiologyOrders RadiologyOrder[]
+  procedureOrders ProcedureOrder[]
+
+  assignedPrescriptionTemplate PrescriptionTemplate?
+  doctorDepartments    DoctorDepartment[]
+  doctorSpecializations DoctorSpecialization[]
+
+  @@index([specialization])
+}
+
+model QueueEntry {
+  id            String       @id @default(uuid())
+  tokenNumber   String
+  patientId     String
+  doctorId      String
+  status        String       @default("WAITING") // WAITING | SEND_IN | IN_PROGRESS | COMPLETED | SKIPPED | NO_SHOW
+  queueDate     DateTime     @default(now())
+  checkedInAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  createdById   String?
+  updatedById   String?
+  createdBy     User?        @relation("QueueEntryCreated", fields: [createdById], references: [id])
+  updatedBy     User?        @relation("QueueEntryUpdated", fields: [updatedById], references: [id])
+  patient       Patient      @relation(fields: [patientId], references: [id])
+  doctor        Doctor       @relation(fields: [doctorId], references: [id])
+  appointmentId String?      @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@unique([doctorId, queueDate, tokenNumber])
+  @@index([doctorId, queueDate])
+  @@index([patientId])
+}
+
+model Appointment {
+  id                 String      @id @default(uuid())
+  patientId          String
+  doctorId           String
+  date               DateTime
+  type               String      @default("CONSULTATION")
+  status             String      @default("SCHEDULED")
+  tokenNumber        String?
+  amount             Int         @default(0)
+  registrationFee    Int         @default(0)
+  reasonForVisit     String?
+  notes              String?
+  cancellationReason String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  createdById        String?
+  updatedById        String?
+  createdBy          User?       @relation("AppointmentCreated", fields: [createdById], references: [id])
+  updatedBy          User?       @relation("AppointmentUpdated", fields: [updatedById], references: [id])
+  patient            Patient     @relation(fields: [patientId], references: [id])
+  doctor             Doctor      @relation(fields: [doctorId], references: [id])
+  bill               Bill?
+  queueEntry         QueueEntry?
+  patientVitals      PatientVitals[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([date])
+}
+
+model Medicine {
+  id           String        @id @default(uuid())
+  name         String
+  alias        String?
+  genericName  String?
+  brandName    String?
+  category     String?
+  strength     String?
+  unit         String        @default("tablet")
+  price        Int           @default(0)
+  groupId      String?
+  unitId       String?
+  openingStock Decimal?      @db.Decimal(12, 2) @default(0)
+  currentStock Decimal?      @db.Decimal(12, 2) @default(0)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  createdById  String?
+  updatedById  String?
+  createdBy    User?         @relation("MedicineCreated", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("MedicineUpdated", fields: [updatedById], references: [id])
+  group        MedicineGroup? @relation(fields: [groupId], references: [id])
+  unitMaster   Unit?          @relation(fields: [unitId], references: [id])
+
+  @@index([name])
+  @@index([genericName])
+  @@index([alias])
+  @@index([groupId])
+  @@index([unitId])
+}
+
+model Prescription {
+  id          String             @id @default(uuid())
+  patientId   String
+  doctorId    String
+  diagnosis   String?
+  notes       String?
+  status      String             @default("ACTIVE")
+  version     Int                @default(1)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?              @relation("PrescriptionCreated", fields: [createdById], references: [id])
+  updatedBy   User?              @relation("PrescriptionUpdated", fields: [updatedById], references: [id])
+  patient     Patient            @relation(fields: [patientId], references: [id])
+  doctor      Doctor             @relation(fields: [doctorId], references: [id])
+  items       PrescriptionItem[]
+  dispensings Dispensing[]
+  history     PrescriptionHistory[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model PrescriptionHistory {
+  id             String   @id @default(uuid())
+  prescriptionId String
+  version        Int
+  diagnosis      String?
+  notes          String?
+  status         String
+  items          Json     // Snapshot of PrescriptionItem[] at this version
+  changeType     String   @default("UPDATE") // CREATE | UPDATE
+  changeReason   String?
+  createdAt      DateTime @default(now())
+  createdById    String?
+  createdBy      User?    @relation("PrescriptionHistoryCreated", fields: [createdById], references: [id])
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+  @@index([prescriptionId, version])
+  @@index([createdById])
+}
+
+model PrescriptionItem {
+  id             String       @id @default(uuid())
+  prescriptionId String
+  medicineId     String
+  medicineName   String
+  dosage         String
+  duration       String?
+  instructions   String?
+  quantity       Int
+  refills        Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdById    String?
+  updatedById    String?
+  createdBy      User?        @relation("PrescriptionItemCreated", fields: [createdById], references: [id])
+  updatedBy      User?        @relation("PrescriptionItemUpdated", fields: [updatedById], references: [id])
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model LabOrder {
+  id          String    @id @default(uuid())
+  patientId   String
+  doctorId    String
+  testName    String
+  category    String?
+  notes       String?
+  status      String    @default("ORDERED")
+  result      String?
+  resultDate  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("LabOrderCreated", fields: [createdById], references: [id])
+  updatedBy   User?     @relation("LabOrderUpdated", fields: [updatedById], references: [id])
+  patient     Patient   @relation(fields: [patientId], references: [id])
+  doctor      Doctor    @relation(fields: [doctorId], references: [id])
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model RadiologyOrder {
+  id          String    @id @default(uuid())
+  patientId   String
+  doctorId    String
+  studyName   String
+  category    String?
+  notes       String?
+  status      String    @default("ORDERED")
+  result      String?
+  resultDate  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("RadiologyOrderCreated", fields: [createdById], references: [id])
+  updatedBy   User?     @relation("RadiologyOrderUpdated", fields: [updatedById], references: [id])
+  patient     Patient   @relation(fields: [patientId], references: [id])
+  doctor      Doctor    @relation(fields: [doctorId], references: [id])
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model ProcedureOrder {
+  id            String    @id @default(uuid())
+  patientId     String
+  doctorId      String
+  procedureName String
+  category      String?
+  notes         String?
+  status        String    @default("ORDERED")
+  result        String?
+  resultDate    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?
+  updatedById   String?
+  createdBy     User?     @relation("ProcedureOrderCreated", fields: [createdById], references: [id])
+  updatedBy     User?     @relation("ProcedureOrderUpdated", fields: [updatedById], references: [id])
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  doctor        Doctor    @relation(fields: [doctorId], references: [id])
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Bill {
+  id            String       @id @default(uuid())
+  patientId     String?
+  appointmentId String?      @unique
+  invoiceNo     String       @unique
+  subtotal      Int          @default(0)
+  discount      Int          @default(0)
+  tax           Int          @default(0)
+  total         Int          @default(0)
+  paymentMethod String       @default("CASH")
+  status        String       @default("PENDING")
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  createdById   String?
+  updatedById   String?
+  createdBy     User?        @relation("BillCreated", fields: [createdById], references: [id])
+  updatedBy     User?        @relation("BillUpdated", fields: [updatedById], references: [id])
+  patient       Patient?     @relation(fields: [patientId], references: [id])
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  items         BillItem[]
+
+  @@index([patientId])
+  @@index([invoiceNo])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model BillItem {
+  id          String   @id @default(uuid())
+  billId      String
+  itemType    String
+  itemId      String?
+  itemName    String
+  quantity    Int      @default(1)
+  unitPrice   Int
+  amount      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("BillItemCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("BillItemUpdated", fields: [updatedById], references: [id])
+  bill        Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([billId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Dispensing {
+  id             String       @id @default(uuid())
+  prescriptionId String
+  medicineId     String
+  medicineName   String
+  quantity       Int
+  batchNo        String?
+  expiryDate     DateTime?
+  notes          String?
+  dispensedAt    DateTime     @default(now())
+  dispensedBy    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdById    String?
+  updatedById    String?
+  createdBy      User?        @relation("DispensingCreated", fields: [createdById], references: [id])
+  updatedBy      User?        @relation("DispensingUpdated", fields: [updatedById], references: [id])
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+
+  @@index([prescriptionId])
+  @@index([medicineId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Shift {
+  id             String             @id @default(uuid())
+  name           String
+  code           String             @unique
+  startTime      String
+  endTime        String
+  breakStartTime String?
+  breakEndTime   String?
+  isOvernight    Boolean            @default(false)
+  description    String?
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  createdById    String?
+  updatedById    String?
+  createdBy      User?              @relation("ShiftCreated", fields: [createdById], references: [id])
+  updatedBy      User?              @relation("ShiftUpdated", fields: [updatedById], references: [id])
+  schedules      EmployeeSchedule[]
+}
+
+model EmployeeSchedule {
+  id                      String   @id @default(uuid())
+  dayOfWeek               Int
+  startTime               String
+  endTime                 String
+  shiftId                 String?
+  employeeSchedulableType String
+  employeeSchedulableId   String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  createdById             String?
+  updatedById             String?
+  createdBy               User?    @relation("EmployeeScheduleCreated", fields: [createdById], references: [id])
+  updatedBy               User?    @relation("EmployeeScheduleUpdated", fields: [updatedById], references: [id])
+  shift                   Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+
+  @@index([employeeSchedulableType, employeeSchedulableId, dayOfWeek], map: "emp_sched_type_id_dow")
+  @@index([employeeSchedulableType, employeeSchedulableId], map: "emp_sched_type_id")
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Address {
+  id              String   @id @default(uuid())
+  addressType     String
+  addressLine1    String
+  addressLine2    String?
+  landmark        String?
+  city            String?
+  district        String?
+  state           String?
+  country         String   @default("India")
+  postalCode      String?
+  latitude        Float?
+  longitude       Float?
+  isPrimary       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  addressableType String
+  addressableId   String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String?
+  updatedById     String?
+  createdBy       User?    @relation("AddressCreated", fields: [createdById], references: [id])
+  updatedBy       User?    @relation("AddressUpdated", fields: [updatedById], references: [id])
+
+  @@index([addressableType, addressableId])
+  @@index([addressableType, addressableId, isPrimary])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Document {
+  id               String   @id @default(uuid())
+  documentType     String
+  fileName         String
+  originalName     String
+  mimeType         String
+  fileSize         Int
+  filePath         String
+  caption          String?
+  isPrimary        Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  documentableType String
+  documentableId   String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdById      String?
+  updatedById      String?
+  createdBy        User?    @relation("DocumentCreated", fields: [createdById], references: [id])
+  updatedBy        User?    @relation("DocumentUpdated", fields: [updatedById], references: [id])
+
+  @@index([documentableType, documentableId])
+  @@index([documentableType, documentableId, isPrimary])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Company {
+  id                  String          @id @default(uuid())
+  name                String
+  address             String?
+  phone               String?
+  email               String?
+  website             String?
+  registrationNumber  String?
+  registrationFee     Int             @default(100)
+  discountEnabled     Boolean         @default(true)
+  maxDiscountPercent  Int             @default(50)
+  defaultDiscountType String          @default("percent")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  createdById         String?
+  updatedById         String?
+  createdBy           User?           @relation("CompanyCreated", fields: [createdById], references: [id])
+  updatedBy           User?           @relation("CompanyUpdated", fields: [updatedById], references: [id])
+  financialYears      FinancialYear[]
+}
+
+model PrescriptionTemplate {
+  id          String  @id @default(uuid())
+  name        String
+  type        String  @default("prescription") // prescription | diagnosis | test
+  description String?
+  isDefault   Boolean @default(false)
+
+  // Doctor assignment (1:1, optional) — prescriptions print on this template
+  // for this doctor, falling back to the global default when unassigned.
+  doctorId String?  @unique
+  doctor   Doctor?  @relation(fields: [doctorId], references: [id])
+
+  // Header / branding
+  logoUrl              String?
+  clinicName           String?
+  doctorName           String?
+  doctorSpecialization String?
+  doctorQualification  String?
+  doctorRegNo          String?
+  clinicAddress        String?
+  clinicPhone          String?
+  clinicEmail          String?
+  clinicWebsite        String?
+
+  // Rx layout config (JSON)
+  layout Json @default("{}")
+  // layout shape:
+  // {
+  //   showRxSymbol: boolean,
+  //   showPatientFields: boolean,   // Name, Age, Sex, Adv
+  //   showMedicineTable: boolean,
+  //   medicineColumns: string[],     // ["Medicine", "Dosage", "Duration", "Instructions"]
+  //   showRecommendations: boolean,
+  //   recommendations: string[],
+  //   showFooter: boolean,
+  //   footerText: string,
+  //   showQRCode: boolean,
+  //   primaryColor: string,
+  //   showBorder: boolean
+  // }
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("PrescriptionTemplateCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("PrescriptionTemplateUpdated", fields: [updatedById], references: [id])
+
+  @@index([isDefault])
+}
+
+/// Developer change-plan annotations captured in the Database Schema module.
+model SchemaFieldChange {
+  id          String   @id @default(uuid())
+  modelName   String
+  fieldName   String
+  /// REMARK | REMOVE | EDIT | ADD
+  kind        String
+  remark      String?
+  editedName  String?
+  editedType  String?
+  fieldType   String?
+  /// For ADD rows of kind=ADD that represent a foreign key: target Prisma model.
+  targetModel String?
+  isRequired  Boolean  @default(true)
+  isList      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([modelName, fieldName, kind])
+  @@index([modelName])
+}
+
+/// Developer-created modules registered through the Database/Developer tooling.
+model CustomModule {
+  id         String   @id
+  definition Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Configurable sidebar menu items — controls what each role can see in the nav.
+model SidebarMenu {
+  id          String   @id @default(uuid())
+  label       String
+  path        String
+  icon        String?
+  group       String   // "Clinic", "Reports", "Pharmacy & Billing", "Organisation", "Access Control", "Developer", "Account"
+  sortOrder   Int      @default(0)
+  isHidden    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  roleMenus   RoleSidebarMenu[]
+
+  @@unique([path])
+}
+
+model RoleSidebarMenu {
+  roleId        String
+  sidebarMenuId String
+  role          Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  sidebarMenu   SidebarMenu @relation(fields: [sidebarMenuId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, sidebarMenuId])
+}

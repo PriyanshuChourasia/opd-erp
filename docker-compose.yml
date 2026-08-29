@@ -1,0 +1,48 @@
+services:
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: opd_dev_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nest_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+      POSTGRES_DB: ${POSTGRES_DB:-opd_db}
+    # Host port and container name are env-overridable (COMPOSE_PROJECT_NAME,
+    # POSTGRES_HOST_PORT) so a second deployment of this same repo on the same
+    # host can run side by side — set both differently in that deployment's .env.
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nest_user} -d ${POSTGRES_DB:-opd_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-opd}-api
+    container_name: opddevapi
+    restart: unless-stopped
+    ports:
+      - "4003:4003"
+    environment:
+      NODE_ENV: production
+      PORT: "4003"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nest_user}:${POSTGRES_PASSWORD:-changeme_in_production}@postgres_db:5432/${POSTGRES_DB:-opd_db}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production_access}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_refresh}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-7d}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+    volumes:
+      - uploads:/app/apps/api/uploads
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

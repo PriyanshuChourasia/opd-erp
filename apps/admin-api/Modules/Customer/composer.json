@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/customer",
+    "description": "Customer module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Customer\\": "",
+            "Modules\\Customer\\Database\\Factories\\": "database/factories/",
+            "Modules\\Customer\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Customer\\Tests\\": "tests/"
+        }
+    }
+}

@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/userrole",
+    "description": "UserRole module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\UserRole\\": "",
+            "Modules\\UserRole\\Database\\Factories\\": "database/factories/",
+            "Modules\\UserRole\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\UserRole\\Tests\\": "tests/"
+        }
+    }
+}

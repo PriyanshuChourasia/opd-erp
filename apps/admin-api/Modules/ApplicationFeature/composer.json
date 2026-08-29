@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/applicationfeature",
+    "description": "ApplicationFeature module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\ApplicationFeature\\": "",
+            "Modules\\ApplicationFeature\\Database\\Factories\\": "database/factories/",
+            "Modules\\ApplicationFeature\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\ApplicationFeature\\Tests\\": "tests/"
+        }
+    }
+}

@@ -1,0 +1,8 @@
+{
+    "name": "opdbackend/role",
+    "autoload": {
+        "psr-4": {
+            "Modules\\Role\\": ""
+        }
+    }
+}

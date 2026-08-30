@@ -30,6 +30,7 @@ export class ShiftsService
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'code', 'description']);
     const where = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.isActive !== undefined ? { isActive: query.isActive === 'true' } : {}),
     };
     return paginate(
@@ -46,7 +47,7 @@ export class ShiftsService
   }
 
   async findOne(id: string) {
-    const shift = await this.prisma.shift.findUnique({ where: { id } });
+    const shift = await this.prisma.shift.findUnique({ where: { id, deletedAt: null } });
     if (!shift) throw new NotFoundException(`Shift ${id} not found`);
     return shift;
   }
@@ -56,8 +57,11 @@ export class ShiftsService
     return this.prisma.shift.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.shift.delete({ where: { id } });
+    return this.prisma.shift.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

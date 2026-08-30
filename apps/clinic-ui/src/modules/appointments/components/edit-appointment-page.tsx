@@ -317,8 +317,10 @@ export function EditAppointmentPage() {
       });
       await checkoutAppointment(appointmentId, {
         paymentMethod: payload.paymentMethod,
+        ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
         discount: payload.discount > 0 ? payload.discount : undefined,
         tax: payload.tax > 0 ? payload.tax : undefined,
+        paidAmount: payload.paidAmount,
         notes: payload.notes || undefined,
       });
     },

@@ -25,6 +25,7 @@ export class UnitsService
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'symbol', 'description']);
     const where = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.isActive !== undefined ? { isActive: query.isActive === 'true' } : {}),
     };
     return paginate(
@@ -41,7 +42,7 @@ export class UnitsService
   }
 
   async findOne(id: string) {
-    const unit = await this.prisma.unit.findUnique({ where: { id } });
+    const unit = await this.prisma.unit.findUnique({ where: { id, deletedAt: null } });
     if (!unit) throw new NotFoundException(`Unit ${id} not found`);
     return unit;
   }
@@ -60,7 +61,7 @@ export class UnitsService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
     const refCount = await this.prisma.medicine.count({ where: { unitId: id } });
     if (refCount > 0) {
@@ -68,6 +69,9 @@ export class UnitsService
         `Cannot delete unit: ${refCount} medicine(s) reference it. Reassign or remove them first.`,
       );
     }
-    return this.prisma.unit.delete({ where: { id } });
+    return this.prisma.unit.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

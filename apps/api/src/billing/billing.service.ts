@@ -95,7 +95,7 @@ export class BillingService
   }
 
   async findAll(query: FindBillsQueryDto): Promise<PaginatedResult<Bill>> {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (query.patientId) where.patientId = query.patientId;
     const result = await paginate(
       () => this.prisma.bill.count({ where }),
@@ -114,7 +114,7 @@ export class BillingService
 
   async findOne(id: string) {
     const bill = await this.prisma.bill.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { items: true, patient: true, appointment: { select: { id: true, doctorId: true, type: true, date: true } } },
     });
     if (!bill) throw new NotFoundException(`Bill ${id} not found`);
@@ -130,8 +130,11 @@ export class BillingService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.bill.delete({ where: { id } });
+    return this.prisma.bill.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

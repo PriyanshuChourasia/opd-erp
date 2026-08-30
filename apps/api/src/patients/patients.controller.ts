@@ -49,8 +49,8 @@ export class PatientsController {
 
   @Delete(':id')
   @Permissions('delete:patients')
-  remove(@Param('id') id: string) {
-    return this.patientsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.patientsService.remove(id, req.user.id);
   }
 
   @Patch(':id/restore')

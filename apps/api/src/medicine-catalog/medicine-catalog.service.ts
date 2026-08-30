@@ -41,6 +41,7 @@ export class MedicineCatalogService
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'alias', 'genericName', 'brandName']);
     const where: Record<string, unknown> = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.groupId ? { groupId: query.groupId } : {}),
     };
     return paginate(
@@ -58,7 +59,7 @@ export class MedicineCatalogService
   }
 
   async findOne(id: string) {
-    const medicine = await this.prisma.medicine.findUnique({ where: { id }, include: MEDICINE_INCLUDE });
+    const medicine = await this.prisma.medicine.findUnique({ where: { id, deletedAt: null }, include: MEDICINE_INCLUDE });
     if (!medicine) throw new NotFoundException(`Medicine ${id} not found`);
     return medicine;
   }
@@ -72,8 +73,11 @@ export class MedicineCatalogService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.medicine.delete({ where: { id } });
+    return this.prisma.medicine.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

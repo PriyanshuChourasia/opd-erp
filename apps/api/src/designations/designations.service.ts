@@ -25,6 +25,7 @@ export class DesignationsService
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'description']);
     const where = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.isActive !== undefined ? { isActive: query.isActive === 'true' } : {}),
     };
     return paginate(
@@ -36,7 +37,7 @@ export class DesignationsService
   }
 
   async findOne(id: string) {
-    const desig = await this.prisma.designation.findUnique({ where: { id } });
+    const desig = await this.prisma.designation.findUnique({ where: { id, deletedAt: null } });
     if (!desig) throw new NotFoundException(`Designation ${id} not found`);
     return desig;
   }
@@ -50,8 +51,11 @@ export class DesignationsService
     return this.prisma.designation.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.designation.delete({ where: { id } });
+    return this.prisma.designation.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

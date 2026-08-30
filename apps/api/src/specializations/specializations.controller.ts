@@ -31,7 +31,7 @@ export class SpecializationsController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.specializationsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.specializationsService.remove(id, req.user.id);
   }
 }

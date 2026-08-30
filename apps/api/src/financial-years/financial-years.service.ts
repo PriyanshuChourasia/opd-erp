@@ -65,6 +65,7 @@ export class FinancialYearsService
 
     const where: Record<string, unknown> = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.isActive !== undefined ? { isActive: query.isActive === 'true' } : {}),
       ...(query.isCurrent !== undefined ? { isCurrent: query.isCurrent === 'true' } : {}),
       ...(companyIdFilter !== undefined ? { companyId: companyIdFilter } : {}),
@@ -79,7 +80,7 @@ export class FinancialYearsService
   }
 
   async findOne(id: string) {
-    const fy = await this.prisma.financialYear.findUnique({ where: { id } });
+    const fy = await this.prisma.financialYear.findUnique({ where: { id, deletedAt: null } });
     if (!fy) throw new NotFoundException(`Financial year ${id} not found`);
     return fy;
   }
@@ -99,8 +100,11 @@ export class FinancialYearsService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.financialYear.delete({ where: { id } });
+    return this.prisma.financialYear.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

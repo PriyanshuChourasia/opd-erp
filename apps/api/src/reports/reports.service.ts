@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Date helpers (moved here from dashboard.service.ts) ────
@@ -479,5 +479,239 @@ export class ReportsService {
       .sort((a, b) => b.count - a.count);
 
     return { data: { byType, byStatus, cancellationReasons } };
+  }
+
+  // ─── 10. Daily OPD Summary ─────────────────────────────────
+
+  async getDailyOpdSummary(from?: string, to?: string, doctorId?: string) {
+    // ─── Validate date parameters ────────────────────────────
+    const start = from ? startOfDay(new Date(from)) : startOfDay(new Date());
+    const end = to ? startOfDay(new Date(to)) : startOfDay(addDays(new Date(), 1));
+
+    // Validate date format
+    if (from && isNaN(start.getTime())) {
+      throw new BadRequestException('Invalid date format for "from" parameter. Use YYYY-MM-DD format.');
+    }
+    if (to && isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid date format for "to" parameter. Use YYYY-MM-DD format.');
+    }
+
+    // Validate date range
+    if (start >= end) {
+      throw new BadRequestException('Invalid date range: "from" date must be before "to" date.');
+    }
+
+    // Validate date range limit (max 1 year)
+    const maxRangeMs = 365 * 24 * 60 * 60 * 1000;
+    if (end.getTime() - start.getTime() > maxRangeMs) {
+      throw new BadRequestException('Date range cannot exceed 1 year (365 days).');
+    }
+
+    // Validate doctorId if provided
+    if (doctorId) {
+      const doctor = await this.prisma.doctor.findUnique({ where: { id: doctorId } });
+      if (!doctor) {
+        throw new NotFoundException(`Doctor with ID "${doctorId}" not found.`);
+      }
+    }
+
+    // Build appointment where clause
+    const appointmentWhere: Record<string, unknown> = {
+      date: { gte: start, lt: end },
+      deletedAt: null,
+    };
+    if (doctorId) appointmentWhere.doctorId = doctorId;
+
+    // Build bill where clause (bills are created on the same day as appointments)
+    const billWhere: Record<string, unknown> = {
+      createdAt: { gte: start, lt: end },
+      status: { notIn: ['CANCELLED', 'REFUNDED'] },
+      deletedAt: null,
+    };
+    if (doctorId) {
+      billWhere.appointment = { doctorId };
+    }
+
+    // Execute all queries in parallel to avoid N+1
+    const [
+      appointments,
+      bills,
+      patientCounts,
+    ] = await Promise.all([
+      // Get all appointments for the period
+      this.prisma.appointment.findMany({
+        where: appointmentWhere,
+        select: {
+          id: true,
+          patientId: true,
+          doctorId: true,
+          type: true,
+          status: true,
+          amount: true,
+          registrationFee: true,
+          createdAt: true,
+          patient: {
+            select: {
+              id: true,
+              isFollowUp: true,
+              createdAt: true,
+            },
+          },
+        },
+      }),
+
+      // Get all bills for the period
+      this.prisma.bill.findMany({
+        where: billWhere,
+        select: {
+          id: true,
+          total: true,
+          paidAmount: true,
+          status: true,
+          appointmentId: true,
+        },
+      }),
+
+      // Get patient registration counts for new vs returning
+      this.prisma.patient.groupBy({
+        by: ['isFollowUp'],
+        where: {
+          createdAt: { gte: start, lt: end },
+          deletedAt: null,
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+    // ─── Calculate appointment metrics ──────────────────────
+    const totalAppointments = appointments.length;
+    const completedAppointments = appointments.filter(a => a.status === 'COMPLETED').length;
+    const pendingAppointments = appointments.filter(a =>
+      ['SCHEDULED', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'].includes(a.status)
+    ).length;
+    const cancelledAppointments = appointments.filter(a => a.status === 'CANCELLED').length;
+    const noShowAppointments = appointments.filter(a => a.status === 'NO_SHOW').length;
+    const walkInAppointments = appointments.filter(a => a.type === 'WALK_IN').length;
+
+    // ─── Calculate patient metrics ──────────────────────────
+    const newPatients = patientCounts.find(p => p.isFollowUp === false)?._count._all ?? 0;
+    const returningPatients = patientCounts.find(p => p.isFollowUp === true)?._count._all ?? 0;
+
+    // ─── Calculate revenue metrics ──────────────────────────
+    const totalConsultationAmount = appointments.reduce((sum, a) => sum + a.amount, 0);
+    const totalRegistrationAmount = appointments.reduce((sum, a) => sum + a.registrationFee, 0);
+    const totalAmountCollected = bills.reduce((sum, b) => sum + b.paidAmount, 0);
+    const pendingAmount = bills
+      .filter(b => b.status === 'PENDING' || b.status === 'PARTIAL')
+      .reduce((sum, b) => sum + (b.total - b.paidAmount), 0);
+    const outstandingInvoices = bills.filter(b => b.status === 'PENDING' || b.status === 'PARTIAL').length;
+
+    // ─── Calculate rates ────────────────────────────────────
+    const completionRate = totalAppointments > 0
+      ? +(completedAppointments / totalAppointments).toFixed(4)
+      : 0;
+    const cancellationRate = totalAppointments > 0
+      ? +(cancelledAppointments / totalAppointments).toFixed(4)
+      : 0;
+    const noShowRate = totalAppointments > 0
+      ? +(noShowAppointments / totalAppointments).toFixed(4)
+      : 0;
+
+    // ─── Build doctor breakdown ─────────────────────────────
+    const doctorMap = new Map<string, {
+      doctorId: string;
+      totalAppointments: number;
+      completed: number;
+      revenue: number;
+    }>();
+
+    for (const appt of appointments) {
+      const existing = doctorMap.get(appt.doctorId);
+      if (existing) {
+        existing.totalAppointments++;
+        if (appt.status === 'COMPLETED') existing.completed++;
+        existing.revenue += appt.amount;
+      } else {
+        doctorMap.set(appt.doctorId, {
+          doctorId: appt.doctorId,
+          totalAppointments: 1,
+          completed: appt.status === 'COMPLETED' ? 1 : 0,
+          revenue: appt.amount,
+        });
+      }
+    }
+
+    const byDoctor = Array.from(doctorMap.values()).sort((a, b) => b.revenue - a.revenue);
+
+    // ─── Build type breakdown ───────────────────────────────
+    const typeMap = new Map<string, number>();
+    for (const appt of appointments) {
+      typeMap.set(appt.type, (typeMap.get(appt.type) ?? 0) + 1);
+    }
+    const byType = Array.from(typeMap.entries())
+      .map(([type, count]) => ({
+        type,
+        count,
+        percentage: totalAppointments > 0 ? +(count / totalAppointments * 100).toFixed(1) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // ─── Build status breakdown ─────────────────────────────
+    const statusMap = new Map<string, number>();
+    for (const appt of appointments) {
+      statusMap.set(appt.status, (statusMap.get(appt.status) ?? 0) + 1);
+    }
+    const byStatus = Array.from(statusMap.entries())
+      .map(([status, count]) => ({
+        status,
+        count,
+        percentage: totalAppointments > 0 ? +(count / totalAppointments * 100).toFixed(1) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // ─── Build hourly distribution ──────────────────────────
+    const hourlyMap = new Map<number, number>();
+    for (let h = 0; h < 24; h++) hourlyMap.set(h, 0);
+    for (const appt of appointments) {
+      const hour = appt.createdAt.getHours();
+      hourlyMap.set(hour, (hourlyMap.get(hour) ?? 0) + 1);
+    }
+    const byHour = Array.from(hourlyMap.entries())
+      .map(([hour, count]) => ({ hour, count }))
+      .filter(h => h.count > 0);
+
+    return {
+      success: true,
+      data: {
+        summary: {
+          totalAppointments,
+          completedAppointments,
+          pendingAppointments,
+          cancelledAppointments,
+          noShowAppointments,
+          walkInAppointments,
+          newPatients,
+          returningPatients,
+          totalConsultationAmount,
+          totalRegistrationAmount,
+          totalAmountCollected,
+          pendingAmount,
+          outstandingInvoices,
+          completionRate,
+          cancellationRate,
+          noShowRate,
+        },
+        byDoctor,
+        byType,
+        byStatus,
+        byHour,
+      },
+      meta: {
+        from: start.toISOString().slice(0, 10),
+        to: end.toISOString().slice(0, 10),
+        generatedAt: new Date().toISOString(),
+        filters: { doctorId },
+      },
+    };
   }
 }

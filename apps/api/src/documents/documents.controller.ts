@@ -160,7 +160,7 @@ export class DocumentsController {
 
   @Delete(':id')
   @Permissions('delete:documents')
-  remove(@Param('id') id: string) {
-    return this.documentsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.documentsService.remove(id, req.user.id);
   }
 }

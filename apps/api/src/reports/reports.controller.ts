@@ -68,4 +68,10 @@ export class ReportsController {
   getAppointmentMix(@Query() query: ReportDateRangeDto) {
     return this.service.getAppointmentMix(query.from, query.to);
   }
+
+  // ─── 10. Daily OPD Summary ───
+  @Get('daily-opd-summary')
+  getDailyOpdSummary(@Query() query: ReportDateRangeDto) {
+    return this.service.getDailyOpdSummary(query.from, query.to, query.doctorId);
+  }
 }

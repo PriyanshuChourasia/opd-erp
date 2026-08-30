@@ -27,6 +27,7 @@ export class MedicineGroupsService
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'description']);
     const where = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.isActive !== undefined ? { isActive: query.isActive === 'true' } : {}),
     };
     return paginate(
@@ -43,7 +44,7 @@ export class MedicineGroupsService
   }
 
   async findOne(id: string) {
-    const group = await this.prisma.medicineGroup.findUnique({ where: { id } });
+    const group = await this.prisma.medicineGroup.findUnique({ where: { id, deletedAt: null } });
     if (!group) throw new NotFoundException(`Medicine group ${id} not found`);
     return group;
   }
@@ -62,7 +63,7 @@ export class MedicineGroupsService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
     const refCount = await this.prisma.medicine.count({ where: { groupId: id } });
     if (refCount > 0) {
@@ -70,6 +71,9 @@ export class MedicineGroupsService
         `Cannot delete medicine group: ${refCount} medicine(s) reference it. Reassign or remove them first.`,
       );
     }
-    return this.prisma.medicineGroup.delete({ where: { id } });
+    return this.prisma.medicineGroup.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

@@ -25,6 +25,7 @@ export class AllergiesService
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'description']);
     const where = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.isActive !== undefined ? { isActive: query.isActive === 'true' } : {}),
       ...(query.severity ? { severity: query.severity } : {}),
       ...(query.category ? { category: query.category } : {}),
@@ -43,7 +44,7 @@ export class AllergiesService
   }
 
   async findOne(id: string) {
-    const allergy = await this.prisma.allergy.findUnique({ where: { id } });
+    const allergy = await this.prisma.allergy.findUnique({ where: { id, deletedAt: null } });
     if (!allergy) throw new NotFoundException(`Allergy ${id} not found`);
     return allergy;
   }
@@ -59,8 +60,11 @@ export class AllergiesService
     return this.prisma.allergy.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.allergy.delete({ where: { id } });
+    return this.prisma.allergy.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

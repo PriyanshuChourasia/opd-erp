@@ -71,7 +71,7 @@ export class AppointmentsController {
 
   @Delete(':id')
   @Permissions('delete:appointments')
-  remove(@Param('id') id: string) {
-    return this.appointmentsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.appointmentsService.remove(id, req.user.id);
   }
 }

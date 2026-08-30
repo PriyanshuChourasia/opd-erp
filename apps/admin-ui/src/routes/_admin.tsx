@@ -7,6 +7,9 @@ import {
 } from "@tanstack/react-router";
 import {
   Activity,
+  BadgeCheck,
+  Building2,
+  Contact,
   LayoutDashboard,
   LogOut,
   Network,
@@ -51,6 +54,13 @@ export const Route = createFileRoute("/_admin")({
 const UPCOMING_NAV = [
   { icon: ShieldCheck, label: "Roles & permissions" },
   { icon: Activity, label: "Audit logs" },
+] as const;
+
+const ORGANISATION_NAV = [
+  { to: "/organisation/departments", label: "Departments", icon: Building2 },
+  { to: "/organisation/designations", label: "Designations", icon: BadgeCheck },
+  { to: "/organisation/employees", label: "Employees", icon: UserRound },
+  { to: "/organisation/customers", label: "Customers", icon: Contact },
 ] as const;
 
 function AdminLayout() {
@@ -116,6 +126,32 @@ function AdminLayout() {
                     <TooltipContent side="right">Users</TooltipContent>
                   </Tooltip>
                 </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Organisation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {ORGANISATION_NAV.map((item) => (
+                  <SidebarMenuItem key={item.label}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton
+                          isActive={pathname.startsWith(item.to)}
+                          asChild
+                        >
+                          <Link to={item.to}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                    </Tooltip>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

@@ -22,7 +22,7 @@ export class DiagnosisSystemsService {
 
   async findAll(query: FindDiagnosisSystemsQueryDto): Promise<PaginatedResult<DiagnosisSystem>> {
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'code']);
-    const where = { ...(searchWhere ?? {}) };
+    const where = { ...(searchWhere ?? {}), deletedAt: null };
     return paginate(
       () => this.prisma.diagnosisSystem.count({ where }),
       ({ skip, take }) =>
@@ -38,7 +38,7 @@ export class DiagnosisSystemsService {
 
   async findOne(id: string) {
     const system = await this.prisma.diagnosisSystem.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { diagnoses: true },
     });
     if (!system) throw new NotFoundException(`Diagnosis system ${id} not found`);
@@ -59,8 +59,11 @@ export class DiagnosisSystemsService {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.diagnosisSystem.delete({ where: { id } });
+    return this.prisma.diagnosisSystem.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

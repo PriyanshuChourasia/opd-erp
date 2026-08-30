@@ -48,9 +48,7 @@ export class PatientsService
   }
 
   async findAll(query: FindPatientsQueryDto): Promise<PaginatedResult<Patient>> {
-    const where: Record<string, unknown> = { ...SearchQueryBuilder.search(query.search, ['firstName', 'lastName', 'contactNo', 'email', 'patientCode']) };
-    // Soft-delete: only show active patients by default
-    where.isActive = true;
+    const where: Record<string, unknown> = { ...SearchQueryBuilder.search(query.search, ['firstName', 'lastName', 'contactNo', 'email', 'patientCode']), deletedAt: null };
     return paginate(
       () => this.prisma.patient.count({ where }),
       ({ skip, take }) => this.prisma.patient.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip, take }),
@@ -59,8 +57,8 @@ export class PatientsService
   }
 
   async findOne(id: string) {
-    const patient = await this.prisma.patient.findUnique({
-      where: { id },
+    const patient = await this.prisma.patient.findFirst({
+      where: { id, deletedAt: null },
       include: {
         patientAllergies: {
           include: { allergy: true },
@@ -83,9 +81,16 @@ export class PatientsService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.patient.update({ where: { id }, data: { isActive: false } });
+    return this.prisma.patient.update({
+      where: { id },
+      data: {
+        isActive: false,
+        deletedAt: new Date(),
+        deletedById: deletedById ?? null,
+      },
+    });
   }
 
   async restore(id: string) {

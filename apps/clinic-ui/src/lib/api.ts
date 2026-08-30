@@ -373,6 +373,8 @@ export interface AppointmentBillSummary {
   id: string;
   invoiceNo: string;
   status: string;
+  total: number;
+  paidAmount: number;
 }
 
 export interface Appointment {
@@ -1048,6 +1050,10 @@ export function createPatientVitals(input: CreatePatientVitalsInput) {
   return request<PatientVitals>({ method: "POST", path: "/patient-vitals", body: input });
 }
 
+export function deletePatientVitals(id: string) {
+  return request<PatientVitals>({ method: "DELETE", path: `/patient-vitals/${id}` });
+}
+
 export function fetchPatientVitalsLatest(patientId: string) {
   return request<PatientVitals | null>({ method: "GET", path: `/patient-vitals/latest/${patientId}` });
 }
@@ -1516,7 +1522,7 @@ export function fetchAppointmentInvoicePreview(id: string) {
   });
 }
 
-export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; discount?: number; tax?: number; notes?: string }) {
+export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; referenceNumber?: string; discount?: number; tax?: number; paidAmount?: number; notes?: string }) {
   return request<Bill>({
     method: "POST",
     path: `/appointments/${id}/checkout`,

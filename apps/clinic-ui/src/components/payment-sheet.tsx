@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Banknote, CreditCard, Smartphone, Landmark, ChevronDown } from "lucide-react";
+import { Banknote, CreditCard, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 function currency(value: number) {
@@ -14,14 +14,14 @@ const PAYMENT_METHODS = [
   { value: "CASH", label: "Cash", icon: Banknote },
   { value: "CARD", label: "Card", icon: CreditCard },
   { value: "UPI", label: "UPI", icon: Smartphone },
-  { value: "CHEQUE", label: "Cheque", icon: Landmark },
-  { value: "OTHER", label: "Other", icon: ChevronDown },
 ] as const;
 
 export interface PaymentPayload {
   paymentMethod: string;
+  referenceNumber?: string;
   discount: number;
   tax: number;
+  paidAmount?: number;
   notes: string;
 }
 
@@ -45,14 +45,22 @@ export function PaymentSheet({
 }: PaymentSheetProps) {
   const [method, setMethod] = useState("CASH");
   const [discount, setDiscount] = useState(0);
-  const [tax, setTax] = useState(0);
+  const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
 
   function handleSubmit() {
-    onSubmit({ paymentMethod: method, discount, tax, notes });
+    onSubmit({
+      paymentMethod: method,
+      ...(referenceNumber.trim() ? { referenceNumber: referenceNumber.trim() } : {}),
+      discount,
+      tax: 0,
+      paidAmount,
+      notes,
+    });
   }
 
-  const netTotal = subtotal - discount + tax;
+  const netTotal = subtotal - discount;
+  const paidAmount = netTotal;
 
   return (
     <Sheet open={open} onOpenChange={(open) => { if (!open) onOpenChange(false); }}>
@@ -90,30 +98,32 @@ export function PaymentSheet({
             </div>
           </Field>
 
-          {/* ── Discount & Tax ── */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* ── Card Reference Number ── */}
+          {(method === "CARD" || method === "UPI") && (
             <Field>
-              <FieldLabel htmlFor="pm-discount">Discount (₹)</FieldLabel>
+              <FieldLabel htmlFor="pm-ref">Invoice / Transaction Number</FieldLabel>
               <Input
-                id="pm-discount"
-                type="number"
-                min={0}
-                max={subtotal}
-                value={discount}
-                onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+                id="pm-ref"
+                type="text"
+                placeholder="Enter card invoice or transaction number"
+                value={referenceNumber}
+                onChange={(e) => setReferenceNumber(e.target.value)}
               />
             </Field>
-            <Field>
-              <FieldLabel htmlFor="pm-tax">Tax (₹)</FieldLabel>
-              <Input
-                id="pm-tax"
-                type="number"
-                min={0}
-                value={tax}
-                onChange={(e) => setTax(Math.max(0, Number(e.target.value) || 0))}
-              />
-            </Field>
-          </div>
+          )}
+
+          {/* ── Discount ── */}
+          <Field>
+            <FieldLabel htmlFor="pm-discount">Discount (₹)</FieldLabel>
+            <Input
+              id="pm-discount"
+              type="number"
+              min={0}
+              max={subtotal}
+              value={discount}
+              onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+            />
+          </Field>
 
           {/* ── Notes ── */}
           <Field>
@@ -138,12 +148,6 @@ export function PaymentSheet({
               <div className="flex items-center justify-between">
                 <span className="text-green-600">Discount</span>
                 <span className="text-green-600">−{currency(discount)}</span>
-              </div>
-            )}
-            {tax > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Tax</span>
-                <span>+{currency(tax)}</span>
               </div>
             )}
             <div className="border-t pt-1.5">

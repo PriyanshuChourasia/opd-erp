@@ -149,6 +149,8 @@ export class AppointmentsService
       ];
     }
 
+    where.deletedAt = null;
+
     const result = await paginate(
       () => this.prisma.appointment.count({ where }),
       ({ skip, take }) =>
@@ -166,7 +168,7 @@ export class AppointmentsService
 
   async findOne(id: string) {
     const appointment = await this.prisma.appointment.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
     });
     if (!appointment) throw new NotFoundException(`Appointment ${id} not found`);
@@ -394,9 +396,12 @@ export class AppointmentsService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.appointment.delete({ where: { id } });
+    return this.prisma.appointment.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 
   /**
@@ -450,6 +455,8 @@ export class AppointmentsService
     const discount = dto.discount ?? 0;
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
+    const paidAmount = dto.paidAmount ?? total;
+    const status = paidAmount >= total ? 'PAID' : 'PENDING';
 
     return this.prisma.bill.create({
       data: {
@@ -460,7 +467,10 @@ export class AppointmentsService
         discount,
         tax,
         total,
+        paidAmount,
+        status,
         paymentMethod: dto.paymentMethod ?? 'CASH',
+        referenceNumber: dto.referenceNumber ?? null,
         notes: dto.notes,
         items: {
           create: [

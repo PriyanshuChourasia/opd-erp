@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -78,5 +78,12 @@ export class PatientVitalsController {
     return this.vitalsService.create(dto, req.user.id);
   }
 
-  // Intentionally no PATCH or DELETE — vitals are immutable historical records.
+  /**
+   * Soft-delete a vitals record.
+   */
+  @Delete(':id')
+  @Permissions('delete:patient-vitals')
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.vitalsService.remove(id, req.user.id);
+  }
 }

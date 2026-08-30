@@ -58,3 +58,58 @@ export interface TopMedicinesData {
   byVolume: MedicineVolume[];
   byRevenue: MedicineRevenue[];
 }
+
+// ─── 10. Daily OPD Summary ──────────────────────────────
+export interface DailyOpdSummaryData {
+  summary: {
+    totalAppointments: number;
+    completedAppointments: number;
+    pendingAppointments: number;
+    cancelledAppointments: number;
+    noShowAppointments: number;
+    walkInAppointments: number;
+    newPatients: number;
+    returningPatients: number;
+    totalConsultationAmount: number;
+    totalRegistrationAmount: number;
+    totalAmountCollected: number;
+    pendingAmount: number;
+    outstandingInvoices: number;
+    completionRate: number;
+    cancellationRate: number;
+    noShowRate: number;
+  };
+  byDoctor: {
+    doctorId: string;
+    totalAppointments: number;
+    completed: number;
+    revenue: number;
+  }[];
+  byType: {
+    type: string;
+    count: number;
+    percentage: number;
+  }[];
+  byStatus: {
+    status: string;
+    count: number;
+    percentage: number;
+  }[];
+  byHour: {
+    hour: number;
+    count: number;
+  }[];
+}
+
+export interface ReportMeta {
+  from: string;
+  to: string;
+  generatedAt: string;
+  filters?: Record<string, string | number | boolean | undefined>;
+}
+
+export interface DailyOpdSummaryResponse {
+  success: boolean;
+  data: DailyOpdSummaryData;
+  meta: ReportMeta;
+}

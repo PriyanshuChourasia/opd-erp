@@ -4,6 +4,7 @@ import {
   fetchOutstandingBills,
   fetchDoctorPerformance,
   fetchTopMedicines,
+  fetchDailyOpdSummary,
 } from "./api";
 
 export function useRevenueByCategory(from?: string, to?: string) {
@@ -34,6 +35,14 @@ export function useTopMedicines(from?: string, to?: string, limit?: number) {
   return useQuery({
     queryKey: ["reports", "top-medicines", from, to, limit],
     queryFn: () => fetchTopMedicines(from, to, limit),
+    staleTime: 30_000,
+  });
+}
+
+export function useDailyOpdSummary(from?: string, to?: string, doctorId?: string) {
+  return useQuery({
+    queryKey: ["reports", "daily-opd-summary", from, to, doctorId],
+    queryFn: () => fetchDailyOpdSummary(from, to, doctorId),
     staleTime: 30_000,
   });
 }

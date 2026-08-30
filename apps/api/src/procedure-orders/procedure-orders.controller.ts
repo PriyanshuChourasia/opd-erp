@@ -37,7 +37,7 @@ export class ProcedureOrdersController {
 
   @Permissions('delete:procedure-orders')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.service.remove(id, req.user.id);
   }
 }

@@ -4,6 +4,7 @@ import type {
   OutstandingBillsData,
   DoctorPerformanceData,
   TopMedicinesData,
+  DailyOpdSummaryResponse,
 } from "./interface";
 
 export async function fetchRevenueByCategory(from?: string, to?: string): Promise<RevenueByCategoryData> {
@@ -37,4 +38,18 @@ export async function fetchTopMedicines(from?: string, to?: string, limit?: numb
   const qs = params.toString();
   const res = await apiFetch<{ data: TopMedicinesData }>(`/reports/top-medicines${qs ? `?${qs}` : ""}`);
   return res.data;
+}
+
+export async function fetchDailyOpdSummary(
+  from?: string,
+  to?: string,
+  doctorId?: string,
+): Promise<DailyOpdSummaryResponse> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  if (doctorId) params.set("doctorId", doctorId);
+  const qs = params.toString();
+  const res = await apiFetch<DailyOpdSummaryResponse>(`/reports/daily-opd-summary${qs ? `?${qs}` : ""}`);
+  return res;
 }

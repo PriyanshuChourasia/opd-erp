@@ -20,6 +20,7 @@ export class DiagnosesService {
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'code', 'description']);
     const where = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.diagnosisSystemId ? { diagnosisSystemId: query.diagnosisSystemId } : {}),
       ...(query.status ? { status: query.status } : {}),
     };
@@ -38,7 +39,7 @@ export class DiagnosesService {
   }
 
   async findOne(id: string) {
-    const diagnosis = await this.prisma.diagnosis.findUnique({ where: { id }, include: { diagnosisSystem: true } });
+    const diagnosis = await this.prisma.diagnosis.findUnique({ where: { id, deletedAt: null }, include: { diagnosisSystem: true } });
     if (!diagnosis) throw new NotFoundException(`Diagnosis ${id} not found`);
     return diagnosis;
   }
@@ -48,8 +49,11 @@ export class DiagnosesService {
     return this.prisma.diagnosis.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.diagnosis.delete({ where: { id } });
+    return this.prisma.diagnosis.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

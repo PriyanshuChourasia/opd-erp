@@ -25,6 +25,7 @@ export class DepartmentsService
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'description']);
     const where = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.isActive !== undefined ? { isActive: query.isActive === 'true' } : {}),
     };
     return paginate(
@@ -36,7 +37,7 @@ export class DepartmentsService
   }
 
   async findOne(id: string) {
-    const dept = await this.prisma.department.findUnique({ where: { id } });
+    const dept = await this.prisma.department.findUnique({ where: { id, deletedAt: null } });
     if (!dept) throw new NotFoundException(`Department ${id} not found`);
     return dept;
   }
@@ -50,12 +51,15 @@ export class DepartmentsService
     return this.prisma.department.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
     const refCount = await this.prisma.doctorDepartment.count({ where: { departmentId: id } });
     if (refCount > 0) {
       throw new ConflictException(`Cannot delete department: ${refCount} doctor(s) reference it. Unlink them first.`);
     }
-    return this.prisma.department.delete({ where: { id } });
+    return this.prisma.department.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

@@ -27,6 +27,7 @@ export class SpecializationsService
     const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'description']);
     const where = {
       ...(searchWhere ?? {}),
+      deletedAt: null,
       ...(query.isActive !== undefined ? { isActive: query.isActive === 'true' } : {}),
     };
     return paginate(
@@ -43,7 +44,7 @@ export class SpecializationsService
   }
 
   async findOne(id: string) {
-    const specialization = await this.prisma.specialization.findUnique({ where: { id } });
+    const specialization = await this.prisma.specialization.findUnique({ where: { id, deletedAt: null } });
     if (!specialization) throw new NotFoundException(`Specialization ${id} not found`);
     return specialization;
   }
@@ -62,8 +63,11 @@ export class SpecializationsService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.specialization.delete({ where: { id } });
+    return this.prisma.specialization.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

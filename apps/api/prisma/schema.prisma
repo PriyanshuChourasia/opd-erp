@@ -79,7 +79,31 @@ model User {
   updatedPatientAllergies      PatientAllergy[]       @relation("PatientAllergyUpdated")
   updatedDiagnoses             Diagnosis[]            @relation("DiagnosisUpdated")
   updatedPatients              Patient[]              @relation("PatientUpdated")
+  deletedPatients              Patient[]              @relation("PatientDeleted")
   updatedDoctors               Doctor[]               @relation("DoctorUpdated")
+  deletedDoctors               Doctor[]               @relation("DoctorDeleted")
+  deletedSpecializations       Specialization[]        @relation("SpecializationDeleted")
+  deletedDepartments           Department[]            @relation("DepartmentDeleted")
+  deletedDesignations          Designation[]           @relation("DesignationDeleted")
+  deletedMedicineGroups        MedicineGroup[]         @relation("MedicineGroupDeleted")
+  deletedUnits                 Unit[]                  @relation("UnitDeleted")
+  deletedMedicines             Medicine[]              @relation("MedicineDeleted")
+  deletedBloodGroups           BloodGroup[]            @relation("BloodGroupDeleted")
+  deletedAllergies             Allergy[]               @relation("AllergyDeleted")
+  deletedAddresses             Address[]               @relation("AddressDeleted")
+  deletedDocuments             Document[]              @relation("DocumentDeleted")
+  deletedShifts                Shift[]                 @relation("ShiftDeleted")
+  deletedFinancialYears        FinancialYear[]         @relation("FinancialYearDeleted")
+  deletedAppointments          Appointment[]           @relation("AppointmentDeleted")
+  deletedPrescriptions         Prescription[]          @relation("PrescriptionDeleted")
+  deletedBills                 Bill[]                  @relation("BillDeleted")
+  deletedDiagnoses             Diagnosis[]             @relation("DiagnosisDeleted")
+  deletedDiagnosisSystems      DiagnosisSystem[]       @relation("DiagnosisSystemDeleted")
+  deletedDispensings           Dispensing[]            @relation("DispensingDeleted")
+  deletedLabOrders             LabOrder[]              @relation("LabOrderDeleted")
+  deletedProcedureOrders       ProcedureOrder[]        @relation("ProcedureOrderDeleted")
+  deletedRadiologyOrders       RadiologyOrder[]        @relation("RadiologyOrderDeleted")
+  deletedEmployeeSchedules     EmployeeSchedule[]      @relation("EmployeeScheduleDeleted")
   updatedQueueEntries          QueueEntry[]           @relation("QueueEntryUpdated")
   updatedAppointments          Appointment[]          @relation("AppointmentUpdated")
   updatedMedicines             Medicine[]             @relation("MedicineUpdated")
@@ -192,7 +216,10 @@ model Allergy {
   description String?
   severity    AllergySeverity @default(MODERATE)
   category    AllergyCategory @default(OTHER)
-  isActive    Boolean         @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("AllergyDeleted", fields: [deletedById], references: [id])
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   createdById String?
@@ -239,6 +266,9 @@ model DiagnosisSystem {
   updatedBy   User?       @relation("DiagnosisSystemUpdated", fields: [updatedById], references: [id])
   diagnoses   Diagnosis[]
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("DiagnosisSystemDeleted", fields: [deletedById], references: [id])
   @@index([code])
   @@index([createdById])
   @@index([updatedById])
@@ -261,6 +291,9 @@ model Diagnosis {
   updatedBy         User?            @relation("DiagnosisUpdated", fields: [updatedById], references: [id])
   diagnosisSystem   DiagnosisSystem? @relation(fields: [diagnosisSystemId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("DiagnosisDeleted", fields: [deletedById], references: [id])
   @@index([diagnosisSystemId])
   @@index([code])
   @@index([createdById])
@@ -310,6 +343,8 @@ model PatientVitals {
   medicalStatus   String?
   recordedAt      DateTime     @default(now())
   createdAt       DateTime     @default(now())
+  deletedAt       DateTime?
+  deletedById     String?
   createdById     String?
   createdBy       User?        @relation("PatientVitalsCreated", fields: [createdById], references: [id])
   patient         Patient      @relation(fields: [patientId], references: [id])
@@ -328,12 +363,15 @@ model Specialization {
   name        String   @unique
   description String?
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
   updatedById String?
   createdBy   User?    @relation("SpecializationCreated", fields: [createdById], references: [id])
   updatedBy   User?    @relation("SpecializationUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("SpecializationDeleted", fields: [deletedById], references: [id])
   doctorSpecializations DoctorSpecialization[]
 
   @@index([createdById])
@@ -347,12 +385,15 @@ model Department {
   name        String   @unique
   description String?
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
   updatedById String?
   createdBy   User?    @relation("DepartmentCreated", fields: [createdById], references: [id])
   updatedBy   User?    @relation("DepartmentUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("DepartmentDeleted", fields: [deletedById], references: [id])
   doctorDepartments DoctorDepartment[]
 
   @@index([createdById])
@@ -366,12 +407,15 @@ model Designation {
   name        String   @unique
   description String?
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
   updatedById String?
   createdBy   User?    @relation("DesignationCreated", fields: [createdById], references: [id])
   updatedBy   User?    @relation("DesignationUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("DesignationDeleted", fields: [deletedById], references: [id])
 
   @@index([createdById])
   @@index([updatedById])
@@ -386,6 +430,9 @@ model FinancialYear {
   endDate     DateTime
   isCurrent   Boolean  @default(false)
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("FinancialYearDeleted", fields: [deletedById], references: [id])
   companyId   String?
   company     Company? @relation(fields: [companyId], references: [id])
   createdAt   DateTime @default(now())
@@ -442,12 +489,15 @@ model MedicineGroup {
   name        String   @unique
   description String?
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
   updatedById String?
   createdBy   User?    @relation("MedicineGroupCreated", fields: [createdById], references: [id])
   updatedBy   User?    @relation("MedicineGroupUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("MedicineGroupDeleted", fields: [deletedById], references: [id])
   medicines   Medicine[]
 
   @@index([createdById])
@@ -462,12 +512,15 @@ model Unit {
   symbol      String?
   description String?
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
   updatedById String?
   createdBy   User?    @relation("UnitCreated", fields: [createdById], references: [id])
   updatedBy   User?    @relation("UnitUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("UnitDeleted", fields: [deletedById], references: [id])
   medicines   Medicine[]
 
   @@index([createdById])
@@ -478,12 +531,15 @@ model BloodGroup {
   id          String   @id @default(uuid())
   name        String   @unique
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
   updatedById String?
   createdBy   User?    @relation("BloodGroupCreated", fields: [createdById], references: [id])
   updatedBy   User?    @relation("BloodGroupUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("BloodGroupDeleted", fields: [deletedById], references: [id])
   patients    Patient[]
 
   @@index([createdById])
@@ -511,12 +567,15 @@ model Patient {
   allergies        String[]
   isFollowUp       Boolean   @default(false)
   isActive         Boolean   @default(true)
+  deletedAt        DateTime?
+  deletedById      String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   createdById      String?
   updatedById      String?
   createdBy        User?     @relation("PatientCreated", fields: [createdById], references: [id])
   updatedBy        User?     @relation("PatientUpdated", fields: [updatedById], references: [id])
+  deletedBy        User?     @relation("PatientDeleted", fields: [deletedById], references: [id])
 
   appointments     Appointment[]
   queueEntries     QueueEntry[]
@@ -549,12 +608,15 @@ model Doctor {
   degreeCertificateUrl       String?
   governmentIdUrl            String?
   isActive                   Boolean  @default(true)
+  deletedAt                  DateTime?
+  deletedById                String?
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
   createdById                String?
   updatedById                String?
   createdBy                  User?    @relation("DoctorCreated", fields: [createdById], references: [id])
   updatedBy                  User?    @relation("DoctorUpdated", fields: [updatedById], references: [id])
+  deletedBy                  User?    @relation("DoctorDeleted", fields: [deletedById], references: [id])
 
   appointments    Appointment[]
   queueEntries    QueueEntry[]
@@ -620,6 +682,9 @@ model Appointment {
   patientVitals      PatientVitals[]
   history            AppointmentHistory[]
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("AppointmentDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
@@ -658,13 +723,16 @@ model Medicine {
   unitId       String?
   openingStock Decimal?      @db.Decimal(12, 2) @default(0)
   currentStock Decimal?      @db.Decimal(12, 2) @default(0)
-  isActive     Boolean       @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   createdById  String?
   updatedById  String?
   createdBy    User?         @relation("MedicineCreated", fields: [createdById], references: [id])
   updatedBy    User?         @relation("MedicineUpdated", fields: [updatedById], references: [id])
+  deletedBy    User?         @relation("MedicineDeleted", fields: [deletedById], references: [id])
   group        MedicineGroup? @relation(fields: [groupId], references: [id])
   unitMaster   Unit?          @relation(fields: [unitId], references: [id])
 
@@ -695,6 +763,9 @@ model Prescription {
   dispensings Dispensing[]
   history     PrescriptionHistory[]
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("PrescriptionDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
@@ -763,6 +834,9 @@ model LabOrder {
   patient     Patient   @relation(fields: [patientId], references: [id])
   doctor      Doctor    @relation(fields: [doctorId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("LabOrderDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([status])
@@ -789,6 +863,9 @@ model RadiologyOrder {
   patient     Patient   @relation(fields: [patientId], references: [id])
   doctor      Doctor    @relation(fields: [doctorId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("RadiologyOrderDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
@@ -814,6 +891,9 @@ model ProcedureOrder {
   patient       Patient   @relation(fields: [patientId], references: [id])
   doctor        Doctor    @relation(fields: [doctorId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("ProcedureOrderDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
@@ -828,10 +908,12 @@ model Bill {
   subtotal      Int          @default(0)
   discount      Int          @default(0)
   tax           Int          @default(0)
-  total         Int          @default(0)
-  paymentMethod String       @default("CASH")
-  status        String       @default("PENDING")
-  notes         String?
+  total          Int          @default(0)
+  paidAmount     Int          @default(0)
+  paymentMethod  String       @default("CASH")
+  referenceNumber String?
+  status         String       @default("PENDING")
+  notes          String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   createdById   String?
@@ -842,6 +924,9 @@ model Bill {
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   items         BillItem[]
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("BillDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([invoiceNo])
   @@index([createdById])
@@ -889,6 +974,9 @@ model Dispensing {
   updatedBy      User?        @relation("DispensingUpdated", fields: [updatedById], references: [id])
   prescription   Prescription @relation(fields: [prescriptionId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("DispensingDeleted", fields: [deletedById], references: [id])
   @@index([prescriptionId])
   @@index([medicineId])
   @@index([createdById])
@@ -905,7 +993,10 @@ model Shift {
   breakEndTime   String?
   isOvernight    Boolean            @default(false)
   description    String?
-  isActive       Boolean            @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("ShiftDeleted", fields: [deletedById], references: [id])
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   createdById    String?
@@ -931,6 +1022,9 @@ model EmployeeSchedule {
   updatedBy               User?    @relation("EmployeeScheduleUpdated", fields: [updatedById], references: [id])
   shift                   Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("EmployeeScheduleDeleted", fields: [deletedById], references: [id])
   @@index([employeeSchedulableType, employeeSchedulableId, dayOfWeek], map: "emp_sched_type_id_dow")
   @@index([employeeSchedulableType, employeeSchedulableId], map: "emp_sched_type_id")
   @@index([createdById])
@@ -951,7 +1045,10 @@ model Address {
   latitude        Float?
   longitude       Float?
   isPrimary       Boolean  @default(false)
-  isActive        Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("AddressDeleted", fields: [deletedById], references: [id])
   addressableType String
   addressableId   String
   createdAt       DateTime @default(now())
@@ -977,7 +1074,10 @@ model Document {
   filePath         String
   caption          String?
   isPrimary        Boolean  @default(false)
-  isActive         Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("DocumentDeleted", fields: [deletedById], references: [id])
   documentableType String
   documentableId   String
   createdAt        DateTime @default(now())

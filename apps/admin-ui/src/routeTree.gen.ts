@@ -13,6 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as AdminDashboardRouteImport } from './routes/_admin/dashboard'
 import { Route as AdminUsersRouteImport } from './routes/_admin/users'
+import { Route as AdminOrganisationCustomersRouteImport } from './routes/_admin/organisation/customers'
+import { Route as AdminOrganisationDepartmentsRouteImport } from './routes/_admin/organisation/departments'
+import { Route as AdminOrganisationDesignationsRouteImport } from './routes/_admin/organisation/designations'
+import { Route as AdminOrganisationEmployeesRouteImport } from './routes/_admin/organisation/employees'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,16 +37,48 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminOrganisationCustomersRoute =
+  AdminOrganisationCustomersRouteImport.update({
+    id: '/organisation/customers',
+    path: '/organisation/customers',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminOrganisationDepartmentsRoute =
+  AdminOrganisationDepartmentsRouteImport.update({
+    id: '/organisation/departments',
+    path: '/organisation/departments',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminOrganisationDesignationsRoute =
+  AdminOrganisationDesignationsRouteImport.update({
+    id: '/organisation/designations',
+    path: '/organisation/designations',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminOrganisationEmployeesRoute =
+  AdminOrganisationEmployeesRouteImport.update({
+    id: '/organisation/employees',
+    path: '/organisation/employees',
+    getParentRoute: () => AdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof AdminDashboardRoute
   '/users': typeof AdminUsersRoute
+  '/organisation/customers': typeof AdminOrganisationCustomersRoute
+  '/organisation/departments': typeof AdminOrganisationDepartmentsRoute
+  '/organisation/designations': typeof AdminOrganisationDesignationsRoute
+  '/organisation/employees': typeof AdminOrganisationEmployeesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AdminDashboardRoute
   '/users': typeof AdminUsersRoute
+  '/organisation/customers': typeof AdminOrganisationCustomersRoute
+  '/organisation/departments': typeof AdminOrganisationDepartmentsRoute
+  '/organisation/designations': typeof AdminOrganisationDesignationsRoute
+  '/organisation/employees': typeof AdminOrganisationEmployeesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -50,13 +86,40 @@ export interface FileRoutesById {
   '/_admin': typeof AdminRouteWithChildren
   '/_admin/dashboard': typeof AdminDashboardRoute
   '/_admin/users': typeof AdminUsersRoute
+  '/_admin/organisation/customers': typeof AdminOrganisationCustomersRoute
+  '/_admin/organisation/departments': typeof AdminOrganisationDepartmentsRoute
+  '/_admin/organisation/designations': typeof AdminOrganisationDesignationsRoute
+  '/_admin/organisation/employees': typeof AdminOrganisationEmployeesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/users'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/users'
+    | '/organisation/customers'
+    | '/organisation/departments'
+    | '/organisation/designations'
+    | '/organisation/employees'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/users'
-  id: '__root__' | '/' | '/_admin' | '/_admin/dashboard' | '/_admin/users'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/users'
+    | '/organisation/customers'
+    | '/organisation/departments'
+    | '/organisation/designations'
+    | '/organisation/employees'
+  id:
+    | '__root__'
+    | '/'
+    | '/_admin'
+    | '/_admin/dashboard'
+    | '/_admin/users'
+    | '/_admin/organisation/customers'
+    | '/_admin/organisation/departments'
+    | '/_admin/organisation/designations'
+    | '/_admin/organisation/employees'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -94,17 +157,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/organisation/customers': {
+      id: '/_admin/organisation/customers'
+      path: '/organisation/customers'
+      fullPath: '/organisation/customers'
+      preLoaderRoute: typeof AdminOrganisationCustomersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/organisation/departments': {
+      id: '/_admin/organisation/departments'
+      path: '/organisation/departments'
+      fullPath: '/organisation/departments'
+      preLoaderRoute: typeof AdminOrganisationDepartmentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/organisation/designations': {
+      id: '/_admin/organisation/designations'
+      path: '/organisation/designations'
+      fullPath: '/organisation/designations'
+      preLoaderRoute: typeof AdminOrganisationDesignationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/organisation/employees': {
+      id: '/_admin/organisation/employees'
+      path: '/organisation/employees'
+      fullPath: '/organisation/employees'
+      preLoaderRoute: typeof AdminOrganisationEmployeesRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminOrganisationCustomersRoute: typeof AdminOrganisationCustomersRoute
+  AdminOrganisationDepartmentsRoute: typeof AdminOrganisationDepartmentsRoute
+  AdminOrganisationDesignationsRoute: typeof AdminOrganisationDesignationsRoute
+  AdminOrganisationEmployeesRoute: typeof AdminOrganisationEmployeesRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminDashboardRoute: AdminDashboardRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminOrganisationCustomersRoute: AdminOrganisationCustomersRoute,
+  AdminOrganisationDepartmentsRoute: AdminOrganisationDepartmentsRoute,
+  AdminOrganisationDesignationsRoute: AdminOrganisationDesignationsRoute,
+  AdminOrganisationEmployeesRoute: AdminOrganisationEmployeesRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

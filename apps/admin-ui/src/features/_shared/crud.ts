@@ -14,10 +14,12 @@ export interface ListParams {
   page?: number;
   limit?: number;
   search?: string;
+  country_id?: number;
 }
 
 export interface CrudApi<T extends { id: string | number }, TInput> {
   list: (params: ListParams) => Promise<Paginated<T>>;
+  show: (id: string | number) => Promise<T>;
   create: (input: TInput) => Promise<T>;
   update: (id: string | number, input: Partial<TInput>) => Promise<T>;
   remove: (id: string | number) => Promise<void>;

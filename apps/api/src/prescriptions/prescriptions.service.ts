@@ -76,7 +76,7 @@ export class PrescriptionsService
   }
 
   async findAll(query: FindPrescriptionsQueryDto, requestingDoctorId?: string): Promise<PaginatedResult<Prescription>> {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (query.patientId) where.patientId = query.patientId;
     // A doctor is always scoped to their own prescriptions — the query param
     // is ignored in that case rather than trusted, so a doctor can't page
@@ -116,7 +116,7 @@ export class PrescriptionsService
 
   async findOne(id: string) {
     const prescription = await this.prisma.prescription.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { items: true, patient: true, doctor: true },
     });
     if (!prescription) throw new NotFoundException(`Prescription ${id} not found`);
@@ -193,8 +193,11 @@ export class PrescriptionsService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.prescription.delete({ where: { id } });
+    return this.prisma.prescription.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

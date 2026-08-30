@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import {
+  HeartPulse,
   Pencil,
   Plus,
   Search,
@@ -78,6 +79,14 @@ export function PatientsPage() {
   // Documents sheet state
   const [docSheetOpen, setDocSheetOpen] = useState(false);
   const [docSheetPatient, setDocSheetPatient] = useState<Patient | null>(null);
+
+  // Vitals sheet state
+  const [vitalsSheetOpen, setVitalsSheetOpen] = useState(false);
+  const [vitalsPatient, setVitalsPatient] = useState<Patient | null>(null);
+  const [vitalsForm, setVitalsForm] = useState<Record<string, string>>({
+    heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
+    systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
+  });
 
   // Pending files for add mode
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
@@ -170,6 +179,31 @@ export function PatientsPage() {
   const deleteMutation = useMutation({
     mutationFn: deletePatient,
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setDeleteConfirm(null); toast.success("Patient deactivated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  const vitalsMutation = useMutation({
+    mutationFn: async () => {
+      if (!vitalsPatient) return;
+      const payload: Record<string, unknown> = { patientId: vitalsPatient.id };
+      const f = vitalsForm;
+      if (f.heightCm) payload.heightCm = parseFloat(f.heightCm);
+      if (f.weightCm) payload.weightKg = parseFloat(f.weightCm);
+      if (f.temperatureC) payload.temperatureC = parseFloat(f.temperatureC);
+      if (f.pulseBpm) payload.pulseBpm = parseInt(f.pulseBpm, 10);
+      if (f.systolicBp) payload.systolicBp = parseInt(f.systolicBp, 10);
+      if (f.diastolicBp) payload.diastolicBp = parseInt(f.diastolicBp, 10);
+      if (f.spo2Percent) payload.spo2Percent = parseFloat(f.spo2Percent);
+      if (f.respiratoryRate) payload.respiratoryRate = parseInt(f.respiratoryRate, 10);
+      if (f.medicalStatus) payload.medicalStatus = f.medicalStatus;
+      return createPatientVitals(payload as any);
+    },
+    onSuccess: () => {
+      toast.success("Patient vitals recorded");
+      setVitalsSheetOpen(false);
+      setVitalsPatient(null);
+      setVitalsForm({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+    },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
@@ -345,11 +379,20 @@ export function PatientsPage() {
           <div className="flex justify-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => openDocs(patient)}>
-                  <FileText className="size-3.5" />
+                <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => openDocs(patient)}>
+                  <FileText className="size-4" />
+                  Doc.
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Documents</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => { setVitalsPatient(patient); setVitalsSheetOpen(true); }}>
+                  <HeartPulse className="size-3.5 text-rose-600" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Patient Vitals</TooltipContent>
             </Tooltip>
             {canUpdate && (
               <Tooltip>
@@ -597,6 +640,49 @@ export function PatientsPage() {
               </>
             )}
           </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Patient Vitals Sheet ── */}
+      <Sheet open={vitalsSheetOpen} onOpenChange={(open) => { if (!open) { setVitalsSheetOpen(false); setVitalsPatient(null); } }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Record Patient Vitals</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 pb-4">
+            <p className="text-sm text-muted-foreground">Patient: <span className="font-medium text-foreground">{vitalsPatient ? getPatientName(vitalsPatient) : ""}</span></p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field><FieldLabel>Height (cm)</FieldLabel><Input type="number" min={0} value={vitalsForm.heightCm} onChange={(e) => setVitalsForm((p) => ({ ...p, heightCm: e.target.value }))} /></Field>
+              <Field><FieldLabel>Weight (kg)</FieldLabel><Input type="number" min={0} value={vitalsForm.weightCm} onChange={(e) => setVitalsForm((p) => ({ ...p, weightCm: e.target.value }))} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field><FieldLabel>Temperature (°F)</FieldLabel><Input type="number" min={0} value={vitalsForm.temperatureC} onChange={(e) => setVitalsForm((p) => ({ ...p, temperatureC: e.target.value }))} /></Field>
+              <Field><FieldLabel>Pulse (bpm)</FieldLabel><Input type="number" min={0} value={vitalsForm.pulseBpm} onChange={(e) => setVitalsForm((p) => ({ ...p, pulseBpm: e.target.value }))} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field><FieldLabel>Systolic BP</FieldLabel><Input type="number" min={0} value={vitalsForm.systolicBp} onChange={(e) => setVitalsForm((p) => ({ ...p, systolicBp: e.target.value }))} /></Field>
+              <Field><FieldLabel>Diastolic BP</FieldLabel><Input type="number" min={0} value={vitalsForm.diastolicBp} onChange={(e) => setVitalsForm((p) => ({ ...p, diastolicBp: e.target.value }))} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field><FieldLabel>SpO₂ (%)</FieldLabel><Input type="number" min={0} max={100} value={vitalsForm.spo2Percent} onChange={(e) => setVitalsForm((p) => ({ ...p, spo2Percent: e.target.value }))} /></Field>
+              <Field><FieldLabel>Resp Rate (/min)</FieldLabel><Input type="number" min={0} value={vitalsForm.respiratoryRate} onChange={(e) => setVitalsForm((p) => ({ ...p, respiratoryRate: e.target.value }))} /></Field>
+            </div>
+            <Field><FieldLabel>Medical Status</FieldLabel>
+              <select className="flex h-9 w-full rounded-none border border-input bg-background px-3 text-sm" value={vitalsForm.medicalStatus} onChange={(e) => setVitalsForm((p) => ({ ...p, medicalStatus: e.target.value }))}>
+                <option value="">Select status</option>
+                <option value="BEFORE_FASTING">Before Fasting</option>
+                <option value="AFTER_MEALS">After Meals</option>
+                <option value="AT_REST">At Rest</option>
+                <option value="DURING_EXERCISE">During Exercise</option>
+              </select>
+            </Field>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => { setVitalsSheetOpen(false); setVitalsPatient(null); }}>Cancel</Button>
+            <Button onClick={() => vitalsMutation.mutate()} disabled={vitalsMutation.isPending}>
+              {vitalsMutation.isPending ? "Saving..." : "Record Vitals"}
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
     </div>

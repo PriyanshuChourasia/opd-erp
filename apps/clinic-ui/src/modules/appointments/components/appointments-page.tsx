@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { AlertTriangle, CalendarClock, ClipboardList, Download, Eye, FileText, HeartPulse, Plus, Printer, Search, X } from "lucide-react";
+import { CalendarClock, ChevronDown, ClipboardList, Download, Eye, FileText, HeartPulse, History, Plus, Printer, Search, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   fetchAppointments,
@@ -40,7 +40,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
-import { ChevronDown, History } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
 
@@ -217,16 +216,14 @@ export function AppointmentsPage() {
   // ── Export to Excel ──
   function exportToExcel() {
     const rows = (appointmentsResponse?.data ?? []).map((appt) => ({
-      "Patient Name": `${appt.patient.firstName} ${appt.patient.lastName}`,
-      "Phone": appt.patient.contactNo ?? "",
-      "Doctor": appt.doctor.name ?? appt.doctor.medicalRegistrationNo ?? "",
-      "Specialization": appt.doctor.specialization ?? "",
-      "Date": appt.date ? new Date(appt.date).toLocaleDateString() : "",
-      "Type": appt.type ?? "",
-      "Status": appt.status,
-      "Amount": appt.amount ?? 0,
-      "Registration Fee": appt.registrationFee ?? 0,
       "Token": appt.tokenNumber ?? "",
+      "Patient": `${appt.patient.firstName} ${appt.patient.lastName}`,
+      "Status": appt.status,
+      "Doctor": appt.doctor.name ?? appt.doctor.medicalRegistrationNo ?? "",
+      "Type": appt.type ?? "",
+      "Time": appt.date ? new Date(appt.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "",
+      "Amount": appt.amount ?? 0,
+      "Registration Amount": appt.registrationFee ?? 0,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -251,7 +248,7 @@ export function AppointmentsPage() {
       <table>
         <thead><tr>
           <th>#</th><th>Patient</th><th>Phone</th><th>Doctor</th><th>Specialization</th>
-          <th>Date</th><th>Type</th><th>Status</th><th>Fee</th><th>Token</th>
+          <th>Date</th><th>Type</th><th>Status</th><th>Amount</th><th>Token</th>
         </tr></thead>
         <tbody>
           ${rows.map((appt, i) => `<tr>
@@ -522,8 +519,7 @@ export function AppointmentsPage() {
       ),
     },
     {
-      accessorKey: "fee",
-      header: () => <div className="text-center">Fee</div>,
+      accessorKey: "fee",          header: () => <div className="text-center">Amount</div>,
       cell: ({ row }) => <div className="text-center text-sm font-medium">{currency(row.original.amount)}</div>,
     },
     {
@@ -579,9 +575,15 @@ export function AppointmentsPage() {
                   <TooltipContent>Create Prescription</TooltipContent>
                 </Tooltip>
                 {appt.bill ? (
-                  <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
-                    Paid
-                  </Badge>
+                  appt.bill.paidAmount >= appt.bill.total ? (
+                    <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                      Paid
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                      Partial
+                    </Badge>
+                  )
                 ) : (
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
@@ -1304,21 +1306,21 @@ export function AppointmentsPage() {
                       </tbody>
                     </table>
 
-                    {/* Fee summary */}
+                    {/* Amount summary */}
                     <table className="w-full border-collapse mb-4 text-[13px]">
                       <thead>
                         <tr>
-                          <th colSpan={2} className="py-1 font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] text-[11px] tracking-wide text-left">FEE SUMMARY</th>
+                          <th colSpan={2} className="py-1 font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] text-[11px] tracking-wide text-left">AMOUNT SUMMARY</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr className="border-b border-gray-200">
-                          <td className="py-2 pr-1.5 text-xs">Consultation Fee</td>
+                          <td className="py-2 pr-1.5 text-xs">Amount</td>
                           <td className="py-2 pl-1.5 text-right text-xs">{currency(printAppt.amount)}</td>
                         </tr>
                         {printAppt.registrationFee > 0 && (
                           <tr className="border-b border-gray-200">
-                            <td className="py-2 pr-1.5 text-xs">Registration Fee</td>
+                            <td className="py-2 pr-1.5 text-xs">Registration Amount</td>
                             <td className="py-2 pl-1.5 text-right text-xs">{currency(printAppt.registrationFee)}</td>
                           </tr>
                         )}

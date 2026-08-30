@@ -37,7 +37,7 @@ export class DocumentsService
   }
 
   async findAll(query: FindDocumentsQueryDto): Promise<PaginatedResult<Document>> {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (query.documentableType) where.documentableType = query.documentableType;
     if (query.documentableId) where.documentableId = query.documentableId;
     if (query.documentType) where.documentType = query.documentType;
@@ -59,7 +59,7 @@ export class DocumentsService
   /** Find all documents for a given polymorphic entity. */
   async findByEntity(documentableType: string, documentableId: string) {
     return this.prisma.document.findMany({
-      where: { documentableType, documentableId, isActive: true },
+      where: { documentableType, documentableId, deletedAt: null },
       orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
     });
   }
@@ -72,7 +72,7 @@ export class DocumentsService
         documentableType,
         documentableId: { in: ids },
         documentType: 'PROFILE_PHOTO',
-        isActive: true,
+        deletedAt: null,
       },
       orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
     });
@@ -98,13 +98,13 @@ export class DocumentsService
   }
 
   async findOne(id: string) {
-    const doc = await this.prisma.document.findUnique({ where: { id } });
+    const doc = await this.prisma.document.findUnique({ where: { id, deletedAt: null } });
     if (!doc) throw new NotFoundException(`Document ${id} not found`);
     return doc;
   }
 
   async findByFileName(fileName: string) {
-    const doc = await this.prisma.document.findFirst({ where: { fileName, isActive: true } });
+    const doc = await this.prisma.document.findFirst({ where: { fileName, deletedAt: null } });
     if (!doc) throw new NotFoundException(`Document with fileName ${fileName} not found`);
     return doc;
   }
@@ -131,9 +131,11 @@ export class DocumentsService
     return this.prisma.document.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async remove(id: string) {
-    const doc = await this.findOne(id);
-    // Soft-delete: mark inactive instead of removing the file
-    return this.prisma.document.update({ where: { id }, data: { isActive: false } });
+  async remove(id: string, deletedById?: string) {
+    await this.findOne(id);
+    return this.prisma.document.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

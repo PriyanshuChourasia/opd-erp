@@ -47,7 +47,7 @@ const emptyNewPatientAddress = {
   landmark: "",
   city: "",
   district: "",
-  state: "",
+  state: "West Bengal",
   country: "India",
   postalCode: "",
   isPrimary: true,
@@ -153,7 +153,15 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
   };
 
   async function submitAddress(patientId: string) {
-    if (!showNewPatientAddress || !newPatientAddress.addressLine1.trim()) return;
+    if (!showNewPatientAddress) return;
+    if (!newPatientAddress.addressLine1.trim()) {
+      toast.error("Address Line 1 is required");
+      return;
+    }
+    if (!newPatientAddress.postalCode.trim()) {
+      toast.error("Postal Code is required");
+      return;
+    }
     try {
       await createAddress({
         ...newPatientAddress,
@@ -378,6 +386,10 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <Field>
+                        <FieldLabel className="text-[10px]">Landmark</FieldLabel>
+                        <Input className="h-8 text-xs" placeholder="Near City Hospital" value={newPatientAddress.landmark} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, landmark: e.target.value })} />
+                      </Field>
+                      <Field>
                         <FieldLabel className="text-[10px]">City</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="Mumbai" value={newPatientAddress.city} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, city: e.target.value })} />
                       </Field>
@@ -405,7 +417,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                         <Input className="h-8 text-xs" placeholder="India" value={newPatientAddress.country} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, country: e.target.value })} />
                       </Field>
                       <Field>
-                        <FieldLabel className="text-[10px]">Postal Code</FieldLabel>
+                        <FieldLabel className="text-[10px]">Postal Code *</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="400001" value={newPatientAddress.postalCode} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, postalCode: e.target.value })} />
                       </Field>
                     </div>

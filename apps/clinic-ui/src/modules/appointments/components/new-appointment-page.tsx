@@ -2,7 +2,7 @@ import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { Award, ChevronDown, Clock, HeartPulse, History, Pencil, Plus, RotateCcw, Search, Siren, Stethoscope, UserPlus, Video, X } from "lucide-react";
+import { Award, ChevronDown, Clock, HeartPulse, History, Pencil, Plus, RotateCcw, Search, Siren, Stethoscope, Trash2, UserPlus, Video, X } from "lucide-react";
 import {
   createAppointment,
   createDoctorWithUser,
@@ -17,6 +17,7 @@ import {
   fetchAllDoctorSchedules,
   fetchPatientVitalsLatest,
   createPatientVitals,
+  deletePatientVitals,
   type AppointmentType,
   type EmployeeSchedule,
   type CreateDoctorWithUserInput,
@@ -166,6 +167,15 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       toast.success("Vitals recorded successfully");
       setVitalsModalOpen(false);
       setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const deleteVitalsMutation = useMutation({
+    mutationFn: (id: string) => deletePatientVitals(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
+      toast.success("Vitals deleted");
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
@@ -348,8 +358,10 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       });
       await checkoutAppointment(appointment.id, {
         paymentMethod: payload.paymentMethod,
+        ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
         discount: payload.discount > 0 ? payload.discount : undefined,
         tax: payload.tax > 0 ? payload.tax : undefined,
+        paidAmount: payload.paidAmount,
         notes: payload.notes || undefined,
       });
       return appointment;
@@ -796,10 +808,18 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 <div className="border-t px-4 py-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-foreground">Patient Vitals</span>
-                    <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-primary" onClick={() => setVitalsModalOpen(true)} disabled={!form.patient}>
-                      <Plus className="size-3" />
-                      Add
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {patientVitals && (
+                        <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-destructive" onClick={() => { if (confirm("Delete this vitals record?")) deleteVitalsMutation.mutate(patientVitals.id); }} disabled={deleteVitalsMutation.isPending}>
+                          <Trash2 className="size-3" />
+                          Delete
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-primary" onClick={() => setVitalsModalOpen(true)} disabled={!form.patient}>
+                        <Plus className="size-3" />
+                        Add
+                      </Button>
+                    </div>
                   </div>
                     {patientVitals && (
                       <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">

@@ -2,7 +2,7 @@ import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { AlertTriangle, Award, ChevronDown, Clock, History, Pencil, Plus, RotateCcw, Search, Siren, Stethoscope, UserPlus, Video, X } from "lucide-react";
+import { Award, ChevronDown, Clock, HeartPulse, History, Pencil, Plus, RotateCcw, Search, Siren, Stethoscope, UserPlus, Video, X } from "lucide-react";
 import {
   createAppointment,
   createDoctorWithUser,
@@ -16,6 +16,7 @@ import {
   updatePatient,
   fetchAllDoctorSchedules,
   fetchPatientVitalsLatest,
+  createPatientVitals,
   type AppointmentType,
   type EmployeeSchedule,
   type CreateDoctorWithUserInput,
@@ -29,7 +30,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
-import { AllergySelect } from "@/components/allergy-select";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
@@ -127,6 +127,49 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
   const [doctorFormOpen, setDoctorFormOpen] = useState(false);
+  const [vitalsModalOpen, setVitalsModalOpen] = useState(false);
+  const [vitals, setVitals] = useState<Record<string, string>>({
+    heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
+    systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
+  });
+  // Auto-calculate BMI from height and weight
+  const computedBmi = useMemo(() => {
+    const h = parseFloat(vitals.heightCm ?? "");
+    const w = parseFloat(vitals.weightCm ?? "");
+    if (h > 0 && w > 0) return (w / ((h / 100) ** 2)).toFixed(1);
+    return null;
+  }, [vitals.heightCm, vitals.weightCm]);
+
+  // Check if at least one vitals field has a value
+  const hasVitalsData = useMemo(() => {
+    return Object.entries(vitals).some(([key, val]) => key !== "medicalStatus" && val !== "") || vitals.medicalStatus !== "";
+  }, [vitals]);
+
+  // ── Vitals mutation ──
+  const vitalsMutation = useMutation({
+    mutationFn: async () => {
+      if (!form.patient) return;
+      const payload: Record<string, string | number> = { patientId: form.patient.id };
+      if (vitals.heightCm) payload.heightCm = parseFloat(vitals.heightCm);
+      if (vitals.weightCm) payload.weightKg = parseFloat(vitals.weightCm);
+      if (vitals.temperatureC) payload.temperatureC = parseFloat(vitals.temperatureC);
+      if (vitals.pulseBpm) payload.pulseBpm = parseInt(vitals.pulseBpm, 10);
+      if (vitals.systolicBp) payload.systolicBp = parseInt(vitals.systolicBp, 10);
+      if (vitals.diastolicBp) payload.diastolicBp = parseInt(vitals.diastolicBp, 10);
+      if (vitals.spo2Percent) payload.spo2Percent = parseFloat(vitals.spo2Percent);
+      if (vitals.respiratoryRate) payload.respiratoryRate = parseInt(vitals.respiratoryRate, 10);
+      if (vitals.medicalStatus) payload.medicalStatus = vitals.medicalStatus;
+      await createPatientVitals(payload as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
+      toast.success("Vitals recorded successfully");
+      setVitalsModalOpen(false);
+      setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
   const [newDoctorForm, setNewDoctorForm] = useState({
     firstName: "",
@@ -385,7 +428,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
-            {/* ── Left Column: Patient → Allergies → Doctor ── */}
+            {/* ── Left Column: Patient → Doctor ── */}
             <div className="space-y-6">
               {/* ── Patient ── */}
               <Field><FieldLabel>Patient *</FieldLabel>
@@ -446,15 +489,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 )}
               </Field>
 
-              {/* ── Allergies + Doctor ── */}
-              <div className="grid grid-cols-2 gap-4">
-              <Field><FieldLabel>Allergies</FieldLabel>
-                <AllergySelect
-                  value={form.allergies}
-                  onChange={(allergies) => setForm((prev) => ({ ...prev, allergies }))}
-                />
-              </Field>
-
+              {/* ── Doctor ── */}
               <Field><FieldLabel htmlFor="a-doctor">Doctor *</FieldLabel>
                 <div className="relative">
                   {form.doctorId ? (
@@ -530,7 +565,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   )}
                 </div>
               </Field>
-              </div>
 
               {/* ── Slot + Consultation type (side by side) ── */}
               <div className="grid grid-cols-2 gap-4">
@@ -758,63 +792,47 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   </div>
                 </div>
 
-                {/* Allergies display — always visible */}
-                <div className="border-t px-4 py-3">
-                  <span className="text-xs font-semibold text-foreground">Allergies</span>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {form.allergies.length > 0 ? form.allergies.map((allergy) => (
-                      <span
-                        key={allergy}
-                        className="inline-flex items-center gap-1 rounded-none border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
-                      >
-                        <AlertTriangle className="size-3 text-amber-500" />
-                        {allergy}
-                        <button
-                          type="button"
-                          onClick={() => setForm((prev) => ({ ...prev, allergies: prev.allergies.filter((a) => a !== allergy) }))}
-                          className="ml-0.5 inline-flex rounded-sm p-0.5 text-amber-500 hover:bg-amber-200 hover:text-amber-800"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </span>
-                    )) : (
-                      <span className="text-xs text-muted-foreground/50">—</span>
-                    )}
-                  </div>
-                </div>
-
                 {/* Patient Vitals — latest record */}
-                {patientVitals && (
-                  <div className="border-t px-4 py-3">
+                <div className="border-t px-4 py-3">
+                  <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-foreground">Patient Vitals</span>
-                    <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
-                      {patientVitals.heightCm != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
-                      )}
-                      {patientVitals.weightKg != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{patientVitals.weightKg} kg</p></div>
-                      )}
-                      {patientVitals.bmi != null && (
-                        <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{patientVitals.bmi}</p></div>
-                      )}
-                      {patientVitals.temperatureC != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{patientVitals.temperatureC}°F</p></div>
-                      )}
-                      {patientVitals.pulseBpm != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{patientVitals.pulseBpm} bpm</p></div>
-                      )}
-                      {patientVitals.systolicBp != null && patientVitals.diastolicBp != null && (
-                        <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
-                      )}
-                      {patientVitals.spo2Percent != null && (
-                        <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{patientVitals.spo2Percent}%</p></div>
-                      )}
-                      {patientVitals.respiratoryRate != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Resp Rate</span><p className="font-medium">{patientVitals.respiratoryRate}/min</p></div>
-                      )}
-                    </div>
+                    <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-primary" onClick={() => setVitalsModalOpen(true)} disabled={!form.patient}>
+                      <Plus className="size-3" />
+                      Add
+                    </Button>
                   </div>
-                )}
+                    {patientVitals && (
+                      <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
+                        {patientVitals.heightCm != null && (
+                          <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
+                        )}
+                        {patientVitals.weightKg != null && (
+                          <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{patientVitals.weightKg} kg</p></div>
+                        )}
+                        {patientVitals.bmi != null && (
+                          <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{patientVitals.bmi}</p></div>
+                        )}
+                        {patientVitals.temperatureC != null && (
+                          <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{patientVitals.temperatureC}°F</p></div>
+                        )}
+                        {patientVitals.pulseBpm != null && (
+                          <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{patientVitals.pulseBpm} bpm</p></div>
+                        )}
+                        {patientVitals.systolicBp != null && patientVitals.diastolicBp != null && (
+                          <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
+                        )}
+                        {patientVitals.spo2Percent != null && (
+                          <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{patientVitals.spo2Percent}%</p></div>
+                        )}
+                        {patientVitals.respiratoryRate != null && (
+                          <div><span className="text-[10px] text-muted-foreground">Resp Rate</span><p className="font-medium">{patientVitals.respiratoryRate}/min</p></div>
+                        )}
+                      </div>
+                    )}
+                    {!patientVitals && form.patient && (
+                      <p className="mt-1.5 text-xs text-muted-foreground/60">No vitals recorded yet</p>
+                    )}
+                </div>
 
                 {/* Past visits — collapsible accordion */}
                 <div className="border-t">
@@ -876,60 +894,80 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 <div className="border-b bg-muted/30 px-4 py-2.5">
                   <p className="text-xs font-semibold text-foreground">Fee Summary</p>
                 </div>
-                <div className="space-y-4 px-4 py-4">
+                <div className="px-4 py-4">
+                  {/* Column headers */}
+                  <div className="grid grid-cols-[1fr_auto] gap-4 pb-2 border-b">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Fee Type</span>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">Amount</span>
+                  </div>
+
                   {/* Consultation Fee */}
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="grid grid-cols-[1fr_auto] gap-4 items-center py-3">
                     <label htmlFor="a-fee" className="text-sm font-medium">Consultation Fee</label>
                     <Input
                       id="a-fee"
                       type="number"
                       min={0}
-                      className="w-32 text-right"
+                      className="w-28 text-right h-8 text-xs"
                       value={form.amount}
-                      onChange={(e) => setForm((prev) => ({ ...prev, amount: Number(e.target.value) || 0 }))}
+                      onChange={(e) => setForm((prev) => ({ ...prev, amount: Math.max(0, Number(e.target.value) || 0) }))}
                     />
                   </div>
+                  <div className="flex flex-wrap gap-1.5 pb-3">
+                    {[0, 50, 100, 200, 400, 500, 1000].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, amount: val }))}
+                        className={cn(
+                          "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                          form.amount === val
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                        )}
+                      >
+                        ₹{val}
+                      </button>
+                    ))}
+                  </div>
+
                   {/* Divider */}
                   <div className="border-t border-dashed" />
+
                   {/* Registration Fee */}
-                  <div>
-                    <div className="flex items-center justify-between gap-3">
-                      <label htmlFor="a-reg" className="text-sm font-medium">Registration Fee</label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="a-reg"
-                          type="number"
-                          min={0}
-                          className="w-24 text-right"
-                          value={regFeeAmount}
-                          onChange={(e) => setForm((prev) => ({ ...prev, registrationFee: Number(e.target.value) || 0 }))}
-                        />
-                      </div>
-                    </div>
-                    {/* Preset chips attached to registration fee */}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {[50, 100, 200, 400, 500].map((val) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setForm((prev) => ({ ...prev, registrationFee: val }))}
-                          className={cn(
-                            "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                            regFeeAmount === val
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                          )}
-                        >
-                          ₹{val}
-                        </button>
-                      ))}
-                      <span className="self-center text-[11px] text-muted-foreground">Default: {currency(defaultRegistrationFee)}</span>
-                    </div>
+                  <div className="grid grid-cols-[1fr_auto] gap-4 items-center py-3">
+                    <label htmlFor="a-reg" className="text-sm font-medium">Registration Fee</label>
+                    <Input
+                      id="a-reg"
+                      type="number"
+                      min={0}
+                      className="w-28 text-right h-8 text-xs"
+                      value={regFeeAmount}
+                      onChange={(e) => setForm((prev) => ({ ...prev, registrationFee: Math.max(0, Number(e.target.value) || 0) }))}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pb-3">
+                    {[50, 100, 200, 400, 500].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, registrationFee: val }))}
+                        className={cn(
+                          "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                          regFeeAmount === val
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                        )}
+                      >
+                        ₹{val}
+                      </button>
+                    ))}
+                    <span className="self-center text-[11px] text-muted-foreground">Default: {currency(defaultRegistrationFee)}</span>
                   </div>
 
                   {/* Total */}
                   <div className="border-t" />
-                  <div className="flex items-center justify-between">
+                  <div className="grid grid-cols-[1fr_auto] gap-4 items-center pt-3">
                     <span className="text-sm font-semibold">Total</span>
                     <span className="text-lg font-bold text-primary">{currency(form.amount + regFeeAmount)}</span>
                   </div>
@@ -944,7 +982,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         <Button variant="outline" onClick={goBack}>Cancel</Button>
         <div className="flex items-center gap-2">
           <Button onClick={() => createMutation.mutate()} disabled={!canBook || createMutation.isPending || bookAndPayMutation.isPending}>
-            {createMutation.isPending ? "Booking..." : `Book · ${currency(form.amount + regFeeAmount)}`}
+            {createMutation.isPending ? "Booking..." : "Book"}
           </Button>
           <Button
             variant="default"
@@ -952,16 +990,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
             onClick={() => setPaymentSheetOpen(true)}
             disabled={!canBook || bookAndPayMutation.isPending || createMutation.isPending}
           >
-            {bookAndPayMutation.isPending ? (
-              "Processing..."
-            ) : (
-              <>
-                Book &amp; Pay
-                <span className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">
-                  {currency(form.amount + regFeeAmount)}
-                </span>
-              </>
-            )}
+            {bookAndPayMutation.isPending ? "Processing..." : "Book & Pay"}
           </Button>
         </div>
       </div>
@@ -1054,6 +1083,117 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
               disabled={!newDoctorForm.firstName.trim() || !newDoctorForm.lastName.trim() || !newDoctorForm.email.trim() || !newDoctorForm.username.trim() || !newDoctorForm.password.trim() || !newDoctorForm.medicalRegistrationNo.trim() || createDoctorMutation.isPending}
             >
               {createDoctorMutation.isPending ? "Creating..." : "Create & Select"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Patient Vitals Sheet ── */}
+      <Sheet open={vitalsModalOpen} onOpenChange={(open) => {
+        if (!open) {
+          setVitalsModalOpen(false);
+          setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+        }
+      }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Record Patient Vitals</SheetTitle>
+            <SheetDescription>
+              {form.patient ? `${form.patient.firstName} ${form.patient.lastName}` : 'Patient'}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-5 px-4 py-4">
+            {/* ── Body Measurements ── */}
+            <div>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Body Measurements</span>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <Field>
+                  <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
+                  <Input className="h-8 text-xs" type="number" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals((v) => ({ ...v, heightCm: e.target.value }))} />
+                </Field>
+                <Field>
+                  <FieldLabel className="text-[10px]">Weight (kg)</FieldLabel>
+                  <Input className="h-8 text-xs" type="number" placeholder="70" value={vitals.weightCm} onChange={(e) => setVitals((v) => ({ ...v, weightCm: e.target.value }))} />
+                </Field>
+              </div>
+              {computedBmi && (
+                <div className="mt-2 rounded-none border border-dashed border-input bg-muted/30 px-3 py-1.5">
+                  <span className="text-[10px] text-muted-foreground">BMI</span>
+                  <span className="ml-2 text-xs font-semibold">{computedBmi} kg/m²</span>
+                </div>
+              )}
+            </div>
+
+            {/* ── Vital Signs ── */}
+            <div>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Vital Signs</span>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <Field>
+                  <FieldLabel className="text-[10px]">Temperature (°F)</FieldLabel>
+                  <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
+                </Field>
+                <Field>
+                  <FieldLabel className="text-[10px]">Pulse (bpm)</FieldLabel>
+                  <Input className="h-8 text-xs" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals((v) => ({ ...v, pulseBpm: e.target.value }))} />
+                </Field>
+                <Field>
+                  <FieldLabel className="text-[10px]">Systolic BP (mmHg)</FieldLabel>
+                  <Input className="h-8 text-xs" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals((v) => ({ ...v, systolicBp: e.target.value }))} />
+                </Field>
+                <Field>
+                  <FieldLabel className="text-[10px]">Diastolic BP (mmHg)</FieldLabel>
+                  <Input className="h-8 text-xs" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals((v) => ({ ...v, diastolicBp: e.target.value }))} />
+                </Field>
+                <Field>
+                  <FieldLabel className="text-[10px]">SpO₂ (%)</FieldLabel>
+                  <Input className="h-8 text-xs" type="number" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals((v) => ({ ...v, spo2Percent: e.target.value }))} />
+                </Field>
+                <Field>
+                  <FieldLabel className="text-[10px]">Resp. Rate (/min)</FieldLabel>
+                  <Input className="h-8 text-xs" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals((v) => ({ ...v, respiratoryRate: e.target.value }))} />
+                </Field>
+              </div>
+            </div>
+
+            {/* ── Clinical Context ── */}
+            <div>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Clinical Context</span>
+              <div className="mt-2">
+                <Field>
+                  <FieldLabel className="text-[10px]">Medical Status</FieldLabel>
+                  <select
+                    className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
+                    value={vitals.medicalStatus}
+                    onChange={(e) => setVitals((v) => ({ ...v, medicalStatus: e.target.value }))}
+                  >
+                    <option value="">Select status...</option>
+                    <option value="Before Fasting">Before Fasting</option>
+                    <option value="After Fasting">After Fasting</option>
+                    <option value="Before Meals">Before Meals</option>
+                    <option value="After Meals">After Meals</option>
+                    <option value="Before Sleep">Before Sleep</option>
+                    <option value="After Waking Up">After Waking Up</option>
+                    <option value="After Exercise">After Exercise</option>
+                    <option value="At Rest">At Rest</option>
+                    <option value="During Stress">During Stress</option>
+                    <option value="Before Medication">Before Medication</option>
+                    <option value="After Medication">After Medication</option>
+                    <option value="During Menstruation">During Menstruation</option>
+                    <option value="Pregnancy">Pregnancy</option>
+                    <option value="Post Surgery">Post Surgery</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </Field>
+              </div>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => {
+              setVitalsModalOpen(false);
+              setVitals({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+            }}>Cancel</Button>
+            <Button disabled={!hasVitalsData || vitalsMutation.isPending} onClick={() => vitalsMutation.mutate()}>
+              {vitalsMutation.isPending ? "Saving..." : "Record Vitals"}
             </Button>
           </SheetFooter>
         </SheetContent>

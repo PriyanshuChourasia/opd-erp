@@ -42,7 +42,7 @@ const RESOURCES = [
   // Patient data
   'allergies', 'patient-allergy-records', 'patient-vitals', 'addresses',
   // Organisation & HR
-  'organisation', 'financial-years', 'prescription-templates',
+  'organisation', 'company', 'financial-years', 'prescription-templates',
   'users', 'roles', 'permissions', 'shifts', 'employee-schedules',
   // System
   'documents', 'settings', 'dashboard', 'reports', 'developer', 'health',
@@ -96,19 +96,19 @@ async function wipeAll() {
   await prisma.role.deleteMany();
   await prisma.address.deleteMany();
   await prisma.prescriptionTemplate.deleteMany();
-  await prisma.organisation.deleteMany();
+  await prisma.company.deleteMany();
   console.log('✅ All tables wiped.');
 }
 
 // ─── Seed functions ─────────────────────────────────────────
 
 async function seedOrganisation() {
-  const existing = await prisma.organisation.count();
+  const existing = await prisma.company.count();
   if (existing > 0 && !FRESH) {
-    console.log('Organisation already seeded, skipping.');
+    console.log('Company already seeded, skipping.');
     return;
   }
-  await prisma.organisation.upsert({
+  await prisma.company.upsert({
     where: { id: '00000000-0000-0000-0000-000000000001' },
     update: {},
     create: {
@@ -122,7 +122,7 @@ async function seedOrganisation() {
       registrationFee: 100,
     },
   });
-  console.log('Seeded organisation.');
+  console.log('Seeded company.');
 }
 
 async function seedShifts() {

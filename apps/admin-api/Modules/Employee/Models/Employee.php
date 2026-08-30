@@ -5,6 +5,8 @@ namespace Modules\Employee\Models;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Modules\Document\Models\Document;
 
 class Employee extends Model
 {

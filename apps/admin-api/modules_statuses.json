@@ -10,5 +10,8 @@
     "ApplicationFeature": true,
     "UserRole": true,
     "UserPermission": true,
-    "Customer": true
+    "Customer": true,
+    "Document": true,
+    "Country": true,
+    "State": true
 }

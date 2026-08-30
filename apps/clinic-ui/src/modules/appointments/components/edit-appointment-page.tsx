@@ -905,7 +905,7 @@ export function EditAppointmentPage() {
                       min={0}
                       className="w-32 text-right"
                       value={form.amount}
-                      onChange={(e) => setForm((prev) => ({ ...prev, amount: Number(e.target.value) || 0 }))}
+                      onChange={(e) => setForm((prev) => ({ ...prev, amount: Math.max(0, Number(e.target.value) || 0) }))}
                     />
                   </div>
                   <div className="border-t border-dashed" />
@@ -918,7 +918,7 @@ export function EditAppointmentPage() {
                         min={0}
                         className="w-24 text-right"
                         value={form.registrationFee}
-                        onChange={(e) => setForm((prev) => ({ ...prev, registrationFee: Number(e.target.value) || 0 }))}
+                        onChange={(e) => setForm((prev) => ({ ...prev, registrationFee: Math.max(0, Number(e.target.value) || 0) }))}
                       />
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">

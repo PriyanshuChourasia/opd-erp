@@ -1,0 +1,12 @@
+{
+    "name": "Country",
+    "alias": "country",
+    "description": "Country reference data for the admin-api",
+    "keywords": [
+        "country"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\Country\\Providers\\CountryServiceProvider"
+    ]
+}

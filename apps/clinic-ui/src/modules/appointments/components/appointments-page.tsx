@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { AlertTriangle, CalendarClock, ClipboardList, Download, Eye, FileText, HeartPulse, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, ClipboardList, Download, Eye, FileText, HeartPulse, Plus, Printer, Search, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   fetchAppointments,
@@ -550,6 +550,16 @@ export function AppointmentsPage() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Vitals</TooltipContent>
+              </Tooltip>
+            )}
+            {appt.status !== "CANCELLED" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-9" aria-label="Print appointment slip" onClick={() => setPrintAppt(appt)}>
+                    <Printer className="size-4.5 text-gray-600" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Print Slip</TooltipContent>
               </Tooltip>
             )}
             {appt.status === "COMPLETED" && (

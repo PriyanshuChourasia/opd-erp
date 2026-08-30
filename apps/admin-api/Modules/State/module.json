@@ -1,0 +1,12 @@
+{
+    "name": "State",
+    "alias": "state",
+    "description": "State reference data tied to countries",
+    "keywords": [
+        "state"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\State\\Providers\\StateServiceProvider"
+    ]
+}

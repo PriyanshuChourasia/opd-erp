@@ -130,10 +130,12 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
             {data ? <span className="flex-1">{patientGender}</span> : <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>}
           </div>
         </div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-xs text-muted-foreground shrink-0">Adv:</span>
-          <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
-        </div>
+        {!data && (
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs text-muted-foreground shrink-0">Adv:</span>
+            <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
+          </div>
+        )}
       </div>
     )
   );
@@ -413,9 +415,6 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                       {template.doctorName}{template.doctorSpecialization && ` · ${template.doctorSpecialization}`}{template.doctorQualification && ` · ${template.doctorQualification}`}
                     </p>
                   )}
-                  {(template.clinicPhone || template.clinicEmail) && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{[template.clinicPhone, template.clinicEmail].filter(Boolean).join(" · ")}</p>
-                  )}
                 </div>
                 {showRxSymbol && <span className="text-4xl font-bold italic" style={{ color: primaryColor, opacity: 0.4 }}>℞</span>}
               </div>
@@ -449,9 +448,6 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                       <p className="text-xs opacity-90">
                         {template.doctorName}{template.doctorSpecialization && ` · ${template.doctorSpecialization}`}
                       </p>
-                    )}
-                    {(template.clinicPhone || template.clinicEmail) && (
-                      <p className="text-[10px] opacity-75 mt-0.5">{[template.clinicPhone, template.clinicEmail].filter(Boolean).join(" · ")}</p>
                     )}
                   </div>
                   {showRxSymbol && <span className="text-5xl font-bold italic opacity-30">℞</span>}
@@ -717,7 +713,6 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                       ))}
                     </div>
                   )}
-                  {template.clinicPhone && <p className="text-[10px] text-muted-foreground">Phone: {template.clinicPhone}</p>}
                 </div>
               </div>
               <HeaderLine />
@@ -801,7 +796,6 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                 <div className="text-right">
                   {template.clinicName && <p className="text-sm font-bold uppercase" style={{ color: primaryColor }}>{template.clinicName}</p>}
                   {showClinicAddress && template.clinicAddress && <p className="text-[10px] text-muted-foreground">{template.clinicAddress}</p>}
-                  {template.clinicPhone && <p className="text-[10px] text-muted-foreground">Phone: {template.clinicPhone}</p>}
                 </div>
               </div>
               <HeaderLine />
@@ -832,9 +826,6 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                 <p className="text-xl font-bold tracking-wide">{template.clinicName || "Clinic Name"}</p>
                 {(template.doctorName || template.doctorSpecialization) && (
                   <p className="text-xs opacity-90 mt-0.5">{template.doctorName}{template.doctorSpecialization && ` · ${template.doctorSpecialization}`}</p>
-                )}
-                {(template.clinicPhone || template.clinicEmail) && (
-                  <p className="text-[10px] opacity-70 mt-1">{[template.clinicPhone, template.clinicEmail].filter(Boolean).join(" · ")}</p>
                 )}
                 {showRxSymbol && <span className="absolute top-0 right-4 text-6xl font-bold italic opacity-20">℞</span>}
               </div>

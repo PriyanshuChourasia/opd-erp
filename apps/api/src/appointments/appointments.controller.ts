@@ -57,10 +57,16 @@ export class AppointmentsController {
     return this.appointmentsService.updateDetails(id, dto, req.user.id);
   }
 
+  @Get(':id/history')
+  @Permissions('read:appointments')
+  findHistory(@Param('id') id: string) {
+    return this.appointmentsService.findHistory(id);
+  }
+
   @Patch(':id/reschedule')
   @Permissions('update:appointments')
-  reschedule(@Param('id') id: string, @Body() dto: RescheduleAppointmentDto) {
-    return this.appointmentsService.reschedule(id, dto);
+  reschedule(@Param('id') id: string, @Body() dto: RescheduleAppointmentDto, @Req() req: { user: { id: string } }) {
+    return this.appointmentsService.reschedule(id, dto, req.user.id);
   }
 
   @Delete(':id')

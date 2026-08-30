@@ -49,10 +49,14 @@ class EmployeeService implements EmployeeServiceInterface
 
     public function store(StoreEmployeeRequest $request): array
     {
-        $id = DB::table($this->table)->insertGetId(array_merge($request->validated(), [
+        $data = $request->validated();
+
+        $id = DB::table($this->table)->insertGetId(array_merge($data, [
             'created_at' => now(),
             'updated_at' => now(),
         ]));
+
+        $this->syncUserable($id, isset($data['user_id']) ? (int) $data['user_id'] : null);
 
         return $this->getById($id);
     }
@@ -64,9 +68,15 @@ class EmployeeService implements EmployeeServiceInterface
             throw new NotFoundHttpException();
         }
 
+        $data = $request->validated();
+
         DB::table($this->table)
             ->where('id', $id)
-            ->update(array_merge($request->validated(), ['updated_at' => now()]));
+            ->update(array_merge($data, ['updated_at' => now()]));
+
+        if (array_key_exists('user_id', $data)) {
+            $this->syncUserable($id, $data['user_id'] ? (int) $data['user_id'] : null);
+        }
 
         return $this->getById($id);
     }
@@ -77,7 +87,9 @@ class EmployeeService implements EmployeeServiceInterface
         if (! $row) {
             throw new NotFoundHttpException();
         }
+
         DB::table($this->table)->where('id', $id)->delete();
+        $this->clearUserable($id);
     }
 
     private function getById(int $id): array
@@ -88,5 +100,35 @@ class EmployeeService implements EmployeeServiceInterface
         }
 
         return (array) $row;
+    }
+
+    /**
+     * Maintain the polymorphic link users.userable -> employee.
+     */
+    private function syncUserable(int $employeeId, ?int $userId): void
+    {
+        $this->clearUserable($employeeId);
+
+        if (! $userId) {
+            return;
+        }
+
+        DB::table('users')->where('id', $userId)->update([
+            'userable_type' => 'employee',
+            'userable_id' => $employeeId,
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function clearUserable(int $employeeId): void
+    {
+        DB::table('users')
+            ->where('userable_type', 'employee')
+            ->where('userable_id', $employeeId)
+            ->update([
+                'userable_type' => null,
+                'userable_id' => null,
+                'updated_at' => now(),
+            ]);
     }
 }

@@ -61,6 +61,7 @@ model User {
   createdPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateCreated")
   createdSpecializations       Specialization[]        @relation("SpecializationCreated")
   createdPrescriptionHistories PrescriptionHistory[]  @relation("PrescriptionHistoryCreated")
+  createdAppointmentHistories  AppointmentHistory[]  @relation("AppointmentHistoryCreated")
   createdMedicineGroups         MedicineGroup[]       @relation("MedicineGroupCreated")
   createdUnits                  Unit[]                @relation("UnitCreated")
   createdDepartments            Department[]          @relation("DepartmentCreated")
@@ -617,12 +618,30 @@ model Appointment {
   bill               Bill?
   queueEntry         QueueEntry?
   patientVitals      PatientVitals[]
+  history            AppointmentHistory[]
 
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
   @@index([updatedById])
   @@index([date])
+}
+
+model AppointmentHistory {
+  id            String   @id @default(uuid())
+  appointmentId String
+  version       Int
+  previousData  Json     // Snapshot of appointment fields before this edit
+  changeType    String   @default("UPDATE") // CREATE | UPDATE
+  changeReason  String?
+  createdAt     DateTime @default(now())
+  createdById   String?
+  createdBy     User?    @relation("AppointmentHistoryCreated", fields: [createdById], references: [id])
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+  @@index([appointmentId, version])
+  @@index([createdById])
 }
 
 model Medicine {
@@ -975,24 +994,29 @@ model Document {
 }
 
 model Company {
-  id                  String          @id @default(uuid())
-  name                String
-  address             String?
-  phone               String?
-  email               String?
-  website             String?
-  registrationNumber  String?
-  registrationFee     Int             @default(100)
-  discountEnabled     Boolean         @default(true)
-  maxDiscountPercent  Int             @default(50)
-  defaultDiscountType String          @default("percent")
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  createdById         String?
-  updatedById         String?
-  createdBy           User?           @relation("CompanyCreated", fields: [createdById], references: [id])
-  updatedBy           User?           @relation("CompanyUpdated", fields: [updatedById], references: [id])
-  financialYears      FinancialYear[]
+  id                    String          @id @default(uuid())
+  name                  String
+  address               String?
+  phone                 String?
+  email                 String?
+  website               String?
+  registrationNumber    String?
+  registrationFee       Int             @default(100)
+  discountEnabled       Boolean         @default(true)
+  maxDiscountPercent    Int             @default(50)
+  defaultDiscountType   String          @default("percent")
+  gstNumber             String?
+  panNumber             String?
+  drugLicenseNumber     String?
+  drugLicenseExpiry     DateTime?
+  taxRegistrationNumber String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  createdById           String?
+  updatedById           String?
+  createdBy             User?           @relation("CompanyCreated", fields: [createdById], references: [id])
+  updatedBy             User?           @relation("CompanyUpdated", fields: [updatedById], references: [id])
+  financialYears        FinancialYear[]
 }
 
 model PrescriptionTemplate {

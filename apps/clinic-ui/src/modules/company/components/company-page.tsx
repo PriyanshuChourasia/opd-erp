@@ -31,6 +31,11 @@ const emptyForm: UpdateCompanyInput = {
   discountEnabled: true,
   maxDiscountPercent: 50,
   defaultDiscountType: "percent",
+  gstNumber: "",
+  panNumber: "",
+  drugLicenseNumber: "",
+  drugLicenseExpiry: "",
+  taxRegistrationNumber: "",
 };
 
 export function CompanyPage() {
@@ -74,6 +79,11 @@ export function CompanyPage() {
         discountEnabled: company.discountEnabled,
         maxDiscountPercent: company.maxDiscountPercent,
         defaultDiscountType: company.defaultDiscountType,
+        gstNumber: company.gstNumber ?? "",
+        panNumber: company.panNumber ?? "",
+        drugLicenseNumber: company.drugLicenseNumber ?? "",
+        drugLicenseExpiry: company.drugLicenseExpiry ? company.drugLicenseExpiry.slice(0, 10) : "",
+        taxRegistrationNumber: company.taxRegistrationNumber ?? "",
       });
     } else {
       setForm(emptyForm);
@@ -147,6 +157,11 @@ export function CompanyPage() {
                   { label: "Registration No.", value: company.registrationNumber },
                   { label: "Registration Fee", value: company.registrationFee ? `₹${company.registrationFee}` : null },
                   { label: "Discounts", value: company.discountEnabled ? `Enabled (max ${company.maxDiscountPercent}%)` : "Disabled" },
+                  { label: "GST Number", value: company.gstNumber },
+                  { label: "PAN Number", value: company.panNumber },
+                  { label: "Drug License No.", value: company.drugLicenseNumber },
+                  { label: "Drug License Expiry", value: company.drugLicenseExpiry ? new Date(company.drugLicenseExpiry).toLocaleDateString() : null },
+                  { label: "Tax Registration No.", value: company.taxRegistrationNumber },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-center justify-between text-sm">
                     <dt className="text-muted-foreground">{label}</dt>
@@ -303,6 +318,32 @@ export function CompanyPage() {
                     </Field>
                   </>
                 )}
+              </FieldGroup>
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="mb-3 text-sm font-semibold">Tax & Compliance</h3>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="org-gst">GST Number</FieldLabel>
+                  <Input id="org-gst" placeholder="22AAAAA0000A1Z5" value={form.gstNumber ?? ""} onChange={(e) => setForm({ ...form, gstNumber: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="org-pan">PAN Number</FieldLabel>
+                  <Input id="org-pan" placeholder="AAAAA0000A" value={form.panNumber ?? ""} onChange={(e) => setForm({ ...form, panNumber: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="org-drug-license">Drug License Number</FieldLabel>
+                  <Input id="org-drug-license" placeholder="20B-MH-12345" value={form.drugLicenseNumber ?? ""} onChange={(e) => setForm({ ...form, drugLicenseNumber: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="org-drug-expiry">Drug License Expiry</FieldLabel>
+                  <Input id="org-drug-expiry" type="date" value={form.drugLicenseExpiry ?? ""} onChange={(e) => setForm({ ...form, drugLicenseExpiry: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="org-tax-reg">Tax Registration Number</FieldLabel>
+                  <Input id="org-tax-reg" placeholder="Tax registration number" value={form.taxRegistrationNumber ?? ""} onChange={(e) => setForm({ ...form, taxRegistrationNumber: e.target.value })} />
+                </Field>
               </FieldGroup>
             </div>
           </div>

@@ -1,0 +1,13 @@
+{
+    "name": "Document",
+    "alias": "document",
+    "description": "Polymorphic document/attachment store for admin-api modules",
+    "keywords": [
+        "document",
+        "attachments"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\Document\\Providers\\DocumentServiceProvider"
+    ]
+}

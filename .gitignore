@@ -47,3 +47,6 @@ graphify-out/
 List_of_items.xlsx
 project/*
 medicine_file/*
+*.xls
+*.xlsx
+EOF

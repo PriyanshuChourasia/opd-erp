@@ -50,10 +50,14 @@ class CustomerService implements CustomerServiceInterface
 
     public function store(StoreCustomerRequest $request): array
     {
-        $id = DB::table($this->table)->insertGetId(array_merge($request->validated(), [
+        $data = $request->validated();
+
+        $id = DB::table($this->table)->insertGetId(array_merge($data, [
             'created_at' => now(),
             'updated_at' => now(),
         ]));
+
+        $this->syncUserable($id, isset($data['user_id']) ? (int) $data['user_id'] : null);
 
         return $this->getById($id);
     }
@@ -65,9 +69,15 @@ class CustomerService implements CustomerServiceInterface
             throw new NotFoundHttpException();
         }
 
+        $data = $request->validated();
+
         DB::table($this->table)
             ->where('id', $id)
-            ->update(array_merge($request->validated(), ['updated_at' => now()]));
+            ->update(array_merge($data, ['updated_at' => now()]));
+
+        if (array_key_exists('user_id', $data)) {
+            $this->syncUserable($id, $data['user_id'] ? (int) $data['user_id'] : null);
+        }
 
         return $this->getById($id);
     }
@@ -78,7 +88,9 @@ class CustomerService implements CustomerServiceInterface
         if (! $row) {
             throw new NotFoundHttpException();
         }
+
         DB::table($this->table)->where('id', $id)->delete();
+        $this->clearUserable($id);
     }
 
     private function getById(int $id): array
@@ -89,5 +101,35 @@ class CustomerService implements CustomerServiceInterface
         }
 
         return (array) $row;
+    }
+
+    /**
+     * Maintain the polymorphic link users.userable -> customer.
+     */
+    private function syncUserable(int $customerId, ?int $userId): void
+    {
+        $this->clearUserable($customerId);
+
+        if (! $userId) {
+            return;
+        }
+
+        DB::table('users')->where('id', $userId)->update([
+            'userable_type' => 'customer',
+            'userable_id' => $customerId,
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function clearUserable(int $customerId): void
+    {
+        DB::table('users')
+            ->where('userable_type', 'customer')
+            ->where('userable_id', $customerId)
+            ->update([
+                'userable_type' => null,
+                'userable_id' => null,
+                'updated_at' => now(),
+            ]);
     }
 }

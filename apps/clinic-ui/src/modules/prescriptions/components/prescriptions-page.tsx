@@ -431,7 +431,7 @@ export function PrescriptionsPage() {
     const rxDate = new Date(rx.createdAt);
     const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
     const orgName = organisation?.name ?? 'CLINIC';
-    const orgInfo = [organisation?.address, organisation?.phone].filter(Boolean).join(' | ') || 'Healthcare Centre';
+    const orgInfo = organisation?.address || 'Healthcare Centre';
     const rxId = rx.id.slice(0, 8).toUpperCase();
     const patientName = rx.patient ? getPatientName(rx.patient) : '';
     const patientPhone = rx.patient?.contactNo ?? '';
@@ -510,7 +510,7 @@ export function PrescriptionsPage() {
       </tbody>
     </table>
     ${notesSection}
-    <div style="margin-top:40px;display:flex;justify-content:flex-end;">
+    <div style="margin-top:20px;display:flex;justify-content:flex-end;">
       <div style="text-align:center;">
         <div style="width:180px;border-top:1px solid #000;margin-bottom:4px;padding-top:6px;">
           <span style="font-size:12px;font-weight:bold;">Dr. ${doctorName}</span>
@@ -523,7 +523,7 @@ export function PrescriptionsPage() {
     </div>
   </div>
   <div style="background:#f0f2f5;padding:8px 24px;text-align:center;font-size:10px;color:#666;border-top:1px solid #ddd;">
-    Computer-generated prescription | Generated on ${new Date().toLocaleString('en-IN')} | ${orgEmail ? `Email: ${orgEmail}` : ''}
+    Computer-generated prescription | Generated on ${new Date().toLocaleString('en-IN')} | ${organisation?.phone ? `Phone: ${organisation.phone}` : ''} ${orgEmail ? `| Email: ${orgEmail}` : ''}
   </div>
 </div>`;
   }
@@ -603,18 +603,6 @@ ${buildPrescriptionBodyHtml(rx)}
       accessorKey: "diagnosis",
       header: "Diagnosis",
       cell: ({ row }) => row.original.diagnosis || <span className="text-muted-foreground">—</span>,
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => {
-        const status = row.original.status;
-        return (
-          <Badge variant="outline" className={`text-[10px] uppercase ${RX_STATUS_STYLES[status] ?? ""}`}>
-            {status}
-          </Badge>
-        );
-      },
     },
     {
       id: "items",
@@ -774,14 +762,6 @@ ${buildPrescriptionBodyHtml(rx)}
             )}
           </div>
         )}
-        <select
-          className="flex h-9 w-40 rounded-none border border-input bg-background px-3 py-1 text-sm"
-          value={filterStatus}
-          onChange={(e) => setFilterStatusAndResetPage(e.target.value)}
-        >
-          <option value="">All statuses</option>
-          {RX_STATUSES.map((s) => (<option key={s} value={s}>{s}</option>))}
-        </select>
         <div className="ml-auto flex items-center gap-2">
           <Button variant={!filterDate ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage("")}>All</Button>
           <Button variant={filterDate === todayStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(todayStr())}>Today</Button>
@@ -1266,7 +1246,7 @@ ${buildPrescriptionBodyHtml(rx)}
 
                   {/* Footer */}
                   <div className="bg-gray-100 py-2 px-6 text-center text-[10px] text-gray-500 border-t border-gray-200 rounded-b">
-                    Computer-generated prescription | Generated on {new Date().toLocaleString('en-IN')} | {organisation?.email ? `Email: ${organisation.email}` : ''}
+                    Computer-generated prescription | Generated on {new Date().toLocaleString('en-IN')} | {organisation?.phone ? `Phone: ${organisation.phone}` : ''} {organisation?.email ? `| Email: ${organisation.email}` : ''}
                   </div>
                 </>
               );

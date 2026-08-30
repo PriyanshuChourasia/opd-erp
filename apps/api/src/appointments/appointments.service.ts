@@ -89,6 +89,27 @@ export class AppointmentsService
       include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
     });
 
+    // Save version 1 history entry (mirroring PrescriptionHistory pattern)
+    await this.prisma.appointmentHistory.create({
+      data: {
+        appointmentId: appointment.id,
+        version: 1,
+        previousData: {
+          patientId: appointment.patientId,
+          doctorId: appointment.doctorId,
+          date: appointment.date,
+          type: appointment.type,
+          status: appointment.status,
+          amount: appointment.amount,
+          registrationFee: appointment.registrationFee,
+          reasonForVisit: appointment.reasonForVisit,
+          notes: appointment.notes,
+        },
+        changeType: 'CREATE',
+        createdById: createdById ?? null,
+      },
+    });
+
     return withDoctorName(this.prisma, appointment);
   }
 
@@ -198,6 +219,26 @@ export class AppointmentsService
   async updateDetails(id: string, dto: UpdateAppointmentDto, userId?: string) {
     const existing = await this.findOne(id);
 
+    // Calculate next version for history
+    const lastHistory = await this.prisma.appointmentHistory.findFirst({
+      where: { appointmentId: id },
+      orderBy: { version: 'desc' },
+    });
+    const nextVersion = (lastHistory?.version ?? 0) + 1;
+
+    // Snapshot current state before applying changes
+    const previousData = {
+      patientId: existing.patientId,
+      doctorId: existing.doctorId,
+      date: existing.date,
+      type: existing.type,
+      status: existing.status,
+      amount: existing.amount,
+      registrationFee: existing.registrationFee,
+      reasonForVisit: existing.reasonForVisit,
+      notes: existing.notes,
+    };
+
     const data: Record<string, unknown> = {};
     if (dto.date !== undefined) data.date = new Date(dto.date);
     if (dto.doctorId !== undefined) data.doctorId = dto.doctorId;
@@ -235,12 +276,24 @@ export class AppointmentsService
       }
     }
 
-    const appointment = await this.prisma.appointment.update({
-      where: { id },
-      data,
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+    // Use a transaction to atomically save history and update appointment
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Save history entry with previous state
+      await tx.appointmentHistory.create({
+        data: {
+          appointmentId: id,
+          version: nextVersion,
+          previousData,
+          changeType: 'UPDATE',
+          createdById: userId ?? null,
+        },
+      });
+
+      // 2. Update appointment
+      await tx.appointment.update({ where: { id }, data });
     });
-    return withDoctorName(this.prisma, appointment);
+
+    return this.findOne(id);
   }
 
   /**
@@ -248,12 +301,32 @@ export class AppointmentsService
    * leaving it in RESCHEDULED status rather than reverting to SCHEDULED —
    * this keeps the change visible in the appointment history/badge.
    */
-  async reschedule(id: string, dto: RescheduleAppointmentDto) {
+  async reschedule(id: string, dto: RescheduleAppointmentDto, userId?: string) {
     const existing = await this.findOne(id);
     const date = new Date(dto.date);
     const doctorId = dto.doctorId ?? existing.doctorId;
     const patientName = `${existing.patient.firstName} ${existing.patient.lastName}`;
     const tokenNumber = this.generateTokenNumber(date, patientName);
+
+    // Calculate next version for history
+    const lastHistory = await this.prisma.appointmentHistory.findFirst({
+      where: { appointmentId: id },
+      orderBy: { version: 'desc' },
+    });
+    const nextVersion = (lastHistory?.version ?? 0) + 1;
+
+    // Snapshot current state before reschedule
+    const previousData = {
+      patientId: existing.patientId,
+      doctorId: existing.doctorId,
+      date: existing.date,
+      type: existing.type,
+      status: existing.status,
+      amount: existing.amount,
+      registrationFee: existing.registrationFee,
+      reasonForVisit: existing.reasonForVisit,
+      notes: existing.notes,
+    };
 
     // If the doctor changed during reschedule, also reassign any linked
     // queue entry regardless of status so the patient appears under the
@@ -282,17 +355,43 @@ export class AppointmentsService
       }
     }
 
-    const appointment = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        date,
-        doctorId,
-        tokenNumber,
-        status: 'RESCHEDULED',
-      },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+    // Use a transaction to atomically save history and update appointment
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Save history entry with previous state
+      await tx.appointmentHistory.create({
+        data: {
+          appointmentId: id,
+          version: nextVersion,
+          previousData,
+          changeType: 'UPDATE',
+          createdById: userId ?? null,
+        },
+      });
+
+      // 2. Update appointment
+      await tx.appointment.update({
+        where: { id },
+        data: {
+          date,
+          doctorId,
+          tokenNumber,
+          status: 'RESCHEDULED',
+          updatedById: userId ?? null,
+        },
+      });
     });
-    return withDoctorName(this.prisma, appointment);
+
+    return this.findOne(id);
+  }
+
+  async findHistory(appointmentId: string) {
+    // Verify appointment exists
+    await this.findOne(appointmentId);
+    return this.prisma.appointmentHistory.findMany({
+      where: { appointmentId },
+      orderBy: { version: 'desc' },
+      include: { createdBy: { select: { id: true, firstName: true, lastName: true } } },
+    });
   }
 
   async remove(id: string) {

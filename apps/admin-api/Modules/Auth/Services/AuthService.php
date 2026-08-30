@@ -36,6 +36,18 @@ class AuthService implements AuthServiceInterface
             'roleId' => '',
             'roleName' => 'Admin',
             'permissions' => [],
+            'phone' => $user->phone,
+            'gender' => $user->gender,
+            'dateOfBirth' => $user->date_of_birth,
+            'address' => $user->address,
+            'city' => $user->city,
+            'state' => $user->state,
+            'country' => $user->country,
+            'pincode' => $user->pincode,
+            'avatarUrl' => $user->avatar_url,
+            'status' => $user->status,
+            'userableType' => $user->userable_type,
+            'userableId' => $user->userable_id ? (string) $user->userable_id : null,
         ];
     }
 

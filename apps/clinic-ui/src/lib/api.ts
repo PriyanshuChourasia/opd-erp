@@ -659,6 +659,11 @@ export interface Organisation {
   discountEnabled: boolean;
   maxDiscountPercent: number;
   defaultDiscountType: string;
+  gstNumber?: string | null;
+  panNumber?: string | null;
+  drugLicenseNumber?: string | null;
+  drugLicenseExpiry?: string | null;
+  taxRegistrationNumber?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -674,6 +679,11 @@ export interface UpdateOrganisationInput {
   discountEnabled?: boolean;
   maxDiscountPercent?: number;
   defaultDiscountType?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  drugLicenseNumber?: string;
+  drugLicenseExpiry?: string;
+  taxRegistrationNumber?: string;
 }
 
 export type Company = Organisation;
@@ -1468,6 +1478,34 @@ export function updateAppointment(id: string, input: UpdateAppointmentInput) {
     method: "PATCH",
     path: `/appointments/${id}`,
     body: input,
+  });
+}
+
+export interface AppointmentHistoryEntry {
+  id: string;
+  appointmentId: string;
+  version: number;
+  previousData: {
+    patientId: string;
+    doctorId: string;
+    date: string;
+    type: string;
+    status: string;
+    amount: number;
+    registrationFee: number;
+    reasonForVisit?: string | null;
+    notes?: string | null;
+  };
+  changeType: string;
+  changeReason?: string | null;
+  createdAt: string;
+  createdBy?: { id: string; firstName: string; lastName: string } | null;
+}
+
+export function fetchAppointmentHistory(appointmentId: string) {
+  return request<AppointmentHistoryEntry[]>({
+    method: "GET",
+    path: `/appointments/${appointmentId}/history`,
   });
 }
 

@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdateCompanyDto {
   @IsOptional()
@@ -42,4 +42,24 @@ export class UpdateCompanyDto {
   @IsOptional()
   @IsString()
   defaultDiscountType?: string;
+
+  @IsOptional()
+  @IsString()
+  gstNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  panNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  drugLicenseNumber?: string;
+
+  @IsOptional()
+  @IsDateString()
+  drugLicenseExpiry?: string;
+
+  @IsOptional()
+  @IsString()
+  taxRegistrationNumber?: string;
 }

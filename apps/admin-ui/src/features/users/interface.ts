@@ -2,7 +2,17 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  createdAt: string | null;
+  created_at: string | null;
+  phone: string | null;
+  gender: string | null;
+  date_of_birth: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  pincode: string | null;
+  avatar_url: string | null;
+  status: string | null;
 }
 
 export interface Paginated<T> {
@@ -19,4 +29,14 @@ export interface UserInput {
   name: string;
   email: string;
   password?: string;
+  phone?: string | null;
+  gender?: string | null;
+  date_of_birth?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  pincode?: string | null;
+  avatar_url?: string | null;
+  status?: string | null;
 }

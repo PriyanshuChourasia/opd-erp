@@ -20,7 +20,7 @@ function randomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-const DOCTOR_ID = 'c95d58c6-c888-440e-8e4f-d84f4ea1487c'; // existing doctor
+const DEMO_DOCTOR_REG_NOS = ['MCI-10002', 'MCI-10003', 'MCI-10004'];
 
 const APPOINTMENT_TYPES = ['CONSULTATION', 'FOLLOW_UP', 'WALK_IN'];
 const APPOINTMENT_STATUSES = ['COMPLETED', 'COMPLETED', 'COMPLETED', 'COMPLETED', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'SCHEDULED', 'CHECKED_IN'];
@@ -121,12 +121,30 @@ async function main() {
     console.log(`    Created Dr. ${d.firstName} ${d.lastName} (${d.spec})`);
   }
 
-  // Add existing doctor
+  // Add the base doctor created by prisma/seed.ts (looked up dynamically —
+  // its id is a random UUID each run, never hardcode it).
+  const baseDoctor = await prisma.doctor.findFirst({
+    where: { medicalRegistrationNo: { notIn: DEMO_DOCTOR_REG_NOS } },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (!baseDoctor) {
+    console.error('❌ No base doctor found — run `prisma db seed` (prisma/seed.ts) first.');
+    return;
+  }
   const allDoctors = [
-    { id: DOCTOR_ID, name: 'Dr. Vikram Mehta' },
+    { id: baseDoctor.id, name: `Dr. (${baseDoctor.specialization ?? baseDoctor.medicalRegistrationNo})` },
     ...extraDoctors,
   ];
   console.log(`  Total doctors: ${allDoctors.length}`);
+
+  // Idempotency: if this script already ran against this DB (appointment
+  // count is beyond prisma/seed.ts's fixed 2-appointment baseline), skip the
+  // bulk generation instead of piling on more random data on every re-run.
+  const existingAppointmentCount = await prisma.appointment.count();
+  if (existingAppointmentCount > 2) {
+    console.log(`  ${existingAppointmentCount} appointments already present — skipping bulk generation.`);
+    return;
+  }
 
   // Date range: 2 months back from today
   const today = new Date();

@@ -18,6 +18,7 @@ RUN cd apps/api && npx prisma generate
 # 4. Copy & build
 COPY apps/api/tsconfig*.json apps/api/
 COPY apps/api/src apps/api/src
+COPY apps/api/scripts apps/api/scripts
 COPY apps/api/nest-cli.json apps/api/
 RUN cd apps/api && npm run build
 
@@ -36,6 +37,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
 RUN chmod +x ./apps/api/docker-entrypoint.sh

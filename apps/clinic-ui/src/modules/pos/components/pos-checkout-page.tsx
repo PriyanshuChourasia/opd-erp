@@ -25,7 +25,7 @@ export function PosCheckoutPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
-  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadOrganisation = hasPermission(permissions, "read", "company");
   const [patientQuery, setPatientQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
   const [itemQuery, setItemQuery] = useState("");

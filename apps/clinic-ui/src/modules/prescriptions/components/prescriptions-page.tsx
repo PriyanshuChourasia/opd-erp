@@ -84,7 +84,7 @@ export function PrescriptionsPage() {
   // doesn't imply they could browse other doctors' prescriptions.
   const user = useAppSelector((state) => state.auth.user);
   const isDoctor = user?.userableType === "Doctor";
-  const canReadOrganisation = hasPermission(user?.permissions, "read", "organisation");
+  const canReadOrganisation = hasPermission(user?.permissions, "read", "company");
   const canCreate = hasPermission(user?.permissions, "create", "prescriptions");
   const canUpdate = hasPermission(user?.permissions, "update", "prescriptions");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });

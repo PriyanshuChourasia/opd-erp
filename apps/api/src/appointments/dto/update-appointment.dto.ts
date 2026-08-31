@@ -24,6 +24,11 @@ export class UpdateAppointmentDto {
   registrationFee?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  amountPaid?: number;
+
+  @IsOptional()
   @IsString()
   reasonForVisit?: string;
 

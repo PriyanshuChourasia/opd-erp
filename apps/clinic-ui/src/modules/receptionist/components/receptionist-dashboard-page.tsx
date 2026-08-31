@@ -115,7 +115,7 @@ export function ReceptionistDashboardPage() {
   const statsQuery = useDashboardStats();
   const stats = statsQuery.data;
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
-  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadOrganisation = hasPermission(permissions, "read", "company");
   const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
 
   const { data: todayAppointmentsData, isLoading: loadingAppts } = useQuery({
@@ -976,8 +976,8 @@ export function ReceptionistDashboardPage() {
                         </Badge>
                       </div>
                       <span className="whitespace-nowrap text-xs font-medium text-primary">
-                        {appt.registrationFee > 0
-                          ? `${currency(appt.amount + appt.registrationFee)} (${currency(appt.amount)}+${currency(appt.registrationFee)})`
+                        {appt.registrationFee > 0 || appt.amountPaid > 0
+                          ? `${currency(Math.max(0, appt.amount + appt.registrationFee - appt.amountPaid))} (${[currency(appt.amount), appt.registrationFee > 0 ? `+${currency(appt.registrationFee)}` : null, appt.amountPaid > 0 ? `-${currency(appt.amountPaid)}` : null].filter(Boolean).join("")})`
                           : currency(appt.amount)}
                       </span>
                     </div>

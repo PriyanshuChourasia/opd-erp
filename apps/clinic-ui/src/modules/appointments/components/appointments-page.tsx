@@ -91,14 +91,14 @@ export function AppointmentsPage() {
   const location = useLocation();
   const isReceptionist = location.pathname.startsWith('/receptionist');
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
-  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadOrganisation = hasPermission(permissions, "read", "company");
 
   const [filterDate, setFilterDate] = useState(todayStr());
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCreator, setFilterCreator] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 100 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [statusConfirm, setStatusConfirm] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
 
@@ -1238,7 +1238,7 @@ export function AppointmentsPage() {
               const formattedDate = aptDate.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
               const formattedTime = aptDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
               const apptId = printAppt.id.slice(0, 8).toUpperCase();
-              const totalFee = printAppt.amount + (printAppt.registrationFee || 0);
+              const totalFee = Math.max(0, printAppt.amount + (printAppt.registrationFee || 0) - (printAppt.amountPaid || 0));
               return (
                 <>
                   {/* Header */}
@@ -1322,6 +1322,12 @@ export function AppointmentsPage() {
                           <tr className="border-b border-gray-200">
                             <td className="py-2 pr-1.5 text-xs">Registration Amount</td>
                             <td className="py-2 pl-1.5 text-right text-xs">{currency(printAppt.registrationFee)}</td>
+                          </tr>
+                        )}
+                        {printAppt.amountPaid > 0 && (
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-1.5 text-xs">Amount Paid</td>
+                            <td className="py-2 pl-1.5 text-right text-xs">-{currency(printAppt.amountPaid)}</td>
                           </tr>
                         )}
                         <tr>

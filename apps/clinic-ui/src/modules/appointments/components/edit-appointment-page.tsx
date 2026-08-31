@@ -108,6 +108,7 @@ interface EditForm {
   type: string;
   amount: number;
   registrationFee: number;
+  amountPaid: number;
   date: string;
   slot: string | null;
   notes: string;
@@ -119,9 +120,9 @@ export function EditAppointmentPage() {
   const navigate = useNavigate();
   const { appointmentId } = useParams({ from: "/_dashboard/appointments/$appointmentId/edit" });
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
-  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadOrganisation = hasPermission(permissions, "read", "company");
   const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
-  const [form, setForm] = useState<EditForm>({ patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: 0, date: todayStr(), slot: null, notes: "", allergies: [] });
+  const [form, setForm] = useState<EditForm>({ patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: 0, amountPaid: 0, date: todayStr(), slot: null, notes: "", allergies: [] });
   const [formReady, setFormReady] = useState(false);
   const [patientQuery, setPatientQuery] = useState("");
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
@@ -160,6 +161,7 @@ export function EditAppointmentPage() {
         type: appointment.type,
         amount: appointment.amount,
         registrationFee: appointment.registrationFee,
+        amountPaid: appointment.amountPaid,
         date: localDateStr(d),
         slot: localTimeStr(d),
         notes: appointment.notes ?? "",
@@ -289,6 +291,7 @@ export function EditAppointmentPage() {
         type: form.type,
         amount: form.amount,
         registrationFee: form.registrationFee,
+        amountPaid: form.amountPaid,
         notes: form.notes || undefined,
       });
     },
@@ -313,6 +316,7 @@ export function EditAppointmentPage() {
         type: form.type,
         amount: form.amount,
         registrationFee: form.registrationFee,
+        amountPaid: form.amountPaid,
         notes: form.notes || undefined,
       });
       await checkoutAppointment(appointmentId, {
@@ -942,10 +946,23 @@ export function EditAppointmentPage() {
                     </div>
                   </div>
 
+                  <div className="border-t border-dashed" />
+                  <div className="flex items-center justify-between gap-3">
+                    <label htmlFor="a-amount-paid" className="text-sm font-medium">Amount Paid</label>
+                    <Input
+                      id="a-amount-paid"
+                      type="number"
+                      min={0}
+                      className="w-32 text-right"
+                      value={form.amountPaid}
+                      onChange={(e) => setForm((prev) => ({ ...prev, amountPaid: Math.max(0, Number(e.target.value) || 0) }))}
+                    />
+                  </div>
+
                   <div className="border-t" />
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold">Total</span>
-                    <span className="text-lg font-bold text-primary">{currency(form.amount + form.registrationFee)}</span>
+                    <span className="text-lg font-bold text-primary">{currency(Math.max(0, form.amount + form.registrationFee - form.amountPaid))}</span>
                   </div>
                 </div>
               </div>
@@ -958,7 +975,7 @@ export function EditAppointmentPage() {
         <Button variant="outline" onClick={goBack}>Cancel</Button>
         <div className="flex items-center gap-2">
           <Button onClick={() => updateMutation.mutate()} disabled={!canSave || updateMutation.isPending || saveAndPayMutation.isPending}>
-            {updateMutation.isPending ? "Saving..." : `Save Changes · ${currency(form.amount + form.registrationFee)}`}
+            {updateMutation.isPending ? "Saving..." : `Save Changes · ${currency(Math.max(0, form.amount + form.registrationFee - form.amountPaid))}`}
           </Button>
           <Button
             variant="default"
@@ -972,7 +989,7 @@ export function EditAppointmentPage() {
               <>
                 Save &amp; Pay
                 <span className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">
-                  {currency(form.amount + form.registrationFee)}
+                  {currency(Math.max(0, form.amount + form.registrationFee - form.amountPaid))}
                 </span>
               </>
             )}
@@ -997,7 +1014,7 @@ export function EditAppointmentPage() {
       <PaymentSheet
         open={paymentSheetOpen}
         onOpenChange={setPaymentSheetOpen}
-        subtotal={form.amount + form.registrationFee}
+        subtotal={Math.max(0, form.amount + form.registrationFee - form.amountPaid)}
         isPending={saveAndPayMutation.isPending}
         onSubmit={(payload) => saveAndPayMutation.mutate(payload)}
         submitLabel="Confirm & Save"

@@ -18,7 +18,6 @@ import {
   fetchPatientVitalsLatest,
   createPatientVitals,
   deletePatientVitals,
-  fetchAllergies,
   type AppointmentType,
   type EmployeeSchedule,
   type CreateDoctorWithUserInput,
@@ -32,6 +31,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
+import { AllergySelect } from "@/components/allergy-select";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
@@ -101,6 +101,7 @@ interface BookingForm {
   type: string;
   amount: number;
   registrationFee: number | null;
+  amountPaid: number;
   isNewPatient: boolean;
   date: string;
   slot: string | null;
@@ -109,7 +110,7 @@ interface BookingForm {
 }
 
 function emptyBookingForm(): BookingForm {
-  return { patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: null, isNewPatient: false, date: todayStr(), slot: null, notes: "", allergies: [] };
+  return { patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: null, amountPaid: 0, isNewPatient: false, date: todayStr(), slot: null, notes: "", allergies: [] };
 }
 
 export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) {
@@ -118,7 +119,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const location = useLocation();
   const isReceptionist = location.pathname.startsWith('/receptionist');
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
-  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadOrganisation = hasPermission(permissions, "read", "company");
   const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
   const [form, setForm] = useState<BookingForm>(emptyBookingForm());
   const [patientQuery, setPatientQuery] = useState("");
@@ -130,8 +131,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
   const [doctorFormOpen, setDoctorFormOpen] = useState(false);
   const [vitalsModalOpen, setVitalsModalOpen] = useState(false);
-  const [allergySearchQuery, setAllergySearchQuery] = useState("");
-  const [allergySearchOpen, setAllergySearchOpen] = useState(false);
   const [vitals, setVitals] = useState<Record<string, string>>({
     heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
     systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
@@ -209,13 +208,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     queryKey: ["patientVitals", "latest", form.patient?.id],
     queryFn: () => fetchPatientVitalsLatest(form.patient!.id),
     enabled: !!form.patient?.id,
-  });
-
-  // Allergy search query
-  const allergyResults = useQuery({
-    queryKey: ["allergies", "search", allergySearchQuery],
-    queryFn: () => fetchAllergies({ search: allergySearchQuery || undefined, limit: 20 }),
-    enabled: allergySearchOpen && allergySearchQuery.trim().length >= 1,
   });
 
   useEffect(() => {
@@ -340,6 +332,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
+        ...(form.amountPaid > 0 ? { amountPaid: form.amountPaid } : {}),
         notes: form.notes || undefined,
       });
     },
@@ -364,6 +357,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
+        ...(form.amountPaid > 0 ? { amountPaid: form.amountPaid } : {}),
         notes: form.notes || undefined,
       });
       await checkoutAppointment(appointment.id, {
@@ -511,8 +505,9 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 )}
               </Field>
 
-              {/* ── Doctor ── */}
-              <Field><FieldLabel htmlFor="a-doctor">Doctor *</FieldLabel>
+              {/* ── Doctor + Allergies (side by side) ── */}
+              <div className="grid grid-cols-2 gap-4">
+                <Field><FieldLabel htmlFor="a-doctor">Doctor *</FieldLabel>
                 <div className="relative">
                   {form.doctorId ? (
                     <div className="flex h-9 items-center justify-between rounded-none border border-input bg-background px-3 text-sm">
@@ -587,6 +582,14 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   )}
                 </div>
               </Field>
+
+                <Field><FieldLabel>Allergies</FieldLabel>
+                  <AllergySelect
+                    value={form.allergies}
+                    onChange={(allergies) => setForm((prev) => ({ ...prev, allergies }))}
+                  />
+                </Field>
+              </div>
 
               {/* ── Slot + Consultation type (side by side) ── */}
               <div className="grid grid-cols-2 gap-4">
@@ -744,88 +747,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   value={form.notes}
                   onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
                 />
-              </Field>
-
-              {/* ── Allergies ── */}
-              <Field><FieldLabel>Allergies</FieldLabel>
-                {/* Selected allergies */}
-                {form.allergies.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-1.5">
-                    {form.allergies.map((a) => (
-                      <span key={a} className="inline-flex items-center gap-1 rounded-none border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
-                        {a}
-                        <button
-                          type="button"
-                          onClick={() => setForm((prev) => ({ ...prev, allergies: prev.allergies.filter((x) => x !== a) }))}
-                          className="ml-0.5 hover:text-red-900 dark:hover:text-red-300"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {/* Search input */}
-                <div className="relative">
-                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search allergies..."
-                    className="pl-9"
-                    value={allergySearchQuery}
-                    onChange={(e) => { setAllergySearchQuery(e.target.value); setAllergySearchOpen(true); }}
-                    onFocus={() => setAllergySearchOpen(true)}
-                    onBlur={() => setTimeout(() => setAllergySearchOpen(false), 200)}
-                  />
-                  {allergySearchOpen && allergySearchQuery.trim().length >= 1 && (
-                    <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-48 overflow-y-auto">
-                      {allergyResults.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>}
-                      {!allergyResults.isLoading && (allergyResults.data?.data ?? []).length === 0 && (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">No allergies found</p>
-                      )}
-                      {(allergyResults.data?.data ?? []).map((allergy: any) => (
-                        <button
-                          key={allergy.id}
-                          type="button"
-                          disabled={form.allergies.includes(allergy.name)}
-                          className={cn(
-                            "flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted",
-                            form.allergies.includes(allergy.name) && "opacity-50 cursor-not-allowed"
-                          )}
-                          onMouseDown={() => {
-                            if (!form.allergies.includes(allergy.name)) {
-                              setForm((prev) => ({ ...prev, allergies: [...prev.allergies, allergy.name] }));
-                            }
-                            setAllergySearchQuery("");
-                            setAllergySearchOpen(false);
-                          }}
-                        >
-                          <span className="font-medium">{allergy.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {allergy.severity && <span className="mr-1 capitalize">{allergy.severity.toLowerCase()}</span>}
-                            {allergy.category && allergy.category}
-                          </span>
-                        </button>
-                      ))}
-                      {/* Add custom allergy */}
-                      {allergySearchQuery.trim().length >= 1 && !(allergyResults.data?.data ?? []).some((a: any) => a.name.toLowerCase() === allergySearchQuery.trim().toLowerCase()) && (
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-center gap-2 border-t px-3 py-2 text-sm font-medium text-primary hover:bg-muted transition-colors"
-                          onMouseDown={() => {
-                            const name = allergySearchQuery.trim();
-                            if (name && !form.allergies.includes(name)) {
-                              setForm((prev) => ({ ...prev, allergies: [...prev.allergies, name] }));
-                            }
-                            setAllergySearchQuery("");
-                            setAllergySearchOpen(false);
-                          }}
-                        >
-                          <Plus className="size-4" /> Add "{allergySearchQuery.trim()}"
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
               </Field>
             </div>
 
@@ -1077,11 +998,27 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                     <span className="self-center text-[11px] text-muted-foreground">Default: {currency(defaultRegistrationFee)}</span>
                   </div>
 
+                  {/* Divider */}
+                  <div className="border-t border-dashed" />
+
+                  {/* Amount Paid — advance/partial payment, deducted from the total */}
+                  <div className="grid grid-cols-[1fr_auto] gap-4 items-center py-3">
+                    <label htmlFor="a-amount-paid" className="text-sm font-medium">Amount Paid</label>
+                    <Input
+                      id="a-amount-paid"
+                      type="number"
+                      min={0}
+                      className="w-28 text-right h-8 text-xs"
+                      value={form.amountPaid}
+                      onChange={(e) => setForm((prev) => ({ ...prev, amountPaid: Math.max(0, Number(e.target.value) || 0) }))}
+                    />
+                  </div>
+
                   {/* Total */}
                   <div className="border-t" />
                   <div className="grid grid-cols-[1fr_auto] gap-4 items-center pt-3">
                     <span className="text-sm font-semibold">Total</span>
-                    <span className="text-lg font-bold text-primary">{currency(form.amount + regFeeAmount)}</span>
+                    <span className="text-lg font-bold text-primary">{currency(Math.max(0, form.amount + regFeeAmount - form.amountPaid))}</span>
                   </div>
                 </div>
               </div>
@@ -1124,7 +1061,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       <PaymentSheet
         open={paymentSheetOpen}
         onOpenChange={setPaymentSheetOpen}
-        subtotal={form.amount + regFeeAmount}
+        subtotal={Math.max(0, form.amount + regFeeAmount - form.amountPaid)}
         isPending={bookAndPayMutation.isPending}
         onSubmit={(payload) => bookAndPayMutation.mutate(payload)}
         submitLabel="Confirm & Book"

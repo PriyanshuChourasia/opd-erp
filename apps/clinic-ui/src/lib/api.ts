@@ -388,6 +388,7 @@ export interface Appointment {
   tokenNumber: string | null;
   amount: number;
   registrationFee: number;
+  amountPaid: number;
   reasonForVisit: string | null;
   notes: string | null;
   cancellationReason: string | null;
@@ -409,6 +410,7 @@ export interface CreateAppointmentInput {
   type: AppointmentType;
   amount: number;
   registrationFee?: number;
+  amountPaid?: number;
   reasonForVisit?: string;
   notes?: string;
 }
@@ -1473,6 +1475,7 @@ export interface UpdateAppointmentInput {
   type?: string;
   amount?: number;
   registrationFee?: number;
+  amountPaid?: number;
   reasonForVisit?: string;
   notes?: string;
   status?: string;
@@ -1499,6 +1502,7 @@ export interface AppointmentHistoryEntry {
     status: string;
     amount: number;
     registrationFee: number;
+    amountPaid?: number;
     reasonForVisit?: string | null;
     notes?: string | null;
   };
@@ -1807,13 +1811,13 @@ export function restoreUser(id: string) {
 // ─── Organisation / Company API ──────────────────────────────
 
 export function fetchOrganisation() {
-  return request<Organisation | null>({ method: "GET", path: "/organisation" });
+  return request<Organisation | null>({ method: "GET", path: "/company" });
 }
 
 export function updateOrganisation(data: UpdateOrganisationInput) {
   return request<Organisation>({
     method: "PATCH",
-    path: "/organisation",
+    path: "/company",
     body: data,
   });
 }

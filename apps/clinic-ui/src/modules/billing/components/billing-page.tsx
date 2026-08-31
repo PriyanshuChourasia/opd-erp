@@ -31,7 +31,7 @@ export function BillingPage() {
   const [viewBill, setViewBill] = useState<Bill | null>(null);
   const [editPatientId, setEditPatientId] = useState<string | null>(null);
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
-  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
+  const canReadOrganisation = hasPermission(permissions, "read", "company");
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["bills", pagination.pageIndex, pagination.pageSize],

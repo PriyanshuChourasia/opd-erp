@@ -82,6 +82,7 @@ export class AppointmentsService
         type: dto.type ?? 'CONSULTATION',
         amount: dto.amount ?? 0,
         registrationFee,
+        amountPaid: dto.amountPaid ?? 0,
         reasonForVisit: dto.reasonForVisit,
         notes: dto.notes,
         tokenNumber,
@@ -102,6 +103,7 @@ export class AppointmentsService
           status: appointment.status,
           amount: appointment.amount,
           registrationFee: appointment.registrationFee,
+          amountPaid: appointment.amountPaid,
           reasonForVisit: appointment.reasonForVisit,
           notes: appointment.notes,
         },
@@ -237,6 +239,7 @@ export class AppointmentsService
       status: existing.status,
       amount: existing.amount,
       registrationFee: existing.registrationFee,
+      amountPaid: existing.amountPaid,
       reasonForVisit: existing.reasonForVisit,
       notes: existing.notes,
     };
@@ -247,6 +250,7 @@ export class AppointmentsService
     if (dto.type !== undefined) data.type = dto.type;
     if (dto.amount !== undefined) data.amount = dto.amount;
     if (dto.registrationFee !== undefined) data.registrationFee = dto.registrationFee;
+    if (dto.amountPaid !== undefined) data.amountPaid = dto.amountPaid;
     if (dto.reasonForVisit !== undefined) data.reasonForVisit = dto.reasonForVisit;
     if (dto.notes !== undefined) data.notes = dto.notes;
     data.updatedById = userId ?? null;
@@ -326,6 +330,7 @@ export class AppointmentsService
       status: existing.status,
       amount: existing.amount,
       registrationFee: existing.registrationFee,
+      amountPaid: existing.amountPaid,
       reasonForVisit: existing.reasonForVisit,
       notes: existing.notes,
     };
@@ -455,7 +460,9 @@ export class AppointmentsService
     const discount = dto.discount ?? 0;
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
-    const paidAmount = dto.paidAmount ?? total;
+    // Any amount already collected as an advance reduces what's still owed —
+    // default the checkout's paidAmount to it when the caller doesn't override.
+    const paidAmount = dto.paidAmount ?? (appointment.amountPaid > 0 ? Math.min(appointment.amountPaid, total) : total);
     const status = paidAmount >= total ? 'PAID' : 'PENDING';
 
     return this.prisma.bill.create({

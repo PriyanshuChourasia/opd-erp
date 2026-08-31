@@ -667,6 +667,7 @@ model Appointment {
   tokenNumber        String?
   amount             Int         @default(0)
   registrationFee    Int         @default(0)
+  amountPaid         Int         @default(0)
   reasonForVisit     String?
   notes              String?
   cancellationReason String?

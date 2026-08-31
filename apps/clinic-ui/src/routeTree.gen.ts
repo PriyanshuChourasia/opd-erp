@@ -42,10 +42,10 @@ import { Route as DashboardOrganisationPrescriptionTemplatesRouteImport } from '
 import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
 import { Route as DashboardOrganisationSidebarConfigRouteImport } from './routes/_dashboard/organisation/sidebar-config'
 import { Route as DashboardOrganisationUsersRouteImport } from './routes/_dashboard/organisation/users'
-import { Route as DashboardReportsDoctorPerformanceRouteImport } from './routes/_dashboard/reports/doctor-performance'
-import { Route as DashboardReportsOutstandingBillsRouteImport } from './routes/_dashboard/reports/outstanding-bills'
-import { Route as DashboardReportsRevenueByCategoryRouteImport } from './routes/_dashboard/reports/revenue-by-category'
-import { Route as DashboardReportsTopMedicinesRouteImport } from './routes/_dashboard/reports/top-medicines'
+import { Route as DashboardReportsDailyOpdSummaryRouteImport } from './routes/_dashboard/reports/daily-opd-summary'
+import { Route as DashboardReportsDoctorWiseOpdRouteImport } from './routes/_dashboard/reports/doctor-wise-opd'
+import { Route as DashboardReportsOutstandingPaymentsRouteImport } from './routes/_dashboard/reports/outstanding-payments'
+import { Route as DashboardReportsRevenueCollectionRouteImport } from './routes/_dashboard/reports/revenue-collection'
 import { Route as DeveloperDeveloperIndexRouteImport } from './routes/_developer/developer/index'
 import { Route as DeveloperDeveloperApisRouteImport } from './routes/_developer/developer/apis'
 import { Route as DeveloperDeveloperFeaturesRouteImport } from './routes/_developer/developer/features'
@@ -247,28 +247,28 @@ const DashboardOrganisationUsersRoute =
     path: '/organisation/users',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DashboardReportsDoctorPerformanceRoute =
-  DashboardReportsDoctorPerformanceRouteImport.update({
-    id: '/reports/doctor-performance',
-    path: '/reports/doctor-performance',
+const DashboardReportsDailyOpdSummaryRoute =
+  DashboardReportsDailyOpdSummaryRouteImport.update({
+    id: '/reports/daily-opd-summary',
+    path: '/reports/daily-opd-summary',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DashboardReportsOutstandingBillsRoute =
-  DashboardReportsOutstandingBillsRouteImport.update({
-    id: '/reports/outstanding-bills',
-    path: '/reports/outstanding-bills',
+const DashboardReportsDoctorWiseOpdRoute =
+  DashboardReportsDoctorWiseOpdRouteImport.update({
+    id: '/reports/doctor-wise-opd',
+    path: '/reports/doctor-wise-opd',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DashboardReportsRevenueByCategoryRoute =
-  DashboardReportsRevenueByCategoryRouteImport.update({
-    id: '/reports/revenue-by-category',
-    path: '/reports/revenue-by-category',
+const DashboardReportsOutstandingPaymentsRoute =
+  DashboardReportsOutstandingPaymentsRouteImport.update({
+    id: '/reports/outstanding-payments',
+    path: '/reports/outstanding-payments',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DashboardReportsTopMedicinesRoute =
-  DashboardReportsTopMedicinesRouteImport.update({
-    id: '/reports/top-medicines',
-    path: '/reports/top-medicines',
+const DashboardReportsRevenueCollectionRoute =
+  DashboardReportsRevenueCollectionRouteImport.update({
+    id: '/reports/revenue-collection',
+    path: '/reports/revenue-collection',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DeveloperDeveloperIndexRoute = DeveloperDeveloperIndexRouteImport.update({
@@ -466,10 +466,10 @@ export interface FileRoutesByFullPath {
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
-  '/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
-  '/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
-  '/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
-  '/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
+  '/reports/daily-opd-summary': typeof DashboardReportsDailyOpdSummaryRoute
+  '/reports/doctor-wise-opd': typeof DashboardReportsDoctorWiseOpdRoute
+  '/reports/outstanding-payments': typeof DashboardReportsOutstandingPaymentsRoute
+  '/reports/revenue-collection': typeof DashboardReportsRevenueCollectionRoute
   '/developer/apis': typeof DeveloperDeveloperApisRoute
   '/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/developer/modules': typeof DeveloperDeveloperModulesRoute
@@ -529,10 +529,10 @@ export interface FileRoutesByTo {
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
-  '/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
-  '/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
-  '/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
-  '/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
+  '/reports/daily-opd-summary': typeof DashboardReportsDailyOpdSummaryRoute
+  '/reports/doctor-wise-opd': typeof DashboardReportsDoctorWiseOpdRoute
+  '/reports/outstanding-payments': typeof DashboardReportsOutstandingPaymentsRoute
+  '/reports/revenue-collection': typeof DashboardReportsRevenueCollectionRoute
   '/developer/apis': typeof DeveloperDeveloperApisRoute
   '/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/developer/modules': typeof DeveloperDeveloperModulesRoute
@@ -599,10 +599,10 @@ export interface FileRoutesById {
   '/_dashboard/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/_dashboard/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/_dashboard/organisation/users': typeof DashboardOrganisationUsersRoute
-  '/_dashboard/reports/doctor-performance': typeof DashboardReportsDoctorPerformanceRoute
-  '/_dashboard/reports/outstanding-bills': typeof DashboardReportsOutstandingBillsRoute
-  '/_dashboard/reports/revenue-by-category': typeof DashboardReportsRevenueByCategoryRoute
-  '/_dashboard/reports/top-medicines': typeof DashboardReportsTopMedicinesRoute
+  '/_dashboard/reports/daily-opd-summary': typeof DashboardReportsDailyOpdSummaryRoute
+  '/_dashboard/reports/doctor-wise-opd': typeof DashboardReportsDoctorWiseOpdRoute
+  '/_dashboard/reports/outstanding-payments': typeof DashboardReportsOutstandingPaymentsRoute
+  '/_dashboard/reports/revenue-collection': typeof DashboardReportsRevenueCollectionRoute
   '/_developer/developer/apis': typeof DeveloperDeveloperApisRoute
   '/_developer/developer/features': typeof DeveloperDeveloperFeaturesRoute
   '/_developer/developer/modules': typeof DeveloperDeveloperModulesRoute
@@ -664,10 +664,10 @@ export interface FileRouteTypes {
     | '/organisation/roles'
     | '/organisation/sidebar-config'
     | '/organisation/users'
-    | '/reports/doctor-performance'
-    | '/reports/outstanding-bills'
-    | '/reports/revenue-by-category'
-    | '/reports/top-medicines'
+    | '/reports/daily-opd-summary'
+    | '/reports/doctor-wise-opd'
+    | '/reports/outstanding-payments'
+    | '/reports/revenue-collection'
     | '/developer/apis'
     | '/developer/features'
     | '/developer/modules'
@@ -727,10 +727,10 @@ export interface FileRouteTypes {
     | '/organisation/roles'
     | '/organisation/sidebar-config'
     | '/organisation/users'
-    | '/reports/doctor-performance'
-    | '/reports/outstanding-bills'
-    | '/reports/revenue-by-category'
-    | '/reports/top-medicines'
+    | '/reports/daily-opd-summary'
+    | '/reports/doctor-wise-opd'
+    | '/reports/outstanding-payments'
+    | '/reports/revenue-collection'
     | '/developer/apis'
     | '/developer/features'
     | '/developer/modules'
@@ -796,10 +796,10 @@ export interface FileRouteTypes {
     | '/_dashboard/organisation/roles'
     | '/_dashboard/organisation/sidebar-config'
     | '/_dashboard/organisation/users'
-    | '/_dashboard/reports/doctor-performance'
-    | '/_dashboard/reports/outstanding-bills'
-    | '/_dashboard/reports/revenue-by-category'
-    | '/_dashboard/reports/top-medicines'
+    | '/_dashboard/reports/daily-opd-summary'
+    | '/_dashboard/reports/doctor-wise-opd'
+    | '/_dashboard/reports/outstanding-payments'
+    | '/_dashboard/reports/revenue-collection'
     | '/_developer/developer/apis'
     | '/_developer/developer/features'
     | '/_developer/developer/modules'
@@ -1080,32 +1080,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrganisationUsersRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/reports/doctor-performance': {
-      id: '/_dashboard/reports/doctor-performance'
-      path: '/reports/doctor-performance'
-      fullPath: '/reports/doctor-performance'
-      preLoaderRoute: typeof DashboardReportsDoctorPerformanceRouteImport
+    '/_dashboard/reports/daily-opd-summary': {
+      id: '/_dashboard/reports/daily-opd-summary'
+      path: '/reports/daily-opd-summary'
+      fullPath: '/reports/daily-opd-summary'
+      preLoaderRoute: typeof DashboardReportsDailyOpdSummaryRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/reports/outstanding-bills': {
-      id: '/_dashboard/reports/outstanding-bills'
-      path: '/reports/outstanding-bills'
-      fullPath: '/reports/outstanding-bills'
-      preLoaderRoute: typeof DashboardReportsOutstandingBillsRouteImport
+    '/_dashboard/reports/doctor-wise-opd': {
+      id: '/_dashboard/reports/doctor-wise-opd'
+      path: '/reports/doctor-wise-opd'
+      fullPath: '/reports/doctor-wise-opd'
+      preLoaderRoute: typeof DashboardReportsDoctorWiseOpdRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/reports/revenue-by-category': {
-      id: '/_dashboard/reports/revenue-by-category'
-      path: '/reports/revenue-by-category'
-      fullPath: '/reports/revenue-by-category'
-      preLoaderRoute: typeof DashboardReportsRevenueByCategoryRouteImport
+    '/_dashboard/reports/outstanding-payments': {
+      id: '/_dashboard/reports/outstanding-payments'
+      path: '/reports/outstanding-payments'
+      fullPath: '/reports/outstanding-payments'
+      preLoaderRoute: typeof DashboardReportsOutstandingPaymentsRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/reports/top-medicines': {
-      id: '/_dashboard/reports/top-medicines'
-      path: '/reports/top-medicines'
-      fullPath: '/reports/top-medicines'
-      preLoaderRoute: typeof DashboardReportsTopMedicinesRouteImport
+    '/_dashboard/reports/revenue-collection': {
+      id: '/_dashboard/reports/revenue-collection'
+      path: '/reports/revenue-collection'
+      fullPath: '/reports/revenue-collection'
+      preLoaderRoute: typeof DashboardReportsRevenueCollectionRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_developer/developer/': {
@@ -1343,10 +1343,10 @@ interface DashboardRouteChildren {
   DashboardOrganisationRolesRoute: typeof DashboardOrganisationRolesRoute
   DashboardOrganisationSidebarConfigRoute: typeof DashboardOrganisationSidebarConfigRoute
   DashboardOrganisationUsersRoute: typeof DashboardOrganisationUsersRoute
-  DashboardReportsDoctorPerformanceRoute: typeof DashboardReportsDoctorPerformanceRoute
-  DashboardReportsOutstandingBillsRoute: typeof DashboardReportsOutstandingBillsRoute
-  DashboardReportsRevenueByCategoryRoute: typeof DashboardReportsRevenueByCategoryRoute
-  DashboardReportsTopMedicinesRoute: typeof DashboardReportsTopMedicinesRoute
+  DashboardReportsDailyOpdSummaryRoute: typeof DashboardReportsDailyOpdSummaryRoute
+  DashboardReportsDoctorWiseOpdRoute: typeof DashboardReportsDoctorWiseOpdRoute
+  DashboardReportsOutstandingPaymentsRoute: typeof DashboardReportsOutstandingPaymentsRoute
+  DashboardReportsRevenueCollectionRoute: typeof DashboardReportsRevenueCollectionRoute
   DashboardAppointmentsIndexRoute: typeof DashboardAppointmentsIndexRoute
   DashboardOrganisationIndexRoute: typeof DashboardOrganisationIndexRoute
   DashboardAppointmentsAppointmentIdEditRoute: typeof DashboardAppointmentsAppointmentIdEditRoute
@@ -1378,12 +1378,12 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardOrganisationSidebarConfigRoute:
     DashboardOrganisationSidebarConfigRoute,
   DashboardOrganisationUsersRoute: DashboardOrganisationUsersRoute,
-  DashboardReportsDoctorPerformanceRoute:
-    DashboardReportsDoctorPerformanceRoute,
-  DashboardReportsOutstandingBillsRoute: DashboardReportsOutstandingBillsRoute,
-  DashboardReportsRevenueByCategoryRoute:
-    DashboardReportsRevenueByCategoryRoute,
-  DashboardReportsTopMedicinesRoute: DashboardReportsTopMedicinesRoute,
+  DashboardReportsDailyOpdSummaryRoute: DashboardReportsDailyOpdSummaryRoute,
+  DashboardReportsDoctorWiseOpdRoute: DashboardReportsDoctorWiseOpdRoute,
+  DashboardReportsOutstandingPaymentsRoute:
+    DashboardReportsOutstandingPaymentsRoute,
+  DashboardReportsRevenueCollectionRoute:
+    DashboardReportsRevenueCollectionRoute,
   DashboardAppointmentsIndexRoute: DashboardAppointmentsIndexRoute,
   DashboardOrganisationIndexRoute: DashboardOrganisationIndexRoute,
   DashboardAppointmentsAppointmentIdEditRoute:

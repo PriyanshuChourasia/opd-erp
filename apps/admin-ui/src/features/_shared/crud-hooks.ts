@@ -19,6 +19,14 @@ export function createCrudHooks<T extends { id: string | number }, TInput>(
     });
   }
 
+  function useShow(id: string | number | undefined) {
+    return useQuery({
+      queryKey: [queryKey, "show", id],
+      queryFn: () => api.show(id as string | number),
+      enabled: id != null,
+    });
+  }
+
   function useCreate() {
     const queryClient = useQueryClient();
 
@@ -59,5 +67,5 @@ export function createCrudHooks<T extends { id: string | number }, TInput>(
     });
   }
 
-  return { useList, useCreate, useUpdate, useDelete };
+  return { useList, useShow, useCreate, useUpdate, useDelete };
 }

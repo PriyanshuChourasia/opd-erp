@@ -3,6 +3,7 @@ import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCompany } from "@/lib/api";
 import {
+  Activity,
   AlertCircle,
   BarChart3,
   Box,
@@ -25,6 +26,7 @@ import {
   User,
   UserCog,
   Users,
+  Wallet,
   Zap,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -58,9 +60,9 @@ import { fetchMySidebarConfig } from "@/lib/api";
 
 /** Map of icon name strings → Lucide components. */
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  AlertCircle, BarChart3, Box, Building2, CalendarClock, ClipboardList,
+  Activity, AlertCircle, BarChart3, Box, Building2, CalendarClock, ClipboardList,
   Clock, Cpu, FileText, LayoutDashboard, LifeBuoy, MapPin, Package,
-  Pill, Receipt, Settings, ShieldCheck, Stethoscope, User, UserCog, Users, Zap,
+  Pill, Receipt, Settings, ShieldCheck, Stethoscope, User, UserCog, Users, Wallet, Zap,
 };
 
 /** Hardcoded fallback menu (used when sidebar config is empty / not seeded yet). */
@@ -73,11 +75,11 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
     { to: "/prescriptions", label: "Prescriptions", icon: "ClipboardList" },
     { to: "/diagnoses", label: "Diagnoses", icon: "Stethoscope" },
   ],
-  Reports: [
-    { to: "/reports/revenue-by-category", label: "Revenue by Category", icon: "BarChart3" },
-    { to: "/reports/outstanding-bills", label: "Outstanding Bills", icon: "AlertCircle" },
-    { to: "/reports/doctor-performance", label: "Doctor Performance", icon: "UserCog" },
-    { to: "/reports/top-medicines", label: "Top Medicines", icon: "Pill" },
+  "OPD Reports": [
+    { to: "/reports/daily-opd-summary", label: "Daily OPD Summary", icon: "Activity" },
+    { to: "/reports/doctor-wise-opd", label: "Doctor-wise OPD", icon: "Stethoscope" },
+    { to: "/reports/revenue-collection", label: "Revenue / Collection", icon: "Wallet" },
+    { to: "/reports/outstanding-payments", label: "Outstanding Payments", icon: "AlertCircle" },
   ],
   "Pharmacy & Billing": [
     { to: "/medicine-catalog", label: "Medicine Catalog", icon: "Pill" },
@@ -111,7 +113,7 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
 
 /** Group order for deterministic sidebar rendering. */
 const GROUP_ORDER = [
-  "Clinic", "Reports", "Pharmacy & Billing", "Organisation",
+  "Clinic", "OPD Reports", "Pharmacy & Billing", "Organisation",
   "Access Control", "Developer", "Account",
 ];
 

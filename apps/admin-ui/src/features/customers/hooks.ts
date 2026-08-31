@@ -4,6 +4,7 @@ import { customersApi } from "./api";
 
 export const {
   useList: useCustomers,
+  useShow: useShowCustomer,
   useCreate: useCreateCustomer,
   useUpdate: useUpdateCustomer,
   useDelete: useDeleteCustomer,

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getDoctorNameMap } from '../common/utils/doctor-names';
 
 // ─── Date helpers (moved here from dashboard.service.ts) ────
 
@@ -713,5 +714,744 @@ export class ReportsService {
         filters: { doctorId },
       },
     };
+  }
+
+  // ─── 11. Doctor-wise OPD Report ────────────────────────────
+
+  async getDoctorWiseOpdReport(from?: string, to?: string) {
+    // ─── Validate date parameters ────────────────────────────
+    const start = from ? startOfDay(new Date(from)) : startOfDay(addDays(new Date(), -30));
+    const end = to ? startOfDay(new Date(to)) : startOfDay(addDays(new Date(), 1));
+
+    // Validate date format
+    if (from && isNaN(start.getTime())) {
+      throw new BadRequestException('Invalid date format for "from" parameter. Use YYYY-MM-DD format.');
+    }
+    if (to && isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid date format for "to" parameter. Use YYYY-MM-DD format.');
+    }
+
+    // Validate date range
+    if (start >= end) {
+      throw new BadRequestException('Invalid date range: "from" date must be before "to" date.');
+    }
+
+    // Validate date range limit (max 1 year)
+    const maxRangeMs = 365 * 24 * 60 * 60 * 1000;
+    if (end.getTime() - start.getTime() > maxRangeMs) {
+      throw new BadRequestException('Date range cannot exceed 1 year (365 days).');
+    }
+
+    // Calculate number of days in range for averages
+    const daysInRange = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)));
+
+    // ─── Execute parallel queries to avoid N+1 ────────────────
+    const [
+      doctors,
+      appointments,
+      bills,
+      patientData,
+    ] = await Promise.all([
+      // Get all active doctors
+      this.prisma.doctor.findMany({
+        where: { isActive: true, deletedAt: null },
+        select: {
+          id: true,
+          specialization: true,
+          medicalRegistrationNo: true,
+          consultationFee: true,
+        },
+      }),
+
+      // Get all appointments in the date range
+      this.prisma.appointment.findMany({
+        where: {
+          date: { gte: start, lt: end },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          doctorId: true,
+          patientId: true,
+          status: true,
+          amount: true,
+          patient: {
+            select: {
+              id: true,
+              isFollowUp: true,
+            },
+          },
+        },
+      }),
+
+      // Get all bills in the date range
+      this.prisma.bill.findMany({
+        where: {
+          createdAt: { gte: start, lt: end },
+          status: { notIn: ['CANCELLED', 'REFUNDED'] },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          total: true,
+          paidAmount: true,
+          appointmentId: true,
+          appointment: {
+            select: {
+              doctorId: true,
+            },
+          },
+        },
+      }),
+
+      // Get patient counts by doctor (new vs follow-up)
+      this.prisma.appointment.groupBy({
+        by: ['doctorId', 'patientId'],
+        where: {
+          date: { gte: start, lt: end },
+          deletedAt: null,
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+    // Track all unique patient IDs across all doctors (for summary totalPatients)
+    const allUniquePatientIds = new Set<string>();
+
+    // ─── Build doctor performance map ────────────────────────
+    const doctorMap = new Map<string, {
+      doctorId: string;
+      specialization: string;
+      registrationNo: string;
+      consultationFee: number;
+      totalAppointments: number;
+      completed: number;
+      cancelled: number;
+      noShow: number;
+      uniquePatients: Set<string>;
+      newPatientIds: Set<string>;  // Track unique new patients
+      followUpPatientIds: Set<string>;  // Track unique follow-up patients
+      consultationRevenue: number;
+    }>();
+
+    // Initialize map for all doctors
+    for (const doc of doctors) {
+      doctorMap.set(doc.id, {
+        doctorId: doc.id,
+        specialization: doc.specialization ?? 'General',
+        registrationNo: doc.medicalRegistrationNo,
+        consultationFee: doc.consultationFee,
+        totalAppointments: 0,
+        completed: 0,
+        cancelled: 0,
+        noShow: 0,
+        uniquePatients: new Set(),
+        newPatientIds: new Set(),
+        followUpPatientIds: new Set(),
+        consultationRevenue: 0,
+      });
+    }
+
+    // ─── Process appointments ─────────────────────────────────
+    for (const appt of appointments) {
+      const docData = doctorMap.get(appt.doctorId);
+      if (!docData) continue; // Skip if doctor not found
+
+      docData.totalAppointments++;
+      docData.uniquePatients.add(appt.patientId);
+      allUniquePatientIds.add(appt.patientId); // Track globally for summary
+
+      // Count by status
+      if (appt.status === 'COMPLETED') docData.completed++;
+      if (appt.status === 'CANCELLED') docData.cancelled++;
+      if (appt.status === 'NO_SHOW') docData.noShow++;
+
+      // Track unique new vs follow-up patients (avoid duplicate counting)
+      if (appt.patient) {
+        if (appt.patient.isFollowUp) {
+          docData.followUpPatientIds.add(appt.patientId);
+        } else {
+          docData.newPatientIds.add(appt.patientId);
+        }
+      }
+
+      // Sum consultation revenue
+      docData.consultationRevenue += appt.amount;
+    }
+
+    // ─── Process bills for additional revenue ─────────────────
+    for (const bill of bills) {
+      if (bill.appointment) {
+        const docData = doctorMap.get(bill.appointment.doctorId);
+        if (docData) {
+          // Note: We're already counting revenue from appointments
+          // This is for verification/future use if needed
+        }
+      }
+    }
+
+    // ─── Build final report ──────────────────────────────────
+    const report = Array.from(doctorMap.values()).map((doc) => {
+      const uniquePatientCount = doc.uniquePatients.size;
+      const newPatientCount = doc.newPatientIds.size;
+      const followUpPatientCount = doc.followUpPatientIds.size;
+      const avgPatientsPerDay = daysInRange > 0
+        ? +(uniquePatientCount / daysInRange).toFixed(2)
+        : 0;
+      const avgConsultationAmount = doc.totalAppointments > 0
+        ? +(doc.consultationRevenue / doc.totalAppointments).toFixed(2)
+        : 0;
+
+      return {
+        doctorId: doc.doctorId,
+        specialization: doc.specialization,
+        registrationNo: doc.registrationNo,
+        consultationFee: doc.consultationFee,
+        totalAppointments: doc.totalAppointments,
+        completed: doc.completed,
+        cancelled: doc.cancelled,
+        noShow: doc.noShow,
+        uniquePatients: uniquePatientCount,
+        newPatients: newPatientCount,
+        followUpPatients: followUpPatientCount,
+        consultationRevenue: doc.consultationRevenue,
+        avgPatientsPerDay,
+        avgConsultationAmount,
+      };
+    });
+
+    // Sort by total appointments descending
+    report.sort((a, b) => b.totalAppointments - a.totalAppointments);
+
+    // ─── Calculate summary ────────────────────────────────────
+    const summary = {
+      totalDoctors: doctors.length,
+      activeDoctors: report.filter(d => d.totalAppointments > 0).length,
+      totalAppointments: report.reduce((sum, d) => sum + d.totalAppointments, 0),
+      totalRevenue: report.reduce((sum, d) => sum + d.consultationRevenue, 0),
+      totalPatients: allUniquePatientIds.size, // Globally unique, not double-counted
+      avgAppointmentsPerDoctor: report.length > 0
+        ? +(report.reduce((sum, d) => sum + d.totalAppointments, 0) / report.length).toFixed(2)
+        : 0,
+    };
+
+    return {
+      success: true,
+      data: {
+        summary,
+        doctors: report,
+      },
+      meta: {
+        from: start.toISOString().slice(0, 10),
+        to: end.toISOString().slice(0, 10),
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  // ─── 12. Revenue / Collection Report ────────────────────────
+
+  async getRevenueCollectionReport(
+    from?: string,
+    to?: string,
+    doctorId?: string,
+    paymentStatus?: string,
+    paymentMethod?: string,
+    page: number = 1,
+    limit: number = 50,
+  ) {
+    // ─── Validate date parameters ────────────────────────────
+    const start = from ? startOfDay(new Date(from)) : startOfDay(addDays(new Date(), -30));
+    const end = to ? startOfDay(new Date(to)) : startOfDay(addDays(new Date(), 1));
+
+    // Validate date format
+    if (from && isNaN(start.getTime())) {
+      throw new BadRequestException('Invalid date format for "from" parameter. Use YYYY-MM-DD format.');
+    }
+    if (to && isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid date format for "to" parameter. Use YYYY-MM-DD format.');
+    }
+
+    // Validate date range
+    if (start >= end) {
+      throw new BadRequestException('Invalid date range: "from" date must be before "to" date.');
+    }
+
+    // Validate date range limit (max 1 year)
+    const maxRangeMs = 365 * 24 * 60 * 60 * 1000;
+    if (end.getTime() - start.getTime() > maxRangeMs) {
+      throw new BadRequestException('Date range cannot exceed 1 year (365 days).');
+    }
+
+    // Validate doctorId if provided
+    if (doctorId) {
+      const doctor = await this.prisma.doctor.findUnique({ where: { id: doctorId } });
+      if (!doctor) {
+        throw new NotFoundException(`Doctor with ID "${doctorId}" not found.`);
+      }
+    }
+
+    // Validate paymentStatus if provided
+    const validPaymentStatuses = ['PENDING', 'PAID', 'PARTIAL', 'CANCELLED', 'REFUNDED'];
+    if (paymentStatus && !validPaymentStatuses.includes(paymentStatus)) {
+      throw new BadRequestException(`Invalid payment status. Must be one of: ${validPaymentStatuses.join(', ')}`);
+    }
+
+    // Validate paymentMethod if provided
+    const validPaymentMethods = ['CASH', 'CARD', 'UPI', 'ONLINE'];
+    if (paymentMethod && !validPaymentMethods.includes(paymentMethod)) {
+      throw new BadRequestException(`Invalid payment method. Must be one of: ${validPaymentMethods.join(', ')}`);
+    }
+
+    // ─── Build where clauses ─────────────────────────────────
+    const appointmentWhere: Record<string, unknown> = {
+      date: { gte: start, lt: end },
+      deletedAt: null,
+    };
+    if (doctorId) appointmentWhere.doctorId = doctorId;
+
+    const billWhere: Record<string, unknown> = {
+      createdAt: { gte: start, lt: end },
+      deletedAt: null,
+    };
+    if (paymentStatus) billWhere.status = paymentStatus;
+    if (paymentMethod) billWhere.paymentMethod = paymentMethod;
+    if (doctorId) billWhere.appointment = { doctorId };
+
+    // ─── Execute parallel queries ─────────────────────────────
+    const [appointments, bills] = await Promise.all([
+      // Get all appointments in the date range
+      this.prisma.appointment.findMany({
+        where: appointmentWhere,
+        select: {
+          id: true,
+          date: true,
+          patientId: true,
+          doctorId: true,
+          amount: true,
+          registrationFee: true,
+          status: true,
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          doctor: {
+            select: {
+              id: true,
+              specialization: true,
+              medicalRegistrationNo: true,
+            },
+          },
+          bill: {
+            select: {
+              id: true,
+              invoiceNo: true,
+              total: true,
+              paidAmount: true,
+              paymentMethod: true,
+              referenceNumber: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: { date: 'desc' },
+      }),
+
+      // Get standalone bills (without appointments) in the date range
+      this.prisma.bill.findMany({
+        where: {
+          ...billWhere,
+          appointmentId: null,  // Only standalone bills
+        },
+        select: {
+          id: true,
+          invoiceNo: true,
+          total: true,
+          paidAmount: true,
+          paymentMethod: true,
+          referenceNumber: true,
+          status: true,
+          createdAt: true,
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    // ─── Resolve doctor names (polymorphic: Doctor → User) ────
+    const doctorIds = appointments
+      .map(a => a.doctorId)
+      .filter((id): id is string => !!id);
+    const doctorNameMap = await getDoctorNameMap(this.prisma, doctorIds);
+
+    // ─── Build report rows ────────────────────────────────────
+    const rows: Array<{
+      date: string;
+      appointmentId: string | null;
+      patientName: string;
+      doctorName: string;
+      registrationFee: number;
+      consultationFee: number;
+      otherAmount: number;
+      totalAmount: number;
+      amountPaid: number;
+      amountPending: number;
+      paymentMethod: string;
+      transactionReference: string | null;
+      invoiceNumber: string | null;
+      paymentStatus: string;
+    }> = [];
+
+    // Process appointments with bills
+    for (const appt of appointments) {
+      const bill = appt.bill;
+      const totalAmount = appt.amount + appt.registrationFee;
+      const amountPaid = bill?.paidAmount ?? 0;
+      const amountPending = totalAmount - amountPaid;
+
+      // Apply payment status filter
+      if (paymentStatus && bill?.status !== paymentStatus) {
+        // If filtering by status and this appointment's bill doesn't match, skip
+        // But also include appointments without bills if filtering for PENDING
+        if (!(paymentStatus === 'PENDING' && !bill)) continue;
+      }
+
+      // Apply payment method filter
+      if (paymentMethod && bill?.paymentMethod !== paymentMethod) continue;
+
+      rows.push({
+        date: appt.date.toISOString().slice(0, 10),
+        appointmentId: appt.id,
+        patientName: appt.patient
+          ? `${appt.patient.firstName} ${appt.patient.lastName}`
+          : 'Unknown',
+        doctorName: doctorNameMap.get(appt.doctorId) ?? appt.doctor?.specialization ?? 'Unknown',
+        registrationFee: appt.registrationFee,
+        consultationFee: appt.amount,
+        otherAmount: 0,  // No other amounts in current model
+        totalAmount,
+        amountPaid,
+        amountPending: Math.max(0, amountPending),
+        paymentMethod: bill?.paymentMethod ?? 'N/A',
+        transactionReference: bill?.referenceNumber ?? null,
+        invoiceNumber: bill?.invoiceNo ?? null,
+        paymentStatus: bill?.status ?? 'NOT_BILLED',
+      });
+    }
+
+    // Process standalone bills (without appointments)
+    for (const bill of bills) {
+      // Apply filters
+      if (paymentStatus && bill.status !== paymentStatus) continue;
+      if (paymentMethod && bill.paymentMethod !== paymentMethod) continue;
+
+      rows.push({
+        date: bill.createdAt.toISOString().slice(0, 10),
+        appointmentId: null,
+        patientName: bill.patient
+          ? `${bill.patient.firstName} ${bill.patient.lastName}`
+          : 'Unknown',
+        doctorName: 'N/A',
+        registrationFee: 0,
+        consultationFee: 0,
+        otherAmount: bill.total,  // Standalone bill amount
+        totalAmount: bill.total,
+        amountPaid: bill.paidAmount,
+        amountPending: Math.max(0, bill.total - bill.paidAmount),
+        paymentMethod: bill.paymentMethod,
+        transactionReference: bill.referenceNumber,
+        invoiceNumber: bill.invoiceNo,
+        paymentStatus: bill.status,
+      });
+    }
+
+    // Sort by date descending
+    rows.sort((a, b) => b.date.localeCompare(a.date));
+
+    // ─── Calculate summary (before pagination) ────────────────
+    const totalRows = rows.length;
+    const totalRegistrationFee = rows.reduce((sum, r) => sum + r.registrationFee, 0);
+    const totalConsultationFee = rows.reduce((sum, r) => sum + r.consultationFee, 0);
+    const totalOtherAmount = rows.reduce((sum, r) => sum + r.otherAmount, 0);
+    const totalBilledAmount = rows.reduce((sum, r) => sum + r.totalAmount, 0);
+    const totalPaidAmount = rows.reduce((sum, r) => sum + r.amountPaid, 0);
+    const totalPendingAmount = rows.reduce((sum, r) => sum + r.amountPending, 0);
+
+    const byPaymentMethod = this.groupBy(rows, 'paymentMethod').map(([method, items]) => ({
+      method,
+      count: items.length,
+      amount: items.reduce((sum, r) => sum + r.totalAmount, 0),
+    }));
+
+    const byPaymentStatus = this.groupBy(rows, 'paymentStatus').map(([status, items]) => ({
+      status,
+      count: items.length,
+      amount: items.reduce((sum, r) => sum + r.totalAmount, 0),
+    }));
+
+    // ─── Apply pagination ─────────────────────────────────────
+    const skip = (page - 1) * limit;
+    const paginatedRows = rows.slice(skip, skip + limit);
+    const totalPages = Math.ceil(totalRows / limit);
+
+    return {
+      success: true,
+      data: {
+        summary: {
+          totalRows,
+          totalRegistrationFee,
+          totalConsultationFee,
+          totalOtherAmount,
+          totalBilledAmount,
+          totalPaidAmount,
+          totalPendingAmount,
+          byPaymentMethod,
+          byPaymentStatus,
+        },
+        rows: paginatedRows,
+      },
+      pagination: {
+        page,
+        limit,
+        totalPages,
+        totalRecords: totalRows,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+      meta: {
+        from: start.toISOString().slice(0, 10),
+        to: end.toISOString().slice(0, 10),
+        generatedAt: new Date().toISOString(),
+        filters: { doctorId, paymentStatus, paymentMethod },
+      },
+    };
+  }
+
+  // ─── 13. Outstanding / Pending Payment Report ─────────────
+
+  async getOutstandingPayments(
+    from?: string,
+    to?: string,
+    doctorId?: string,
+    patientId?: string,
+    paymentStatus?: string,
+    page: number = 1,
+    limit: number = 50,
+  ) {
+    // ─── Validate date parameters ────────────────────────────
+    const start = from ? startOfDay(new Date(from)) : startOfDay(addDays(new Date(), -90));
+    const end = to ? startOfDay(new Date(to)) : startOfDay(addDays(new Date(), 1));
+
+    if (from && isNaN(start.getTime())) {
+      throw new BadRequestException('Invalid date format for "from" parameter. Use YYYY-MM-DD format.');
+    }
+    if (to && isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid date format for "to" parameter. Use YYYY-MM-DD format.');
+    }
+    if (start >= end) {
+      throw new BadRequestException('Invalid date range: "from" date must be before "to" date.');
+    }
+    const maxRangeMs = 365 * 24 * 60 * 60 * 1000;
+    if (end.getTime() - start.getTime() > maxRangeMs) {
+      throw new BadRequestException('Date range cannot exceed 1 year (365 days).');
+    }
+
+    if (doctorId) {
+      const doctor = await this.prisma.doctor.findUnique({ where: { id: doctorId } });
+      if (!doctor) throw new NotFoundException(`Doctor with ID "${doctorId}" not found.`);
+    }
+    if (patientId) {
+      const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
+      if (!patient) throw new NotFoundException(`Patient with ID "${patientId}" not found.`);
+    }
+
+    const validPaymentStatuses = ['PENDING', 'PAID', 'PARTIAL', 'CANCELLED', 'REFUNDED'];
+    if (paymentStatus && !validPaymentStatuses.includes(paymentStatus)) {
+      throw new BadRequestException(`Invalid payment status. Must be one of: ${validPaymentStatuses.join(', ')}`);
+    }
+
+    // ─── Build where clause ───────────────────────────────────
+    // Default: show only outstanding (PENDING or PARTIAL) bills
+    const billWhere: Record<string, unknown> = {
+      createdAt: { gte: start, lt: end },
+      deletedAt: null,
+    };
+
+    if (paymentStatus) {
+      billWhere.status = paymentStatus;
+    } else {
+      // Default: only outstanding (PENDING or PARTIAL)
+      billWhere.status = { in: ['PENDING', 'PARTIAL'] };
+    }
+
+    if (patientId) billWhere.patientId = patientId;
+
+    // Filter by doctor via appointment relation
+    if (doctorId) {
+      billWhere.appointment = { doctorId };
+    }
+
+    // ─── Query bills ──────────────────────────────────────────
+    const bills = await this.prisma.bill.findMany({
+      where: billWhere,
+      select: {
+        id: true,
+        invoiceNo: true,
+        total: true,
+        paidAmount: true,
+        status: true,
+        paymentMethod: true,
+        referenceNumber: true,
+        createdAt: true,
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            contactNo: true,
+          },
+        },
+        appointment: {
+          select: {
+            id: true,
+            date: true,
+            doctorId: true,
+            doctor: {
+              select: {
+                id: true,
+                specialization: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // ─── Resolve doctor names (polymorphic: Doctor → User) ────
+    const doctorIds = bills
+      .map(b => b.appointment?.doctorId)
+      .filter((id): id is string => !!id);
+    const doctorNameMap = await getDoctorNameMap(this.prisma, doctorIds);
+
+    // ─── Map to rows ──────────────────────────────────────────
+    const rows = bills.map((bill) => {
+      const pendingAmount = bill.total - bill.paidAmount;
+      return {
+        id: bill.id,
+        invoiceNo: bill.invoiceNo,
+        patientId: bill.patient?.id ?? null,
+        patientName: bill.patient
+          ? `${bill.patient.firstName} ${bill.patient.lastName}`
+          : 'Unknown',
+        patientPhone: bill.patient?.contactNo ?? null,
+        appointmentId: bill.appointment?.id ?? null,
+        appointmentDate: bill.appointment?.date?.toISOString().slice(0, 10) ?? null,
+        doctorId: bill.appointment?.doctorId ?? null,
+        doctorName: (bill.appointment?.doctorId
+          ? doctorNameMap.get(bill.appointment.doctorId)
+          : null) ?? 'N/A',
+        doctorSpecialization: bill.appointment?.doctor?.specialization ?? null,
+        totalAmount: bill.total,
+        paidAmount: bill.paidAmount,
+        pendingAmount,
+        paymentMethod: bill.paymentMethod,
+        referenceNumber: bill.referenceNumber,
+        status: bill.status,
+        createdAt: bill.createdAt.toISOString(),
+      };
+    });
+
+    // ─── Summary totals ───────────────────────────────────────
+    const totalRecords = rows.length;
+    const totalBilledAmount = rows.reduce((sum, r) => sum + r.totalAmount, 0);
+    const totalPaidAmount = rows.reduce((sum, r) => sum + r.paidAmount, 0);
+    const totalPendingAmount = rows.reduce((sum, r) => sum + r.pendingAmount, 0);
+
+    // Aging buckets
+    const now = Date.now();
+    const agingBuckets = [
+      { bucket: '0-30 days', min: 0, max: 30, count: 0, amount: 0 },
+      { bucket: '31-60 days', min: 31, max: 60, count: 0, amount: 0 },
+      { bucket: '61-90 days', min: 61, max: 90, count: 0, amount: 0 },
+      { bucket: '90+ days', min: 91, max: Infinity, count: 0, amount: 0 },
+    ];
+    for (const row of rows) {
+      const ageDays = Math.floor((now - new Date(row.createdAt).getTime()) / 86400000);
+      for (const bucket of agingBuckets) {
+        if (ageDays >= bucket.min && ageDays <= bucket.max) {
+          bucket.count += 1;
+          bucket.amount += row.pendingAmount;
+          break;
+        }
+      }
+    }
+
+    // By status breakdown
+    const statusMap = new Map<string, { count: number; amount: number }>();
+    for (const row of rows) {
+      const existing = statusMap.get(row.status) ?? { count: 0, amount: 0 };
+      existing.count += 1;
+      existing.amount += row.pendingAmount;
+      statusMap.set(row.status, existing);
+    }
+    const byStatus = Array.from(statusMap.entries()).map(([status, data]) => ({
+      status,
+      ...data,
+    }));
+
+    // ─── Apply pagination ─────────────────────────────────────
+    const skip = (page - 1) * limit;
+    const paginatedRows = rows.slice(skip, skip + limit);
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    return {
+      success: true,
+      data: {
+        summary: {
+          totalRecords,
+          totalBilledAmount,
+          totalPaidAmount,
+          totalPendingAmount,
+          agingBuckets,
+          byStatus,
+        },
+        rows: paginatedRows,
+      },
+      pagination: {
+        page,
+        limit,
+        totalPages,
+        totalRecords,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+      meta: {
+        from: start.toISOString().slice(0, 10),
+        to: end.toISOString().slice(0, 10),
+        generatedAt: new Date().toISOString(),
+        filters: { doctorId, patientId, paymentStatus },
+      },
+    };
+  }
+
+  // ─── Helper: Group by key ──────────────────────────────────
+  private groupBy<T>(array: T[], key: keyof T): [string, T[]][] {
+    const map = new Map<string, T[]>();
+    for (const item of array) {
+      const value = String(item[key]);
+      if (!map.has(value)) map.set(value, []);
+      map.get(value)!.push(item);
+    }
+    return Array.from(map.entries());
   }
 }

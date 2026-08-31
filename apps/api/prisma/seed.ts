@@ -444,7 +444,7 @@ async function seedPermissions(): Promise<Permission[]> {
   // ── Developer (was Super Admin + Developer merged): everything ──
   const superAdminPerms = [...permissions];
 
-  // ── Admin: full operational access, minus Organisation profile and Developer tools ──
+  // ── Admin: full operational access, minus Developer tools ──
   // Explicit resource:action list (not a Set-of-resources pattern like the other roles)
   // because this mirrors an exact hand-configured permission grant — some resources are
   // full CRUD+manage, others are read/update-only. Keep this list in sync if the Admin
@@ -454,6 +454,7 @@ async function seedPermissions(): Promise<Permission[]> {
     'allergies:create', 'allergies:delete', 'allergies:manage', 'allergies:read', 'allergies:update',
     'appointments:create', 'appointments:manage', 'appointments:read', 'appointments:update',
     'billing:create', 'billing:delete', 'billing:manage', 'billing:read', 'billing:update',
+    'company:create', 'company:delete', 'company:manage', 'company:read', 'company:update',
     'dashboard:read', 'dashboard:update',
     'diagnoses:read', 'diagnoses:update',
     'diagnosis-systems:read', 'diagnosis-systems:update',
@@ -494,6 +495,8 @@ async function seedPermissions(): Promise<Permission[]> {
     'employee-schedules',
     // Needed to reprint a prescription on its doctor's assigned template.
     'prescription-templates',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const receptionistWriteResources = new Set(['doctors', 'users']);
   const receptionistPerms = permissions.filter(
@@ -513,6 +516,8 @@ async function seedPermissions(): Promise<Permission[]> {
     'employee-schedules',
     // Needed to print a prescription on the doctor's own assigned template.
     'prescription-templates',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const doctorWriteResources = new Set([
     'prescriptions', 'lab-orders', 'radiology-orders', 'procedure-orders',
@@ -535,6 +540,8 @@ async function seedPermissions(): Promise<Permission[]> {
     'patients', 'appointments', 'queue', 'medicine-catalog',
     'allergies', 'patient-allergy-records', 'patient-vitals',
     'diagnoses', 'addresses', 'doctors',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const nurseWriteResources = new Set(['patient-vitals', 'patient-allergy-records', 'queue']);
   const nursePerms = permissions.filter(
@@ -545,7 +552,7 @@ async function seedPermissions(): Promise<Permission[]> {
   );
 
   // ── Assistant: basic support ──
-  const assistantReadResources = new Set(['patients', 'appointments', 'medicine-catalog', 'doctors']);
+  const assistantReadResources = new Set(['patients', 'appointments', 'medicine-catalog', 'doctors', 'company']);
   const assistantWriteResources = new Set(['queue']);
   const assistantPerms = permissions.filter(
     (p) =>
@@ -557,6 +564,8 @@ async function seedPermissions(): Promise<Permission[]> {
   // ── Pharmacist: dispensing, prescriptions, medicine catalog ──
   const pharmacistReadResources = new Set([
     'patients', 'prescriptions', 'medicine-catalog', 'dispensing', 'billing', 'doctors',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const pharmacistWriteResources = new Set(['dispensing', 'billing']);
   const pharmacistPerms = permissions.filter(
@@ -570,6 +579,8 @@ async function seedPermissions(): Promise<Permission[]> {
   const labTechReadResources = new Set([
     'patients', 'lab-orders', 'radiology-orders', 'procedure-orders',
     'appointments', 'diagnoses', 'doctors',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const labTechWriteResources = new Set(['lab-orders', 'radiology-orders', 'procedure-orders']);
   const labTechPerms = permissions.filter(
@@ -595,7 +606,7 @@ async function seedPermissions(): Promise<Permission[]> {
 
 
   const superAdmin = await upsertRoleWithPermissions('Developer', 'Full access to every module including Developer tools', superAdminPerms);
-  const admin = await upsertRoleWithPermissions('Admin', 'Full operational access — clinical, billing, staff, and system config — excluding Organisation profile and Developer tools', adminPerms);
+  const admin = await upsertRoleWithPermissions('Admin', 'Full operational access — clinical, billing, staff, and system config — excluding Developer tools', adminPerms);
   const receptionist = await upsertRoleWithPermissions('Receptionist', 'Front-desk: patients, appointments, queue, billing, prescriptions, dispensing', receptionistPerms);
   const doctor = await upsertRoleWithPermissions('Doctor', 'Clinical: prescriptions, vitals, allergies, lab/radiology/procedure orders', doctorPerms);
   const nurse = await upsertRoleWithPermissions('Nurse', 'Patient vitals, allergies, queue management', nursePerms);
@@ -3367,11 +3378,11 @@ async function seedSidebarConfig() {
     { label: 'Prescriptions', path: '/prescriptions', icon: 'ClipboardList', group: 'Clinic', sortOrder: 4, roleIds: clinicalRoles },
     { label: 'Diagnoses', path: '/diagnoses', icon: 'Stethoscope', group: 'Clinic', sortOrder: 5, roleIds: clinicalRoles },
 
-    // Reports group
-    { label: 'Revenue by Category', path: '/reports/revenue-by-category', icon: 'BarChart3', group: 'Reports', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Outstanding Bills', path: '/reports/outstanding-bills', icon: 'AlertCircle', group: 'Reports', sortOrder: 1, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Doctor Performance', path: '/reports/doctor-performance', icon: 'UserCog', group: 'Reports', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Top Medicines', path: '/reports/top-medicines', icon: 'Pill', group: 'Reports', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
+    // OPD Reports group
+    { label: 'Daily OPD Summary', path: '/reports/daily-opd-summary', icon: 'Activity', group: 'OPD Reports', sortOrder: 0, roleIds: [adminId, doctorId, receptionistId, developerId].filter(Boolean) },
+    { label: 'Doctor-wise OPD', path: '/reports/doctor-wise-opd', icon: 'Stethoscope', group: 'OPD Reports', sortOrder: 1, roleIds: [adminId, doctorId, developerId].filter(Boolean) },
+    { label: 'Revenue / Collection', path: '/reports/revenue-collection', icon: 'Wallet', group: 'OPD Reports', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Outstanding Payments', path: '/reports/outstanding-payments', icon: 'AlertCircle', group: 'OPD Reports', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
 
     // Pharmacy & Billing group
     { label: 'Medicine Catalog', path: '/medicine-catalog', icon: 'Pill', group: 'Pharmacy & Billing', sortOrder: 0, roleIds: pharmacyRoles },

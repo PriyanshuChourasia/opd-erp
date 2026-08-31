@@ -1,4 +1,4 @@
-export { RevenueByCategoryPage } from "./components/revenue-by-category-page";
-export { OutstandingBillsPage } from "./components/outstanding-bills-page";
-export { DoctorPerformancePage } from "./components/doctor-performance-page";
-export { TopMedicinesPage } from "./components/top-medicines-page";
+export { DailyOpdSummaryPage } from "./components/daily-opd-summary-page";
+export { DoctorWiseOpdPage } from "./components/doctor-wise-opd-page";
+export { RevenueCollectionPage } from "./components/revenue-collection-page";
+export { OutstandingPaymentsPage } from "./components/outstanding-payments-page";

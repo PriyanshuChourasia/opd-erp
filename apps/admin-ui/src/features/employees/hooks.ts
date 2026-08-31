@@ -4,6 +4,7 @@ import { employeesApi } from "./api";
 
 export const {
   useList: useEmployees,
+  useShow: useShowEmployee,
   useCreate: useCreateEmployee,
   useUpdate: useUpdateEmployee,
   useDelete: useDeleteEmployee,

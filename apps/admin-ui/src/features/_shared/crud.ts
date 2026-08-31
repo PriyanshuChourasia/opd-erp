@@ -33,6 +33,10 @@ export function createCrudApi<T extends { id: string | number }, TInput>(
       const response = await apiClient.get<Paginated<T>>(`/${path}`, { params });
       return response.data;
     },
+    async show(id: string | number): Promise<T> {
+      const response = await apiClient.get<T>(`/${path}/${id}`);
+      return response.data;
+    },
     async create(input: TInput): Promise<T> {
       const response = await apiClient.post<T>(`/${path}`, input);
       return response.data;

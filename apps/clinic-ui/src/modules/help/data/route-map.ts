@@ -53,10 +53,10 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/shifts": { module: "shifts" },
 
   // Reports
-  "/reports/doctor-performance": { module: "reports", page: "doctor-performance-page" },
-  "/reports/outstanding-bills": { module: "reports", page: "outstanding-bills-page" },
-  "/reports/revenue-by-category": { module: "reports", page: "revenue-by-category-page" },
-  "/reports/top-medicines": { module: "reports", page: "top-medicines-page" },
+  "/reports/daily-opd-summary": { module: "reports", page: "daily-opd-summary-page" },
+  "/reports/doctor-wise-opd": { module: "reports", page: "doctor-wise-opd-page" },
+  "/reports/revenue-collection": { module: "reports", page: "revenue-collection-page" },
+  "/reports/outstanding-payments": { module: "reports", page: "outstanding-payments-page" },
 
   // Appointments workspace
   "/appointments": { module: "appointments", page: "appointments-page" },

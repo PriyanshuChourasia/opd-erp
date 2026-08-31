@@ -12,6 +12,7 @@ import {
   Contact,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Network,
   ShieldCheck,
   UserRound,
@@ -61,6 +62,8 @@ const ORGANISATION_NAV = [
   { to: "/organisation/designations", label: "Designations", icon: BadgeCheck },
   { to: "/organisation/employees", label: "Employees", icon: UserRound },
   { to: "/organisation/customers", label: "Customers", icon: Contact },
+  { to: "/organisation/countries", label: "Countries", icon: ShieldCheck },
+  { to: "/organisation/states", label: "States", icon: MapPin },
 ] as const;
 
 function AdminLayout() {

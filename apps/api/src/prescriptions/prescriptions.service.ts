@@ -85,10 +85,13 @@ export class PrescriptionsService
     else if (query.doctorId) where.doctorId = query.doctorId;
     if (query.status) where.status = query.status;
     if (query.date) {
-      const dayStart = new Date(query.date);
-      dayStart.setHours(0, 0, 0, 0);
+      const dayStart = new Date(Date.UTC(
+        new Date(query.date).getUTCFullYear(),
+        new Date(query.date).getUTCMonth(),
+        new Date(query.date).getUTCDate(),
+      ));
       const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
       where.createdAt = { gte: dayStart, lt: dayEnd };
     }
     if (query.search) {

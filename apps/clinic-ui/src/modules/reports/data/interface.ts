@@ -113,3 +113,154 @@ export interface DailyOpdSummaryResponse {
   data: DailyOpdSummaryData;
   meta: ReportMeta;
 }
+
+// ─── 11. Doctor-wise OPD Report ────────────────────────────
+export interface DoctorWiseOpdRow {
+  doctorId: string;
+  specialization: string;
+  registrationNo: string;
+  consultationFee: number;
+  totalAppointments: number;
+  completed: number;
+  cancelled: number;
+  noShow: number;
+  uniquePatients: number;
+  newPatients: number;
+  followUpPatients: number;
+  consultationRevenue: number;
+  avgPatientsPerDay: number;
+  avgConsultationAmount: number;
+}
+
+export interface DoctorWiseOpdSummary {
+  totalDoctors: number;
+  activeDoctors: number;
+  totalAppointments: number;
+  totalRevenue: number;
+  totalPatients: number;
+  avgAppointmentsPerDoctor: number;
+}
+
+export interface DoctorWiseOpdData {
+  summary: DoctorWiseOpdSummary;
+  doctors: DoctorWiseOpdRow[];
+}
+
+export interface DoctorWiseOpdResponse {
+  success: boolean;
+  data: DoctorWiseOpdData;
+  meta: ReportMeta;
+}
+
+// ─── 12. Revenue / Collection Report ──────────────────────────
+export interface RevenueCollectionRow {
+  date: string;
+  appointmentId: string | null;
+  patientName: string;
+  doctorName: string;
+  registrationFee: number;
+  consultationFee: number;
+  otherAmount: number;
+  totalAmount: number;
+  amountPaid: number;
+  amountPending: number;
+  paymentMethod: string;
+  transactionReference: string | null;
+  invoiceNumber: string | null;
+  paymentStatus: string;
+}
+
+export interface RevenueCollectionSummary {
+  totalRows: number;
+  totalRegistrationFee: number;
+  totalConsultationFee: number;
+  totalOtherAmount: number;
+  totalBilledAmount: number;
+  totalPaidAmount: number;
+  totalPendingAmount: number;
+  byPaymentMethod: {
+    method: string;
+    count: number;
+    amount: number;
+  }[];
+  byPaymentStatus: {
+    status: string;
+    count: number;
+    amount: number;
+  }[];
+}
+
+export interface RevenueCollectionPagination {
+  page: number;
+  limit: number;
+  totalPages: number;
+  totalRecords: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
+export interface RevenueCollectionData {
+  summary: RevenueCollectionSummary;
+  rows: RevenueCollectionRow[];
+}
+
+export interface RevenueCollectionResponse {
+  success: boolean;
+  data: RevenueCollectionData;
+  pagination: RevenueCollectionPagination;
+  meta: ReportMeta;
+}
+
+// ─── 13. Outstanding / Pending Payment Report ──────────────
+export interface OutstandingPaymentRow {
+  id: string;
+  invoiceNo: string;
+  patientId: string | null;
+  patientName: string;
+  patientPhone: string | null;
+  appointmentId: string | null;
+  appointmentDate: string | null;
+  doctorId: string | null;
+  doctorName: string;
+  doctorSpecialization: string | null;
+  totalAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  paymentMethod: string;
+  referenceNumber: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface AgingBucket {
+  bucket: string;
+  count: number;
+  amount: number;
+}
+
+export interface OutstandingPaymentStatusBreakdown {
+  status: string;
+  count: number;
+  amount: number;
+}
+
+export interface OutstandingPaymentSummary {
+  totalRecords: number;
+  totalBilledAmount: number;
+  totalPaidAmount: number;
+  totalPendingAmount: number;
+  agingBuckets: AgingBucket[];
+  byStatus: OutstandingPaymentStatusBreakdown[];
+}
+
+export interface OutstandingPaymentData {
+  summary: OutstandingPaymentSummary;
+  rows: OutstandingPaymentRow[];
+}
+
+export interface OutstandingPaymentResponse {
+  success: boolean;
+  data: OutstandingPaymentData;
+  pagination: RevenueCollectionPagination;
+  meta: ReportMeta;
+}

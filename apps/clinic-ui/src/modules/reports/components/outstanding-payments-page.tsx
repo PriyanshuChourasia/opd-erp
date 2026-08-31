@@ -292,7 +292,7 @@ export function OutstandingPaymentsPage() {
                   <SelectItem value="all">All Doctors</SelectItem>
                   {doctors.map((doc) => (
                     <SelectItem key={doc.id} value={doc.id}>
-                      {doc.name || `${doc.firstName || ''} ${doc.lastName || ''}`.trim() || doc.specialization}
+                      {`${doc.firstName || ''} ${doc.lastName || ''}`.trim() || doc.specialization}
                     </SelectItem>
                   ))}
                 </SelectContent>

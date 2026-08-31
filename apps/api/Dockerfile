@@ -9,7 +9,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY packages/ packages/
 
 # 2. Install everything from root — npm workspaces resolve @repo/* links
-RUN npm ci
+RUN npm install
 
 # 3. Prisma client generation must happen before the source build
 COPY apps/api/prisma apps/api/prisma

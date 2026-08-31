@@ -591,6 +591,7 @@ model Patient {
   @@index([patientCode])
   @@index([firstName])
   @@index([lastName])
+  @@index([deletedAt])
 }
 
 model Doctor {

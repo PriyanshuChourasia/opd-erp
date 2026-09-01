@@ -9,6 +9,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { FindAppointmentsQueryDto } from './dto/find-appointments-query.dto';
 import { CheckoutAppointmentDto } from './dto/checkout-appointment.dto';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
+import { CreatePaymentDto } from '../billing/dto/create-payment.dto';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('appointments')
@@ -67,6 +68,18 @@ export class AppointmentsController {
   @Permissions('update:appointments')
   reschedule(@Param('id') id: string, @Body() dto: RescheduleAppointmentDto, @Req() req: { user: { id: string } }) {
     return this.appointmentsService.reschedule(id, dto, req.user.id);
+  }
+
+  @Post(':id/payments')
+  @Permissions('create:billing')
+  addPayment(@Param('id') id: string, @Body() dto: CreatePaymentDto, @Req() req: { user: { id: string } }) {
+    return this.appointmentsService.addPayment(id, dto, req.user.id);
+  }
+
+  @Get(':id/payments')
+  @Permissions('read:billing')
+  getPayments(@Param('id') id: string) {
+    return this.appointmentsService.getPayments(id);
   }
 
   @Delete(':id')

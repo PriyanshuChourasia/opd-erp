@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { AlertTriangle, ChevronDown, Clock, History, Pencil, Plus, Search, X } from "lucide-react";
 import {
   checkoutAppointment,
+  addBillPayment,
   createDoctorWithUser,
   fetchAppointment,
   updateAppointment,
@@ -32,6 +33,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
+import { PaymentHistory } from "@/components/payment-history";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
 
@@ -319,21 +321,38 @@ export function EditAppointmentPage() {
         amountPaid: form.amountPaid,
         notes: form.notes || undefined,
       });
-      await checkoutAppointment(appointmentId, {
-        paymentMethod: payload.paymentMethod,
-        ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
-        discount: payload.discount > 0 ? payload.discount : undefined,
-        tax: payload.tax > 0 ? payload.tax : undefined,
-        paidAmount: payload.paidAmount,
-        notes: payload.notes || undefined,
-      });
+
+      // If a bill already exists, add a payment installment instead of creating a new bill.
+      if (appointment?.bill?.id) {
+        const dueAmount = Math.max(0, form.amount + form.registrationFee - form.amountPaid);
+        if (dueAmount > 0) {
+          await addBillPayment(appointment.bill.id, {
+            amount: Math.min(payload.paidAmount ?? dueAmount, dueAmount),
+            method: payload.paymentMethod,
+            ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
+            notes: payload.notes || undefined,
+          });
+        }
+      } else {
+        await checkoutAppointment(appointmentId, {
+          paymentMethod: payload.paymentMethod,
+          ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
+          discount: payload.discount > 0 ? payload.discount : undefined,
+          tax: payload.tax > 0 ? payload.tax : undefined,
+          paidAmount: payload.paidAmount,
+          notes: payload.notes || undefined,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["appointment", appointmentId] });
       queryClient.invalidateQueries({ queryKey: ["queue"] });
       queryClient.invalidateQueries({ queryKey: ["billing"] });
-      toast.success("Appointment updated and paid successfully");
+      if (appointment?.bill?.id) {
+        queryClient.invalidateQueries({ queryKey: ["bill-payments", appointment.bill.id] });
+      }
+      toast.success("Payment recorded successfully");
       setPaymentSheetOpen(false);
       navigate({ to: "/appointments" });
     },
@@ -971,6 +990,9 @@ export function EditAppointmentPage() {
         </CardContent>
       </Card>
 
+      {/* ── Payment History ── */}
+      <PaymentHistory appointmentId={appointmentId} billId={appointment?.bill?.id} />
+
       <div className="flex items-center justify-end gap-4">
         <Button variant="outline" onClick={goBack}>Cancel</Button>
         <div className="flex items-center gap-2">
@@ -1017,7 +1039,7 @@ export function EditAppointmentPage() {
         subtotal={Math.max(0, form.amount + form.registrationFee - form.amountPaid)}
         isPending={saveAndPayMutation.isPending}
         onSubmit={(payload) => saveAndPayMutation.mutate(payload)}
-        submitLabel="Confirm & Save"
+        submitLabel={appointment?.bill?.id ? "Record Payment" : "Confirm & Pay"}
       />
 
       {/* ── New Doctor Sheet ── */}

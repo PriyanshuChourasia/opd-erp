@@ -47,6 +47,7 @@ export function PaymentSheet({
   const [discount, setDiscount] = useState(0);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
+  const [cashTendered, setCashTendered] = useState(0);
 
   function handleSubmit() {
     onSubmit({
@@ -54,13 +55,13 @@ export function PaymentSheet({
       ...(referenceNumber.trim() ? { referenceNumber: referenceNumber.trim() } : {}),
       discount,
       tax: 0,
-      paidAmount,
+      paidAmount: netTotal,
       notes,
     });
   }
 
   const netTotal = subtotal - discount;
-  const paidAmount = netTotal;
+  const changeDue = method === "CASH" && cashTendered > netTotal ? cashTendered - netTotal : 0;
 
   return (
     <Sheet open={open} onOpenChange={(open) => { if (!open) onOpenChange(false); }}>
@@ -112,6 +113,21 @@ export function PaymentSheet({
             </Field>
           )}
 
+          {/* ── Cash Tendered (CASH only) ── */}
+          {method === "CASH" && (
+            <Field>
+              <FieldLabel htmlFor="pm-cash">Cash Tendered (₹)</FieldLabel>
+              <Input
+                id="pm-cash"
+                type="number"
+                min={0}
+                value={cashTendered || ""}
+                placeholder={String(netTotal)}
+                onChange={(e) => setCashTendered(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </Field>
+          )}
+
           {/* ── Discount ── */}
           <Field>
             <FieldLabel htmlFor="pm-discount">Discount (₹)</FieldLabel>
@@ -156,6 +172,12 @@ export function PaymentSheet({
                 <span className="text-lg text-primary">{currency(netTotal)}</span>
               </div>
             </div>
+            {changeDue > 0 && (
+              <div className="flex items-center justify-between text-sm font-medium text-green-600">
+                <span>Change Due</span>
+                <span>−{currency(changeDue)}</span>
+              </div>
+            )}
           </div>
         </div>
 

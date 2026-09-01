@@ -578,7 +578,7 @@ export interface BillItem {
   createdAt: string;
 }
 
-export type BillStatus = "PENDING" | "PAID" | "PARTIAL" | "REFUNDED" | "CANCELLED";
+export type BillStatus = "PENDING" | "PAID" | "PARTIAL" | "PARTIALLY_PAID" | "REFUNDED" | "CANCELLED";
 
 export interface Bill {
   id: string;
@@ -1445,11 +1445,20 @@ export function createAppointment(input: CreateAppointmentInput) {
   });
 }
 
-export function updateAppointmentStatus(id: string, status: AppointmentStatus, cancellationReason?: string) {
+export function updateAppointmentStatus(
+  id: string,
+  status: AppointmentStatus,
+  payload?: {
+    cancellationReason?: string;
+    refundDecision?: 'REFUND' | 'FORFEIT';
+    refundAmount?: number;
+    refundReason?: string;
+  },
+) {
   return request<Appointment>({
     method: "PATCH",
     path: `/appointments/${id}/status`,
-    body: { status, cancellationReason },
+    body: { status, ...payload },
   });
 }
 
@@ -1537,6 +1546,60 @@ export function checkoutAppointment(id: string, payload?: { paymentMethod?: stri
     method: "POST",
     path: `/appointments/${id}/checkout`,
     body: payload ?? {},
+  });
+}
+
+// ─── Payment Ledger API ──────────────────────────────────────
+
+export interface Payment {
+  id: string;
+  appointmentId: string | null;
+  billId: string | null;
+  patientId: string;
+  amount: number;
+  method: string;
+  direction: string;
+  referenceNumber: string | null;
+  notes: string | null;
+  createdAt: string;
+  collectedBy: { id: string; firstName: string; lastName: string } | null;
+}
+
+export function addAppointmentPayment(appointmentId: string, payload: { amount: number; method: string; referenceNumber?: string; notes?: string }) {
+  return request<Payment>({
+    method: "POST",
+    path: `/appointments/${appointmentId}/payments`,
+    body: payload,
+  });
+}
+
+export function fetchAppointmentPayments(appointmentId: string) {
+  return request<Payment[]>({
+    method: "GET",
+    path: `/appointments/${appointmentId}/payments`,
+  });
+}
+
+export function addBillPayment(billId: string, payload: { amount: number; method: string; referenceNumber?: string; notes?: string }) {
+  return request<Payment>({
+    method: "POST",
+    path: `/billing/${billId}/payments`,
+    body: payload,
+  });
+}
+
+export function fetchBillPayments(billId: string) {
+  return request<Payment[]>({
+    method: "GET",
+    path: `/billing/${billId}/payments`,
+  });
+}
+
+export function refundBill(billId: string, payload: { amount: number; reason: string; method?: string; referenceNumber?: string; notes?: string }) {
+  return request<Payment>({
+    method: "POST",
+    path: `/billing/${billId}/refund`,
+    body: payload,
   });
 }
 
@@ -1660,6 +1723,10 @@ export function fetchMedicines(params: { search?: string; groupId?: string } & P
 
 export function createMedicine(input: CreateMedicineInput) {
   return request<Medicine>({ method: "POST", path: "/medicine-catalog", body: input });
+}
+
+export function updateMedicine(id: string, input: Partial<CreateMedicineInput>) {
+  return request<Medicine>({ method: "PATCH", path: `/medicine-catalog/${id}`, body: input });
 }
 
 // ─── Medicine Groups API ─────────────────────────────────────

@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { Pill, Plus, Search } from "lucide-react";
-import { fetchMedicines, fetchMedicineGroups, fetchUnits, createMedicine, type Medicine, type CreateMedicineInput } from "@/lib/api";
+import { Pencil, Pill, Plus, Search } from "lucide-react";
+import { fetchMedicines, fetchMedicineGroups, fetchUnits, createMedicine, updateMedicine, type Medicine, type CreateMedicineInput } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -28,6 +29,7 @@ export function MedicineCatalogPage() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [form, setForm] = useState<CreateMedicineInput>(emptyForm());
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["medicines", search, pagination.pageIndex, pagination.pageSize],
@@ -66,12 +68,45 @@ export function MedicineCatalogPage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  function openAdd() { setForm(emptyForm()); setSheetOpen(true); }
-  function closeSheet() { setSheetOpen(false); }
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<CreateMedicineInput> }) => updateMedicine(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      closeSheet();
+      toast.success("Medicine updated successfully");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  function openAdd() { setForm(emptyForm()); setEditingId(null); setSheetOpen(true); }
+  function openEdit(medicine: Medicine) {
+    setForm({
+      name: medicine.name,
+      alias: medicine.alias ?? "",
+      genericName: medicine.genericName ?? "",
+      brandName: medicine.brandName ?? "",
+      category: medicine.category ?? "",
+      strength: medicine.strength ?? "",
+      unit: medicine.unit,
+      price: medicine.price,
+      groupId: medicine.groupId ?? undefined,
+      unitId: medicine.unitId ?? undefined,
+      openingStock: medicine.openingStock != null ? Number(medicine.openingStock) : 0,
+    });
+    setEditingId(medicine.id);
+    setSheetOpen(true);
+  }
+  function closeSheet() { setSheetOpen(false); setEditingId(null); }
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   function handleSave() {
     if (!form.name.trim()) return;
-    createMutation.mutate(form);
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, input: form });
+    } else {
+      createMutation.mutate(form);
+    }
   }
 
   const columns = useMemo<ColumnDef<Medicine>[]>(() => [
@@ -138,7 +173,8 @@ export function MedicineCatalogPage() {
       cell: ({ row }) => {
         const stock = row.original.currentStock;
         if (stock == null) return <span className="text-muted-foreground">—</span>;
-        return <span className="text-sm">{Number(stock)}</span>;
+        const value = Number(stock);
+        return <span className={cn("text-sm", value < 0 && "font-medium text-red-600 dark:text-red-400")}>{value}</span>;
       },
     },
     {
@@ -151,6 +187,15 @@ export function MedicineCatalogPage() {
           <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" variant="outline">Inactive</Badge>
         ),
     },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <Button variant="ghost" size="icon-sm" title="Edit medicine" aria-label="Edit medicine" onClick={() => openEdit(row.original)}>
+          <Pencil className="size-3.5" />
+        </Button>
+      ),
+    },
   ], []);
 
   return (
@@ -160,14 +205,14 @@ export function MedicineCatalogPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Medicine Catalog</h1>
           <p className="mt-1 text-sm text-muted-foreground">Browse the drug master database</p>
         </div>
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <Sheet open={sheetOpen} onOpenChange={(open) => { if (!open) closeSheet(); else setSheetOpen(true); }}>
           <SheetTrigger asChild>
             <Button onClick={openAdd}><Plus className="mr-2 size-4" />Add Medicine</Button>
           </SheetTrigger>
           <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>Add Medicine</SheetTitle>
-              <SheetDescription>Add a new medicine to the catalog.</SheetDescription>
+              <SheetTitle>{editingId ? "Edit Medicine" : "Add Medicine"}</SheetTitle>
+              <SheetDescription>{editingId ? "Update this medicine's details." : "Add a new medicine to the catalog."}</SheetDescription>
             </SheetHeader>
             <div className="flex-1 space-y-4 px-4 pb-4">
               <FieldGroup>
@@ -219,8 +264,8 @@ export function MedicineCatalogPage() {
             </div>
             <SheetFooter>
               <Button variant="outline" onClick={closeSheet}>Cancel</Button>
-              <Button onClick={handleSave} disabled={!form.name.trim() || createMutation.isPending}>
-                {createMutation.isPending ? "Creating..." : "Create Medicine"}
+              <Button onClick={handleSave} disabled={!form.name.trim() || isSaving}>
+                {isSaving ? (editingId ? "Updating..." : "Creating...") : editingId ? "Update Medicine" : "Create Medicine"}
               </Button>
             </SheetFooter>
           </SheetContent>

@@ -70,6 +70,7 @@ model User {
   createdDoctorDepartments      DoctorDepartment[]    @relation("DoctorDepartmentCreated")
   createdDoctorSpecializations  DoctorSpecialization[] @relation("DoctorSpecializationCreated")
   createdBloodGroups            BloodGroup[]          @relation("BloodGroupCreated")
+  collectedPayments             Payment[]             @relation("PaymentCollected")
 
   // Audit relations — Updated by
   updatedRoles                 Role[]                 @relation("RoleUpdated")
@@ -584,6 +585,7 @@ model Patient {
   radiologyOrders  RadiologyOrder[]
   procedureOrders  ProcedureOrder[]
   bills            Bill[]
+  payments         Payment[]
   patientAllergies PatientAllergy[]
   allergyRecords   PatientAllergyRecord[]
   vitals           PatientVitals[]
@@ -683,6 +685,7 @@ model Appointment {
   queueEntry         QueueEntry?
   patientVitals      PatientVitals[]
   history            AppointmentHistory[]
+  payments           Payment[] @relation("PaymentAppointment")
 
   deletedAt   DateTime?
   deletedById String?
@@ -925,6 +928,7 @@ model Bill {
   patient       Patient?     @relation(fields: [patientId], references: [id])
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   items         BillItem[]
+  payments      Payment[] @relation("PaymentBill")
 
   deletedAt   DateTime?
   deletedById String?
@@ -1225,4 +1229,32 @@ model RoleSidebarMenu {
   sidebarMenu   SidebarMenu @relation(fields: [sidebarMenuId], references: [id], onDelete: Cascade)
 
   @@id([roleId, sidebarMenuId])
+}
+
+// ─── Payment Ledger ────────────────────────────────────────
+// Immutable ledger of individual financial transactions (payments and refunds).
+// Bill.paidAmount and Appointment.amountPaid are derived by summing rows here.
+model Payment {
+  id              String   @id @default(uuid())
+  appointmentId   String?
+  billId          String?
+  patientId       String
+  amount          Int      // always positive; direction distinguishes PAYMENT from REFUND
+  method          String   // CASH | CARD | UPI
+  direction       String   // PAYMENT | REFUND
+  referenceNumber String?
+  notes           String?
+  collectedById   String?
+  createdAt       DateTime @default(now())
+
+  appointment Appointment? @relation("PaymentAppointment", fields: [appointmentId], references: [id])
+  bill        Bill?        @relation("PaymentBill", fields: [billId], references: [id])
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  collectedBy User?        @relation("PaymentCollected", fields: [collectedById], references: [id])
+
+  @@index([appointmentId])
+  @@index([billId])
+  @@index([patientId])
+  @@index([collectedById])
+  @@index([createdAt])
 }

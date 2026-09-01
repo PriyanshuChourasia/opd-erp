@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/utils/paginate';
 import { getDoctorNameMap } from '../common/utils/doctor-names';
@@ -11,6 +11,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { FindAppointmentsQueryDto } from './dto/find-appointments-query.dto';
 import { CheckoutAppointmentDto } from './dto/checkout-appointment.dto';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
+import { CreatePaymentDto } from '../billing/dto/create-payment.dto';
 
 interface WithDoctor {
   doctor: { id: string } & Record<string, unknown>;
@@ -87,7 +88,7 @@ export class AppointmentsService
         notes: dto.notes,
         tokenNumber,
       },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true } } },
     });
 
     // Save version 1 history entry (mirroring PrescriptionHistory pattern)
@@ -158,7 +159,7 @@ export class AppointmentsService
       ({ skip, take }) =>
         this.prisma.appointment.findMany({
           where,
-          include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+          include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true } } },
           orderBy: [{ createdAt: 'desc' }, { date: 'desc' }],
           skip,
           take,
@@ -171,7 +172,7 @@ export class AppointmentsService
   async findOne(id: string) {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id, deletedAt: null },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true } } },
     });
     if (!appointment) throw new NotFoundException(`Appointment ${id} not found`);
     return withDoctorName(this.prisma, appointment);
@@ -179,14 +180,140 @@ export class AppointmentsService
 
   async update(id: string, dto: UpdateAppointmentStatusDto, userId?: string) {
     const existing = await this.findOne(id);
-    const appointment = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        status: dto.status,
-        cancellationReason: dto.status === 'CANCELLED' ? (dto.cancellationReason ?? null) : undefined,
-        updatedById: userId ?? null,
-      },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+
+    // ── Refund gate: CANCELLED / NO_SHOW when money was collected ──
+    if (dto.status === 'CANCELLED' || dto.status === 'NO_SHOW') {
+      // Check if any money was collected (advance payments or invoiced & paid)
+      const paySum = await this.prisma.payment.aggregate({
+        where: { appointmentId: id, direction: 'PAYMENT' },
+        _sum: { amount: true },
+      });
+      const refundSum = await this.prisma.payment.aggregate({
+        where: { appointmentId: id, direction: 'REFUND' },
+        _sum: { amount: true },
+      });
+      const netPaid = (paySum._sum.amount ?? 0) - (refundSum._sum.amount ?? 0);
+
+      if (netPaid > 0) {
+        // Money was collected — require an explicit refund decision
+        if (!dto.refundDecision) {
+          throw new BadRequestException(
+            `Cannot ${dto.status.toLowerCase()} appointment — ₹${netPaid} has been collected. ` +
+            `Provide refundDecision: "REFUND" (with refundAmount + refundReason) or ` +
+            `"FORFEIT" (with refundReason).`,
+          );
+        }
+
+        if (dto.refundDecision === 'REFUND') {
+          if (!dto.refundAmount || dto.refundAmount < 1) {
+            throw new BadRequestException('refundAmount is required and must be >= 1 for REFUND decision.');
+          }
+          if (dto.refundAmount > netPaid) {
+            throw new BadRequestException(
+              `Refund amount ₹${dto.refundAmount} exceeds net paid amount ₹${netPaid}.`,
+            );
+          }
+          if (!dto.refundReason) {
+            throw new BadRequestException('refundReason is required for REFUND decision.');
+          }
+        }
+
+        if (dto.refundDecision === 'FORFEIT' && !dto.refundReason) {
+          throw new BadRequestException('refundReason is required for FORFEIT decision.');
+        }
+      }
+    }
+
+    // ── Execute the status transition + optional refund in a transaction ──
+    const appointment = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
+        where: { id },
+        data: {
+          status: dto.status,
+          cancellationReason: dto.status === 'CANCELLED' ? (dto.cancellationReason ?? null) : undefined,
+          updatedById: userId ?? null,
+        },
+        include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true } } },
+      });
+
+      // Process refund if requested
+      if ((dto.status === 'CANCELLED' || dto.status === 'NO_SHOW') && dto.refundDecision === 'REFUND' && dto.refundAmount && dto.refundReason) {
+        // Determine the bill to refund against (if any)
+        const bill = updated.bill;
+        if (bill) {
+          // Refund against the bill
+          await tx.payment.create({
+            data: {
+              billId: bill.id,
+              appointmentId: id,
+              patientId: updated.patientId,
+              amount: dto.refundAmount,
+              method: 'CASH',
+              direction: 'REFUND',
+              notes: `${dto.status} refund: ${dto.refundReason}`,
+              collectedById: userId ?? null,
+            },
+          });
+          // Recompute bill status
+          const billPaySum = await tx.payment.aggregate({
+            where: { billId: bill.id, direction: 'PAYMENT' },
+            _sum: { amount: true },
+          });
+          const billRefundSum = await tx.payment.aggregate({
+            where: { billId: bill.id, direction: 'REFUND' },
+            _sum: { amount: true },
+          });
+          const billNetPaid = (billPaySum._sum.amount ?? 0) - (billRefundSum._sum.amount ?? 0);
+          const newBillStatus = billNetPaid <= 0 ? 'REFUNDED' : billNetPaid < bill.total ? 'PARTIALLY_PAID' : 'PAID';
+          await tx.bill.update({
+            where: { id: bill.id },
+            data: { paidAmount: billNetPaid, status: newBillStatus },
+          });
+        } else {
+          // Refund against the appointment (advance only, no bill yet)
+          await tx.payment.create({
+            data: {
+              appointmentId: id,
+              patientId: updated.patientId,
+              amount: dto.refundAmount,
+              method: 'CASH',
+              direction: 'REFUND',
+              notes: `${dto.status} refund: ${dto.refundReason}`,
+              collectedById: userId ?? null,
+            },
+          });
+        }
+
+        // Sync appointment.amountPaid
+        const apptPaySum = await tx.payment.aggregate({
+          where: { appointmentId: id, direction: 'PAYMENT' },
+          _sum: { amount: true },
+        });
+        const apptRefundSum = await tx.payment.aggregate({
+          where: { appointmentId: id, direction: 'REFUND' },
+          _sum: { amount: true },
+        });
+        const apptNetPaid = (apptPaySum._sum.amount ?? 0) - (apptRefundSum._sum.amount ?? 0);
+        await tx.appointment.update({
+          where: { id },
+          data: { amountPaid: apptNetPaid },
+        });
+      } else if ((dto.status === 'CANCELLED' || dto.status === 'NO_SHOW') && dto.refundDecision === 'FORFEIT' && dto.refundReason) {
+        // Forfeit: no money moves, but record a note
+        await tx.payment.create({
+          data: {
+            appointmentId: id,
+            patientId: updated.patientId,
+            amount: 0,
+            method: 'CASH',
+            direction: 'REFUND',
+            notes: `FORFEITED on ${dto.status.toLowerCase()}: ${dto.refundReason}`,
+            collectedById: userId ?? null,
+          },
+        });
+      }
+
+      return updated;
     });
 
     // Checking in moves the patient into the live token queue. Idempotent —
@@ -254,6 +381,27 @@ export class AppointmentsService
     if (dto.reasonForVisit !== undefined) data.reasonForVisit = dto.reasonForVisit;
     if (dto.notes !== undefined) data.notes = dto.notes;
     data.updatedById = userId ?? null;
+
+    // Guard: don't let fee edits drop the total below what's already been paid.
+    // Staff must record a refund first before lowering fees.
+    const newAmount = (data.amount as number | undefined) ?? existing.amount;
+    const newRegFee = (data.registrationFee as number | undefined) ?? existing.registrationFee;
+    const newTotal = newAmount + newRegFee;
+    const paidSum = await this.prisma.payment.aggregate({
+      where: { appointmentId: id, direction: 'PAYMENT' },
+      _sum: { amount: true },
+    });
+    const refundSum = await this.prisma.payment.aggregate({
+      where: { appointmentId: id, direction: 'REFUND' },
+      _sum: { amount: true },
+    });
+    const netPaid = (paidSum._sum.amount ?? 0) - (refundSum._sum.amount ?? 0);
+    if (newTotal < netPaid) {
+      throw new BadRequestException(
+        `Cannot reduce total to ₹${newTotal} — ₹${netPaid} has already been collected. ` +
+        `Record a refund first before lowering fees.`,
+      );
+    }
 
     // If doctor changed, also reassign the linked queue entry regardless of status.
     // The mismatch between appointment and queue doctors is worse than updating
@@ -460,51 +608,80 @@ export class AppointmentsService
     const discount = dto.discount ?? 0;
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
-    // Any amount already collected as an advance reduces what's still owed —
-    // default the checkout's paidAmount to it when the caller doesn't override.
-    const paidAmount = dto.paidAmount ?? (appointment.amountPaid > 0 ? Math.min(appointment.amountPaid, total) : total);
-    const status = paidAmount >= total ? 'PAID' : 'PENDING';
 
-    return this.prisma.bill.create({
-      data: {
-        patientId: appointment.patientId,
-        appointmentId: appointment.id,
-        invoiceNo,
-        subtotal,
-        discount,
-        tax,
-        total,
-        paidAmount,
-        status,
-        paymentMethod: dto.paymentMethod ?? 'CASH',
-        referenceNumber: dto.referenceNumber ?? null,
-        notes: dto.notes,
-        items: {
-          create: [
-            {
-              itemType: 'CONSULTATION',
-              itemId: appointment.id,
-              itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
-              quantity: 1,
-              unitPrice: appointment.amount,
-              amount: consultationAmount,
-            },
-            ...(registrationAmount > 0
-              ? [
-                  {
-                    itemType: 'REGISTRATION',
-                    itemId: appointment.id,
-                    itemName: `Registration Fee — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
-                    quantity: 1,
-                    unitPrice: appointment.registrationFee,
-                    amount: registrationAmount,
-                  },
-                ]
-              : []),
-          ],
+    // Seed paidAmount from the actual ledger sum, not a guess.
+    const advanceSum = await this.prisma.payment.aggregate({
+      where: { appointmentId: id, direction: 'PAYMENT' },
+      _sum: { amount: true },
+    });
+    const advancePaid = advanceSum._sum.amount ?? 0;
+    // Caller can override (e.g. paying in full at checkout); otherwise use ledger.
+    const paidAmount = dto.paidAmount ?? Math.min(advancePaid, total);
+    const status = paidAmount >= total ? 'PAID' : 'PARTIALLY_PAID';
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Create the bill
+      const bill = await tx.bill.create({
+        data: {
+          patientId: appointment.patientId,
+          appointmentId: appointment.id,
+          invoiceNo,
+          subtotal,
+          discount,
+          tax,
+          total,
+          paidAmount,
+          status,
+          paymentMethod: dto.paymentMethod ?? 'CASH',
+          referenceNumber: dto.referenceNumber ?? null,
+          notes: dto.notes,
+          createdById: appointment.createdById,
+          items: {
+            create: [
+              {
+                itemType: 'CONSULTATION',
+                itemId: appointment.id,
+                itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
+                quantity: 1,
+                unitPrice: appointment.amount,
+                amount: consultationAmount,
+              },
+              ...(registrationAmount > 0
+                ? [
+                    {
+                      itemType: 'REGISTRATION',
+                      itemId: appointment.id,
+                      itemName: `Registration Fee — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
+                      quantity: 1,
+                      unitPrice: appointment.registrationFee,
+                      amount: registrationAmount,
+                    },
+                  ]
+                : []),
+            ],
+          },
         },
-      },
-      include: { items: true, patient: true },
+        include: { items: true, patient: true },
+      });
+
+      // 2. If paidAmount > 0, write a ledger row linking the advance to this bill
+      if (paidAmount > 0) {
+        await tx.payment.create({
+          data: {
+            billId: bill.id,
+            appointmentId: appointment.id,
+            patientId: appointment.patientId,
+            amount: paidAmount,
+            method: dto.paymentMethod ?? 'CASH',
+            direction: 'PAYMENT',
+            referenceNumber: dto.referenceNumber ?? null,
+            notes: dto.notes ?? `Invoice ${invoiceNo}`,
+            collectedById: appointment.createdById,
+          },
+        });
+      }
+
+      return bill;
     });
   }
 
@@ -514,5 +691,73 @@ export class AppointmentsService
     const m = (date.getMonth() + 1).toString().padStart(2, '0');
     const count = await this.prisma.bill.count();
     return `INV-${y}${m}-${(count + 1).toString().padStart(5, '0')}`;
+  }
+
+  // ─── Payment Ledger ──────────────────────────────────────────
+
+  /**
+   * Record an advance payment against an appointment (pre-invoice).
+   * Writes a ledger row and syncs Appointment.amountPaid.
+   */
+  async addPayment(appointmentId: string, dto: CreatePaymentDto, userId?: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId, deletedAt: null },
+      include: { bill: true },
+    });
+    if (!appointment) throw new NotFoundException(`Appointment ${appointmentId} not found`);
+
+    // If a bill already exists, route to the billing payment endpoint instead
+    if (appointment.bill) {
+      throw new ConflictException(
+        `Appointment ${appointmentId} is already invoiced (${appointment.bill.invoiceNo}). ` +
+        `Use POST /billing/${appointment.bill.id}/payments to record installments.`,
+      );
+    }
+
+    const payment = await this.prisma.$transaction(async (tx) => {
+      // 1. Write the ledger row
+      const row = await tx.payment.create({
+        data: {
+          appointmentId,
+          patientId: appointment.patientId,
+          amount: dto.amount,
+          method: dto.method,
+          direction: 'PAYMENT',
+          referenceNumber: dto.referenceNumber ?? null,
+          notes: dto.notes ?? null,
+          collectedById: userId ?? null,
+        },
+      });
+
+      // 2. Recompute amountPaid from ledger sum (PAYMENT rows only)
+      const sum = await tx.payment.aggregate({
+        where: { appointmentId, direction: 'PAYMENT' },
+        _sum: { amount: true },
+      });
+      const totalPaid = sum._sum.amount ?? 0;
+
+      await tx.appointment.update({
+        where: { id: appointmentId },
+        data: { amountPaid: totalPaid, updatedById: userId ?? null },
+      });
+
+      return row;
+    });
+
+    return payment;
+  }
+
+  /**
+   * List all payment/refund ledger rows for an appointment.
+   */
+  async getPayments(appointmentId: string) {
+    await this.findOne(appointmentId);
+    return this.prisma.payment.findMany({
+      where: { appointmentId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        collectedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
   }
 }

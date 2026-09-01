@@ -47,7 +47,7 @@ const RESOURCES = [
   // System
   'documents', 'settings', 'dashboard', 'reports', 'developer', 'health',
 ];
-const ACTIONS = ['read', 'create', 'update', 'delete', 'manage'];
+const ACTIONS = ['read', 'create', 'update', 'delete', 'manage', 'refund'];
 
 function permissionName(action: string, resource: string) {
   const label = resource.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -66,6 +66,7 @@ async function wipeAll() {
   await prisma.dispensing.deleteMany();
   await prisma.prescriptionItem.deleteMany();
   await prisma.billItem.deleteMany();
+  await prisma.payment.deleteMany();
   await prisma.queueEntry.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.rolePermission.deleteMany();
@@ -453,7 +454,7 @@ async function seedPermissions(): Promise<Permission[]> {
     'addresses:create', 'addresses:delete', 'addresses:manage', 'addresses:read', 'addresses:update',
     'allergies:create', 'allergies:delete', 'allergies:manage', 'allergies:read', 'allergies:update',
     'appointments:create', 'appointments:manage', 'appointments:read', 'appointments:update',
-    'billing:create', 'billing:delete', 'billing:manage', 'billing:read', 'billing:update',
+    'billing:create', 'billing:delete', 'billing:manage', 'billing:read', 'billing:refund', 'billing:update',
     'company:create', 'company:delete', 'company:manage', 'company:read', 'company:update',
     'dashboard:read', 'dashboard:update',
     'diagnoses:read', 'diagnoses:update',

@@ -6,6 +6,8 @@ import { BillingService } from './billing.service';
 import { CreateBillDto } from './dto/create-bill.dto';
 import { UpdateBillStatusDto } from './dto/update-bill-status.dto';
 import { FindBillsQueryDto } from './dto/find-bills-query.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
+import { CreateRefundDto } from './dto/create-refund.dto';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('billing')
@@ -34,6 +36,24 @@ export class BillingController {
   @Permissions('update:billing')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateBillStatusDto, @Req() req: { user: { id: string } }) {
     return this.service.update(id, dto, req.user.id);
+  }
+
+  @Post(':id/payments')
+  @Permissions('create:billing')
+  addPayment(@Param('id') id: string, @Body() dto: CreatePaymentDto, @Req() req: { user: { id: string } }) {
+    return this.service.addPayment(id, dto, req.user.id);
+  }
+
+  @Get(':id/payments')
+  @Permissions('read:billing')
+  getPayments(@Param('id') id: string) {
+    return this.service.getPayments(id);
+  }
+
+  @Post(':id/refund')
+  @Permissions('refund:billing')
+  refund(@Param('id') id: string, @Body() dto: CreateRefundDto, @Req() req: { user: { id: string } }) {
+    return this.service.refund(id, dto, req.user.id);
   }
 
   @Delete(':id')

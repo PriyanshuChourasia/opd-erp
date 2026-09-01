@@ -247,7 +247,7 @@ export function DoctorPosPage() {
     mutationFn: async () => {
       if (!cancelTarget?.appointment?.id) return;
       // Cancel the appointment
-      await updateAppointmentStatus(cancelTarget.appointment.id, "CANCELLED", cancelReason.trim());
+      await updateAppointmentStatus(cancelTarget.appointment.id, "CANCELLED", { cancellationReason: cancelReason.trim() });
       // Delete the queue entry
       await deleteQueueEntry(cancelTarget.id);
     },

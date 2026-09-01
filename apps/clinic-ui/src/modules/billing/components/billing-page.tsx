@@ -15,11 +15,13 @@ import { PatientFormSheet } from "@/modules/patients/components/patient-form-she
 import { useAppSelector } from "@/store/hooks";
 import { useDateRangeSync } from "@/lib/date-range-search";
 import { hasPermission } from "@/lib/roles";
+import { PaymentHistory } from "@/components/payment-history";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   PAID: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   PARTIAL: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  PARTIALLY_PAID: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   REFUNDED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
   CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
@@ -256,6 +258,11 @@ export function BillingPage() {
                   <p className="text-xs">{viewBill.notes}</p>
                 </div>
               )}
+
+              {/* ── Payment History ── */}
+              <div className="border-t pt-3">
+                <PaymentHistory billId={viewBill.id} appointmentId={viewBill.appointmentId ?? undefined} />
+              </div>
             </div>
           )}
         </SheetContent>

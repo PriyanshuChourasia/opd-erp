@@ -43,6 +43,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
+import { RefundDecisionModal } from "@/components/refund-decision-modal";
 
 const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "CANCELLED", "RESCHEDULED", "NO_SHOW"];
 
@@ -65,6 +66,19 @@ function apptStatusLabel(status: string) {
 }
 
 function currency(value: number) { return `₹${value.toFixed(2)}`; }
+
+/** Derive payment status from appointment data */
+function paymentStatus(appt: Appointment): { label: string; className: string } {
+  if (appt.bill) {
+    const s = appt.bill.status;
+    if (s === "PAID") return { label: "Paid", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
+    if (s === "REFUNDED") return { label: "Refunded", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" };
+    if (s === "PARTIALLY_PAID") return { label: "Partial", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
+    return { label: "Unpaid", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
+  }
+  if (appt.amountPaid > 0) return { label: "Advance", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
+  return { label: "Unpaid", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
+}
 function todayStr() {
   const d = new Date();
   const offset = d.getTimezoneOffset();
@@ -103,6 +117,7 @@ export function AppointmentsPage() {
   const [statusConfirm, setStatusConfirm] = useState<string | null>(null);
   const { dateRange } = useDateRangeSync();
   const [cancelReason, setCancelReason] = useState("");
+  const [refundModalAppt, setRefundModalAppt] = useState<Appointment | null>(null);
 
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -343,9 +358,15 @@ export function AppointmentsPage() {
   const pageCount = appointmentsResponse?.meta?.totalPages ?? 0;
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status, cancellationReason }: { id: string; status: AppointmentStatus; cancellationReason?: string }) =>
-      updateAppointmentStatus(id, status, cancellationReason),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["appointments"] }); setStatusConfirm(null); setCancelReason(""); toast.success("Appointment status updated"); },
+    mutationFn: ({ id, status, cancellationReason, refundDecision, refundAmount, refundReason }: {
+      id: string; status: AppointmentStatus; cancellationReason?: string;
+      refundDecision?: 'REFUND' | 'FORFEIT'; refundAmount?: number; refundReason?: string;
+    }) => updateAppointmentStatus(id, status, { cancellationReason, refundDecision, refundAmount, refundReason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      setStatusConfirm(null); setCancelReason(""); setRefundModalAppt(null);
+      toast.success("Appointment status updated");
+    },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
@@ -497,11 +518,19 @@ export function AppointmentsPage() {
     {
       accessorKey: "status",
       header: () => <div className="text-center">Status</div>,
-      cell: ({ row }) => (
-        <div className="text-center"><Badge variant="outline" className={`text-[10px] ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
-          {apptStatusLabel(row.original.status)}
-        </Badge></div>
-      ),
+      cell: ({ row }) => {
+        const ps = paymentStatus(row.original);
+        return (
+          <div className="flex flex-col items-center gap-1">
+            <Badge variant="outline" className={`text-[10px] ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
+              {apptStatusLabel(row.original.status)}
+            </Badge>
+            <Badge variant="outline" className={`text-[10px] ${ps.className}`}>
+              {ps.label}
+            </Badge>
+          </div>
+        );
+      },
     },
     {
       id: "doctor",
@@ -633,7 +662,15 @@ export function AppointmentsPage() {
                 value={appt.status}
                 onValueChange={(value) => {
                   if (value === appt.status) return;
-                  if (value === "CANCELLED") { setStatusConfirm(appt.id); return; }
+                  if (value === "CANCELLED") {
+                    // Check if money was collected — if so, show refund decision modal
+                    if (appt.amountPaid > 0 || appt.bill) {
+                      setRefundModalAppt(appt);
+                    } else {
+                      setStatusConfirm(appt.id);
+                    }
+                    return;
+                  }
                   if (value === "RESCHEDULED") { openReschedule(appt); return; }
                   statusMutation.mutate({ id: appt.id, status: value as AppointmentStatus }, {
                     onSuccess: () => {
@@ -1377,6 +1414,22 @@ export function AppointmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Refund Decision Modal (for cancel/no-show with money collected) ── */}
+      <RefundDecisionModal
+        open={!!refundModalAppt}
+        onOpenChange={(open) => { if (!open) setRefundModalAppt(null); }}
+        netPaid={refundModalAppt?.amountPaid ?? 0}
+        isPending={statusMutation.isPending}
+        onConfirm={(decision) => {
+          if (!refundModalAppt) return;
+          statusMutation.mutate({
+            id: refundModalAppt.id,
+            status: "CANCELLED",
+            ...decision,
+          });
+        }}
+      />
     </div>
   );
 }

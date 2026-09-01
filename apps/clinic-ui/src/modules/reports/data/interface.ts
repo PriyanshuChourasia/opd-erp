@@ -81,6 +81,7 @@ export interface DailyOpdSummaryData {
   };
   byDoctor: {
     doctorId: string;
+    doctorName: string;
     totalAppointments: number;
     completed: number;
     revenue: number;

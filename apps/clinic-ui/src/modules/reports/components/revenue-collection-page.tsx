@@ -29,8 +29,8 @@ export function RevenueCollectionPage() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [from, setFrom] = useState(dateRange.from ?? thirtyDaysAgo.toISOString().slice(0, 10));
-  const [to, setTo] = useState(dateRange.to ?? tomorrow.toISOString().slice(0, 10));
+  const from = dateRange.from ?? thirtyDaysAgo.toISOString().slice(0, 10);
+  const to = dateRange.to ?? tomorrow.toISOString().slice(0, 10);
   const [page, setPage] = useState(1);
   const limit = 50;
 
@@ -150,19 +150,12 @@ export function RevenueCollectionPage() {
           </tbody>
         </table>
         </body></html>`;
-      const element = document.createElement('div');
-      element.innerHTML = htmlContent;
-      document.body.appendChild(element);
-      const html2pdf = (await import('html2pdf.js')).default;
-      await html2pdf().set({
-        margin: 0.4,
-        filename: `revenue-collection_${from}_to_${to}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
-      }).from(element).save();
-      document.body.removeChild(element);
-      toast.success('PDF exported successfully');
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
     } catch (err) {
       console.error('PDF generation failed', err);
       toast.error('Failed to generate PDF');
@@ -180,20 +173,6 @@ export function RevenueCollectionPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground">From:</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-          />
-          <label className="text-sm text-muted-foreground">To:</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => { setTo(e.target.value); setPage(1); }}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-          />
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="h-4 w-4 mr-1" />
             Excel

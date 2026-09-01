@@ -642,7 +642,12 @@ export class ReportsService {
       }
     }
 
-    const byDoctor = Array.from(doctorMap.values()).sort((a, b) => b.revenue - a.revenue);
+    const byDoctorRaw = Array.from(doctorMap.values()).sort((a, b) => b.revenue - a.revenue);
+    const doctorNames = await getDoctorNameMap(this.prisma, byDoctorRaw.map((d) => d.doctorId));
+    const byDoctor = byDoctorRaw.map((d) => ({
+      ...d,
+      doctorName: doctorNames.get(d.doctorId) ?? 'Unknown Doctor',
+    }));
 
     // ─── Build type breakdown ───────────────────────────────
     const typeMap = new Map<string, number>();

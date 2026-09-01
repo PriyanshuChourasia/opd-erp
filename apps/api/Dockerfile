@@ -42,6 +42,10 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
 RUN chmod +x ./apps/api/docker-entrypoint.sh
 
+# The medicine catalog seed reads this file via a path relative to the repo
+# root (../../../ from apps/api/prisma) — /app plays that role in the image.
+COPY List_of_Items.xlsx ./List_of_Items.xlsx
+
 EXPOSE 4000
 
 # Run migrations, seed reference/demo data, then start the server.

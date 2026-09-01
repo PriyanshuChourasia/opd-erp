@@ -39,10 +39,6 @@ import { hasPermission } from "@/lib/roles";
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in Registration" },
   { value: "CONSULTATION", label: "Consultation" },
-  { value: "SPECIALIST", label: "Specialist Consultation" },
-  { value: "EMERGENCY", label: "Emergency Consultation" },
-  { value: "FOLLOW_UP", label: "Follow-up Consultation" },
-  { value: "TELECONSULTATION", label: "Teleconsultation" },
 ] as const;
 
 function currency(value: number) { return `₹${value.toFixed(2)}`; }

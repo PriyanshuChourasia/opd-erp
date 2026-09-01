@@ -6,6 +6,7 @@ import { resolveDiscount } from '../common/utils/discount';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
 import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Bill } from '@prisma/client';
+import { applyCreatedAtRange } from '../common/dto/date-range-query.dto';
 import { CreateBillDto } from './dto/create-bill.dto';
 import { UpdateBillStatusDto } from './dto/update-bill-status.dto';
 import { FindBillsQueryDto } from './dto/find-bills-query.dto';
@@ -101,6 +102,7 @@ export class BillingService
   async findAll(query: FindBillsQueryDto): Promise<PaginatedResult<Bill>> {
     const where: Record<string, unknown> = { deletedAt: null };
     if (query.patientId) where.patientId = query.patientId;
+    applyCreatedAtRange(where, query);
     const result = await paginate(
       () => this.prisma.bill.count({ where }),
       ({ skip, take }) =>

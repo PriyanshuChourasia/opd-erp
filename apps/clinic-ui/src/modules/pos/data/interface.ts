@@ -13,10 +13,6 @@ export type PaymentMethod = "CASH" | "CARD" | "UPI";
 export const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in Registration", amount: 100 },
   { value: "CONSULTATION", label: "Consultation", amount: 300 },
-  { value: "SPECIALIST", label: "Specialist Consultation", amount: 500 },
-  { value: "EMERGENCY", label: "Emergency Consultation", amount: 800 },
-  { value: "FOLLOW_UP", label: "Follow-up Consultation", amount: 150 },
-  { value: "TELECONSULTATION", label: "Teleconsultation", amount: 250 },
 ] as const;
 
 export const paymentMethods = [

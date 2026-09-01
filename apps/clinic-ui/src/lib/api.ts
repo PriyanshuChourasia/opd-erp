@@ -353,11 +353,7 @@ export interface DoctorSlots {
 
 export type AppointmentType =
   | "WALK_IN"
-  | "CONSULTATION"
-  | "SPECIALIST"
-  | "EMERGENCY"
-  | "FOLLOW_UP"
-  | "TELECONSULTATION";
+  | "CONSULTATION";
 
 export type AppointmentStatus =
   | "SCHEDULED"
@@ -1818,7 +1814,7 @@ export function fetchUnits(params: { search?: string } & PaginationParams = {}) 
 // ─── Prescriptions API ────────────────────────────────────────
 
 export function fetchPrescriptions(
-  params: { patientId?: string; doctorId?: string; status?: string; search?: string; date?: string } & PaginationParams = {},
+  params: { patientId?: string; doctorId?: string; status?: string; search?: string; date?: string; from?: string; to?: string } & PaginationParams = {},
 ) {
   return request<PaginatedResult<Prescription>>({
     method: "GET",
@@ -1829,6 +1825,8 @@ export function fetchPrescriptions(
       status: params.status,
       search: params.search,
       date: params.date,
+      from: params.from,
+      to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },

@@ -1,5 +1,7 @@
 import { PrismaClient, type Permission, type Doctor } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import * as XLSX from 'xlsx';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
 const FRESH = process.argv.includes('--fresh');
@@ -70,6 +72,7 @@ async function wipeAll() {
   await prisma.queueEntry.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.rolePermission.deleteMany();
+  await prisma.discountRule.deleteMany();
   // 2. Transactional parent records
   await prisma.prescription.deleteMany();
   await prisma.bill.deleteMany();
@@ -843,120 +846,48 @@ async function seedUsers(
 }
 
 // ─── Medicine Catalog ──────────────────────────────────────
+// Sourced from the clinic's actual Tally inventory export (List_of_Items.xlsx,
+// copied to the repo/image root) rather than a hardcoded placeholder list, so
+// every freshly-seeded environment (local, Docker, CI) matches what's really
+// on the shelf. See apps/api/prisma/import-medicines-from-excel.ts for the
+// one-off script this logic was lifted from.
 
-const medicineData = [
-  // ── General / Common ──
-  { name: 'Paracetamol', genericName: 'Paracetamol', brandName: 'Calpol', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 2 },
-  { name: 'Ibuprofen', genericName: 'Ibuprofen', brandName: 'Brufen', category: 'TABLET', strength: '400mg', unit: 'tablet', price: 3 },
-  { name: 'Paracetamol Syrup', genericName: 'Paracetamol', brandName: 'Calpol', category: 'SYRUP', strength: '250mg/5ml', unit: 'ml', price: 60 },
-  { name: 'Amoxicillin', genericName: 'Amoxicillin', brandName: 'Novamox', category: 'CAPSULE', strength: '500mg', unit: 'capsule', price: 8 },
-  { name: 'Azithromycin', genericName: 'Azithromycin', brandName: 'Azithral', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 15 },
-  { name: 'Cefixime', genericName: 'Cefixime', brandName: 'Cefaxime', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 12 },
-  { name: 'Levofloxacin', genericName: 'Levofloxacin', brandName: 'Levoflox', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 15 },
-  { name: 'Metronidazole', genericName: 'Metronidazole', brandName: 'Flagyl', category: 'TABLET', strength: '400mg', unit: 'tablet', price: 4 },
-  { name: 'Doxycycline', genericName: 'Doxycycline', brandName: 'Doxylin', category: 'CAPSULE', strength: '100mg', unit: 'capsule', price: 8 },
-  { name: 'Metformin', genericName: 'Metformin', brandName: 'Glyciphage', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 3 },
-  { name: 'Omeprazole', genericName: 'Omeprazole', brandName: 'Omez', category: 'CAPSULE', strength: '20mg', unit: 'capsule', price: 5 },
-  { name: 'Pantoprazole', genericName: 'Pantoprazole', brandName: 'Pantop', category: 'TABLET', strength: '40mg', unit: 'tablet', price: 5 },
-  { name: 'Cetirizine', genericName: 'Cetirizine', brandName: 'Alerid', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 2 },
-  { name: 'Levocetirizine', genericName: 'Levocetirizine', brandName: 'Levocet', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 5 },
-  { name: 'Montelukast', genericName: 'Montelukast', brandName: 'Montair', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 10 },
-  { name: 'Vitamin B Complex', genericName: 'Vitamin B Complex', brandName: 'Becosules', category: 'CAPSULE', strength: '', unit: 'capsule', price: 8 },
-  { name: 'Multivitamin', genericName: 'Multivitamin', brandName: 'Zincovit', category: 'TABLET', strength: '', unit: 'tablet', price: 6 },
-  { name: 'Folic Acid', genericName: 'Folic Acid', brandName: 'Folic Acid', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 2 },
-  { name: 'Calcium + Vitamin D3', genericName: 'Calcium + Vitamin D3', brandName: 'Shelcal', category: 'TABLET', strength: '500mg+400IU', unit: 'tablet', price: 6 },
-  { name: 'Vitamin B12', genericName: 'Methylcobalamin', brandName: 'Neurobion Forte', category: 'TABLET', strength: '1500mcg', unit: 'tablet', price: 7 },
-  { name: 'Vitamin D3', genericName: 'Cholecalciferol', brandName: 'D3-60K', category: 'CAPSULE', strength: '60K IU', unit: 'capsule', price: 15 },
-  { name: 'Iron + Folic Acid', genericName: 'Ferrous Sulphate + Folic Acid', brandName: 'Ferium XT', category: 'TABLET', strength: '', unit: 'tablet', price: 4 },
+interface ParsedMedicineRow {
+  name: string;
+  alias: string | null;
+  groupName: string;
+  openingStock: number;
+  unitName: string;
+  isActive: boolean;
+}
 
-  // ── Cardiology ──
-  { name: 'Amlodipine', genericName: 'Amlodipine', brandName: 'Amlodac', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 4 },
-  { name: 'Telmisartan', genericName: 'Telmisartan', brandName: 'Telma', category: 'TABLET', strength: '40mg', unit: 'tablet', price: 8 },
-  { name: 'Atorvastatin', genericName: 'Atorvastatin', brandName: 'Atorva', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 7 },
-  { name: 'Metoprolol', genericName: 'Metoprolol', brandName: 'Metolar', category: 'TABLET', strength: '25mg', unit: 'tablet', price: 5 },
-  { name: 'Losartan', genericName: 'Losartan', brandName: 'Losar', category: 'TABLET', strength: '50mg', unit: 'tablet', price: 6 },
-  { name: 'Ramipril', genericName: 'Ramipril', brandName: 'Rami ACE', category: 'TABLET', strength: '2.5mg', unit: 'tablet', price: 5 },
-  { name: 'Enalapril', genericName: 'Enalapril', brandName: 'Enacard', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 4 },
-  { name: 'Aspirin Low Dose', genericName: 'Aspirin', brandName: 'Ecotrin', category: 'TABLET', strength: '75mg', unit: 'tablet', price: 1 },
-  { name: 'Clopidogrel', genericName: 'Clopidogrel', brandName: 'Clopivas', category: 'TABLET', strength: '75mg', unit: 'tablet', price: 10 },
-  { name: 'Nitroglycerin', genericName: 'Nitroglycerin', brandName: 'Angispan', category: 'TABLET', strength: '0.5mg', unit: 'tablet', price: 3 },
-  { name: 'Furosemide', genericName: 'Furosemide', brandName: 'Lasix', category: 'TABLET', strength: '40mg', unit: 'tablet', price: 3 },
-  { name: 'Spironolactone', genericName: 'Spironolactone', brandName: 'Spironex', category: 'TABLET', strength: '25mg', unit: 'tablet', price: 6 },
-  { name: 'Digoxin', genericName: 'Digoxin', brandName: 'Lanoxin', category: 'TABLET', strength: '0.25mg', unit: 'tablet', price: 4 },
+function parseMedicineExcel(): ParsedMedicineRow[] {
+  const excelPath = path.resolve(__dirname, '../../../List_of_Items.xlsx');
+  const wb = XLSX.readFile(excelPath);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-  // ── Respiratory ──
-  { name: 'Salbutamol', genericName: 'Salbutamol', brandName: 'Asthalin', category: 'TABLET', strength: '2mg', unit: 'tablet', price: 3 },
-  { name: 'Salbutamol Inhaler', genericName: 'Salbutamol', brandName: 'Asthalin HFA', category: 'INHALER', strength: '100mcg', unit: 'puff', price: 200 },
-  { name: 'Budesonide Inhaler', genericName: 'Budesonide', brandName: 'Budesonide HFA', category: 'INHALER', strength: '200mcg', unit: 'puff', price: 350 },
-  { name: 'Salmeterol + Fluticasone', genericName: 'Salmeterol + Fluticasone', brandName: 'Seretide Accuhaler', category: 'INHALER', strength: '50/250mcg', unit: 'puff', price: 450 },
-  { name: 'Montelukast + Levocetirizine', genericName: 'Montelukast + Levocetirizine', brandName: 'Montair LC', category: 'TABLET', strength: '10mg+5mg', unit: 'tablet', price: 12 },
-  { name: 'Ipratropium Inhaler', genericName: 'Ipratropium Bromide', brandName: 'Respontin', category: 'INHALER', strength: '20mcg', unit: 'puff', price: 300 },
-  { name: 'Theophylline', genericName: 'Theophylline', brandName: 'Theo-Dur', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 5 },
+  const items: ParsedMedicineRow[] = [];
+  for (const row of rows) {
+    const [rawName, rawAlias, rawGroup, rawStock, rawUnit] = row ?? [];
+    // Real item rows are the only ones with a numeric stock and a unit string —
+    // this skips the letterhead rows, the header row, the blank separator, and
+    // the trailing "Totals" row in one check.
+    if (typeof rawName !== 'string' || !rawName.trim()) continue;
+    if (typeof rawStock !== 'number') continue;
+    if (typeof rawUnit !== 'string' || !rawUnit.trim()) continue;
 
-  // ── Dermatology / Topical ──
-  { name: 'Clotrimazole 1% Cream', genericName: 'Clotrimazole', brandName: 'Clotrimazole Cream', category: 'CREAM', strength: '1%', unit: 'gm', price: 50 },
-  { name: 'Mometasone 0.1% Cream', genericName: 'Mometasone', brandName: 'Momecort', category: 'CREAM', strength: '0.1%', unit: 'gm', price: 80 },
-  { name: 'Fusidic Acid 2% Cream', genericName: 'Fusidic Acid', brandName: 'Fucyn', category: 'CREAM', strength: '2%', unit: 'gm', price: 100 },
-  { name: 'Mupirocin 2% Ointment', genericName: 'Mupirocin', brandName: 'Mupikem', category: 'CREAM', strength: '2%', unit: 'gm', price: 90 },
-  { name: 'Betamethasone Cream', genericName: 'Betamethasone', brandName: 'Betnovate', category: 'CREAM', strength: '0.1%', unit: 'gm', price: 60 },
-  { name: 'Calamine Lotion', genericName: 'Calamine', brandName: 'Calamine Lotion', category: 'OTHER', strength: '8%', unit: 'ml', price: 50 },
-  { name: 'Isotretinoin', genericName: 'Isotretinoin', brandName: 'Isotroin', category: 'CAPSULE', strength: '10mg', unit: 'capsule', price: 25 },
+    const trimmedName = rawName.trim();
+    // A leading '*' is this Tally export's marker for a suspended/inactive item.
+    const isActive = !trimmedName.startsWith('*');
+    const name = (isActive ? trimmedName : trimmedName.slice(1)).trim();
+    const alias = typeof rawAlias === 'string' && rawAlias.trim() ? rawAlias.trim() : null;
+    const groupName = typeof rawGroup === 'string' && rawGroup.trim() ? rawGroup.trim() : 'General';
 
-  // ── Eye / Ear Drops ──
-  { name: 'Moxifloxacin Eye Drops', genericName: 'Moxifloxacin', brandName: 'Moxiflox', category: 'DROPS', strength: '0.5%', unit: 'ml', price: 80 },
-  { name: 'Timolol Eye Drops', genericName: 'Timolol', brandName: 'Timolet', category: 'DROPS', strength: '0.5%', unit: 'ml', price: 90 },
-  { name: 'Ofloxacin Ear Drops', genericName: 'Ofloxacin', brandName: 'Oflox', category: 'DROPS', strength: '0.3%', unit: 'ml', price: 70 },
-  { name: 'Artificial Tears', genericName: 'Carboxymethylcellulose', brandName: 'Refresh Tears', category: 'DROPS', strength: '', unit: 'ml', price: 120 },
-
-  // ── Pain Management ──
-  { name: 'Diclofenac', genericName: 'Diclofenac Sodium', brandName: 'Voveran', category: 'TABLET', strength: '50mg', unit: 'tablet', price: 3 },
-  { name: 'Naproxen', genericName: 'Naproxen', brandName: 'Naprosyn', category: 'TABLET', strength: '250mg', unit: 'tablet', price: 6 },
-  { name: 'Tramadol', genericName: 'Tramadol', brandName: 'Ultracet', category: 'CAPSULE', strength: '50mg', unit: 'capsule', price: 10 },
-  { name: 'Pregabalin', genericName: 'Pregabalin', brandName: 'Pregalin', category: 'CAPSULE', strength: '75mg', unit: 'capsule', price: 15 },
-  { name: 'Gabapentin', genericName: 'Gabapentin', brandName: 'Gabantin', category: 'CAPSULE', strength: '300mg', unit: 'capsule', price: 12 },
-
-  // ── Gastroenterology ──
-  { name: 'Domperidone', genericName: 'Domperidone', brandName: 'Domstal', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 5 },
-  { name: 'Ondansetron', genericName: 'Ondansetron', brandName: 'Emeset', category: 'TABLET', strength: '4mg', unit: 'tablet', price: 6 },
-  { name: 'Ranitidine', genericName: 'Ranitidine', brandName: 'Rantac', category: 'TABLET', strength: '150mg', unit: 'tablet', price: 3 },
-  { name: 'Loperamide', genericName: 'Loperamide', brandName: 'Imodium', category: 'CAPSULE', strength: '2mg', unit: 'capsule', price: 5 },
-  { name: 'Mesalamine', genericName: 'Mesalamine', brandName: 'Mesacol', category: 'TABLET', strength: '400mg', unit: 'tablet', price: 18 },
-
-  // ── Psychiatry / Neurology ──
-  { name: 'Escitalopram', genericName: 'Escitalopram', brandName: 'Nexito', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 10 },
-  { name: 'Sertraline', genericName: 'Sertraline', brandName: 'Serlift', category: 'TABLET', strength: '50mg', unit: 'tablet', price: 12 },
-  { name: 'Clonazepam', genericName: 'Clonazepam', brandName: 'Clonapax', category: 'TABLET', strength: '0.5mg', unit: 'tablet', price: 6 },
-  { name: 'Diazepam', genericName: 'Diazepam', brandName: 'Valium', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 4 },
-  { name: 'Levetiracetam', genericName: 'Levetiracetam', brandName: 'Levepsy', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 16 },
-  { name: 'Carbamazepine', genericName: 'Carbamazepine', brandName: 'Tegrital', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 8 },
-
-  // ── Endocrinology ──
-  { name: 'Levothyroxine', genericName: 'Levothyroxine', brandName: 'Thyronorm', category: 'TABLET', strength: '50mcg', unit: 'tablet', price: 3 },
-  { name: 'Glimepiride', genericName: 'Glimepiride', brandName: 'Amaryl', category: 'TABLET', strength: '1mg', unit: 'tablet', price: 5 },
-  { name: 'Metformin + Glimepiride', genericName: 'Metformin + Glimepiride', brandName: 'Glyciphage G1', category: 'TABLET', strength: '500mg+1mg', unit: 'tablet', price: 7 },
-  { name: 'Insulin Regular', genericName: 'Insulin Regular', brandName: 'Actrapid', category: 'INJECTION', strength: '40IU/ml', unit: 'ml', price: 300 },
-
-  // ── Gynecology ──
-  { name: 'Mefenamic Acid', genericName: 'Mefenamic Acid', brandName: 'Meftal', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 5 },
-  { name: 'Tranexamic Acid', genericName: 'Tranexamic Acid', brandName: 'Traxanet', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 12 },
-  { name: 'Clomiphene', genericName: 'Clomiphene Citrate', brandName: 'Fertomid', category: 'TABLET', strength: '50mg', unit: 'tablet', price: 25 },
-  { name: 'Progesterone', genericName: 'Progesterone', brandName: 'Susten', category: 'CAPSULE', strength: '200mg', unit: 'capsule', price: 30 },
-  { name: 'Dydrogesterone', genericName: 'Dydrogesterone', brandName: 'Duphaston', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 22 },
-
-  // ── Pediatrics ──
-  { name: 'Albendazole', genericName: 'Albendazole', brandName: 'Zentel', category: 'TABLET', strength: '400mg', unit: 'tablet', price: 10 },
-  { name: 'ORS Powder', genericName: 'Oral Rehydration Salts', brandName: 'Electral', category: 'OTHER', strength: '', unit: 'packet', price: 15 },
-  { name: 'Vitamin D3 Drops', genericName: 'Cholecalciferol', brandName: 'D3 Drops', category: 'DROPS', strength: '400IU/drop', unit: 'ml', price: 80 },
-  { name: 'Multivitamin Drops', genericName: 'Multivitamin', brandName: 'Syrup', category: 'SYRUP', strength: '', unit: 'ml', price: 90 },
-  { name: 'Zinc Syrup', genericName: 'Zinc Sulphate', brandName: 'Zinc Syrup', category: 'SYRUP', strength: '20mg/5ml', unit: 'ml', price: 70 },
-
-  // ── Infectious Diseases ──
-  { name: 'Artesunate Injection', genericName: 'Artesunate', brandName: 'Artesunate', category: 'INJECTION', strength: '60mg', unit: 'vial', price: 60 },
-  { name: 'Chloroquine', genericName: 'Chloroquine', brandName: 'Lariago', category: 'TABLET', strength: '250mg', unit: 'tablet', price: 5 },
-  { name: 'Oseltamivir', genericName: 'Oseltamivir', brandName: 'Tamiflu', category: 'CAPSULE', strength: '75mg', unit: 'capsule', price: 250 },
-  { name: 'Hydroxychloroquine', genericName: 'Hydroxychloroquine', brandName: 'HCQS', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 8 },
-  { name: 'Acyclovir', genericName: 'Acyclovir', brandName: 'Acyclovir', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 10 },
-];
+    items.push({ name, alias, groupName, openingStock: rawStock, unitName: rawUnit.trim(), isActive });
+  }
+  return items;
+}
 
 async function seedMedicines() {
   const existing = await prisma.medicine.count();
@@ -964,24 +895,37 @@ async function seedMedicines() {
     console.log('Medicines already seeded, skipping.');
     return;
   }
-  for (const m of medicineData) {
-    // Use a composite unique check: find by name since there's no @unique on the Medicine model
-    const existingMed = await prisma.medicine.findFirst({ where: { name: m.name } });
-    if (!existingMed) {
-      await prisma.medicine.create({
-        data: {
-          name: m.name,
-          genericName: m.genericName,
-          brandName: m.brandName,
-          category: m.category,
-          strength: m.strength || undefined,
-          unit: m.unit,
-          price: m.price,
-        },
-      });
-    }
+
+  const items = parseMedicineExcel();
+
+  const groupIdByName = new Map<string, string>();
+  for (const name of new Set(items.map((i) => i.groupName))) {
+    const group = await prisma.medicineGroup.upsert({ where: { name }, update: {}, create: { name } });
+    groupIdByName.set(name, group.id);
   }
-  console.log(`Seeded ${medicineData.length} medicines in the catalog.`);
+
+  const unitIdByName = new Map<string, string>();
+  for (const name of new Set(items.map((i) => i.unitName))) {
+    const unit = await prisma.unit.upsert({ where: { name }, update: {}, create: { name } });
+    unitIdByName.set(name, unit.id);
+  }
+
+  for (const item of items) {
+    await prisma.medicine.create({
+      data: {
+        name: item.name,
+        alias: item.alias,
+        unit: item.unitName,
+        unitId: unitIdByName.get(item.unitName),
+        groupId: groupIdByName.get(item.groupName),
+        price: 0,
+        openingStock: item.openingStock,
+        currentStock: item.openingStock,
+        isActive: item.isActive,
+      },
+    });
+  }
+  console.log(`Seeded ${items.length} medicines in the catalog from List_of_Items.xlsx.`);
 }
 
 // ─── Patient with Appointment History ──────────────────────
@@ -2807,6 +2751,10 @@ async function seedPrescriptionTemplates() {
 }
 
 // ─── Appointments ─────────────────────────────────────────
+// Minimal, intentionally-small seed: four "today" appointments across the
+// statuses staff actually need to see on a fresh board (checked-in/queued,
+// confirmed, completed) rather than a large synthetic history that's
+// indistinguishable from real bookings.
 
 async function seedAppointments(doctorRows: Doctor[]) {
   const existing = await prisma.appointment.count();
@@ -2820,23 +2768,18 @@ async function seedAppointments(doctorRows: Doctor[]) {
   const doctor = doctorRows[0];
   if (!doctor) return;
 
-  // Minimal, intentionally-small seed: two "today" appointments only, so the
-  // live Appointments/Queue views aren't cluttered with fake history that's
-  // indistinguishable from real bookings. One IN_PROGRESS (with vitals) to
-  // exercise the doctor's active-consultation view, one SCHEDULED (with
-  // vitals) to exercise the upcoming-booking view.
-  const superadmin = await prisma.user.findFirst({ where: { email: 'superadmin@clinic.com' } });
-  const createdById = superadmin?.id ?? null;
-  const now = new Date();
+  const plan: { patientPhone: string; status: string; minutesFromNow: number }[] = [
+    { patientPhone: '9876543210', status: 'CHECKED_IN', minutesFromNow: 0 },
+    { patientPhone: '9876543212', status: 'CHECKED_IN', minutesFromNow: 15 },
+    { patientPhone: '9876543214', status: 'CONFIRMED', minutesFromNow: 60 },
+    { patientPhone: '9876543216', status: 'COMPLETED', minutesFromNow: -60 },
+  ];
 
-  const seedTodayAppointment = async (
-    patientPhone: string,
-    status: string,
-    minutesFromNow: number,
-    vitals: { heightCm: number; weightKg: number; temperatureC: number; pulseBpm: number; systolicBp: number; diastolicBp: number; spo2Percent: number; respiratoryRate: number },
-  ) => {
+  const now = new Date();
+  let checkedInCount = 0;
+  for (const { patientPhone, status, minutesFromNow } of plan) {
     const patient = patientByPhone.get(patientPhone);
-    if (!patient) return null;
+    if (!patient) continue;
     const appt = await prisma.appointment.create({
       data: {
         patientId: patient.id,
@@ -2847,37 +2790,24 @@ async function seedAppointments(doctorRows: Doctor[]) {
         amount: doctor.consultationFee || 500,
       },
     });
-    const bmi = Math.round((vitals.weightKg / ((vitals.heightCm / 100) ** 2)) * 10) / 10;
-    await prisma.patientVitals.create({
-      data: { patientId: patient.id, appointmentId: appt.id, bmi, createdById, ...vitals },
-    });
-    return appt;
-  };
-
-  const inProgress = await seedTodayAppointment('9876543210', 'IN_PROGRESS', 0, {
-    heightCm: 172, weightKg: 70, temperatureC: 98.4, pulseBpm: 78, systolicBp: 120, diastolicBp: 80, spo2Percent: 98, respiratoryRate: 16,
-  });
-  await seedTodayAppointment('9876543212', 'SCHEDULED', 30, {
-    heightCm: 160, weightKg: 58, temperatureC: 98.6, pulseBpm: 74, systolicBp: 118, diastolicBp: 76, spo2Percent: 99, respiratoryRate: 15,
-  });
-
-  if (inProgress) {
-    await prisma.queueEntry.create({
-      data: {
-        patientId: inProgress.patientId,
-        doctorId: doctor.id,
-        appointmentId: inProgress.id,
-        tokenNumber: '1',
-        status: 'IN_PROGRESS',
-        queueDate: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
-        checkedInAt: now,
-      },
-    });
+    if (status === 'CHECKED_IN') {
+      checkedInCount++;
+      await prisma.queueEntry.create({
+        data: {
+          patientId: patient.id,
+          doctorId: doctor.id,
+          appointmentId: appt.id,
+          tokenNumber: String(checkedInCount),
+          status: 'WAITING',
+          queueDate: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+          checkedInAt: now,
+        },
+      });
+    }
   }
 
-  console.log('Seeded 2 appointments (1 in-progress, 1 scheduled) with vitals, and 1 queue entry.');
+  console.log(`Seeded ${plan.length} appointments (${checkedInCount} checked into the queue).`);
 }
-
 
 // ─── Bills ────────────────────────────────────────────────
 

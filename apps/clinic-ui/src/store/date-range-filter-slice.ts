@@ -1,14 +1,21 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { addDays, format, subMonths } from "date-fns";
 
 export interface DateRangeFilterState {
   from: string | null;
   to: string | null;
 }
 
-const initialState: DateRangeFilterState = {
-  from: null,
-  to: null,
-};
+/** Default filter window: one month back from tomorrow, through tomorrow. */
+function defaultRange(): DateRangeFilterState {
+  const tomorrow = addDays(new Date(), 1);
+  return {
+    from: format(subMonths(tomorrow, 1), "yyyy-MM-dd"),
+    to: format(tomorrow, "yyyy-MM-dd"),
+  };
+}
+
+const initialState: DateRangeFilterState = defaultRange();
 
 const dateRangeFilterSlice = createSlice({
   name: "dateRangeFilter",

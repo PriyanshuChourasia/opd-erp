@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/utils/paginate';
 import { getDoctorNameMap } from '../common/utils/doctor-names';
 import { resolveDiscount } from '../common/utils/discount';
+import { applyDateRange, applyCreatedAtRange } from '../common/dto/date-range-query.dto';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
 import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Appointment } from '@prisma/client';
@@ -123,7 +124,10 @@ export class AppointmentsService
     if (query.status) where.status = query.status;
     if (query.patientId) where.patientId = query.patientId;
     if (query.createdById) where.createdById = query.createdById;
-    if (query.date) {
+    // Date range: from/to takes priority; fallback to single-day `date`
+    if (query.from || query.to) {
+      applyDateRange(where, query, 'date');
+    } else if (query.date) {
       const dayStart = new Date(Date.UTC(
         new Date(query.date).getUTCFullYear(),
         new Date(query.date).getUTCMonth(),
@@ -160,23 +164,40 @@ export class AppointmentsService
       ({ skip, take }) =>
         this.prisma.appointment.findMany({
           where,
-          include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true } } },
+          include: {
+            patient: true,
+            doctor: true,
+            bill: { select: { id: true, invoiceNo: true, status: true, total: true } },
+            queueEntry: { select: { tokenNumber: true } },
+          },
           orderBy: [{ createdAt: 'desc' }, { date: 'desc' }],
           skip,
           take,
         }),
       query,
     );
-    return { ...result, data: await withDoctorNames(this.prisma, result.data) };
+    // Flatten queueEntry.tokenNumber onto the appointment for frontend convenience
+    const data = result.data.map((a) => {
+      const { queueEntry: _qe, ...rest } = a as any;
+      return { ...rest, tokenNumber: rest.tokenNumber ?? _qe?.tokenNumber ?? null };
+    });
+    return { ...result, data: await withDoctorNames(this.prisma, data) };
   }
 
   async findOne(id: string) {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id, deletedAt: null },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true } } },
+      include: {
+        patient: true,
+        doctor: true,
+        bill: { select: { id: true, invoiceNo: true, status: true, total: true } },
+        queueEntry: { select: { tokenNumber: true } },
+      },
     });
     if (!appointment) throw new NotFoundException(`Appointment ${id} not found`);
-    return withDoctorName(this.prisma, appointment);
+    const { queueEntry: qe, ...rest } = appointment as any;
+    const flat = { ...rest, tokenNumber: rest.tokenNumber ?? qe?.tokenNumber ?? null };
+    return withDoctorName(this.prisma, flat);
   }
 
   async update(id: string, dto: UpdateAppointmentStatusDto, userId?: string) {

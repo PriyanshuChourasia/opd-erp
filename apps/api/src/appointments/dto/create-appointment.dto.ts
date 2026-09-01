@@ -1,4 +1,4 @@
-import { IsInt, IsISO8601, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateAppointmentDto {
   @IsString()
@@ -11,7 +11,7 @@ export class CreateAppointmentDto {
   date!: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['WALK_IN', 'CONSULTATION'])
   type?: string;
 
   @IsOptional()

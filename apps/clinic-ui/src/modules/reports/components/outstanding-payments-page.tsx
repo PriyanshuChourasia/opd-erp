@@ -61,8 +61,8 @@ function startOfMonthStr() {
 // ─── Main Component ──────────────────────────────────────────
 export function OutstandingPaymentsPage() {
   const { dateRange } = useDateRangeSync();
-  const [from, setFrom] = useState(() => dateRange.from ?? daysAgoStr(90));
-  const [to, setTo] = useState(() => dateRange.to ?? tomorrowStr());
+  const from = dateRange.from ?? daysAgoStr(90);
+  const to = dateRange.to ?? tomorrowStr();
   const [doctorId, setDoctorId] = useState<string>("all");
   const [paymentStatus, setPaymentStatus] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -83,23 +83,6 @@ export function OutstandingPaymentsPage() {
   const data = query.data?.data;
   const pagination = query.data?.pagination;
   const meta = query.data?.meta;
-
-  // ─── Quick date ranges ─────────────────────────────────────
-  const quickRanges = useMemo(
-    () => [
-      { label: "Today", from: todayStr(), to: tomorrowStr() },
-      { label: "This Week", from: startOfWeekStr(), to: tomorrowStr() },
-      { label: "This Month", from: startOfMonthStr(), to: tomorrowStr() },
-      { label: "Last 90 Days", from: daysAgoStr(90), to: tomorrowStr() },
-    ],
-    [],
-  );
-
-  const applyQuickRange = (qFrom: string, qTo: string) => {
-    setFrom(qFrom);
-    setTo(qTo);
-    setPage(1);
-  };
 
   // ─── Doctor list for filter ─────────────────────────────────
   const doctors = useMemo(() => {
@@ -215,19 +198,12 @@ export function OutstandingPaymentsPage() {
           </tbody>
         </table>
         </body></html>`;
-      const element = document.createElement('div');
-      element.innerHTML = htmlContent;
-      document.body.appendChild(element);
-      const html2pdf = (await import('html2pdf.js')).default;
-      await html2pdf().set({
-        margin: 0.4,
-        filename: `outstanding-payments_${from}_to_${to}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
-      }).from(element).save();
-      document.body.removeChild(element);
-      toast.success('PDF exported successfully');
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
     } catch (err) {
       console.error('PDF generation failed', err);
       toast.error('Failed to generate PDF');
@@ -248,38 +224,6 @@ export function OutstandingPaymentsPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-4">
-            {/* Quick date ranges */}
-            <div className="flex items-center gap-2">
-              {quickRanges.map((qr) => (
-                <Button
-                  key={qr.label}
-                  variant={from === qr.from && to === qr.to ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => applyQuickRange(qr.from, qr.to)}
-                >
-                  {qr.label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Custom date range */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-muted-foreground">From:</label>
-              <input
-                type="date"
-                value={from}
-                onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-              />
-              <label className="text-sm text-muted-foreground">To:</label>
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => { setTo(e.target.value); setPage(1); }}
-                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-              />
-            </div>
-
             {/* Doctor filter */}
             <div className="flex items-center gap-2">
               <label className="text-sm text-muted-foreground">Doctor:</label>

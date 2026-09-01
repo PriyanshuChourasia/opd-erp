@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -97,7 +98,6 @@ export function PrescriptionsPage() {
   const [search, setSearch] = useState("");
   const [filterDoctor, setFilterDoctor] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterDate, setFilterDate] = useState(todayStr());
   const [doctorSearchQuery, setDoctorSearchQuery] = useState("");
   const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
 
@@ -117,19 +117,17 @@ export function PrescriptionsPage() {
     setFilterStatus(status);
     setPagination((p) => ({ ...p, pageIndex: 0 }));
   }
-  function setFilterDateAndResetPage(date: string) {
-    setFilterDate(date);
-    setPagination((p) => ({ ...p, pageIndex: 0 }));
-  }
+  const { dateRange } = useDateRangeSync();
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ["prescriptions", search, filterDoctor, filterStatus, filterDate, pagination.pageIndex, pagination.pageSize],
+    queryKey: ["prescriptions", search, filterDoctor, filterStatus, dateRange.from, dateRange.to, pagination.pageIndex, pagination.pageSize],
     queryFn: () =>
       fetchPrescriptions({
         search: search || undefined,
         doctorId: filterDoctor || undefined,
         status: filterStatus || undefined,
-        date: filterDate || undefined,
+        from: dateRange.from ?? undefined,
+        to: dateRange.to ?? undefined,
         page: pagination.pageIndex + 1,
         limit: pagination.pageSize,
       }),
@@ -762,11 +760,7 @@ ${buildPrescriptionBodyHtml(rx)}
             )}
           </div>
         )}
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant={!filterDate ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage("")}>All</Button>
-          <Button variant={filterDate === todayStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(todayStr())}>Today</Button>
-          <Input type="date" className="w-auto" value={filterDate} onChange={(e) => setFilterDateAndResetPage(e.target.value)} />
-        </div>
+
       </div>
 
       <Card>

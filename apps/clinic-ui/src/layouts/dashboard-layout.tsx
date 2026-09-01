@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CalendarClock, LogOut, User, ClipboardList, Plus } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { FinancialYearSelect } from "@/components/ui/financial-year-select";
 import { getHomeRoute } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
@@ -67,7 +68,7 @@ export function DashboardLayout() {
     queryKey: ["financial-years", "current"],
     queryFn: () => fetchFinancialYears({ limit: 100 }),
   });
-  const currentFY = fyResponse?.data?.find((fy) => fy.isCurrent);
+  const financialYears = fyResponse?.data ?? [];
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -91,16 +92,15 @@ export function DashboardLayout() {
               </nav>
             ); })()}
             <div className="ml-auto" />
+            <FinancialYearSelect
+              years={financialYears}
+              value={dateRange.from || dateRange.to ? { from: dateRange.from ?? undefined, to: dateRange.to ?? undefined } : undefined}
+              onChange={(range) => dispatch(setDateRange({ from: range.from, to: range.to }))}
+            />
             <DateRangePicker
               value={dateRange.from || dateRange.to ? { from: dateRange.from ?? undefined, to: dateRange.to ?? undefined } : undefined}
               onChange={(range) => dispatch(setDateRange({ from: range.from ?? null, to: range.to ?? null }))}
             />
-            {currentFY && (
-              <span className="hidden rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary sm:inline-flex">
-                <CalendarClock className="mr-1.5 size-3.5" />
-                FY: {currentFY.name}
-              </span>
-            )}
             <HelpTip />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

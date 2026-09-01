@@ -2,7 +2,7 @@ import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, useSearch } from "@tanstack/react-router";
-import { Award, ChevronDown, Clock, HeartPulse, History, Pencil, Plus, RotateCcw, Search, Siren, Stethoscope, Trash2, UserPlus, Video, X } from "lucide-react";
+import { ChevronDown, Clock, HeartPulse, History, Pencil, Plus, Search, Stethoscope, Trash2, UserPlus, X } from "lucide-react";
 import {
   createAppointment,
   createDoctorWithUser,
@@ -39,10 +39,6 @@ import { hasPermission } from "@/lib/roles";
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in Registration", icon: UserPlus },
   { value: "CONSULTATION", label: "Consultation", icon: Stethoscope },
-  { value: "SPECIALIST", label: "Specialist Consultation", icon: Award },
-  { value: "EMERGENCY", label: "Emergency Consultation", icon: Siren },
-  { value: "FOLLOW_UP", label: "Follow-up Consultation", icon: RotateCcw },
-  { value: "TELECONSULTATION", label: "Teleconsultation", icon: Video },
 ] as const;
 
 function currency(value: number) { return `₹${value.toFixed(2)}`; }

@@ -7,6 +7,7 @@ import type { Prescription } from '@prisma/client';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
 import { FindPrescriptionsQueryDto } from './dto/find-prescriptions-query.dto';
+import { applyCreatedAtRange } from '../common/dto/date-range-query.dto';
 
 /**
  * E-prescriptions with medicine selection, dosage tracking, and item management.
@@ -84,7 +85,10 @@ export class PrescriptionsService
     if (requestingDoctorId) where.doctorId = requestingDoctorId;
     else if (query.doctorId) where.doctorId = query.doctorId;
     if (query.status) where.status = query.status;
-    if (query.date) {
+    // Date range: from/to takes priority; fallback to single-day `date`
+    if (query.from || query.to) {
+      applyCreatedAtRange(where, query);
+    } else if (query.date) {
       const dayStart = new Date(Date.UTC(
         new Date(query.date).getUTCFullYear(),
         new Date(query.date).getUTCMonth(),

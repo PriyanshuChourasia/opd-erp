@@ -95,8 +95,8 @@ export function DailyOpdSummaryPage() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
-  const [from, setFrom] = useState(dateRange.from ?? todayStr);
-  const [to, setTo] = useState(dateRange.to ?? tomorrowStr);
+  const from = dateRange.from ?? todayStr;
+  const to = dateRange.to ?? tomorrowStr;
   const query = useDailyOpdSummary(from, to);
 
   const data = query.data?.data;
@@ -142,7 +142,7 @@ export function DailyOpdSummaryPage() {
 
     // Sheet 4: Doctor Performance
     const doctorRows = data.byDoctor.map((doc) => ({
-      "Doctor ID": doc.doctorId,
+      "Doctor": doc.doctorName ?? doc.doctorId,
       Appointments: doc.totalAppointments,
       Completed: doc.completed,
       Revenue: doc.revenue,
@@ -230,7 +230,7 @@ export function DailyOpdSummaryPage() {
         <h3>Doctor Performance</h3>
         <table>
           <tr><th>Doctor ID</th><th class="text-right">Appointments</th><th class="text-right">Completed</th><th class="text-right">Revenue</th></tr>
-          ${data.byDoctor.map(doc => `<tr><td>${doc.doctorId.slice(0, 8)}...</td><td class="text-right">${doc.totalAppointments}</td><td class="text-right">${doc.completed}</td><td class="text-right">${formatCurrency(doc.revenue)}</td></tr>`).join('')}
+          ${data.byDoctor.map(doc => `<tr><td>${doc.doctorName ?? doc.doctorId}</td><td class="text-right">${doc.totalAppointments}</td><td class="text-right">${doc.completed}</td><td class="text-right">${formatCurrency(doc.revenue)}</td></tr>`).join('')}
         </table>` : ''}
 
         ${data.byHour.length ? `
@@ -241,19 +241,12 @@ export function DailyOpdSummaryPage() {
         </table>` : ''}
 
         </body></html>`;
-      const element = document.createElement('div');
-      element.innerHTML = htmlContent;
-      document.body.appendChild(element);
-      const html2pdf = (await import('html2pdf.js')).default;
-      await html2pdf().set({
-        margin: 0.5,
-        filename: `daily-opd-summary_${from === to ? from : `${from}_to_${to}`}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
-      }).from(element).save();
-      document.body.removeChild(element);
-      toast.success('PDF exported successfully');
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
     } catch (err) {
       console.error('PDF generation failed', err);
       toast.error('Failed to generate PDF');
@@ -271,20 +264,6 @@ export function DailyOpdSummaryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground">From:</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-          />
-          <label className="text-sm text-muted-foreground">To:</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-          />
           <Button
             variant="outline"
             size="sm"
@@ -552,7 +531,7 @@ export function DailyOpdSummaryPage() {
                     <tbody>
                       {data.byDoctor.map((doc) => (
                         <tr key={doc.doctorId} className="border-b last:border-0">
-                          <td className="py-3 px-4 text-sm">{doc.doctorId.slice(0, 8)}...</td>
+                          <td className="py-3 px-4 text-sm">{doc.doctorName ?? doc.doctorId}</td>
                           <td className="py-3 px-4 text-sm text-right tabular-nums">{doc.totalAppointments}</td>
                           <td className="py-3 px-4 text-sm text-right tabular-nums">{doc.completed}</td>
                           <td className="py-3 px-4 text-sm text-right tabular-nums font-medium">

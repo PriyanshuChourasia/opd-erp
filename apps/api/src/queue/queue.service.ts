@@ -8,6 +8,7 @@ import type { QueueEntry } from '@prisma/client';
 import { CreateQueueEntryDto } from './dto/create-queue-entry.dto';
 import { UpdateQueueStatusDto } from './dto/update-queue-status.dto';
 import { FindQueueQueryDto } from './dto/find-queue-query.dto';
+import { applyDateRange } from '../common/dto/date-range-query.dto';
 
 /**
  * Live token queue with status tracking and check-in management.
@@ -86,15 +87,17 @@ export class QueueService
 
     if (query.doctorId) where.doctorId = query.doctorId;
 
-    // Default to today's queue when no date is given — without this, entries
-    // are unbounded across all history and new ones can be paginated out of view.
-    // Use UTC-based boundaries so that the exclusive lt does not accidentally
-    // exclude entries created at midnight in a non-UTC timezone.
-    const now = query.date ? new Date(query.date) : new Date();
-    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const dayEnd = new Date(dayStart);
-    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
-    where.queueDate = { gte: dayStart, lt: dayEnd };
+    // Date range: from/to takes priority; fallback to single-day `date`;
+    // fallback to today when nothing is given.
+    if (query.from || query.to) {
+      applyDateRange(where, query, 'queueDate');
+    } else {
+      const now = query.date ? new Date(query.date) : new Date();
+      const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+      where.queueDate = { gte: dayStart, lt: dayEnd };
+    }
 
     const result = await paginate(
       () => this.prisma.queueEntry.count({ where }),

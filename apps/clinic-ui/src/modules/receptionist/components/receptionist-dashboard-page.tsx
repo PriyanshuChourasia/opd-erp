@@ -43,10 +43,6 @@ import { hasPermission } from "@/lib/roles";
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400" },
   { value: "CONSULTATION", label: "Consultation", color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400" },
-  { value: "SPECIALIST", label: "Specialist", color: "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400" },
-  { value: "EMERGENCY", label: "Emergency", color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400" },
-  { value: "FOLLOW_UP", label: "Follow-up", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400" },
-  { value: "TELECONSULTATION", label: "Teleconsult", color: "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-400" },
 ] as const;
 
 function todayStr() {
@@ -664,7 +660,7 @@ export function ReceptionistDashboardPage() {
                 </div>
                 {selectedType && (
                   <p className="mt-1.5 text-[11px] text-muted-foreground">
-                    Priority: <span className="font-medium text-foreground">{selectedType.label}</span> — {selectedType.value === "EMERGENCY" ? "Immediate attention required" : selectedType.value === "FOLLOW_UP" ? "Continuation of previous visit" : "Standard appointment"}
+                    Priority: <span className="font-medium text-foreground">{selectedType.label}</span> — Standard appointment
                   </p>
                 )}
               </Field>

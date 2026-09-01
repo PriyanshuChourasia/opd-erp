@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import { useDateRangeSync } from "@/lib/date-range-search";
 import {
   Bar,
@@ -30,8 +30,8 @@ export function DoctorWiseOpdPage() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [from, setFrom] = useState(dateRange.from ?? thirtyDaysAgo.toISOString().slice(0, 10));
-  const [to, setTo] = useState(dateRange.to ?? tomorrow.toISOString().slice(0, 10));
+  const from = dateRange.from ?? thirtyDaysAgo.toISOString().slice(0, 10);
+  const to = dateRange.to ?? tomorrow.toISOString().slice(0, 10);
   const query = useDoctorWiseOpdReport(from, to);
 
   const data = query.data?.data;
@@ -47,22 +47,7 @@ export function DoctorWiseOpdPage() {
             Detailed appointment and revenue statistics by doctor
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground">From:</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-          />
-          <label className="text-sm text-muted-foreground">To:</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-          />
-        </div>
+
       </div>
 
       {/* ─── Meta Info ───────────────────────────────────────── */}

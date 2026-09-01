@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 import { useDateRangeSync } from "@/lib/date-range-search";
@@ -78,18 +78,6 @@ function paymentStatus(appt: Appointment): { label: string; className: string } 
   if (appt.amountPaid > 0) return { label: "Advance", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
   return { label: "Unpaid", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
 }
-function todayStr() {
-  const d = new Date();
-  const offset = d.getTimezoneOffset();
-  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
-function tomorrowStr() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  const offset = d.getTimezoneOffset();
-  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
-
 export function AppointmentsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -98,7 +86,6 @@ export function AppointmentsPage() {
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
 
-  const [filterDate, setFilterDate] = useState(todayStr());
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCreator, setFilterCreator] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -185,63 +172,39 @@ export function AppointmentsPage() {
 
   // ── Print preview ──
   const [printAppt, setPrintAppt] = useState<Appointment | null>(null);
-  const printPreviewRef = useRef<HTMLDivElement>(null);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
-
-  async function downloadPrintPdf() {
-    const element = printPreviewRef.current;
-    if (!element || !printAppt) return;
-    setGeneratingPdf(true);
-    try {
-      const html2pdf = (await import("html2pdf.js")).default;
-      const blob = await html2pdf()
-        .set({
-          margin: [0.5, 0.5, 0.5, 0.5],
-          filename: `appointment-${getPatientName(printAppt.patient!).replace(/\s+/g, "-") ?? printAppt.id}.pdf`,
-          image: { type: "jpeg", quality: 0.95 },
-          html2canvas: { scale: 2, letterRendering: true, useCORS: true },
-          jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
-        })
-        .from(element)
-        .outputPdf("blob");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `appointment-${getPatientName(printAppt.patient!).replace(/\s+/g, "-") ?? printAppt.id}.pdf`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    } catch (err) {
-      console.error("PDF generation failed", err);
-      toast.error("Failed to generate PDF");
-    } finally {
-      setGeneratingPdf(false);
-    }
+  function printSlip() {
+    const el = document.getElementById('print-area');
+    if (!el) return;
+    // Clone into a temporary container outside the dialog portal
+    const container = document.createElement('div');
+    container.id = 'print-slip-temp';
+    container.appendChild(el.cloneNode(true));
+    document.body.appendChild(container);
+    window.print();
+    setTimeout(() => container.remove(), 1000);
   }
 
-  function browserPrint() {
-    const el = printPreviewRef.current;
-    if (!el) return;
-    const w = window.open("", "_blank");
-    if (!w) return;
-    const html = "<!DOCTYPE html><html><head><title>Print</title><style>@media print{body{margin:0}}</style></head><body>" + el.outerHTML + "</body></html>";
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    w.print();
+  // ── Shared export column helpers ──
+  function appointmentRow(appt: Appointment) {
+    return {
+      "Token": appt.tokenNumber ?? "",
+      "Patient": `${appt.patient.firstName} ${appt.patient.lastName}`,
+      "Phone": appt.patient.contactNo ?? "",
+      "Doctor": appt.doctor.name ?? appt.doctor.medicalRegistrationNo ?? "",
+      "Specialization": appt.doctor.specialization ?? "",
+      "Date": appt.date ? new Date(appt.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "",
+      "Time": appt.date ? new Date(appt.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "",
+      "Type": appt.type.replace("_", " "),
+      "Status": appt.status,
+      "Payment Status": paymentStatus(appt).label,
+      "Amount": appt.amount ?? 0,
+      "Registration Amount": appt.registrationFee ?? 0,
+    };
   }
 
   // ── Export to Excel ──
   function exportToExcel() {
-    const rows = (appointmentsResponse?.data ?? []).map((appt) => ({
-      "Token": appt.tokenNumber ?? "",
-      "Patient": `${appt.patient.firstName} ${appt.patient.lastName}`,
-      "Status": appt.status,
-      "Doctor": appt.doctor.name ?? appt.doctor.medicalRegistrationNo ?? "",
-      "Type": appt.type ?? "",
-      "Time": appt.date ? new Date(appt.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "",
-      "Amount": appt.amount ?? 0,
-      "Registration Amount": appt.registrationFee ?? 0,
-    }));
+    const rows = (appointmentsResponse?.data ?? []).map(appointmentRow);
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Appointments");
@@ -252,49 +215,32 @@ export function AppointmentsPage() {
   async function exportToPdf() {
     const rows = appointmentsResponse?.data ?? [];
     if (rows.length === 0) return;
+    const cols = ["Token", "Patient", "Phone", "Doctor", "Specialization", "Date", "Time", "Type", "Status", "Payment Status", "Amount", "Registration Amount"];
     const htmlContent = `
       <html><head><style>
-        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+        body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }
         h2 { text-align: center; margin-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 5px 6px; text-align: left; }
         th { background: #f3f4f6; font-weight: bold; }
         tr:nth-child(even) { background: #f9fafb; }
       </style></head><body>
-      <h2>Appointments Report — ${filterDate || 'All Dates'}</h2>
+      <h2>Appointments Report — ${dateRange.from && dateRange.to ? (dateRange.from + ' to ' + dateRange.to) : 'All Dates'}</h2>
       <table>
-        <thead><tr>
-          <th>#</th><th>Patient</th><th>Phone</th><th>Doctor</th><th>Specialization</th>
-          <th>Date</th><th>Type</th><th>Status</th><th>Amount</th><th>Token</th>
-        </tr></thead>
+        <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
         <tbody>
-          ${rows.map((appt, i) => `<tr>
-            <td>${i + 1}</td>
-            <td>${appt.patient.firstName} ${appt.patient.lastName}</td>
-            <td>${appt.patient.contactNo ?? ''}</td>
-            <td>${appt.doctor.name ?? appt.doctor.medicalRegistrationNo ?? ''}</td>
-            <td>${appt.doctor.specialization ?? ''}</td>
-            <td>${appt.date ? new Date(appt.date).toLocaleDateString() : ''}</td>
-            <td>${appt.type ?? ''}</td>
-            <td>${appt.status}</td>
-            <td>${appt.amount ?? 0}</td>
-            <td>${appt.tokenNumber ?? ''}</td>
-          </tr>`).join('')}
+          ${rows.map(appt => {
+            const row = appointmentRow(appt);
+            return `<tr>${cols.map(c => `<td>${(row as Record<string, unknown>)[c] ?? ''}</td>`).join('')}</tr>`;
+          }).join('')}
         </tbody>
       </table>
       </body></html>`;
-    const element = document.createElement('div');
-    element.innerHTML = htmlContent;
-    document.body.appendChild(element);
-    const html2pdf = (await import('html2pdf.js')).default;
-    await html2pdf().set({
-      margin: 0.5,
-      filename: `appointments_${new Date().toISOString().slice(0, 10)}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
-    }).from(element).save();
-    document.body.removeChild(element);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.print();
   }
 
   const { data: doctorsResponse } = useQuery({
@@ -341,9 +287,8 @@ export function AppointmentsPage() {
   }, [searchInput]);
 
   const { data: appointmentsResponse, isLoading } = useQuery({
-    queryKey: ["appointments", filterDate, filterStatus, filterCreator, search, pagination.pageIndex, pagination.pageSize, dateRange.from, dateRange.to],
+    queryKey: ["appointments", filterStatus, filterCreator, search, pagination.pageIndex, pagination.pageSize, dateRange.from, dateRange.to],
     queryFn: () => fetchAppointments({
-      date: (search || dateRange.from || dateRange.to) ? undefined : (filterDate || undefined),
       status: filterStatus || undefined,
       createdById: filterCreator || undefined,
       search: search || undefined,
@@ -447,10 +392,6 @@ export function AppointmentsPage() {
 
 
 
-  function setFilterDateAndResetPage(date: string) {
-    setFilterDate(date);
-    setPagination((p) => ({ ...p, pageIndex: 0 }));
-  }
   function setFilterStatusAndResetPage(status: string) {
     setFilterStatus(status);
     setPagination((p) => ({ ...p, pageIndex: 0 }));
@@ -691,17 +632,6 @@ export function AppointmentsPage() {
             </Button>
           )}
 
-          <div className="flex items-center gap-1.5">
-            <Button variant={!search && !filterDate ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage("")}>All</Button>
-            <Button variant={filterDate === todayStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(todayStr())}>Today</Button>
-            <Button variant={filterDate === tomorrowStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(tomorrowStr())}>Tomorrow</Button>
-            <Input
-              type="date"
-              className="w-auto"
-              value={filterDate}
-              onChange={(e) => setFilterDateAndResetPage(e.target.value)}
-            />
-          </div>
         </div>
       </div>
 
@@ -1204,7 +1134,7 @@ export function AppointmentsPage() {
             <DialogTitle>Appointment Slip Preview</DialogTitle>
           </DialogHeader>
 
-          <div ref={printPreviewRef} className="bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
+          <div id="print-area" className="bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
             {printAppt && (() => {
               const aptDate = new Date(printAppt.date);
               const formattedDate = aptDate.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
@@ -1251,7 +1181,7 @@ export function AppointmentsPage() {
                           </td>
                           <td className="w-1/2 align-top pl-3">
                             <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">DOCTOR DETAILS</div>
-                            <div className="font-bold text-[13px] mb-0.5">Dr. {printAppt.doctor?.name ?? printAppt.doctor?.medicalRegistrationNo}</div>
+                            <div className="font-bold text-[13px] mb-0.5">{printAppt.doctor?.name ?? `Dr. ${printAppt.doctor?.medicalRegistrationNo}`}</div>
                             {printAppt.doctor?.specialization && <div className="text-xs text-gray-600 mb-0.5">Specialization: {printAppt.doctor.specialization}</div>}
                             {printAppt.doctor?.qualification && <div className="text-xs text-gray-600">Qualification: {printAppt.doctor.qualification}</div>}
                           </td>
@@ -1336,11 +1266,8 @@ export function AppointmentsPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setPrintAppt(null)}>Close</Button>
-            <Button variant="outline" disabled={generatingPdf} onClick={browserPrint}>
-              Print
-            </Button>
-            <Button disabled={generatingPdf} onClick={downloadPrintPdf}>
-              {generatingPdf ? "Generating…" : "Download PDF"}
+            <Button variant="outline" onClick={printSlip}>
+              Print / Save as PDF
             </Button>
           </DialogFooter>
         </DialogContent>

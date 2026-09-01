@@ -18,8 +18,5 @@ if ! npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/see
   npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts --fresh
 fi
 
-echo "[entrypoint] Seeding extended OPD-reports demo data (extra doctors, appointments, bills)..."
-npx ts-node --transpile-only --project prisma/tsconfig.seed.json scripts/seed-demo-data.ts
-
 echo "[entrypoint] Starting server..."
 exec node dist/main.js

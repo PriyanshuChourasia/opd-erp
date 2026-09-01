@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/utils/paginate';
 import { getDoctorNameMap } from '../common/utils/doctor-names';
+import { resolveDiscount } from '../common/utils/discount';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
 import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Appointment } from '@prisma/client';
@@ -605,7 +606,7 @@ export class AppointmentsService
     const consultationAmount = appointment.amount;
     const registrationAmount = appointment.registrationFee;
     const subtotal = consultationAmount + registrationAmount;
-    const discount = dto.discount ?? 0;
+    const { discount, discountRuleId } = await resolveDiscount(this.prisma, dto.discountRuleId, subtotal);
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
 
@@ -628,6 +629,7 @@ export class AppointmentsService
           invoiceNo,
           subtotal,
           discount,
+          discountRuleId,
           tax,
           total,
           paidAmount,

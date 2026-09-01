@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('countries', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
             $table->string('name');
             $table->string('code', 10)->unique();
             $table->string('phone_code', 10)->nullable();

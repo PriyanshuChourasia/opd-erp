@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import { createBill, searchMedicines, searchPatients } from "../data/api";
-import { fetchAppointmentInvoicePreview, fetchOrganisation } from "@/lib/api";
+import { fetchAppointmentInvoicePreview, fetchDiscountRules } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { cn } from "@/lib/utils";
@@ -12,11 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { CartItem, DiscountMode, PaymentMethod } from "../data/interface";
+import type { CartItem, PaymentMethod } from "../data/interface";
 import { paymentMethods, currency } from "../data/interface";
-import { useAppSelector } from "@/store/hooks";
-import { hasPermission } from "@/lib/roles";
 
 const posIndexRoute = getRouteApi("/_pos/pos/");
 
@@ -24,22 +23,17 @@ export function PosCheckoutPage() {
   const { appointmentId } = posIndexRoute.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const permissions = useAppSelector((state) => state.auth.user?.permissions);
-  const canReadOrganisation = hasPermission(permissions, "read", "company");
   const [patientQuery, setPatientQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
   const [itemQuery, setItemQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const { data: organisation } = useQuery({
-    queryKey: ["organisation"],
-    queryFn: fetchOrganisation,
-    enabled: canReadOrganisation,
-  });
 
-  const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");
-  const [discountValue, setDiscountValue] = useState(0);
-  const maxDiscountPct = organisation?.maxDiscountPercent ?? 50;
-  const discountEnabled = organisation?.discountEnabled ?? true;
+  const [discountRuleId, setDiscountRuleId] = useState<string | null>(null);
+  const { data: discountRulesResponse } = useQuery({
+    queryKey: ["discount-rules", "active"],
+    queryFn: () => fetchDiscountRules({ activeOnly: true, limit: 100 }),
+  });
+  const discountRules = discountRulesResponse?.data ?? [];
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [cardName, setCardName] = useState("");
   const [cardStartDate, setCardStartDate] = useState("");
@@ -71,10 +65,12 @@ export function PosCheckoutPage() {
   });
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0), [cart]);
-  const cappedDiscountValue = discountMode === "percent"
-    ? Math.min(discountValue, maxDiscountPct)
-    : Math.min(discountValue, subtotal);
-  const discountAmount = discountMode === "percent" ? (subtotal * cappedDiscountValue) / 100 : cappedDiscountValue;
+  const selectedDiscountRule = discountRules.find((r) => r.id === discountRuleId) ?? null;
+  const discountAmount = selectedDiscountRule
+    ? selectedDiscountRule.type === "PERCENTAGE"
+      ? Math.round((subtotal * selectedDiscountRule.value) / 100)
+      : Math.min(selectedDiscountRule.value, subtotal)
+    : 0;
   const total = Math.max(0, subtotal - discountAmount);
 
   const checkoutMutation = useMutation({
@@ -82,13 +78,13 @@ export function PosCheckoutPage() {
       patientId: selectedPatient?.id ?? null,
       appointmentId: appointmentId || undefined,
       items: cart.map((item) => ({ itemType: item.itemType ?? "MEDICINE", itemId: item.itemId, itemName: item.description, quantity: item.quantity, unitPrice: item.unitPrice })),
-      discount: discountAmount,
+      discountRuleId: discountRuleId ?? undefined,
       paymentMethod,
     }),
     onSuccess: () => {
       setCart([]);
       setSelectedPatient(null);
-      setDiscountValue(0);
+      setDiscountRuleId(null);
       toast.success("Sale completed successfully");
       if (appointmentId) {
         queryClient.invalidateQueries({ queryKey: ["appointments"] });
@@ -193,11 +189,19 @@ export function PosCheckoutPage() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span>{currency(subtotal)}</span></div>
           <div className="flex flex-col gap-2"><span className="text-sm text-muted-foreground">Discount</span>
-            <div className="flex gap-2"><div className="flex rounded-none border p-0.5">{(["percent", "flat"] as const).map((mode) => (
-              <button key={mode} type="button" className={cn("rounded px-2 py-1 text-xs font-medium", discountMode === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground")} onClick={() => setDiscountMode(mode)}>{mode === "percent" ? "%" : "Flat"}</button>
-            ))}</div><Input type="number" min={0} max={discountMode === "percent" ? maxDiscountPct : subtotal} value={discountValue} onChange={(e) => setDiscountValue(Number(e.target.value) || 0)} /></div>
-            {discountMode === "percent" && discountEnabled && (
-              <p className="text-[11px] text-muted-foreground">Max {maxDiscountPct}% discount per bill</p>
+            <Select value={discountRuleId ?? "none"} onValueChange={(v) => setDiscountRuleId(v === "none" ? null : v)}>
+              <SelectTrigger><SelectValue placeholder="No discount" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No discount</SelectItem>
+                {discountRules.map((rule) => (
+                  <SelectItem key={rule.id} value={rule.id}>
+                    {rule.name} ({rule.type === "PERCENTAGE" ? `${rule.value}%` : currency(rule.value)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {discountAmount > 0 && (
+              <p className="text-[11px] text-green-600">−{currency(discountAmount)} applied</p>
             )}
           </div>
           <div className="flex flex-col gap-2"><span className="text-sm text-muted-foreground">Payment method</span>

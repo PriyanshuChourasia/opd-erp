@@ -444,6 +444,29 @@ export interface BloodGroup {
   isActive: boolean;
 }
 
+export interface DiscountRule {
+  id: string;
+  name: string;
+  type: "PERCENTAGE" | "FLAT";
+  value: number;
+  validFrom?: string | null;
+  validTo?: string | null;
+  isActive: boolean;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateDiscountRuleInput = {
+  name: string;
+  type: "PERCENTAGE" | "FLAT";
+  value: number;
+  validFrom?: string;
+  validTo?: string;
+  isActive?: boolean;
+  description?: string;
+};
+
 export interface Medicine {
   id: string;
   name: string;
@@ -1541,7 +1564,7 @@ export function fetchAppointmentInvoicePreview(id: string) {
   });
 }
 
-export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; referenceNumber?: string; discount?: number; tax?: number; paidAmount?: number; notes?: string }) {
+export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; referenceNumber?: string; discountRuleId?: string; tax?: number; paidAmount?: number; notes?: string }) {
   return request<Bill>({
     method: "POST",
     path: `/appointments/${id}/checkout`,
@@ -1727,6 +1750,33 @@ export function createMedicine(input: CreateMedicineInput) {
 
 export function updateMedicine(id: string, input: Partial<CreateMedicineInput>) {
   return request<Medicine>({ method: "PATCH", path: `/medicine-catalog/${id}`, body: input });
+}
+
+// ─── Discount Rules API ───────────────────────────────────────
+
+export function fetchDiscountRules(params: { search?: string; activeOnly?: boolean } & PaginationParams = {}) {
+  return request<PaginatedResult<DiscountRule>>({
+    method: "GET",
+    path: "/discounts",
+    params: {
+      search: params.search,
+      activeOnly: params.activeOnly ? "true" : undefined,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function createDiscountRule(input: CreateDiscountRuleInput) {
+  return request<DiscountRule>({ method: "POST", path: "/discounts", body: input });
+}
+
+export function updateDiscountRule(id: string, input: Partial<CreateDiscountRuleInput>) {
+  return request<DiscountRule>({ method: "PATCH", path: `/discounts/${id}`, body: input });
+}
+
+export function deleteDiscountRule(id: string) {
+  return request<void>({ method: "DELETE", path: `/discounts/${id}` });
 }
 
 // ─── Medicine Groups API ─────────────────────────────────────

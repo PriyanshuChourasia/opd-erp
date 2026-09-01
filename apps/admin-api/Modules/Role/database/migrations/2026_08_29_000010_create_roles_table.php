@@ -9,11 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('roles', function (Blueprint $table) {
-                    $table->id();
-        $table->string('name', 100)->unique();
-        $table->string('slug', 100)->unique();
-        $table->text('description')->nullable();
-        $table->timestamps();
+            $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
+            $table->string('name', 100)->unique();
+            $table->string('slug', 100)->unique();
+            $table->text('description')->nullable();
+            $table->boolean('is_system')->default(false);
+            $table->timestamps();
         });
     }
 

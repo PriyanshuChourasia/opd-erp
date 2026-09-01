@@ -9,11 +9,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('user_role', function (Blueprint $table) {
-                    $table->id();
-        $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-        $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
-        $table->timestamps();
-        $table->unique(['user_id', 'role_id']);
+            $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
+            $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignUuid('role_id')->constrained('roles')->cascadeOnDelete();
+            $table->foreignUuid('assigned_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('assigned_at')->nullable();
+            $table->timestamps();
+            $table->unique(['user_id', 'role_id']);
         });
     }
 

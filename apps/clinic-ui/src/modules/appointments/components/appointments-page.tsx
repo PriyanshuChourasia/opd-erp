@@ -9,11 +9,9 @@ import * as XLSX from "xlsx";
 import {
   fetchAppointments,
   updateAppointmentStatus,
-  rescheduleAppointment,
   checkoutAppointment,
   fetchAppointmentInvoicePreview,
   fetchDoctors,
-  fetchDoctorSlots,
   fetchUsers,
   fetchOrganisation,
   updatePatient,
@@ -21,6 +19,7 @@ import {
   createPatientVitals,
   fetchPatientVitalsLatest,
   fetchPrescriptions,
+  fetchDiscountRules,
   type Appointment,
   type AppointmentStatus,
   type BillItemInput,
@@ -45,7 +44,7 @@ import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
 import { RefundDecisionModal } from "@/components/refund-decision-modal";
 
-const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "CANCELLED", "RESCHEDULED", "NO_SHOW"];
+const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW"];
 
 const APPT_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -90,15 +89,6 @@ function tomorrowStr() {
   const offset = d.getTimezoneOffset();
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
-function localDateStr(d: Date) {
-  const offset = d.getTimezoneOffset();
-  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
-function localTimeStr(d: Date) {
-  const offset = d.getTimezoneOffset();
-  return new Date(d.getTime() - offset * 60_000).toISOString().slice(11, 16);
-}
-
 
 export function AppointmentsPage() {
   const queryClient = useQueryClient();
@@ -119,15 +109,10 @@ export function AppointmentsPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [refundModalAppt, setRefundModalAppt] = useState<Appointment | null>(null);
 
-  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState("");
-  const [rescheduleTime, setRescheduleTime] = useState("");
-  const [rescheduleDoctorId, setRescheduleDoctorId] = useState("");
-
 
   // ── Invoice preview ──
   const [invoicePreviewAppt, setInvoicePreviewAppt] = useState<Appointment | null>(null);
-  const [invoiceDiscount, setInvoiceDiscount] = useState(0);
+  const [invoiceDiscountRuleId, setInvoiceDiscountRuleId] = useState<string | null>(null);
   const [invoiceTax, setInvoiceTax] = useState(0);
   const [invoicePaymentMethod, setInvoicePaymentMethod] = useState("CASH");
 
@@ -137,16 +122,31 @@ export function AppointmentsPage() {
     enabled: !!invoicePreviewAppt,
   });
 
+  const { data: invoiceDiscountRulesResponse } = useQuery({
+    queryKey: ["discount-rules", "active"],
+    queryFn: () => fetchDiscountRules({ activeOnly: true, limit: 100 }),
+    enabled: !!invoicePreviewAppt,
+  });
+  const invoiceDiscountRules = invoiceDiscountRulesResponse?.data ?? [];
+  const selectedInvoiceDiscountRule = invoiceDiscountRules.find((r) => r.id === invoiceDiscountRuleId) ?? null;
+  const invoiceSubtotal = invoicePreviewData?.items.reduce((sum, item) => sum + (item.quantity ?? 1) * item.unitPrice, 0) ?? 0;
+  const invoiceDiscount = selectedInvoiceDiscountRule
+    ? selectedInvoiceDiscountRule.type === "PERCENTAGE"
+      ? Math.round((invoiceSubtotal * selectedInvoiceDiscountRule.value) / 100)
+      : Math.min(selectedInvoiceDiscountRule.value, invoiceSubtotal)
+    : 0;
+
   const invoiceCheckoutMutation = useMutation({
     mutationFn: () =>
       checkoutAppointment(invoicePreviewAppt!.id, {
-        discount: invoiceDiscount,
+        discountRuleId: invoiceDiscountRuleId ?? undefined,
         tax: invoiceTax,
         paymentMethod: invoicePaymentMethod as "CASH" | "CARD" | "UPI",
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       setInvoicePreviewAppt(null);
+      setInvoiceDiscountRuleId(null);
       toast.success("Invoice generated successfully");
     },
     onError: (err) => { toast.error(extractApiError(err)); },
@@ -444,33 +444,6 @@ export function AppointmentsPage() {
     setVitalsOpen(true);
   }
 
-  function openReschedule(appt: Appointment) {
-    const d = new Date(appt.date);
-    setRescheduleTarget(appt);
-    setRescheduleDate(localDateStr(d));
-    setRescheduleTime(localTimeStr(d));
-    setRescheduleDoctorId(appt.doctorId);
-  }
-
-  const rescheduleSlotsQuery = useQuery({
-    queryKey: ["doctor-slots", "reschedule", rescheduleDoctorId, rescheduleDate],
-    queryFn: () => fetchDoctorSlots(rescheduleDoctorId, rescheduleDate),
-    enabled: !!rescheduleDoctorId && !!rescheduleDate,
-  });
-
-  const rescheduleMutation = useMutation({
-    mutationFn: () =>
-      rescheduleAppointment(rescheduleTarget!.id, {
-        date: `${rescheduleDate}T${rescheduleTime}:00`,
-        doctorId: rescheduleDoctorId || undefined,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      setRescheduleTarget(null);
-      toast.success("Appointment rescheduled");
-    },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
 
 
 
@@ -518,16 +491,22 @@ export function AppointmentsPage() {
     {
       accessorKey: "status",
       header: () => <div className="text-center">Status</div>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          <Badge variant="outline" className={`text-[10px] ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
+            {apptStatusLabel(row.original.status)}
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      id: "paymentStatus",
+      header: () => <div className="text-center">Payment Status</div>,
       cell: ({ row }) => {
         const ps = paymentStatus(row.original);
         return (
-          <div className="flex flex-col items-center gap-1">
-            <Badge variant="outline" className={`text-[10px] ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
-              {apptStatusLabel(row.original.status)}
-            </Badge>
-            <Badge variant="outline" className={`text-[10px] ${ps.className}`}>
-              {ps.label}
-            </Badge>
+          <div className="flex justify-center">
+            <Badge variant="outline" className={`text-[10px] ${ps.className}`}>{ps.label}</Badge>
           </div>
         );
       },
@@ -626,7 +605,7 @@ export function AppointmentsPage() {
                       <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="size-9" aria-label="Generate invoice" onClick={() => {
                           setInvoicePreviewAppt(appt);
-                          setInvoiceDiscount(0);
+                          setInvoiceDiscountRuleId(null);
                           setInvoiceTax(0);
                           setInvoicePaymentMethod("CASH");
                         }}>
@@ -671,7 +650,6 @@ export function AppointmentsPage() {
                     }
                     return;
                   }
-                  if (value === "RESCHEDULED") { openReschedule(appt); return; }
                   statusMutation.mutate({ id: appt.id, status: value as AppointmentStatus }, {
                     onSuccess: () => {
                       if (value === "CHECKED_IN") queryClient.invalidateQueries({ queryKey: ["queue"] });
@@ -790,53 +768,6 @@ export function AppointmentsPage() {
       </Card>
       </div>
 
-      <Sheet open={!!rescheduleTarget} onOpenChange={(open) => { if (!open) setRescheduleTarget(null); }}>
-        <SheetContent side="right" className="sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Reschedule Appointment</SheetTitle>
-            <SheetDescription>{rescheduleTarget?.patient ? getPatientName(rescheduleTarget.patient) : null} — pick a new date, doctor, and slot.</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 space-y-4 px-4 pb-4">
-            <Field><FieldLabel htmlFor="r-date">Date</FieldLabel>
-              <Input id="r-date" type="date" value={rescheduleDate} onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleTime(""); }} />
-            </Field>
-            <Field><FieldLabel htmlFor="r-doctor">Doctor</FieldLabel>
-              <select
-                id="r-doctor"
-                className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
-                value={rescheduleDoctorId}
-                onChange={(e) => { setRescheduleDoctorId(e.target.value); setRescheduleTime(""); }}
-              >
-                <option value="">Select a doctor...</option>
-                {doctors.map((d) => (<option key={d.id} value={d.id}>{d.name ?? d.medicalRegistrationNo ?? 'Doctor'}</option>))}
-              </select>
-            </Field>
-            {rescheduleDoctorId && rescheduleDate && (
-              <Field><FieldLabel>Slot</FieldLabel>
-                {rescheduleSlotsQuery.isLoading ? (<p className="text-sm text-muted-foreground">Loading slots...</p>) : !rescheduleSlotsQuery.data?.available ? (<p className="text-sm text-muted-foreground">No slots available for this day.</p>) : (
-                  <div className="grid grid-cols-4 gap-2">
-                    {rescheduleSlotsQuery.data.slots.map((s) => (
-                      <button key={s.time} type="button" disabled={!s.available} className={cn("rounded-none border px-2 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40", rescheduleTime === s.time ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setRescheduleTime(s.time)}>
-                        {s.time}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Field>
-            )}
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setRescheduleTarget(null)}>Cancel</Button>
-            <Button
-              onClick={() => rescheduleMutation.mutate()}
-              disabled={!rescheduleDate || !rescheduleDoctorId || !rescheduleTime || rescheduleMutation.isPending}
-            >
-              {rescheduleMutation.isPending ? "Rescheduling..." : "Reschedule"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
       {/* ── Invoice Preview Sheet ── */}
       <Sheet open={!!invoicePreviewAppt} onOpenChange={(open) => { if (!open) { setInvoicePreviewAppt(null); } }}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
@@ -897,37 +828,37 @@ export function AppointmentsPage() {
                     {currency(invoicePreviewData.items.reduce((sum, item) => sum + (item.quantity ?? 1) * item.unitPrice, 0))}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Discount</span>
-                  <span className="font-medium text-destructive">-{currency(invoiceDiscount)}</span>
-                </div>
+                {invoiceDiscount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Discount{selectedInvoiceDiscountRule ? ` (${selectedInvoiceDiscountRule.name})` : ""}</span>
+                    <span className="font-medium text-destructive">-{currency(invoiceDiscount)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Tax</span>
                   <span className="font-medium">+{currency(invoiceTax)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t pt-1.5 text-base font-semibold">
                   <span>Total</span>
-                  <span>
-                    {currency(
-                      invoicePreviewData.items.reduce((sum, item) => sum + (item.quantity ?? 1) * item.unitPrice, 0) -
-                        invoiceDiscount +
-                        invoiceTax,
-                    )}
-                  </span>
+                  <span>{currency(invoiceSubtotal - invoiceDiscount + invoiceTax)}</span>
                 </div>
               </div>
 
               {/* Discount & Tax inputs */}
               <div className="grid grid-cols-2 gap-3">
                 <Field>
-                  <FieldLabel htmlFor="inv-discount">Discount (₹)</FieldLabel>
-                  <Input
-                    id="inv-discount"
-                    type="number"
-                    min={0}
-                    value={invoiceDiscount}
-                    onChange={(e) => setInvoiceDiscount(Math.max(0, Number(e.target.value) || 0))}
-                  />
+                  <FieldLabel htmlFor="inv-discount">Discount (optional)</FieldLabel>
+                  <Select value={invoiceDiscountRuleId ?? "none"} onValueChange={(v) => setInvoiceDiscountRuleId(v === "none" ? null : v)}>
+                    <SelectTrigger id="inv-discount"><SelectValue placeholder="No discount" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No discount</SelectItem>
+                      {invoiceDiscountRules.map((rule) => (
+                        <SelectItem key={rule.id} value={rule.id}>
+                          {rule.name} ({rule.type === "PERCENTAGE" ? `${rule.value}%` : currency(rule.value)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="inv-tax">Tax (₹)</FieldLabel>

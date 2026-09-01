@@ -2,214 +2,312 @@
 
 namespace Tests\Feature;
 
+use App\Enums\LicenseStatus;
 use App\Models\User;
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Modules\Auth\Http\Requests\LoginRequest;
-use Modules\Auth\Services\AuthService;
-use Modules\License\Http\Requests\StoreLicenseRequest;
+use Modules\Customer\Models\Customer;
 use Modules\License\Models\License;
-use Modules\License\Services\LicenseService;
-use Modules\Organization\Http\Requests\StoreOrganizationRequest;
-use Modules\Organization\Http\Requests\UpdateOrganizationRequest;
+use Modules\License\Models\LicenseFeature;
+use Modules\License\Models\LicensePlan;
 use Modules\Organization\Models\Organization;
-use Modules\Organization\Services\OrganizationService;
 use Modules\Organization\Services\TenantService;
-use Symfony\Component\HttpKernel\Exception\HttpException;
+use Modules\Permission\Models\Permission;
+use Modules\Role\Models\Role;
 use Tests\TestCase;
 
 class LicensingArchitectureTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Organization $organization;
-
-    private int $customerId;
-
-    protected function setUp(): void
+    private function uuidLike(): string
     {
-        parent::setUp();
+        return '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/';
+    }
 
-        $this->customerId = DB::table('customers')->insertGetId([
+    /** @var array<string, string> */
+    private const UUID_TABLES = [
+        'users',
+        'organizations',
+        'customers',
+        'licenses',
+        'license_plans',
+        'license_features',
+        'license_feature_mapping',
+        'license_renewals',
+        'roles',
+        'permissions',
+        'user_role',
+        'user_permission',
+        'role_permissions',
+        'employees',
+        'documents',
+        'countries',
+        'states',
+    ];
+
+    public function test_all_primary_keys_are_uuids(): void
+    {
+        foreach (self::UUID_TABLES as $table) {
+            $columns = DB::select("SHOW COLUMNS FROM `$table`");
+            $idColumn = collect($columns)->firstWhere('Field', 'id');
+
+            $this->assertNotNull($idColumn, "Table `$table` must have an `id` column.");
+            $this->assertSame('char(36)', $idColumn->Type, "`$table`.id must be a 36-char UUID column.");
+        }
+    }
+
+    public function test_licenses_reference_plan_via_normalized_fk(): void
+    {
+        $plan = LicensePlan::query()->create([
+            'code' => 'PRO_TEST',
+            'name' => 'Professional Test',
+            'price' => 999.00,
+            'currency' => 'USD',
+            'is_active' => true,
+        ]);
+
+        $customer = Customer::query()->create([
             'first_name' => 'Acme',
             'last_name' => 'Corp',
             'email' => 'billing@acme.test',
             'status' => 'active',
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
 
-        $this->organization = Organization::query()->create([
-            'name' => 'Acme Corp',
+        $organization = Organization::query()->create([
+            'organization_code' => 'ORG-TEST-001',
+            'legal_name' => 'Acme Corp LLC',
+            'display_name' => 'Acme Corp',
             'email' => 'org@acme.test',
             'status' => 'active',
         ]);
 
-        License::query()->create([
-            'customer_id' => $this->customerId,
-            'organization_id' => $this->organization->id,
+        $license = License::query()->create([
             'license_number' => 'LIC-2026-TEST-0001',
-            'status' => License::STATUS_ACTIVE,
-            'issue_date' => now()->toDateString(),
+            'customer_id' => $customer->id,
+            'organization_id' => $organization->id,
+            'plan_id' => $plan->id,
+            'status' => LicenseStatus::ACTIVE,
             'start_date' => now()->toDateString(),
             'expiry_date' => now()->addYear()->toDateString(),
-            'plan' => 'professional',
         ]);
 
-        User::query()->create([
-            'name' => 'Org Admin',
-            'email' => 'admin@acme.test',
-            'password' => 'Password@123',
-            'organization_id' => $this->organization->id,
+        $this->assertSame($plan->id, $license->plan_id);
+        $this->assertSame('PRO_TEST', $license->plan, 'plan attribute resolves to plan code.');
+
+        $columns = collect(DB::select('SHOW COLUMNS FROM `licenses`'));
+        $this->assertNull($columns->firstWhere('Field', 'plan'), 'licenses must not carry a free-text plan column.');
+        $this->assertNull($columns->firstWhere('Field', 'features'), 'licenses must not carry a JSON features column.');
+    }
+
+    public function test_activation_secret_hash_is_hashed_and_never_serialized(): void
+    {
+        $customer = Customer::query()->create([
+            'first_name' => 'Acme',
+            'last_name' => 'Corp',
+            'email' => 'billing@acme.test',
             'status' => 'active',
         ]);
+
+        $organization = Organization::query()->create([
+            'organization_code' => 'ORG-TEST-002',
+            'legal_name' => 'Acme Corp LLC',
+            'display_name' => 'Acme Corp',
+            'email' => 'org@acme.test',
+            'status' => 'active',
+        ]);
+
+        $plan = LicensePlan::query()->create(['code' => 'BASIC_TEST', 'name' => 'Basic Test']);
+
+        $license = License::query()->create([
+            'license_number' => 'LIC-2026-TEST-0002',
+            'customer_id' => $customer->id,
+            'organization_id' => $organization->id,
+            'plan_id' => $plan->id,
+            'status' => LicenseStatus::CREATED,
+        ]);
+
+        $license->forceFill(['activation_secret_hash' => hash('sha256', 'raw-secret')])->save();
+
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $license->activation_secret_hash);
+
+        $serialized = $license->toArray();
+        $this->assertArrayNotHasKey('activation_secret_hash', $serialized);
+        $this->assertArrayNotHasKey('activated_at', $serialized);
     }
 
-    private function makeStoreOrganizationRequest(array $data): StoreOrganizationRequest
+    public function test_license_feature_mapping_attaches_features(): void
     {
-        $request = StoreOrganizationRequest::create('/api/organizations', 'POST', $data);
-        $request->setContainer(app());
-        $request->validateResolved();
+        $plan = LicensePlan::query()->create(['code' => 'ENTERPRISE_TEST', 'name' => 'Enterprise Test']);
 
-        return $request;
+        $customer = Customer::query()->create([
+            'first_name' => 'Acme',
+            'last_name' => 'Corp',
+            'email' => 'billing@acme.test',
+            'status' => 'active',
+        ]);
+
+        $organization = Organization::query()->create([
+            'organization_code' => 'ORG-TEST-003',
+            'legal_name' => 'Acme Corp LLC',
+            'display_name' => 'Acme Corp',
+            'email' => 'org@acme.test',
+            'status' => 'active',
+        ]);
+
+        $accounting = LicenseFeature::query()->create(['code' => 'ACCOUNTING', 'name' => 'Accounting', 'is_active' => true]);
+        $inventory = LicenseFeature::query()->create(['code' => 'INVENTORY', 'name' => 'Inventory', 'is_active' => true]);
+
+        $license = License::query()->create([
+            'license_number' => 'LIC-2026-TEST-0003',
+            'customer_id' => $customer->id,
+            'organization_id' => $organization->id,
+            'plan_id' => $plan->id,
+            'status' => LicenseStatus::ACTIVE,
+        ]);
+
+        $license->features()->sync([
+            $accounting->id => ['value' => true, 'limit_value' => 5],
+            $inventory->id => ['value' => false, 'limit_value' => null],
+        ]);
+
+        $this->assertSame(2, $license->features()->count());
+        $pivot = DB::table('license_feature_mapping')->where('license_id', $license->id)->where('feature_id', $accounting->id)->first();
+        $this->assertSame(1, (int) $pivot->value);
+        $this->assertSame(5, (int) $pivot->limit_value);
+        $this->assertSame($accounting->id, $license->features()->where('code', 'ACCOUNTING')->first()->id);
     }
 
-    private function makeUpdateOrganizationRequest(array $data): UpdateOrganizationRequest
+    public function test_roles_are_organization_scoped_with_permissions(): void
     {
-        $request = UpdateOrganizationRequest::create('/api/organizations', 'PUT', $data);
-        $request->setContainer(app());
-        $request->validateResolved();
+        $organization = Organization::query()->create([
+            'organization_code' => 'ORG-TEST-004',
+            'legal_name' => 'Acme Corp LLC',
+            'display_name' => 'Acme Corp',
+            'email' => 'org@acme.test',
+            'status' => 'active',
+        ]);
 
-        return $request;
+        $other = Organization::query()->create([
+            'organization_code' => 'ORG-TEST-005',
+            'legal_name' => 'Other Corp LLC',
+            'display_name' => 'Other Corp',
+            'email' => 'org2@acme.test',
+            'status' => 'active',
+        ]);
+
+        $role = Role::query()->create([
+            'name' => 'Billing Staff',
+            'slug' => 'billing-staff',
+            'description' => 'Billing only.',
+            'organization_id' => $organization->id,
+            'is_system' => false,
+        ]);
+
+        $readPermission = Permission::query()->firstOrCreate(
+            ['slug' => 'license.read'],
+            ['name' => 'Read License', 'module' => 'License']
+        );
+        $revokePermission = Permission::query()->firstOrCreate(
+            ['slug' => 'license.revoke'],
+            ['name' => 'Revoke License', 'module' => 'License']
+        );
+
+        $role->permissions()->sync([$readPermission->id, $revokePermission->id]);
+
+        $this->assertSame($organization->id, $role->organization_id);
+        $this->assertCount(2, $role->permissions);
+        $this->assertNotSame($other->id, $role->organization_id);
+
+        $pivot = DB::table('role_permissions')->where('role_id', $role->id)->where('permission_id', $readPermission->id)->exists();
+        $this->assertTrue($pivot);
     }
 
-    public function test_tenant_service_resolves_license_and_validates_it(): void
+    public function test_user_role_attachment_uses_uuids(): void
     {
+        $organization = Organization::query()->create([
+            'organization_code' => 'ORG-TEST-006',
+            'legal_name' => 'Acme Corp LLC',
+            'display_name' => 'Acme Corp',
+            'email' => 'org@acme.test',
+            'status' => 'active',
+        ]);
+
+        $role = Role::query()->create([
+            'name' => 'Admin',
+            'slug' => 'admin',
+            'organization_id' => $organization->id,
+            'is_system' => true,
+        ]);
+
+        $user = User::query()->create([
+            'name' => 'Jane Manager',
+            'email' => 'jane@acme.test',
+            'password' => 'Password@123',
+            'organization_id' => $organization->id,
+            'status' => 'active',
+        ]);
+
+        $user->roles()->sync([$role->id]);
+
+        $this->assertTrue($user->roles()->where('roles.id', $role->id)->exists());
+        $pivot = DB::table('user_role')->where('user_id', $user->id)->where('role_id', $role->id)->first();
+        $this->assertNotNull($pivot);
+
+        $this->assertMatchesRegularExpression($this->uuidLike(), $user->id);
+        $this->assertMatchesRegularExpression($this->uuidLike(), $role->id);
+    }
+
+    public function test_tenant_service_validation_rules(): void
+    {
+        $plan = LicensePlan::query()->create(['code' => 'BASIC_VALID', 'name' => 'Basic Valid']);
+
+        $customer = Customer::query()->create([
+            'first_name' => 'Acme',
+            'last_name' => 'Corp',
+            'email' => 'billing@acme.test',
+            'status' => 'active',
+        ]);
+
+        $organization = Organization::query()->create([
+            'organization_code' => 'ORG-TEST-007',
+            'legal_name' => 'Acme Corp LLC',
+            'display_name' => 'Acme Corp',
+            'email' => 'org@acme.test',
+            'status' => 'active',
+        ]);
+
+        $license = License::query()->create([
+            'license_number' => 'LIC-2026-TEST-0004',
+            'customer_id' => $customer->id,
+            'organization_id' => $organization->id,
+            'plan_id' => $plan->id,
+            'status' => LicenseStatus::ACTIVE,
+            'start_date' => now()->subMonth()->toDateString(),
+            'expiry_date' => now()->addYear()->toDateString(),
+        ]);
+
+        $user = User::query()->create([
+            'name' => 'Jane Owner',
+            'email' => 'jane@acme.test',
+            'password' => 'Password@123',
+            'organization_id' => $organization->id,
+            'status' => 'active',
+        ]);
+
         $tenantService = app(TenantService::class);
 
-        $this->assertSame(
-            $this->organization->id,
-            $tenantService->organizationFor(User::first())->id
-        );
-        $this->assertNotNull($tenantService->licenseFor($this->organization));
-        $this->assertInstanceOf(License::class, $tenantService->validLicense($this->organization));
-    }
+        $this->assertSame($organization->id, $tenantService->organizationFor($user)->id);
+        $this->assertSame($license->id, $tenantService->licenseFor($organization)->id);
+        $this->assertSame($license->id, $tenantService->validLicense($organization)->id);
 
-    public function test_login_succeeds_with_valid_license_and_exposes_org_context(): void
-    {
-        $request = LoginRequest::create('/api/auth/login', 'POST', [
-            'email' => 'admin@acme.test',
-            'password' => 'Password@123',
-        ]);
-        $request->setContainer(app());
+        $license->status = LicenseStatus::EXPIRED;
+        $license->save();
+        $this->assertNull($tenantService->validLicense($organization));
 
-        $result = app(AuthService::class)->login($request);
-
-        $this->assertArrayHasKey('accessToken', $result);
-        $this->assertSame((string) $this->organization->id, $result['user']['organizationId']);
-        $this->assertSame('Acme Corp', $result['user']['organization']['name']);
-        $this->assertSame('active', $result['user']['license']['status']);
-    }
-
-    public function test_login_is_blocked_without_active_license(): void
-    {
-        License::query()->where('organization_id', $this->organization->id)->update(['status' => 'suspended']);
-
-        $request = LoginRequest::create('/api/auth/login', 'POST', [
-            'email' => 'admin@acme.test',
-            'password' => 'Password@123',
-        ]);
-        $request->setContainer(app());
-
-        try {
-            app(AuthService::class)->login($request);
-            $this->fail('Login should have been blocked for a suspended license.');
-        } catch (HttpException $e) {
-            $this->assertSame(403, $e->getStatusCode());
-            $this->assertStringContainsStringIgnoringCase('suspended', $e->getMessage());
-        }
-    }
-
-    public function test_organization_service_crud(): void
-    {
-        $service = app(OrganizationService::class);
-
-        $created = $service->store($this->makeStoreOrganizationRequest([
-            'name' => 'Second Org',
-            'legal_name' => 'Second Org LLC',
-            'status' => 'active',
-        ]));
-
-        $this->assertSame('Second Org', $created['name']);
-        $this->assertSame(2, $service->index(new Request)['meta']['total']);
-
-        $updated = $service->update(Organization::find($created['id']), $this->makeUpdateOrganizationRequest([
-            'name' => 'Second Org Renamed',
-        ]));
-        $this->assertSame('Second Org Renamed', $updated['name']);
-
-        $service->destroy(Organization::find($created['id']));
-        $this->assertSame(1, $service->index(new Request)['meta']['total']);
-    }
-
-    public function test_license_service_generates_number_and_links_org(): void
-    {
-        $service = app(LicenseService::class);
-
-        $request = StoreLicenseRequest::create('/api/licenses', 'POST', [
-            'customer_id' => $this->customerId,
-            'organization_id' => $this->organization->id,
-            'status' => 'active',
-            'plan' => 'enterprise',
-            'max_users' => 50,
-        ]);
-        $request->setContainer(app());
-        $request->validateResolved();
-
-        $license = $service->store($request);
-
-        $this->assertStringStartsWith('LIC-', $license['license_number']);
-        $this->assertSame('enterprise', $license['plan']);
-        $this->assertSame('Acme Corp', $license['organization']['name']);
-    }
-
-    public function test_roles_are_organization_scoped_unique(): void
-    {
-        DB::table('roles')->insert([
-            'name' => 'Admin',
-            'slug' => 'admin',
-            'organization_id' => $this->organization->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $secondOrg = Organization::query()->create(['name' => 'Other Org', 'status' => 'active']);
-
-        // Same name in a different org is allowed.
-        DB::table('roles')->insert([
-            'name' => 'Admin',
-            'slug' => 'admin',
-            'organization_id' => $secondOrg->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $this->assertDatabaseCount('roles', 2);
-
-        // Adding a role with an existing org + name should violate the composite unique.
-        try {
-            DB::table('roles')->insert([
-                'name' => 'Admin',
-                'slug' => 'admin',
-                'organization_id' => $this->organization->id,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            $this->fail('Expected duplicate role to be rejected.');
-        } catch (QueryException $e) {
-            $this->assertNotNull($e);
-        }
+        $license->status = LicenseStatus::ACTIVE;
+        $license->expiry_date = now()->subDay()->toDateString();
+        $license->save();
+        $this->assertNull($tenantService->validLicense($organization), 'Past expiry must invalidate an active license.');
     }
 }

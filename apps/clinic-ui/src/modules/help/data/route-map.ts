@@ -45,6 +45,7 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/organisation/sidebar-config": { module: "sidebar-config" },
   "/organisation/departments": { module: "departments" },
   "/organisation/designations": { module: "designations" },
+  "/organisation/discounts": { module: "discounts" },
   "/organisation/financial-years": { module: "financial-years" },
   "/organisation/users": { module: "users" },
   "/patients": { module: "patients" },

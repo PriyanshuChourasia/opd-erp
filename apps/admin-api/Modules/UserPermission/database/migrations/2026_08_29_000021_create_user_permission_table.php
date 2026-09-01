@@ -9,11 +9,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('user_permission', function (Blueprint $table) {
-                    $table->id();
-        $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-        $table->foreignId('permission_id')->constrained('permissions')->cascadeOnDelete();
-        $table->timestamps();
-        $table->unique(['user_id', 'permission_id']);
+            $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
+            $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignUuid('permission_id')->constrained('permissions')->cascadeOnDelete();
+            $table->timestamps();
+            $table->unique(['user_id', 'permission_id']);
         });
     }
 

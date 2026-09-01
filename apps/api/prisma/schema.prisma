@@ -71,6 +71,7 @@ model User {
   createdDoctorSpecializations  DoctorSpecialization[] @relation("DoctorSpecializationCreated")
   createdBloodGroups            BloodGroup[]          @relation("BloodGroupCreated")
   collectedPayments             Payment[]             @relation("PaymentCollected")
+  createdDiscountRules          DiscountRule[]        @relation("DiscountRuleCreated")
 
   // Audit relations — Updated by
   updatedRoles                 Role[]                 @relation("RoleUpdated")
@@ -105,6 +106,8 @@ model User {
   deletedProcedureOrders       ProcedureOrder[]        @relation("ProcedureOrderDeleted")
   deletedRadiologyOrders       RadiologyOrder[]        @relation("RadiologyOrderDeleted")
   deletedEmployeeSchedules     EmployeeSchedule[]      @relation("EmployeeScheduleDeleted")
+  updatedDiscountRules         DiscountRule[]          @relation("DiscountRuleUpdated")
+  deletedDiscountRules         DiscountRule[]          @relation("DiscountRuleDeleted")
   updatedQueueEntries          QueueEntry[]           @relation("QueueEntryUpdated")
   updatedAppointments          Appointment[]          @relation("AppointmentUpdated")
   updatedMedicines             Medicine[]             @relation("MedicineUpdated")
@@ -929,6 +932,8 @@ model Bill {
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   items         BillItem[]
   payments      Payment[] @relation("PaymentBill")
+  discountRuleId String?
+  discountRule    DiscountRule? @relation(fields: [discountRuleId], references: [id])
 
   deletedAt   DateTime?
   deletedById String?
@@ -1257,4 +1262,36 @@ model Payment {
   @@index([patientId])
   @@index([collectedById])
   @@index([createdAt])
+}
+
+// ─── Discount Rules ────────────────────────────────────────
+// Admin-configured, named discounts (e.g. "New Year Special", "Loyal
+// Customer") staff pick from at payment time, instead of typing a raw
+// number. `validFrom`/`validTo` are independently optional — null
+// `validFrom` means no start restriction, null `validTo` means it never
+// expires.
+model DiscountRule {
+  id          String    @id @default(uuid())
+  name        String
+  type        String // PERCENTAGE | FLAT
+  value       Int
+  validFrom   DateTime?
+  validTo     DateTime?
+  isActive    Boolean   @default(true)
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("DiscountRuleCreated", fields: [createdById], references: [id])
+  updatedBy   User?     @relation("DiscountRuleUpdated", fields: [updatedById], references: [id])
+  bills       Bill[]
+
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("DiscountRuleDeleted", fields: [deletedById], references: [id])
+
+  @@index([isActive])
+  @@index([createdById])
+  @@index([updatedById])
 }

@@ -4,59 +4,42 @@ namespace Modules\Organization\Services;
 
 use App\Models\User;
 use Modules\License\Models\License;
+use Modules\License\Services\LicenseValidationService;
 use Modules\Organization\Models\Organization;
 
+/**
+ * @deprecated Back-compat facade around LicenseValidationService. Prefer
+ *             TenantContext + LicenseValidationService for new code.
+ */
 class TenantService
 {
+    public function __construct(private readonly LicenseValidationService $licenses)
+    {
+    }
+
     /**
      * Resolve the organization for the given user (or the authenticated user
-     * when none is provided).
+     * when none is provided). Never derived from request parameters.
      */
     public function organizationFor(?User $user = null): ?Organization
     {
-        $user = $user ?? auth('jwt')->user();
-
-        if (! $user) {
-            return null;
-        }
-
-        return $user->organization;
+        return $user?->organization;
     }
 
     /**
-     * Resolve the active license for the given organization.
+     * Resolve the applicable license for the given organization.
      */
     public function licenseFor(?Organization $organization): ?License
     {
-        if (! $organization) {
-            return null;
-        }
-
-        return $organization->licenses()
-            ->orderByDesc('id')
-            ->first();
+        return $this->licenses->licenseFor($organization);
     }
 
     /**
-     * Validate whether the given license currently entitles the organization
-     * to use the software. Returns the license when valid, otherwise null.
+     * Returns the license when it currently entitles the organization to use
+     * the software (full or grace access), otherwise null.
      */
     public function validLicense(?Organization $organization): ?License
     {
-        $license = $this->licenseFor($organization);
-
-        if (! $license) {
-            return null;
-        }
-
-        if ($license->status !== License::STATUS_ACTIVE) {
-            return null;
-        }
-
-        if ($license->expiry_date && $license->expiry_date->lt(now()->startOfDay())) {
-            return null;
-        }
-
-        return $license;
+        return $this->licenses->validLicenseFor($organization);
     }
 }

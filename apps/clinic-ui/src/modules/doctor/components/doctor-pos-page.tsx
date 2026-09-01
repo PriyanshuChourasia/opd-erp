@@ -5,7 +5,6 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   Activity,
   ArrowRight,
-  CalendarClock,
   CalendarDays,
   CalendarX,
   Check,
@@ -33,9 +32,6 @@ import {
   deleteQueueEntry,
   createProcedureOrder,
   updateAppointmentStatus,
-  rescheduleAppointment,
-  fetchDoctorSlots,
-  fetchDoctors,
   createPatientVitals,
   type QueueEntry,
   type Medicine,
@@ -168,12 +164,6 @@ export function DoctorPosPage() {
   const [cancelTarget, setCancelTarget] = useState<QueueEntry | null>(null);
   const [cancelReason, setCancelReason] = useState("");
 
-  // ── Reschedule appointment ──
-  const [rescheduleTarget, setRescheduleTarget] = useState<QueueEntry | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState("");
-  const [rescheduleTime, setRescheduleTime] = useState("");
-  const [rescheduleDoctorId, setRescheduleDoctorId] = useState("");
-
   // ── Vitals entry ──
   const [vitalsOpen, setVitalsOpen] = useState(false);
   const [vitalsTarget, setVitalsTarget] = useState<QueueEntry | null>(null);
@@ -235,13 +225,6 @@ export function DoctorPosPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
-  // ── Doctors list (for reschedule) ──
-  const { data: doctorsResp } = useQuery({
-    queryKey: ["doctors", "reschedule"],
-    queryFn: () => fetchDoctors({ limit: 100 }),
-  });
-  const doctors = useMemo(() => doctorsResp?.data ?? [], [doctorsResp]);
-
   // ── Cancel appointment mutation ──
   const cancelMutation = useMutation({
     mutationFn: async () => {
@@ -262,47 +245,6 @@ export function DoctorPosPage() {
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
-
-  // ── Reschedule appointment mutation ──
-  const rescheduleMutation = useMutation({
-    mutationFn: async () => {
-      if (!rescheduleTarget?.appointment?.id) return;
-      await rescheduleAppointment(rescheduleTarget.appointment.id, {
-        date: `${rescheduleDate}T${rescheduleTime}:00`,
-        doctorId: rescheduleDoctorId || undefined,
-      });
-      // Delete the queue entry
-      await deleteQueueEntry(rescheduleTarget.id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["queue"] });
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      toast.success("Appointment rescheduled");
-      const rescheduledId = rescheduleTarget?.id;
-      setRescheduleTarget(null);
-      setRescheduleDate("");
-      setRescheduleTime("");
-      setRescheduleDoctorId("");
-      if (selectedEntry?.id === rescheduledId) clearForm();
-    },
-    onError: (err) => toast.error(extractApiError(err)),
-  });
-
-  const rescheduleSlotsQuery = useQuery({
-    queryKey: ["doctor-slots", "reschedule", rescheduleDoctorId, rescheduleDate],
-    queryFn: () => fetchDoctorSlots(rescheduleDoctorId, rescheduleDate),
-    enabled: !!rescheduleDoctorId && !!rescheduleDate,
-  });
-
-  function openReschedule(entry: QueueEntry) {
-    const d = new Date();
-    const offset = d.getTimezoneOffset();
-    const today = new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
-    setRescheduleTarget(entry);
-    setRescheduleDate(today);
-    setRescheduleTime("");
-    setRescheduleDoctorId(entry.doctorId);
-  }
 
   const emptyVitals = { heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" };
 
@@ -613,18 +555,6 @@ export function DoctorPosPage() {
                           )}
                           {(entry.status === "WAITING" || entry.status === "SEND_IN") && entry.appointment && (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-9 shrink-0"
-                                title="Reschedule appointment"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openReschedule(entry);
-                                }}
-                              >
-                                <CalendarClock className="size-4.5 text-amber-600" />
-                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -1233,76 +1163,6 @@ export function DoctorPosPage() {
         </div>
       )}
 
-      {/* ── Reschedule Appointment Sheet ── */}
-      <Sheet open={!!rescheduleTarget} onOpenChange={(open) => { if (!open) setRescheduleTarget(null); }}>
-        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Reschedule Appointment</SheetTitle>
-            <SheetDescription>
-              {rescheduleTarget?.patient ? getPatientName(rescheduleTarget.patient) : ""} — pick a new date, doctor, and slot.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 space-y-4 px-4 pb-4">
-            <Field>
-              <FieldLabel className="text-xs">Date</FieldLabel>
-              <Input
-                type="date"
-                value={rescheduleDate}
-                onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleTime(""); }}
-              />
-            </Field>
-            <Field>
-              <FieldLabel className="text-xs">Doctor</FieldLabel>
-              <select
-                className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
-                value={rescheduleDoctorId}
-                onChange={(e) => { setRescheduleDoctorId(e.target.value); setRescheduleTime(""); }}
-              >
-                <option value="">Select a doctor...</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name ?? d.medicalRegistrationNo ?? "Doctor"}</option>
-                ))}
-              </select>
-            </Field>
-            {rescheduleDoctorId && rescheduleDate && (
-              <Field>
-                <FieldLabel className="text-xs">Slot</FieldLabel>
-                {rescheduleSlotsQuery.isLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading slots...</p>
-                ) : !rescheduleSlotsQuery.data?.available ? (
-                  <p className="text-sm text-muted-foreground">No slots available for this day.</p>
-                ) : (
-                  <div className="grid grid-cols-4 gap-2">
-                    {rescheduleSlotsQuery.data.slots.map((s) => (
-                      <button
-                        key={s.time}
-                        type="button"
-                        disabled={!s.available}
-                        className={cn(
-                          "rounded-none border px-2 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40",
-                          rescheduleTime === s.time ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"
-                        )}
-                        onClick={() => setRescheduleTime(s.time)}
-                      >
-                        {s.time}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Field>
-            )}
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setRescheduleTarget(null)}>Cancel</Button>
-            <Button
-              onClick={() => rescheduleMutation.mutate()}
-              disabled={!rescheduleDate || !rescheduleDoctorId || !rescheduleTime || rescheduleMutation.isPending}
-            >
-              {rescheduleMutation.isPending ? "Rescheduling..." : "Reschedule"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

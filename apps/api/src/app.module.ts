@@ -35,6 +35,7 @@ import { PrescriptionTemplateModule } from './prescription-template/prescription
 import { SpecializationsModule } from './specializations/specializations.module';
 import { SidebarConfigModule } from './sidebar-config/sidebar-config.module';
 import { MedicineGroupsModule } from './medicine-groups/medicine-groups.module';
+import { DiscountsModule } from './discounts/discounts.module';
 import { UnitsModule } from './units/units.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { DesignationsModule } from './designations/designations.module';
@@ -81,6 +82,7 @@ import { BloodGroupsModule } from './blood-groups/blood-groups.module';
     SpecializationsModule,
     SidebarConfigModule,
     MedicineGroupsModule,
+    DiscountsModule,
     UnitsModule,
     DepartmentsModule,
     DesignationsModule,

@@ -9,11 +9,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('designations', function (Blueprint $table) {
-                    $table->id();
+                    $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
         $table->string('name', 255);
         $table->text('description')->nullable();
         $table->string('status')->nullable()->default('active');
-        $table->foreignId('department_id')->constrained('departments')->cascadeOnDelete();
+        $table->foreignUuid('department_id')->constrained('departments');
         $table->timestamps();
         });
     }

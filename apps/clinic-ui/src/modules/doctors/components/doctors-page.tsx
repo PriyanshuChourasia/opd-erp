@@ -428,8 +428,8 @@ export function DoctorsPage() {
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => navigate({ to: "/appointments/new", search: { doctorId: doctor.id } })}>
-                        <CalendarPlus className="size-3.5" />
+                      <Button variant="ghost" size="icon" className="size-9 text-primary" onClick={() => navigate({ to: "/appointments/new", search: { doctorId: doctor.id } })}>
+                        <CalendarPlus className="size-5" fill="currentColor" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Book Appointment</TooltipContent>

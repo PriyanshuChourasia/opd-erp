@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Modules\Organization\Contracts\OrganizationServiceInterface;
 use Modules\Organization\Services\OrganizationService;
+use Modules\Organization\Services\TenantContext;
 use Modules\Organization\Services\TenantService;
 
 class OrganizationServiceProvider extends ServiceProvider
@@ -25,6 +26,7 @@ class OrganizationServiceProvider extends ServiceProvider
     {
         $this->app->singleton(OrganizationServiceInterface::class, OrganizationService::class);
         $this->app->singleton(TenantService::class);
+        $this->app->singleton(TenantContext::class);
     }
 
     protected function registerConfig(): void

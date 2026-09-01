@@ -5,6 +5,7 @@ import { fetchCompany } from "@/lib/api";
 import {
   Activity,
   AlertCircle,
+  BadgePercent,
   BarChart3,
   Box,
   Building2,
@@ -60,7 +61,7 @@ import { fetchMySidebarConfig } from "@/lib/api";
 
 /** Map of icon name strings → Lucide components. */
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Activity, AlertCircle, BarChart3, Box, Building2, CalendarClock, ClipboardList,
+  Activity, AlertCircle, BadgePercent, BarChart3, Box, Building2, CalendarClock, ClipboardList,
   Clock, Cpu, FileText, LayoutDashboard, LifeBuoy, MapPin, Package,
   Pill, Receipt, Settings, ShieldCheck, Stethoscope, User, UserCog, Users, Wallet, Zap,
 };
@@ -94,6 +95,7 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
     { to: "/organisation/departments", label: "Departments", icon: "Building2" },
     { to: "/organisation/designations", label: "Designations", icon: "UserCog" },
     { to: "/organisation/financial-years", label: "Financial Years", icon: "CalendarClock" },
+    { to: "/organisation/discounts", label: "Discounts", icon: "BadgePercent" },
     { to: "/organisation/users", label: "Users", icon: "UserCog" },
     { to: "/organisation/sidebar-config", label: "Sidebar Config", icon: "Settings" },
   ],

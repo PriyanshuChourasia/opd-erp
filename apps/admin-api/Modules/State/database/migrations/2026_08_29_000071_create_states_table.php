@@ -9,10 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('states', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
             $table->string('name');
             $table->string('code', 10)->nullable();
-            $table->foreignId('country_id')->constrained('countries')->cascadeOnDelete();
+            $table->foreignUuid('country_id')->constrained('countries')->cascadeOnDelete();
             $table->string('status')->nullable()->default('active');
             $table->timestamps();
         });

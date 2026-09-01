@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Modules\License\Contracts\LicenseServiceInterface;
 use Modules\License\Services\LicenseService;
+use Modules\License\Services\LicenseValidationService;
 
 class LicenseServiceProvider extends ServiceProvider
 {
@@ -23,6 +24,15 @@ class LicenseServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(LicenseServiceInterface::class, LicenseService::class);
+
+        // Licensed grace window + auth guard are explicit constructor args that
+        // the container cannot auto-resolve, so bind it explicitly.
+        $this->app->singleton(LicenseValidationService::class, function ($app): LicenseValidationService {
+            return new LicenseValidationService(
+                (int) config('license.grace_period_days', 7),
+                $app['auth'],
+            );
+        });
     }
 
     protected function registerConfig(): void

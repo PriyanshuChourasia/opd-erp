@@ -10,9 +10,8 @@ export class CheckoutAppointmentDto {
   referenceNumber?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  discount?: number;
+  @IsString()
+  discountRuleId?: string;
 
   @IsOptional()
   @IsInt()

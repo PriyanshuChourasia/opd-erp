@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('documents', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
             $table->string('name');
             $table->string('original_name')->nullable();
             $table->string('mime_type', 100)->nullable();
@@ -17,9 +17,10 @@ return new class extends Migration
             $table->string('path');
             $table->string('storage_disk')->default('local');
             $table->text('description')->nullable();
-            $table->nullableMorphs('documentable');
-            $table->unsignedBigInteger('uploaded_by')->nullable();
-            $table->foreign('uploaded_by')->references('id')->on('users')->nullOnDelete();
+            $table->string('documentable_type')->nullable();
+            $table->uuid('documentable_id')->nullable();
+            $table->index(['documentable_type', 'documentable_id']);
+            $table->foreignUuid('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
     }

@@ -2,10 +2,10 @@
 
 namespace Modules\Auth\Services;
 
+use App\Enums\LicenseStatus;
 use App\Models\User;
 use Modules\Auth\Contracts\AuthServiceInterface;
 use Modules\Auth\Http\Requests\LoginRequest;
-use Modules\License\Models\License;
 use Modules\Organization\Services\TenantService;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
@@ -99,9 +99,9 @@ class AuthService implements AuthServiceInterface
         if (! $this->tenantService->validLicense($organization)) {
             $license = $this->tenantService->licenseFor($organization);
             $reason = match ($license?->status) {
-                License::STATUS_SUSPENDED => 'Your license is suspended. Contact support.',
-                License::STATUS_EXPIRED => 'Your license has expired. Please renew.',
-                License::STATUS_REVOKED => 'Your license has been revoked. Contact support.',
+                LicenseStatus::SUSPENDED => 'Your license is suspended. Contact support.',
+                LicenseStatus::EXPIRED => 'Your license has expired. Please renew.',
+                LicenseStatus::REVOKED => 'Your license has been revoked. Contact support.',
                 default => 'No active license found. Contact your administrator.',
             };
 

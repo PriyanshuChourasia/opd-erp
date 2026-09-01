@@ -3,6 +3,7 @@
 namespace Modules\Customer\Models;
 
 use App\Models\User;
+use App\Traits\HasUuidKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,6 +13,8 @@ use Modules\License\Models\License;
 
 class Customer extends Model
 {
+    use HasUuidKey;
+
     protected $fillable = [
         'first_name',
         'last_name',

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/utils/paginate';
 import { getDoctorNameMap } from '../common/utils/doctor-names';
+import { resolveDiscount } from '../common/utils/discount';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
 import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Bill } from '@prisma/client';
@@ -74,7 +75,7 @@ export class BillingService
     }));
 
     const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-    const discount = dto.discount ?? 0;
+    const { discount, discountRuleId } = await resolveDiscount(this.prisma, dto.discountRuleId, subtotal);
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
 
@@ -85,6 +86,7 @@ export class BillingService
         invoiceNo: await generateInvoiceNo(this.prisma),
         subtotal,
         discount,
+        discountRuleId,
         tax,
         total,
         paymentMethod: dto.paymentMethod ?? 'CASH',

@@ -2,6 +2,8 @@
 
 namespace Modules\Auth\Models;
 
+use App\Traits\HasUuidKey;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,6 +13,7 @@ class Admin extends Authenticatable
 {
     use HasApiTokens;
     use HasFactory;
+    use HasUuidKey;
     use Notifiable;
 
     protected $fillable = [

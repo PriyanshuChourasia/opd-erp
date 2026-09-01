@@ -9,12 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('permissions', function (Blueprint $table) {
-                    $table->id();
-        $table->string('name', 150)->unique();
-        $table->string('slug', 150)->unique();
-        $table->string('module', 100)->nullable();
-        $table->text('description')->nullable();
-        $table->timestamps();
+            $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
+            $table->string('name', 150)->unique();
+            $table->string('slug', 150)->unique();
+            $table->string('module', 100)->nullable();
+            $table->text('description')->nullable();
+            $table->timestamps();
         });
     }
 

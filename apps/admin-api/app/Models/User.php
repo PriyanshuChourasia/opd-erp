@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\UserStatus;
+use App\Traits\HasUuidKey;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -13,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Modules\Organization\Models\Organization;
+use Modules\Permission\Models\Permission;
 use Modules\Role\Models\Role;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
@@ -37,8 +40,14 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
 {
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_INACTIVE = 'inactive';
+
+    public const STATUS_SUSPENDED = 'suspended';
+
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasUuidKey, Notifiable;
 
     /**
      * Get the attributes that should be cast.
@@ -51,6 +60,7 @@ class User extends Authenticatable implements JWTSubject
             'email_verified_at' => 'datetime',
             'date_of_birth' => 'date',
             'password' => 'hashed',
+            'status' => UserStatus::class,
         ];
     }
 
@@ -76,6 +86,14 @@ class User extends Authenticatable implements JWTSubject
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_role');
+    }
+
+    /**
+     * Permissions granted directly to this user (outside of roles).
+     */
+    public function directPermissions(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'user_permission');
     }
 
     public function getJWTIdentifier(): mixed

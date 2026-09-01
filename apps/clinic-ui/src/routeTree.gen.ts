@@ -38,6 +38,7 @@ import { Route as DashboardAppointmentsNewRouteImport } from './routes/_dashboar
 import { Route as DashboardOrganisationIndexRouteImport } from './routes/_dashboard/organisation/index'
 import { Route as DashboardOrganisationDepartmentsRouteImport } from './routes/_dashboard/organisation/departments'
 import { Route as DashboardOrganisationDesignationsRouteImport } from './routes/_dashboard/organisation/designations'
+import { Route as DashboardOrganisationDiscountsRouteImport } from './routes/_dashboard/organisation/discounts'
 import { Route as DashboardOrganisationFinancialYearsRouteImport } from './routes/_dashboard/organisation/financial-years'
 import { Route as DashboardOrganisationPrescriptionTemplatesRouteImport } from './routes/_dashboard/organisation/prescription-templates'
 import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
@@ -221,6 +222,12 @@ const DashboardOrganisationDesignationsRoute =
   DashboardOrganisationDesignationsRouteImport.update({
     id: '/organisation/designations',
     path: '/organisation/designations',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardOrganisationDiscountsRoute =
+  DashboardOrganisationDiscountsRouteImport.update({
+    id: '/organisation/discounts',
+    path: '/organisation/discounts',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardOrganisationFinancialYearsRoute =
@@ -468,6 +475,7 @@ export interface FileRoutesByFullPath {
   '/appointments/new': typeof DashboardAppointmentsNewRoute
   '/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
   '/organisation/designations': typeof DashboardOrganisationDesignationsRoute
+  '/organisation/discounts': typeof DashboardOrganisationDiscountsRoute
   '/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
   '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
@@ -532,6 +540,7 @@ export interface FileRoutesByTo {
   '/appointments/new': typeof DashboardAppointmentsNewRoute
   '/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
   '/organisation/designations': typeof DashboardOrganisationDesignationsRoute
+  '/organisation/discounts': typeof DashboardOrganisationDiscountsRoute
   '/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
   '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
@@ -603,6 +612,7 @@ export interface FileRoutesById {
   '/_dashboard/appointments/new': typeof DashboardAppointmentsNewRoute
   '/_dashboard/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
   '/_dashboard/organisation/designations': typeof DashboardOrganisationDesignationsRoute
+  '/_dashboard/organisation/discounts': typeof DashboardOrganisationDiscountsRoute
   '/_dashboard/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
   '/_dashboard/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/_dashboard/organisation/roles': typeof DashboardOrganisationRolesRoute
@@ -669,6 +679,7 @@ export interface FileRouteTypes {
     | '/appointments/new'
     | '/organisation/departments'
     | '/organisation/designations'
+    | '/organisation/discounts'
     | '/organisation/financial-years'
     | '/organisation/prescription-templates'
     | '/organisation/roles'
@@ -733,6 +744,7 @@ export interface FileRouteTypes {
     | '/appointments/new'
     | '/organisation/departments'
     | '/organisation/designations'
+    | '/organisation/discounts'
     | '/organisation/financial-years'
     | '/organisation/prescription-templates'
     | '/organisation/roles'
@@ -803,6 +815,7 @@ export interface FileRouteTypes {
     | '/_dashboard/appointments/new'
     | '/_dashboard/organisation/departments'
     | '/_dashboard/organisation/designations'
+    | '/_dashboard/organisation/discounts'
     | '/_dashboard/organisation/financial-years'
     | '/_dashboard/organisation/prescription-templates'
     | '/_dashboard/organisation/roles'
@@ -1062,6 +1075,13 @@ declare module '@tanstack/react-router' {
       path: '/organisation/designations'
       fullPath: '/organisation/designations'
       preLoaderRoute: typeof DashboardOrganisationDesignationsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/organisation/discounts': {
+      id: '/_dashboard/organisation/discounts'
+      path: '/organisation/discounts'
+      fullPath: '/organisation/discounts'
+      preLoaderRoute: typeof DashboardOrganisationDiscountsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/organisation/financial-years': {
@@ -1358,6 +1378,7 @@ interface DashboardRouteChildren {
   DashboardAppointmentsNewRoute: typeof DashboardAppointmentsNewRoute
   DashboardOrganisationDepartmentsRoute: typeof DashboardOrganisationDepartmentsRoute
   DashboardOrganisationDesignationsRoute: typeof DashboardOrganisationDesignationsRoute
+  DashboardOrganisationDiscountsRoute: typeof DashboardOrganisationDiscountsRoute
   DashboardOrganisationFinancialYearsRoute: typeof DashboardOrganisationFinancialYearsRoute
   DashboardOrganisationPrescriptionTemplatesRoute: typeof DashboardOrganisationPrescriptionTemplatesRoute
   DashboardOrganisationRolesRoute: typeof DashboardOrganisationRolesRoute
@@ -1391,6 +1412,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardOrganisationDepartmentsRoute: DashboardOrganisationDepartmentsRoute,
   DashboardOrganisationDesignationsRoute:
     DashboardOrganisationDesignationsRoute,
+  DashboardOrganisationDiscountsRoute: DashboardOrganisationDiscountsRoute,
   DashboardOrganisationFinancialYearsRoute:
     DashboardOrganisationFinancialYearsRoute,
   DashboardOrganisationPrescriptionTemplatesRoute:

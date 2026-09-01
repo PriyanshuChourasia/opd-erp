@@ -101,7 +101,6 @@ interface BookingForm {
   type: string;
   amount: number;
   registrationFee: number | null;
-  amountPaid: number;
   isNewPatient: boolean;
   date: string;
   slot: string | null;
@@ -110,7 +109,7 @@ interface BookingForm {
 }
 
 function emptyBookingForm(): BookingForm {
-  return { patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: null, amountPaid: 0, isNewPatient: false, date: todayStr(), slot: null, notes: "", allergies: [] };
+  return { patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: null, isNewPatient: false, date: todayStr(), slot: null, notes: "", allergies: [] };
 }
 
 export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) {
@@ -238,6 +237,15 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     }
   }, [preselectedDoctorId, doctors]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Only one doctor in the system — default-select them so the receptionist
+  // doesn't have to pick from a list of one.
+  useEffect(() => {
+    const doctor = doctors[0];
+    if (!preselectedDoctorId && doctors.length === 1 && doctor && !form.doctorId) {
+      setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, amount: doctor.consultationFee ?? prev.amount }));
+    }
+  }, [preselectedDoctorId, doctors]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch all doctor schedules in one call (no dependency on doctors list)
   const { data: allSchedules = [] } = useQuery({
     queryKey: ["employee-schedules", "all-doctors"],
@@ -347,7 +355,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
-        ...(form.amountPaid > 0 ? { amountPaid: form.amountPaid } : {}),
         notes: form.notes || undefined,
       });
     },
@@ -372,13 +379,12 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
-        ...(form.amountPaid > 0 ? { amountPaid: form.amountPaid } : {}),
         notes: form.notes || undefined,
       });
       await checkoutAppointment(appointment.id, {
         paymentMethod: payload.paymentMethod,
         ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
-        discount: payload.discount > 0 ? payload.discount : undefined,
+        discountRuleId: payload.discountRuleId,
         tax: payload.tax > 0 ? payload.tax : undefined,
         paidAmount: payload.paidAmount,
         notes: payload.notes || undefined,
@@ -791,10 +797,9 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                           size="sm"
                           className="gap-1.5 text-xs"
                           onClick={() => setVitalsViewOpen(true)}
-                          disabled={!patientVitals}
                         >
                           <HeartPulse className="size-3" />
-                          View Patient Vitals
+                          Patient Vitals
                         </Button>
                         <Button
                           size="sm"
@@ -804,7 +809,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                           <Pencil className="size-3" />
                           Edit
                         </Button>
-                        <Button variant="ghost" size="icon-sm" title="Clear patient" aria-label="Clear patient" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}>
+                        <Button variant="ghost" size="icon-sm" title="Clear patient" aria-label="Clear patient" onClick={() => setForm((prev) => ({ ...prev, patient: null, allergies: [] }))}>
                           <X className="size-4" />
                         </Button>
                       </>
@@ -821,6 +826,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   />
                   <PlaceholderField label="Blood Group" value={selectedPatient?.bloodGroup} />
                   <PlaceholderField label="Email" value={selectedPatient?.email} />
+                  <PlaceholderField label="Registered On" value={selectedPatient?.createdAt ? new Date(selectedPatient.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : undefined} />
                   <div>
                     <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Address</span>
                     <p className={cn("mt-0.5 truncate", selectedPatient?.address ? "" : "text-muted-foreground/50")}>
@@ -891,9 +897,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
 
               {/* ── Invoice-style Fee Summary ── */}
               <div className="rounded-none border">
-                <div className="border-b bg-muted/30 px-4 py-2.5">
-                  <p className="text-xs font-semibold text-foreground">Fee Summary</p>
-                </div>
                 <div className="px-4 py-4">
                   {/* Column headers */}
                   <div className="grid grid-cols-[1fr_auto] gap-4 pb-2 border-b">
@@ -920,7 +923,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                         type="button"
                         onClick={() => setForm((prev) => ({ ...prev, amount: val }))}
                         className={cn(
-                          "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                          "w-14 text-center rounded-none border px-2 py-0.5 text-[11px] font-medium transition-colors",
                           form.amount === val
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -953,7 +956,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                         type="button"
                         onClick={() => setForm((prev) => ({ ...prev, registrationFee: val }))}
                         className={cn(
-                          "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                          "w-14 text-center rounded-none border px-2 py-0.5 text-[11px] font-medium transition-colors",
                           regFeeAmount === val
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -968,24 +971,11 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   {/* Divider */}
                   <div className="border-t border-dashed" />
 
-                  {/* Amount Paid — advance/partial payment, deducted from the total */}
-                  <div className="grid grid-cols-[1fr_auto] gap-4 items-center py-3">
-                    <label htmlFor="a-amount-paid" className="text-sm font-medium">Amount Paid</label>
-                    <Input
-                      id="a-amount-paid"
-                      type="number"
-                      min={0}
-                      className="w-28 text-right h-8 text-xs"
-                      value={form.amountPaid}
-                      onChange={(e) => setForm((prev) => ({ ...prev, amountPaid: Math.max(0, Number(e.target.value) || 0) }))}
-                    />
-                  </div>
-
                   {/* Total */}
                   <div className="border-t" />
                   <div className="grid grid-cols-[1fr_auto] gap-4 items-center pt-3">
                     <span className="text-sm font-semibold">Total</span>
-                    <span className="text-lg font-bold text-primary">{currency(Math.max(0, form.amount + regFeeAmount - form.amountPaid))}</span>
+                    <span className="text-lg font-bold text-primary">{currency(Math.max(0, form.amount + regFeeAmount))}</span>
                   </div>
                 </div>
               </div>
@@ -1030,7 +1020,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       <PaymentSheet
         open={paymentSheetOpen}
         onOpenChange={setPaymentSheetOpen}
-        subtotal={Math.max(0, form.amount + regFeeAmount - form.amountPaid)}
+        subtotal={Math.max(0, form.amount + regFeeAmount)}
         isPending={bookAndPayMutation.isPending}
         onSubmit={(payload) => bookAndPayMutation.mutate(payload)}
         submitLabel="Confirm & Book"
@@ -1297,7 +1287,16 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
               </div>
             )}
             {!patientVitals && (
-              <p className="text-xs text-muted-foreground">No vitals recorded yet for this patient.</p>
+              <div className="rounded-none border p-4 text-center space-y-3">
+                <p className="text-xs text-muted-foreground">No vitals recorded yet for this patient.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setVitalsViewOpen(false); setVitalsModalOpen(true); }}
+                >
+                  <Plus className="size-3.5" /> Add Vitals
+                </Button>
+              </div>
             )}
           </div>
           <SheetFooter>

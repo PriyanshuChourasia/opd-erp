@@ -9,11 +9,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('application_features', function (Blueprint $table) {
-                    $table->id();
+                    $table->uuid('id')->default(\Illuminate\Support\Facades\DB::raw('(UUID())'))->primary();
         $table->string('name', 150);
         $table->string('slug', 150);
         $table->text('description')->nullable();
-        $table->foreignId('module_id')->constrained('application_modules')->cascadeOnDelete();
+        $table->foreignUuid('module_id')->constrained('application_modules')->cascadeOnDelete();
         $table->timestamps();
         });
     }

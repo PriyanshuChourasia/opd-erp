@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->string('userable_type')->nullable()->after('remember_token');
-            $table->unsignedBigInteger('userable_id')->nullable()->after('userable_type');
+            $table->uuid('userable_id')->nullable()->after('userable_type');
 
             $table->index(['userable_type', 'userable_id']);
         });

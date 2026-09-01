@@ -3,12 +3,15 @@
 namespace Modules\Document\Models;
 
 use App\Models\User;
+use App\Traits\HasUuidKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Document extends Model
 {
+    use HasUuidKey;
+
     protected $fillable = [
         'name',
         'original_name',
@@ -26,7 +29,7 @@ class Document extends Model
     {
         return [
             'size' => 'integer',
-            'documentable_id' => 'integer',
+            'documentable_id' => 'string',
         ];
     }
 

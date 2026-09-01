@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('roles', function (Blueprint $table) {
-            $table->foreignId('organization_id')->nullable()->after('id')->constrained('organizations')->cascadeOnDelete();
+            $table->foreignUuid('organization_id')->nullable()->after('id')->constrained('organizations')->cascadeOnDelete();
         });
 
         Schema::table('roles', function (Blueprint $table) {

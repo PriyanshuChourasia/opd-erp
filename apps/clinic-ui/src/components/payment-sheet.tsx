@@ -1,13 +1,21 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Banknote, CreditCard, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchDiscountRules, type DiscountRule } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PaymentHistory } from "@/components/payment-history";
 
 function currency(value: number) {
   return `₹${value.toFixed(2)}`;
+}
+
+function discountRuleLabel(rule: DiscountRule) {
+  return `${rule.name} (${rule.type === "PERCENTAGE" ? `${rule.value}%` : currency(rule.value)})`;
 }
 
 const PAYMENT_METHODS = [
@@ -19,20 +27,24 @@ const PAYMENT_METHODS = [
 export interface PaymentPayload {
   paymentMethod: string;
   referenceNumber?: string;
-  discount: number;
+  discountRuleId?: string;
   tax: number;
   paidAmount?: number;
-  notes: string;
+  notes?: string;
 }
 
 interface PaymentSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Total amount before discount/tax adjustments */
+  /** Total amount before discount adjustments */
   subtotal: number;
   isPending: boolean;
   onSubmit: (payload: PaymentPayload) => void;
   submitLabel: string;
+  appointmentId?: string;
+  billId?: string;
+  /** A bill already exists (this is an installment) — its total (and any discount) was locked in at first checkout, so no new discount applies here. */
+  hasExistingBill?: boolean;
 }
 
 export function PaymentSheet({
@@ -42,26 +54,43 @@ export function PaymentSheet({
   isPending,
   onSubmit,
   submitLabel,
+  appointmentId,
+  billId,
+  hasExistingBill,
 }: PaymentSheetProps) {
   const [method, setMethod] = useState("CASH");
-  const [discount, setDiscount] = useState(0);
   const [referenceNumber, setReferenceNumber] = useState("");
-  const [notes, setNotes] = useState("");
-  const [cashTendered, setCashTendered] = useState(0);
+  const [paidAmountInput, setPaidAmountInput] = useState<number | null>(null);
+  const [discountRuleId, setDiscountRuleId] = useState<string | null>(null);
+
+  const { data: discountRulesResponse } = useQuery({
+    queryKey: ["discount-rules", "active"],
+    queryFn: () => fetchDiscountRules({ activeOnly: true, limit: 100 }),
+    enabled: open && !hasExistingBill,
+  });
+  const discountRules = useMemo(() => discountRulesResponse?.data ?? [], [discountRulesResponse]);
+  const selectedRule = discountRules.find((r) => r.id === discountRuleId) ?? null;
+  const discountAmount = selectedRule
+    ? selectedRule.type === "PERCENTAGE"
+      ? Math.round((subtotal * selectedRule.value) / 100)
+      : Math.min(selectedRule.value, subtotal)
+    : 0;
+
+  const netTotal = Math.max(0, subtotal - discountAmount);
+  const paidAmount = paidAmountInput ?? netTotal;
+
+  // Reset paid amount to full total when the total changes (re-sync unless user touched it)
+  useEffect(() => { setPaidAmountInput(null); }, [netTotal]);
 
   function handleSubmit() {
     onSubmit({
       paymentMethod: method,
       ...(referenceNumber.trim() ? { referenceNumber: referenceNumber.trim() } : {}),
-      discount,
+      ...(discountRuleId ? { discountRuleId } : {}),
       tax: 0,
-      paidAmount: netTotal,
-      notes,
+      paidAmount,
     });
   }
-
-  const netTotal = subtotal - discount;
-  const changeDue = method === "CASH" && cashTendered > netTotal ? cashTendered - netTotal : 0;
 
   return (
     <Sheet open={open} onOpenChange={(open) => { if (!open) onOpenChange(false); }}>
@@ -70,6 +99,12 @@ export function PaymentSheet({
           <SheetTitle>Payment</SheetTitle>
           <SheetDescription>Select payment method and confirm the transaction.</SheetDescription>
         </SheetHeader>
+
+        {(appointmentId || billId) && (
+          <div className="px-4">
+            <PaymentHistory appointmentId={appointmentId} billId={billId} />
+          </div>
+        )}
 
         <div className="flex-1 space-y-6 px-4 pb-6 pt-4">
           {/* ── Payment method grid ── */}
@@ -113,46 +148,21 @@ export function PaymentSheet({
             </Field>
           )}
 
-          {/* ── Cash Tendered (CASH only) ── */}
-          {method === "CASH" && (
+          {/* ── Discount ── */}
+          {!hasExistingBill && (
             <Field>
-              <FieldLabel htmlFor="pm-cash">Cash Tendered (₹)</FieldLabel>
-              <Input
-                id="pm-cash"
-                type="number"
-                min={0}
-                value={cashTendered || ""}
-                placeholder={String(netTotal)}
-                onChange={(e) => setCashTendered(Math.max(0, Number(e.target.value) || 0))}
-              />
+              <FieldLabel htmlFor="pm-discount">Discount (optional)</FieldLabel>
+              <Select value={discountRuleId ?? "none"} onValueChange={(v) => setDiscountRuleId(v === "none" ? null : v)}>
+                <SelectTrigger id="pm-discount"><SelectValue placeholder="No discount" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No discount</SelectItem>
+                  {discountRules.map((rule) => (
+                    <SelectItem key={rule.id} value={rule.id}>{discountRuleLabel(rule)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
           )}
-
-          {/* ── Discount ── */}
-          <Field>
-            <FieldLabel htmlFor="pm-discount">Discount (₹)</FieldLabel>
-            <Input
-              id="pm-discount"
-              type="number"
-              min={0}
-              max={subtotal}
-              value={discount}
-              onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
-            />
-          </Field>
-
-          {/* ── Notes ── */}
-          <Field>
-            <FieldLabel htmlFor="pm-notes">Notes (optional)</FieldLabel>
-            <textarea
-              id="pm-notes"
-              rows={3}
-              className="flex w-full rounded-none border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Payment notes..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Field>
 
           {/* ── Totals breakdown ── */}
           <div className="space-y-2 rounded-none border bg-muted/20 px-4 py-3 text-sm">
@@ -160,10 +170,10 @@ export function PaymentSheet({
               <span className="text-muted-foreground">Subtotal</span>
               <span>{currency(subtotal)}</span>
             </div>
-            {discount > 0 && (
+            {discountAmount > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-green-600">Discount</span>
-                <span className="text-green-600">−{currency(discount)}</span>
+                <span className="text-green-600">Discount{selectedRule ? ` (${selectedRule.name})` : ""}</span>
+                <span className="text-green-600">−{currency(discountAmount)}</span>
               </div>
             )}
             <div className="border-t pt-1.5">
@@ -172,10 +182,21 @@ export function PaymentSheet({
                 <span className="text-lg text-primary">{currency(netTotal)}</span>
               </div>
             </div>
-            {changeDue > 0 && (
-              <div className="flex items-center justify-between text-sm font-medium text-green-600">
-                <span>Change Due</span>
-                <span>−{currency(changeDue)}</span>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="pm-paid-amount" className="text-muted-foreground">Amount to collect now</label>
+              <Input id="pm-paid-amount" type="number" min={0} max={netTotal} className="w-28 text-right h-8 text-xs"
+                value={paidAmount}
+                onChange={(e) => setPaidAmountInput(Math.max(0, Math.min(netTotal, Number(e.target.value) || 0)))}
+              />
+            </div>
+            <div className="flex items-center justify-between font-semibold">
+              <span>Amount Paid</span>
+              <span className="text-lg text-green-600">{currency(paidAmount)}</span>
+            </div>
+            {paidAmount < netTotal && (
+              <div className="flex items-center justify-between text-sm font-medium text-amber-600">
+                <span>Balance Due</span>
+                <span>{currency(netTotal - paidAmount)}</span>
               </div>
             )}
           </div>

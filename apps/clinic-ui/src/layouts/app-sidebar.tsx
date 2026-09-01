@@ -107,6 +107,7 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
   ],
   Account: [
     { to: "/profile", label: "Profile", icon: "User" },
+    { to: "/settings", label: "Settings", icon: "Settings" },
     { to: "/help", label: "Help", icon: "LifeBuoy" },
   ],
 };

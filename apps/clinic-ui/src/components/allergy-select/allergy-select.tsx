@@ -106,7 +106,7 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
   }
 
   return (
-    <div className="space-y-2">
+    <div className="relative">
       {/* Tag-input container: chips + search input inside one box */}
       <div
         ref={containerRef}

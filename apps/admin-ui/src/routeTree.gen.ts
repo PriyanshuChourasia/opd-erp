@@ -23,6 +23,10 @@ import { Route as AdminOrganisationDesignationsIndexRouteImport } from './routes
 import { Route as AdminOrganisationDesignationsNewRouteImport } from './routes/_admin/organisation/designations/new'
 import { Route as AdminOrganisationEmployeesIndexRouteImport } from './routes/_admin/organisation/employees/index'
 import { Route as AdminOrganisationEmployeesNewRouteImport } from './routes/_admin/organisation/employees/new'
+import { Route as AdminOrganisationLicensesIndexRouteImport } from './routes/_admin/organisation/licenses/index'
+import { Route as AdminOrganisationLicensesNewRouteImport } from './routes/_admin/organisation/licenses/new'
+import { Route as AdminOrganisationOrganizationsIndexRouteImport } from './routes/_admin/organisation/organizations/index'
+import { Route as AdminOrganisationOrganizationsNewRouteImport } from './routes/_admin/organisation/organizations/new'
 import { Route as AdminOrganisationStatesIndexRouteImport } from './routes/_admin/organisation/states/index'
 import { Route as AdminOrganisationStatesNewRouteImport } from './routes/_admin/organisation/states/new'
 import { Route as AdminOrganisationCountriesCountryIdEditRouteImport } from './routes/_admin/organisation/countries/$countryId.edit'
@@ -30,6 +34,8 @@ import { Route as AdminOrganisationCustomersCustomerIdEditRouteImport } from './
 import { Route as AdminOrganisationDepartmentsDepartmentIdEditRouteImport } from './routes/_admin/organisation/departments/$departmentId.edit'
 import { Route as AdminOrganisationDesignationsDesignationIdEditRouteImport } from './routes/_admin/organisation/designations/$designationId.edit'
 import { Route as AdminOrganisationEmployeesEmployeeIdEditRouteImport } from './routes/_admin/organisation/employees/$employeeId.edit'
+import { Route as AdminOrganisationLicensesLicenseIdEditRouteImport } from './routes/_admin/organisation/licenses/$licenseId.edit'
+import { Route as AdminOrganisationOrganizationsOrganizationIdEditRouteImport } from './routes/_admin/organisation/organizations/$organizationId.edit'
 import { Route as AdminOrganisationStatesStateIdEditRouteImport } from './routes/_admin/organisation/states/$stateId.edit'
 
 const IndexRoute = IndexRouteImport.update({
@@ -111,6 +117,30 @@ const AdminOrganisationEmployeesNewRoute =
     path: '/organisation/employees/new',
     getParentRoute: () => AdminRoute,
   } as any)
+const AdminOrganisationLicensesIndexRoute =
+  AdminOrganisationLicensesIndexRouteImport.update({
+    id: '/organisation/licenses/',
+    path: '/organisation/licenses/',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminOrganisationLicensesNewRoute =
+  AdminOrganisationLicensesNewRouteImport.update({
+    id: '/organisation/licenses/new',
+    path: '/organisation/licenses/new',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminOrganisationOrganizationsIndexRoute =
+  AdminOrganisationOrganizationsIndexRouteImport.update({
+    id: '/organisation/organizations/',
+    path: '/organisation/organizations/',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminOrganisationOrganizationsNewRoute =
+  AdminOrganisationOrganizationsNewRouteImport.update({
+    id: '/organisation/organizations/new',
+    path: '/organisation/organizations/new',
+    getParentRoute: () => AdminRoute,
+  } as any)
 const AdminOrganisationStatesIndexRoute =
   AdminOrganisationStatesIndexRouteImport.update({
     id: '/organisation/states/',
@@ -153,6 +183,18 @@ const AdminOrganisationEmployeesEmployeeIdEditRoute =
     path: '/organisation/employees/$employeeId/edit',
     getParentRoute: () => AdminRoute,
   } as any)
+const AdminOrganisationLicensesLicenseIdEditRoute =
+  AdminOrganisationLicensesLicenseIdEditRouteImport.update({
+    id: '/organisation/licenses/$licenseId/edit',
+    path: '/organisation/licenses/$licenseId/edit',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminOrganisationOrganizationsOrganizationIdEditRoute =
+  AdminOrganisationOrganizationsOrganizationIdEditRouteImport.update({
+    id: '/organisation/organizations/$organizationId/edit',
+    path: '/organisation/organizations/$organizationId/edit',
+    getParentRoute: () => AdminRoute,
+  } as any)
 const AdminOrganisationStatesStateIdEditRoute =
   AdminOrganisationStatesStateIdEditRouteImport.update({
     id: '/organisation/states/$stateId/edit',
@@ -169,18 +211,24 @@ export interface FileRoutesByFullPath {
   '/organisation/departments/new': typeof AdminOrganisationDepartmentsNewRoute
   '/organisation/designations/new': typeof AdminOrganisationDesignationsNewRoute
   '/organisation/employees/new': typeof AdminOrganisationEmployeesNewRoute
+  '/organisation/licenses/new': typeof AdminOrganisationLicensesNewRoute
+  '/organisation/organizations/new': typeof AdminOrganisationOrganizationsNewRoute
   '/organisation/states/new': typeof AdminOrganisationStatesNewRoute
   '/organisation/countries/': typeof AdminOrganisationCountriesIndexRoute
   '/organisation/customers/': typeof AdminOrganisationCustomersIndexRoute
   '/organisation/departments/': typeof AdminOrganisationDepartmentsIndexRoute
   '/organisation/designations/': typeof AdminOrganisationDesignationsIndexRoute
   '/organisation/employees/': typeof AdminOrganisationEmployeesIndexRoute
+  '/organisation/licenses/': typeof AdminOrganisationLicensesIndexRoute
+  '/organisation/organizations/': typeof AdminOrganisationOrganizationsIndexRoute
   '/organisation/states/': typeof AdminOrganisationStatesIndexRoute
   '/organisation/countries/$countryId/edit': typeof AdminOrganisationCountriesCountryIdEditRoute
   '/organisation/customers/$customerId/edit': typeof AdminOrganisationCustomersCustomerIdEditRoute
   '/organisation/departments/$departmentId/edit': typeof AdminOrganisationDepartmentsDepartmentIdEditRoute
   '/organisation/designations/$designationId/edit': typeof AdminOrganisationDesignationsDesignationIdEditRoute
   '/organisation/employees/$employeeId/edit': typeof AdminOrganisationEmployeesEmployeeIdEditRoute
+  '/organisation/licenses/$licenseId/edit': typeof AdminOrganisationLicensesLicenseIdEditRoute
+  '/organisation/organizations/$organizationId/edit': typeof AdminOrganisationOrganizationsOrganizationIdEditRoute
   '/organisation/states/$stateId/edit': typeof AdminOrganisationStatesStateIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -192,18 +240,24 @@ export interface FileRoutesByTo {
   '/organisation/departments/new': typeof AdminOrganisationDepartmentsNewRoute
   '/organisation/designations/new': typeof AdminOrganisationDesignationsNewRoute
   '/organisation/employees/new': typeof AdminOrganisationEmployeesNewRoute
+  '/organisation/licenses/new': typeof AdminOrganisationLicensesNewRoute
+  '/organisation/organizations/new': typeof AdminOrganisationOrganizationsNewRoute
   '/organisation/states/new': typeof AdminOrganisationStatesNewRoute
   '/organisation/countries': typeof AdminOrganisationCountriesIndexRoute
   '/organisation/customers': typeof AdminOrganisationCustomersIndexRoute
   '/organisation/departments': typeof AdminOrganisationDepartmentsIndexRoute
   '/organisation/designations': typeof AdminOrganisationDesignationsIndexRoute
   '/organisation/employees': typeof AdminOrganisationEmployeesIndexRoute
+  '/organisation/licenses': typeof AdminOrganisationLicensesIndexRoute
+  '/organisation/organizations': typeof AdminOrganisationOrganizationsIndexRoute
   '/organisation/states': typeof AdminOrganisationStatesIndexRoute
   '/organisation/countries/$countryId/edit': typeof AdminOrganisationCountriesCountryIdEditRoute
   '/organisation/customers/$customerId/edit': typeof AdminOrganisationCustomersCustomerIdEditRoute
   '/organisation/departments/$departmentId/edit': typeof AdminOrganisationDepartmentsDepartmentIdEditRoute
   '/organisation/designations/$designationId/edit': typeof AdminOrganisationDesignationsDesignationIdEditRoute
   '/organisation/employees/$employeeId/edit': typeof AdminOrganisationEmployeesEmployeeIdEditRoute
+  '/organisation/licenses/$licenseId/edit': typeof AdminOrganisationLicensesLicenseIdEditRoute
+  '/organisation/organizations/$organizationId/edit': typeof AdminOrganisationOrganizationsOrganizationIdEditRoute
   '/organisation/states/$stateId/edit': typeof AdminOrganisationStatesStateIdEditRoute
 }
 export interface FileRoutesById {
@@ -217,18 +271,24 @@ export interface FileRoutesById {
   '/_admin/organisation/departments/new': typeof AdminOrganisationDepartmentsNewRoute
   '/_admin/organisation/designations/new': typeof AdminOrganisationDesignationsNewRoute
   '/_admin/organisation/employees/new': typeof AdminOrganisationEmployeesNewRoute
+  '/_admin/organisation/licenses/new': typeof AdminOrganisationLicensesNewRoute
+  '/_admin/organisation/organizations/new': typeof AdminOrganisationOrganizationsNewRoute
   '/_admin/organisation/states/new': typeof AdminOrganisationStatesNewRoute
   '/_admin/organisation/countries/': typeof AdminOrganisationCountriesIndexRoute
   '/_admin/organisation/customers/': typeof AdminOrganisationCustomersIndexRoute
   '/_admin/organisation/departments/': typeof AdminOrganisationDepartmentsIndexRoute
   '/_admin/organisation/designations/': typeof AdminOrganisationDesignationsIndexRoute
   '/_admin/organisation/employees/': typeof AdminOrganisationEmployeesIndexRoute
+  '/_admin/organisation/licenses/': typeof AdminOrganisationLicensesIndexRoute
+  '/_admin/organisation/organizations/': typeof AdminOrganisationOrganizationsIndexRoute
   '/_admin/organisation/states/': typeof AdminOrganisationStatesIndexRoute
   '/_admin/organisation/countries/$countryId/edit': typeof AdminOrganisationCountriesCountryIdEditRoute
   '/_admin/organisation/customers/$customerId/edit': typeof AdminOrganisationCustomersCustomerIdEditRoute
   '/_admin/organisation/departments/$departmentId/edit': typeof AdminOrganisationDepartmentsDepartmentIdEditRoute
   '/_admin/organisation/designations/$designationId/edit': typeof AdminOrganisationDesignationsDesignationIdEditRoute
   '/_admin/organisation/employees/$employeeId/edit': typeof AdminOrganisationEmployeesEmployeeIdEditRoute
+  '/_admin/organisation/licenses/$licenseId/edit': typeof AdminOrganisationLicensesLicenseIdEditRoute
+  '/_admin/organisation/organizations/$organizationId/edit': typeof AdminOrganisationOrganizationsOrganizationIdEditRoute
   '/_admin/organisation/states/$stateId/edit': typeof AdminOrganisationStatesStateIdEditRoute
 }
 export interface FileRouteTypes {
@@ -242,18 +302,24 @@ export interface FileRouteTypes {
     | '/organisation/departments/new'
     | '/organisation/designations/new'
     | '/organisation/employees/new'
+    | '/organisation/licenses/new'
+    | '/organisation/organizations/new'
     | '/organisation/states/new'
     | '/organisation/countries/'
     | '/organisation/customers/'
     | '/organisation/departments/'
     | '/organisation/designations/'
     | '/organisation/employees/'
+    | '/organisation/licenses/'
+    | '/organisation/organizations/'
     | '/organisation/states/'
     | '/organisation/countries/$countryId/edit'
     | '/organisation/customers/$customerId/edit'
     | '/organisation/departments/$departmentId/edit'
     | '/organisation/designations/$designationId/edit'
     | '/organisation/employees/$employeeId/edit'
+    | '/organisation/licenses/$licenseId/edit'
+    | '/organisation/organizations/$organizationId/edit'
     | '/organisation/states/$stateId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -265,18 +331,24 @@ export interface FileRouteTypes {
     | '/organisation/departments/new'
     | '/organisation/designations/new'
     | '/organisation/employees/new'
+    | '/organisation/licenses/new'
+    | '/organisation/organizations/new'
     | '/organisation/states/new'
     | '/organisation/countries'
     | '/organisation/customers'
     | '/organisation/departments'
     | '/organisation/designations'
     | '/organisation/employees'
+    | '/organisation/licenses'
+    | '/organisation/organizations'
     | '/organisation/states'
     | '/organisation/countries/$countryId/edit'
     | '/organisation/customers/$customerId/edit'
     | '/organisation/departments/$departmentId/edit'
     | '/organisation/designations/$designationId/edit'
     | '/organisation/employees/$employeeId/edit'
+    | '/organisation/licenses/$licenseId/edit'
+    | '/organisation/organizations/$organizationId/edit'
     | '/organisation/states/$stateId/edit'
   id:
     | '__root__'
@@ -289,18 +361,24 @@ export interface FileRouteTypes {
     | '/_admin/organisation/departments/new'
     | '/_admin/organisation/designations/new'
     | '/_admin/organisation/employees/new'
+    | '/_admin/organisation/licenses/new'
+    | '/_admin/organisation/organizations/new'
     | '/_admin/organisation/states/new'
     | '/_admin/organisation/countries/'
     | '/_admin/organisation/customers/'
     | '/_admin/organisation/departments/'
     | '/_admin/organisation/designations/'
     | '/_admin/organisation/employees/'
+    | '/_admin/organisation/licenses/'
+    | '/_admin/organisation/organizations/'
     | '/_admin/organisation/states/'
     | '/_admin/organisation/countries/$countryId/edit'
     | '/_admin/organisation/customers/$customerId/edit'
     | '/_admin/organisation/departments/$departmentId/edit'
     | '/_admin/organisation/designations/$designationId/edit'
     | '/_admin/organisation/employees/$employeeId/edit'
+    | '/_admin/organisation/licenses/$licenseId/edit'
+    | '/_admin/organisation/organizations/$organizationId/edit'
     | '/_admin/organisation/states/$stateId/edit'
   fileRoutesById: FileRoutesById
 }
@@ -409,6 +487,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrganisationEmployeesNewRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/organisation/licenses/': {
+      id: '/_admin/organisation/licenses/'
+      path: '/organisation/licenses'
+      fullPath: '/organisation/licenses/'
+      preLoaderRoute: typeof AdminOrganisationLicensesIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/organisation/licenses/new': {
+      id: '/_admin/organisation/licenses/new'
+      path: '/organisation/licenses/new'
+      fullPath: '/organisation/licenses/new'
+      preLoaderRoute: typeof AdminOrganisationLicensesNewRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/organisation/organizations/': {
+      id: '/_admin/organisation/organizations/'
+      path: '/organisation/organizations'
+      fullPath: '/organisation/organizations/'
+      preLoaderRoute: typeof AdminOrganisationOrganizationsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/organisation/organizations/new': {
+      id: '/_admin/organisation/organizations/new'
+      path: '/organisation/organizations/new'
+      fullPath: '/organisation/organizations/new'
+      preLoaderRoute: typeof AdminOrganisationOrganizationsNewRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/organisation/states/': {
       id: '/_admin/organisation/states/'
       path: '/organisation/states'
@@ -458,6 +564,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrganisationEmployeesEmployeeIdEditRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/organisation/licenses/$licenseId/edit': {
+      id: '/_admin/organisation/licenses/$licenseId/edit'
+      path: '/organisation/licenses/$licenseId/edit'
+      fullPath: '/organisation/licenses/$licenseId/edit'
+      preLoaderRoute: typeof AdminOrganisationLicensesLicenseIdEditRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/organisation/organizations/$organizationId/edit': {
+      id: '/_admin/organisation/organizations/$organizationId/edit'
+      path: '/organisation/organizations/$organizationId/edit'
+      fullPath: '/organisation/organizations/$organizationId/edit'
+      preLoaderRoute: typeof AdminOrganisationOrganizationsOrganizationIdEditRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/organisation/states/$stateId/edit': {
       id: '/_admin/organisation/states/$stateId/edit'
       path: '/organisation/states/$stateId/edit'
@@ -476,18 +596,24 @@ interface AdminRouteChildren {
   AdminOrganisationDepartmentsNewRoute: typeof AdminOrganisationDepartmentsNewRoute
   AdminOrganisationDesignationsNewRoute: typeof AdminOrganisationDesignationsNewRoute
   AdminOrganisationEmployeesNewRoute: typeof AdminOrganisationEmployeesNewRoute
+  AdminOrganisationLicensesNewRoute: typeof AdminOrganisationLicensesNewRoute
+  AdminOrganisationOrganizationsNewRoute: typeof AdminOrganisationOrganizationsNewRoute
   AdminOrganisationStatesNewRoute: typeof AdminOrganisationStatesNewRoute
   AdminOrganisationCountriesIndexRoute: typeof AdminOrganisationCountriesIndexRoute
   AdminOrganisationCustomersIndexRoute: typeof AdminOrganisationCustomersIndexRoute
   AdminOrganisationDepartmentsIndexRoute: typeof AdminOrganisationDepartmentsIndexRoute
   AdminOrganisationDesignationsIndexRoute: typeof AdminOrganisationDesignationsIndexRoute
   AdminOrganisationEmployeesIndexRoute: typeof AdminOrganisationEmployeesIndexRoute
+  AdminOrganisationLicensesIndexRoute: typeof AdminOrganisationLicensesIndexRoute
+  AdminOrganisationOrganizationsIndexRoute: typeof AdminOrganisationOrganizationsIndexRoute
   AdminOrganisationStatesIndexRoute: typeof AdminOrganisationStatesIndexRoute
   AdminOrganisationCountriesCountryIdEditRoute: typeof AdminOrganisationCountriesCountryIdEditRoute
   AdminOrganisationCustomersCustomerIdEditRoute: typeof AdminOrganisationCustomersCustomerIdEditRoute
   AdminOrganisationDepartmentsDepartmentIdEditRoute: typeof AdminOrganisationDepartmentsDepartmentIdEditRoute
   AdminOrganisationDesignationsDesignationIdEditRoute: typeof AdminOrganisationDesignationsDesignationIdEditRoute
   AdminOrganisationEmployeesEmployeeIdEditRoute: typeof AdminOrganisationEmployeesEmployeeIdEditRoute
+  AdminOrganisationLicensesLicenseIdEditRoute: typeof AdminOrganisationLicensesLicenseIdEditRoute
+  AdminOrganisationOrganizationsOrganizationIdEditRoute: typeof AdminOrganisationOrganizationsOrganizationIdEditRoute
   AdminOrganisationStatesStateIdEditRoute: typeof AdminOrganisationStatesStateIdEditRoute
 }
 
@@ -499,6 +625,9 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminOrganisationDepartmentsNewRoute: AdminOrganisationDepartmentsNewRoute,
   AdminOrganisationDesignationsNewRoute: AdminOrganisationDesignationsNewRoute,
   AdminOrganisationEmployeesNewRoute: AdminOrganisationEmployeesNewRoute,
+  AdminOrganisationLicensesNewRoute: AdminOrganisationLicensesNewRoute,
+  AdminOrganisationOrganizationsNewRoute:
+    AdminOrganisationOrganizationsNewRoute,
   AdminOrganisationStatesNewRoute: AdminOrganisationStatesNewRoute,
   AdminOrganisationCountriesIndexRoute: AdminOrganisationCountriesIndexRoute,
   AdminOrganisationCustomersIndexRoute: AdminOrganisationCustomersIndexRoute,
@@ -507,6 +636,9 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminOrganisationDesignationsIndexRoute:
     AdminOrganisationDesignationsIndexRoute,
   AdminOrganisationEmployeesIndexRoute: AdminOrganisationEmployeesIndexRoute,
+  AdminOrganisationLicensesIndexRoute: AdminOrganisationLicensesIndexRoute,
+  AdminOrganisationOrganizationsIndexRoute:
+    AdminOrganisationOrganizationsIndexRoute,
   AdminOrganisationStatesIndexRoute: AdminOrganisationStatesIndexRoute,
   AdminOrganisationCountriesCountryIdEditRoute:
     AdminOrganisationCountriesCountryIdEditRoute,
@@ -518,6 +650,10 @@ const AdminRouteChildren: AdminRouteChildren = {
     AdminOrganisationDesignationsDesignationIdEditRoute,
   AdminOrganisationEmployeesEmployeeIdEditRoute:
     AdminOrganisationEmployeesEmployeeIdEditRoute,
+  AdminOrganisationLicensesLicenseIdEditRoute:
+    AdminOrganisationLicensesLicenseIdEditRoute,
+  AdminOrganisationOrganizationsOrganizationIdEditRoute:
+    AdminOrganisationOrganizationsOrganizationIdEditRoute,
   AdminOrganisationStatesStateIdEditRoute:
     AdminOrganisationStatesStateIdEditRoute,
 }

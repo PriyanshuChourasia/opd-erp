@@ -17,6 +17,8 @@ class StoreCustomerRequest extends FormRequest
         return [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'tax_number' => ['nullable', 'string', 'max:100'],
             'email' => ['required', 'string', 'max:255', 'email', Rule::unique('customers', 'email')],
             'phone' => ['nullable', 'string', 'max:50'],
             'gender' => ['nullable', 'string', 'max:20'],
@@ -26,6 +28,11 @@ class StoreCustomerRequest extends FormRequest
             'state' => ['nullable', 'string', 'max:100'],
             'country' => ['nullable', 'string', 'max:100'],
             'pincode' => ['nullable', 'string', 'max:20'],
+            'billing_address' => ['nullable', 'string', 'max:255'],
+            'billing_city' => ['nullable', 'string', 'max:100'],
+            'billing_state' => ['nullable', 'string', 'max:100'],
+            'billing_country' => ['nullable', 'string', 'max:100'],
+            'billing_pincode' => ['nullable', 'string', 'max:20'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
             'user_id' => ['nullable', Rule::exists('users', 'id'), Rule::unique('customers', 'user_id')],
         ];

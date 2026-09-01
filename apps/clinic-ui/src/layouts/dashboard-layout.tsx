@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, useNavigate, Link, useMatchRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { AppSidebar } from "./app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -7,7 +8,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { clearCredentials } from "@/store/auth-slice";
-import { fetchProfile } from "@/lib/api";
+import { setDateRange, selectDateRange } from "@/store/date-range-filter-slice";
+import { fetchProfile, fetchFinancialYears } from "@/lib/api";
 import { HelpTip } from "@/modules/help/components/help-tip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CalendarClock, LogOut, User, ClipboardList, Plus } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { getHomeRoute } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +34,7 @@ export function DashboardLayout() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
+  const dateRange = useAppSelector(selectDateRange);
 
   const handleLogout = () => {
     dispatch(clearCredentials());
@@ -58,6 +62,13 @@ export function DashboardLayout() {
   }, [dispatch, navigate]);
 
 
+  // Fetch current financial year
+  const { data: fyResponse } = useQuery({
+    queryKey: ["financial-years", "current"],
+    queryFn: () => fetchFinancialYears({ limit: 100 }),
+  });
+  const currentFY = fyResponse?.data?.find((fy) => fy.isCurrent);
+
   return (
     <TooltipProvider delayDuration={0}>
       <SidebarProvider className="h-screen">
@@ -79,7 +90,18 @@ export function DashboardLayout() {
                 })}
               </nav>
             ); })()}
-            <HelpTip className="ml-auto" />
+            <div className="ml-auto" />
+            <DateRangePicker
+              value={dateRange.from || dateRange.to ? { from: dateRange.from ?? undefined, to: dateRange.to ?? undefined } : undefined}
+              onChange={(range) => dispatch(setDateRange({ from: range.from ?? null, to: range.to ?? null }))}
+            />
+            {currentFY && (
+              <span className="hidden rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary sm:inline-flex">
+                <CalendarClock className="mr-1.5 size-3.5" />
+                FY: {currentFY.name}
+              </span>
+            )}
+            <HelpTip />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2">

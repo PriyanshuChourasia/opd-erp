@@ -31,6 +31,7 @@ import { Route as DashboardPatientsRouteImport } from './routes/_dashboard/patie
 import { Route as DashboardPrescriptionsRouteImport } from './routes/_dashboard/prescriptions'
 import { Route as DashboardProfileRouteImport } from './routes/_dashboard/profile'
 import { Route as DashboardQueueRouteImport } from './routes/_dashboard/queue'
+import { Route as DashboardSettingsRouteImport } from './routes/_dashboard/settings'
 import { Route as DashboardShiftsRouteImport } from './routes/_dashboard/shifts'
 import { Route as DashboardAppointmentsIndexRouteImport } from './routes/_dashboard/appointments/index'
 import { Route as DashboardAppointmentsNewRouteImport } from './routes/_dashboard/appointments/new'
@@ -180,6 +181,11 @@ const DashboardProfileRoute = DashboardProfileRouteImport.update({
 const DashboardQueueRoute = DashboardQueueRouteImport.update({
   id: '/queue',
   path: '/queue',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
@@ -457,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/prescriptions': typeof DashboardPrescriptionsRoute
   '/profile': typeof DashboardProfileRoute
   '/queue': typeof DashboardQueueRoute
+  '/settings': typeof DashboardSettingsRoute
   '/shifts': typeof DashboardShiftsRoute
   '/appointments/new': typeof DashboardAppointmentsNewRoute
   '/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
@@ -520,6 +527,7 @@ export interface FileRoutesByTo {
   '/prescriptions': typeof DashboardPrescriptionsRoute
   '/profile': typeof DashboardProfileRoute
   '/queue': typeof DashboardQueueRoute
+  '/settings': typeof DashboardSettingsRoute
   '/shifts': typeof DashboardShiftsRoute
   '/appointments/new': typeof DashboardAppointmentsNewRoute
   '/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
@@ -590,6 +598,7 @@ export interface FileRoutesById {
   '/_dashboard/prescriptions': typeof DashboardPrescriptionsRoute
   '/_dashboard/profile': typeof DashboardProfileRoute
   '/_dashboard/queue': typeof DashboardQueueRoute
+  '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/shifts': typeof DashboardShiftsRoute
   '/_dashboard/appointments/new': typeof DashboardAppointmentsNewRoute
   '/_dashboard/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
@@ -655,6 +664,7 @@ export interface FileRouteTypes {
     | '/prescriptions'
     | '/profile'
     | '/queue'
+    | '/settings'
     | '/shifts'
     | '/appointments/new'
     | '/organisation/departments'
@@ -718,6 +728,7 @@ export interface FileRouteTypes {
     | '/prescriptions'
     | '/profile'
     | '/queue'
+    | '/settings'
     | '/shifts'
     | '/appointments/new'
     | '/organisation/departments'
@@ -787,6 +798,7 @@ export interface FileRouteTypes {
     | '/_dashboard/prescriptions'
     | '/_dashboard/profile'
     | '/_dashboard/queue'
+    | '/_dashboard/settings'
     | '/_dashboard/shifts'
     | '/_dashboard/appointments/new'
     | '/_dashboard/organisation/departments'
@@ -1001,6 +1013,13 @@ declare module '@tanstack/react-router' {
       path: '/queue'
       fullPath: '/queue'
       preLoaderRoute: typeof DashboardQueueRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/settings': {
+      id: '/_dashboard/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/shifts': {
@@ -1334,6 +1353,7 @@ interface DashboardRouteChildren {
   DashboardPrescriptionsRoute: typeof DashboardPrescriptionsRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardQueueRoute: typeof DashboardQueueRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardShiftsRoute: typeof DashboardShiftsRoute
   DashboardAppointmentsNewRoute: typeof DashboardAppointmentsNewRoute
   DashboardOrganisationDepartmentsRoute: typeof DashboardOrganisationDepartmentsRoute
@@ -1365,6 +1385,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPrescriptionsRoute: DashboardPrescriptionsRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardQueueRoute: DashboardQueueRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardShiftsRoute: DashboardShiftsRoute,
   DashboardAppointmentsNewRoute: DashboardAppointmentsNewRoute,
   DashboardOrganisationDepartmentsRoute: DashboardOrganisationDepartmentsRoute,

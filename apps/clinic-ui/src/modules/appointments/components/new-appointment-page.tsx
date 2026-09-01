@@ -1,7 +1,7 @@
 import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useLocation } from "@tanstack/react-router";
+import { useNavigate, useLocation, useSearch } from "@tanstack/react-router";
 import { Award, ChevronDown, Clock, HeartPulse, History, Pencil, Plus, RotateCcw, Search, Siren, Stethoscope, Trash2, UserPlus, Video, X } from "lucide-react";
 import {
   createAppointment,
@@ -118,6 +118,8 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const navigate = useNavigate();
   const location = useLocation();
   const isReceptionist = location.pathname.startsWith('/receptionist');
+  const searchParams = useSearch({ strict: false }) as Record<string, string | undefined>;
+  const preselectedDoctorId = searchParams.doctorId;
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
   const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
@@ -131,6 +133,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
   const [doctorFormOpen, setDoctorFormOpen] = useState(false);
   const [vitalsModalOpen, setVitalsModalOpen] = useState(false);
+  const [vitalsViewOpen, setVitalsViewOpen] = useState(false);
   const [vitals, setVitals] = useState<Record<string, string>>({
     heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
     systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
@@ -189,6 +192,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     email: "",
     username: "",
     password: "",
+    mobileNumber: "",
     medicalRegistrationNo: "",
     specialization: "",
     consultationFee: 0,
@@ -222,6 +226,17 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     refetchOnMount: true,
   });
   const doctors = useMemo(() => doctorsResponse?.data ?? [], [doctorsResponse]);
+
+  // Preselect doctor from URL search param on mount
+  useEffect(() => {
+    if (preselectedDoctorId && doctors.length > 0 && !form.doctorId) {
+      const doctor = doctors.find((d) => d.id === preselectedDoctorId);
+      if (doctor) {
+        setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, amount: doctor.consultationFee ?? prev.amount }));
+      }
+      // If doctor not found (invalid/stale id), fail silently — leave field unset
+    }
+  }, [preselectedDoctorId, doctors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch all doctor schedules in one call (no dependency on doctors list)
   const { data: allSchedules = [] } = useQuery({
@@ -389,7 +404,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       const doctor = result?.data ?? result?.doctor ?? result;
       setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, amount: doctor.consultationFee ?? prev.amount }));
       setDoctorFormOpen(false);
-      setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 });
+      setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", mobileNumber: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 });
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
       queryClient.invalidateQueries({ queryKey: ["employee-schedules"] });
       toast.success("Doctor created and selected");
@@ -444,96 +459,92 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
-            {/* ── Left Column: Patient → Doctor ── */}
+            {/* ── Left Column: Patient + Doctor → Allergies ── */}
             <div className="space-y-6">
+              {/* ── Patient + Doctor (side by side) ── */}
+              <div className="flex gap-4">
               {/* ── Patient ── */}
-              <Field><FieldLabel>Patient *</FieldLabel>
-                {form.patient && selectedPatient ? (
-                  <div className="flex items-center justify-between rounded-none border border-input bg-background px-3 py-1.5">
-                    <span className="truncate text-sm font-medium">{getPatientName(selectedPatient)}</span>
-                    <Button variant="ghost" size="icon-sm" title="Clear patient" aria-label="Clear patient" onClick={() => setForm((prev) => ({ ...prev, patient: null }))}>
-                      <X className="size-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search patient by name or phone"
-                      className="pl-9"
-                      value={patientQuery}
-                      onChange={(e) => { setPatientQuery(e.target.value); setPatientDropdownOpen(true); }}
-                      onFocus={() => setPatientDropdownOpen(true)}
-                      onBlur={() => setTimeout(() => setPatientDropdownOpen(false), 200)}
-                    />
-                    {patientDropdownOpen && patientQuery.trim().length >= 1 && (
-                      <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-64 overflow-y-auto">
-                        {patientResults.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>}
-                        {!patientResults.isLoading && (patientResults.data?.data ?? []).length === 0 && patientQuery.trim().length >= 1 && (
-                          <p className="px-3 py-2 text-xs text-muted-foreground">No patients found</p>
-                        )}
-                        {(patientResults.data?.data ?? []).map((patient) => (
-                          <div key={patient.id} className="group flex items-center px-3 py-1.5 text-sm hover:bg-muted">
-                            <button
-                              type="button"
-                              className="flex flex-1 flex-col items-start py-0.5 text-left"
-                              onClick={() => { setForm((prev) => ({ ...prev, patient: { id: patient.id, firstName: patient.firstName, middleName: patient.middleName, lastName: patient.lastName, contactNo: patient.contactNo }, isNewPatient: false, registrationFee: null })); setPatientQuery(""); setPatientDropdownOpen(false); }}
-                            >
-                              <span className="font-medium">{getPatientName(patient)}</span>
-                              <span className="text-xs text-muted-foreground">{patient.contactNo}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-                              title="Edit patient"
-                              onMouseDown={() => setEditPatientId(patient.id)}
-                            >
-                              <Pencil className="size-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-center gap-2 border-t px-3 py-2 text-sm font-medium text-primary hover:bg-muted transition-colors"
-                          onMouseDown={() => { setPatientSheetOpen(true); setPatientDropdownOpen(false); }}
-                        >
-                          <Plus className="size-4" /> Register Patient
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Field>
-
-              {/* ── Doctor + Allergies (side by side) ── */}
-              <div className="grid grid-cols-2 gap-4">
-                <Field><FieldLabel htmlFor="a-doctor">Doctor *</FieldLabel>
+              <div className="flex-1 space-y-1.5 min-w-0">
+                <label className="text-sm font-medium leading-none">Patient *</label>
                 <div className="relative">
-                  {form.doctorId ? (
-                    <div className="flex h-9 items-center justify-between rounded-none border border-input bg-background px-3 text-sm">
-                      <span className="truncate">
-                        {doctors.find((d) => d.id === form.doctorId)?.name ?? 'Doctor'}
-                        {doctors.find((d) => d.id === form.doctorId)?.consultationFee ? ` · ${currency(doctors.find((d) => d.id === form.doctorId)!.consultationFee)}` : ''}
-                      </span>
-                      <Button variant="ghost" size="icon-sm" title="Clear doctor" aria-label="Clear doctor" onClick={() => setForm((prev) => ({ ...prev, doctorId: "", slot: null }))}>
-                        <X className="size-3.5" />
-                      </Button>
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search patient by name or phone"
+                    className="pl-9"
+                    value={form.patient && selectedPatient ? getPatientName(selectedPatient) : patientQuery}
+                    onChange={(e) => {
+                      if (form.patient) {
+                        setForm((prev) => ({ ...prev, patient: null }));
+                        setPatientQuery(e.target.value);
+                      } else {
+                        setPatientQuery(e.target.value);
+                      }
+                      setPatientDropdownOpen(true);
+                    }}
+                    onFocus={() => { if (form.patient) { setPatientQuery(''); } setPatientDropdownOpen(true); }}
+                    onBlur={() => setTimeout(() => setPatientDropdownOpen(false), 200)}
+                  />
+                  {patientDropdownOpen && patientQuery.trim().length >= 1 && (
+                    <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-64 overflow-y-auto">
+                      {patientResults.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>}
+                      {!patientResults.isLoading && (patientResults.data?.data ?? []).length === 0 && patientQuery.trim().length >= 1 && (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">No patients found</p>
+                      )}
+                      {(patientResults.data?.data ?? []).map((patient) => (
+                        <div key={patient.id} className="group flex items-center px-3 py-1.5 text-sm hover:bg-muted">
+                          <button
+                            type="button"
+                            className="flex flex-1 flex-col items-start py-0.5 text-left"
+                            onClick={() => { setForm((prev) => ({ ...prev, patient: { id: patient.id, firstName: patient.firstName, middleName: patient.middleName, lastName: patient.lastName, contactNo: patient.contactNo }, isNewPatient: false, registrationFee: null })); setPatientQuery(''); setPatientDropdownOpen(false); }}
+                          >
+                            <span className="font-medium">{getPatientName(patient)}</span>
+                            <span className="text-xs text-muted-foreground">{patient.contactNo}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                            title="Edit patient"
+                            onMouseDown={() => setEditPatientId(patient.id)}
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-center gap-2 border-t px-3 py-2 text-sm font-medium text-primary hover:bg-muted transition-colors"
+                        onMouseDown={() => { setPatientSheetOpen(true); setPatientDropdownOpen(false); }}
+                      >
+                        <Plus className="size-4" /> Register Patient
+                      </button>
                     </div>
-                  ) : (
-                    <>
-                      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="a-doctor"
-                        placeholder="Search doctor by name or specialization..."
-                        className="h-9 pl-9"
-                        value={doctorSearchQuery}
-                        onChange={(e) => { setDoctorSearchQuery(e.target.value); setDoctorSearchOpen(true); }}
-                        onFocus={() => setDoctorSearchOpen(true)}
-                        onBlur={() => setTimeout(() => setDoctorSearchOpen(false), 200)}
-                      />
-                    </>
                   )}
-                  {doctorSearchOpen && !form.doctorId && (
+                </div>
+              </div>
+
+              {/* ── Doctor ── */}
+              <div className="flex-1 space-y-1.5 min-w-0">
+                <label className="text-sm font-medium leading-none">Doctor *</label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="a-doctor"
+                    placeholder="Search doctor..."
+                    className="pl-9"
+                    value={form.doctorId ? (doctors.find((d) => d.id === form.doctorId)?.name ?? '') : doctorSearchQuery}
+                    onChange={(e) => {
+                      if (form.doctorId) {
+                        setForm((prev) => ({ ...prev, doctorId: '', slot: null }));
+                        setDoctorSearchQuery(e.target.value);
+                      } else {
+                        setDoctorSearchQuery(e.target.value);
+                      }
+                      setDoctorSearchOpen(true);
+                    }}
+                    onFocus={() => { if (form.doctorId) { setDoctorSearchQuery(''); } setDoctorSearchOpen(true); }}
+                    onBlur={() => setTimeout(() => setDoctorSearchOpen(false), 200)}
+                  />
+                  {doctorSearchOpen && (!form.doctorId || doctorSearchQuery.trim().length >= 1) && (
                     <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-none border bg-popover shadow-md">
                       {doctors
                         .filter((d) =>
@@ -581,15 +592,16 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                     </div>
                   )}
                 </div>
-              </Field>
-
-                <Field><FieldLabel>Allergies</FieldLabel>
-                  <AllergySelect
-                    value={form.allergies}
-                    onChange={(allergies) => setForm((prev) => ({ ...prev, allergies }))}
-                  />
-                </Field>
               </div>
+              </div>
+
+              {/* ── Allergies ── */}
+              <Field><FieldLabel>Allergies</FieldLabel>
+                <AllergySelect
+                  value={form.allergies}
+                  onChange={(allergies) => setForm((prev) => ({ ...prev, allergies }))}
+                />
+              </Field>
 
               {/* ── Slot + Consultation type (side by side) ── */}
               <div className="grid grid-cols-2 gap-4">
@@ -776,7 +788,15 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                     {selectedPatient && (
                       <>
                         <Button
-                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={() => setVitalsViewOpen(true)}
+                          disabled={!patientVitals}
+                        >
+                          <HeartPulse className="size-3" />
+                          View Patient Vitals
+                        </Button>
+                        <Button
                           size="sm"
                           className="gap-1.5 text-xs"
                           onClick={() => setEditPatientId(selectedPatient.id)}
@@ -792,79 +812,27 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                   </div>
                 </div>
 
-                {/* Details grid — always visible */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 text-sm">
+                {/* Details grid — 3 columns */}
+                <div className="grid grid-cols-3 gap-x-4 gap-y-3 px-4 py-3 text-sm">
                   <PlaceholderField label="Gender" value={selectedPatient?.gender} />
                   <PlaceholderField
                     label="Age / DOB"
-                    value={selectedPatient?.dateOfBirth ? `${Math.floor((Date.now() - new Date(selectedPatient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} yrs · ${new Date(selectedPatient.dateOfBirth).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : undefined}
+                    value={selectedPatient?.dateOfBirth ? `${Math.floor((Date.now() - new Date(selectedPatient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} yrs` : undefined}
                   />
                   <PlaceholderField label="Blood Group" value={selectedPatient?.bloodGroup} />
                   <PlaceholderField label="Email" value={selectedPatient?.email} />
-                  <div className="col-span-2 grid grid-cols-2 gap-x-4">
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Address</span>
-                      <p className={cn("mt-0.5", selectedPatient?.address ? "" : "text-muted-foreground/50")}>
-                        {selectedPatient?.address || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Emergency Contact</span>
-                      <p className={cn("mt-0.5", selectedPatient?.emergencyContact ? "font-medium" : "text-muted-foreground/50")}>
-                        {selectedPatient?.emergencyContact || "—"}
-                      </p>
-                    </div>
+                  <div>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Address</span>
+                    <p className={cn("mt-0.5 truncate", selectedPatient?.address ? "" : "text-muted-foreground/50")}>
+                      {selectedPatient?.address || "—"}
+                    </p>
                   </div>
-                </div>
-
-                {/* Patient Vitals — latest record */}
-                <div className="border-t px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">Patient Vitals</span>
-                    <div className="flex items-center gap-1">
-                      {patientVitals && (
-                        <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-destructive" onClick={() => { if (confirm("Delete this vitals record?")) deleteVitalsMutation.mutate(patientVitals.id); }} disabled={deleteVitalsMutation.isPending}>
-                          <Trash2 className="size-3" />
-                          Delete
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-primary" onClick={() => setVitalsModalOpen(true)} disabled={!form.patient}>
-                        <Plus className="size-3" />
-                        Add
-                      </Button>
-                    </div>
+                  <div>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Emergency Contact</span>
+                    <p className={cn("mt-0.5", selectedPatient?.emergencyContact ? "font-medium" : "text-muted-foreground/50")}>
+                      {selectedPatient?.emergencyContact || "—"}
+                    </p>
                   </div>
-                    {patientVitals && (
-                      <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
-                        {patientVitals.heightCm != null && (
-                          <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
-                        )}
-                        {patientVitals.weightKg != null && (
-                          <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{patientVitals.weightKg} kg</p></div>
-                        )}
-                        {patientVitals.bmi != null && (
-                          <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{patientVitals.bmi}</p></div>
-                        )}
-                        {patientVitals.temperatureC != null && (
-                          <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{patientVitals.temperatureC}°F</p></div>
-                        )}
-                        {patientVitals.pulseBpm != null && (
-                          <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{patientVitals.pulseBpm} bpm</p></div>
-                        )}
-                        {patientVitals.systolicBp != null && patientVitals.diastolicBp != null && (
-                          <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
-                        )}
-                        {patientVitals.spo2Percent != null && (
-                          <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{patientVitals.spo2Percent}%</p></div>
-                        )}
-                        {patientVitals.respiratoryRate != null && (
-                          <div><span className="text-[10px] text-muted-foreground">Resp Rate</span><p className="font-medium">{patientVitals.respiratoryRate}/min</p></div>
-                        )}
-                      </div>
-                    )}
-                    {!patientVitals && form.patient && (
-                      <p className="mt-1.5 text-xs text-muted-foreground/60">No vitals recorded yet</p>
-                    )}
                 </div>
 
                 {/* Past visits — collapsible accordion */}
@@ -917,9 +885,8 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                       ) : (
                         <p className="text-xs text-muted-foreground">No previous visits — new patient.</p>
                       )}
-                    </div>
-                  </div>
-                </div>
+                    </div>              </div>
+              </div>
               </div>
 
               {/* ── Invoice-style Fee Summary ── */}
@@ -1027,20 +994,22 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-end gap-4">
-        <Button variant="outline" onClick={goBack}>Cancel</Button>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => createMutation.mutate()} disabled={!canBook || createMutation.isPending || bookAndPayMutation.isPending}>
-            {createMutation.isPending ? "Booking..." : "Book"}
-          </Button>
-          <Button
-            variant="default"
-            className="gap-1.5"
-            onClick={() => setPaymentSheetOpen(true)}
-            disabled={!canBook || bookAndPayMutation.isPending || createMutation.isPending}
-          >
-            {bookAndPayMutation.isPending ? "Processing..." : "Book & Pay"}
-          </Button>
+      <div className="sticky bottom-0 left-0 right-0 z-40 border-t bg-background px-6 py-3">
+        <div className="flex items-center justify-end gap-4">
+          <Button variant="outline" onClick={goBack}>Cancel</Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => createMutation.mutate()} disabled={!canBook || createMutation.isPending || bookAndPayMutation.isPending}>
+              {createMutation.isPending ? "Booking..." : "Book"}
+            </Button>
+            <Button
+              variant="default"
+              className="gap-1.5"
+              onClick={() => setPaymentSheetOpen(true)}
+              disabled={!canBook || bookAndPayMutation.isPending || createMutation.isPending}
+            >
+              {bookAndPayMutation.isPending ? "Processing..." : "Book & Pay"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -1068,7 +1037,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       />
 
       {/* ── New Doctor Sheet ── */}
-      <Sheet open={doctorFormOpen} onOpenChange={(open) => { if (!open) { setDoctorFormOpen(false); setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 }); }}}>
+      <Sheet open={doctorFormOpen} onOpenChange={(open) => { if (!open) { setDoctorFormOpen(false); setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", mobileNumber: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 }); }}}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Add New Doctor</SheetTitle>
@@ -1085,10 +1054,16 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 <Input placeholder="Doe" value={newDoctorForm.lastName} onChange={(e) => setNewDoctorForm((p) => ({ ...p, lastName: e.target.value }))} />
               </Field>
             </div>
-            <Field>
-              <FieldLabel>Email *</FieldLabel>
-              <Input type="email" placeholder="doctor@clinic.com" value={newDoctorForm.email} onChange={(e) => setNewDoctorForm((p) => ({ ...p, email: e.target.value }))} />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel>Email *</FieldLabel>
+                <Input type="email" placeholder="doctor@clinic.com" value={newDoctorForm.email} onChange={(e) => setNewDoctorForm((p) => ({ ...p, email: e.target.value }))} />
+              </Field>
+              <Field>
+                <FieldLabel>Mobile Number *</FieldLabel>
+                <Input placeholder="9876543210" value={newDoctorForm.mobileNumber} onChange={(e) => setNewDoctorForm((p) => ({ ...p, mobileNumber: e.target.value }))} />
+              </Field>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field>
                 <FieldLabel>Username *</FieldLabel>
@@ -1115,7 +1090,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
             </div>
           </div>
           <SheetFooter>
-            <Button variant="outline" onClick={() => { setDoctorFormOpen(false); setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 }); }}>
+            <Button variant="outline" onClick={() => { setDoctorFormOpen(false); setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", mobileNumber: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 }); }}>
               Cancel
             </Button>
             <Button
@@ -1123,13 +1098,14 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 firstName: newDoctorForm.firstName.trim(),
                 lastName: newDoctorForm.lastName.trim(),
                 email: newDoctorForm.email.trim(),
+                mobileNumber: newDoctorForm.mobileNumber.trim(),
                 username: newDoctorForm.username.trim(),
                 password: newDoctorForm.password,
                 medicalRegistrationNo: newDoctorForm.medicalRegistrationNo.trim(),
                 specialization: newDoctorForm.specialization.trim() || undefined,
                 consultationFee: newDoctorForm.consultationFee > 0 ? newDoctorForm.consultationFee : undefined,
               })}
-              disabled={!newDoctorForm.firstName.trim() || !newDoctorForm.lastName.trim() || !newDoctorForm.email.trim() || !newDoctorForm.username.trim() || !newDoctorForm.password.trim() || !newDoctorForm.medicalRegistrationNo.trim() || createDoctorMutation.isPending}
+              disabled={!newDoctorForm.firstName.trim() || !newDoctorForm.lastName.trim() || !newDoctorForm.email.trim() || !newDoctorForm.mobileNumber.trim() || !newDoctorForm.username.trim() || !newDoctorForm.password.trim() || !newDoctorForm.medicalRegistrationNo.trim() || createDoctorMutation.isPending}
             >
               {createDoctorMutation.isPending ? "Creating..." : "Create & Select"}
             </Button>
@@ -1244,6 +1220,88 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
             <Button disabled={!hasVitalsData || vitalsMutation.isPending} onClick={() => vitalsMutation.mutate()}>
               {vitalsMutation.isPending ? "Saving..." : "Record Vitals"}
             </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── View Patient Vitals Sheet ── */}
+      <Sheet open={vitalsViewOpen} onOpenChange={(open) => { if (!open) setVitalsViewOpen(false); }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <HeartPulse className="size-5 text-rose-500" />
+              Patient Vitals
+            </SheetTitle>
+            <SheetDescription>
+              {form.patient ? `${form.patient.firstName} ${form.patient.lastName}` : ''}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 px-4 py-4">
+            {patientVitals && (
+              <div className="rounded-none border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">Latest Vitals</span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(patientVitals.recordedAt).toLocaleString()}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                  {patientVitals.heightCm != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
+                  )}
+                  {patientVitals.weightKg != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{patientVitals.weightKg} kg</p></div>
+                  )}
+                  {patientVitals.bmi != null && (
+                    <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{patientVitals.bmi}</p></div>
+                  )}
+                  {patientVitals.temperatureC != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{patientVitals.temperatureC}°F</p></div>
+                  )}
+                  {patientVitals.pulseBpm != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{patientVitals.pulseBpm} bpm</p></div>
+                  )}
+                  {patientVitals.systolicBp != null && patientVitals.diastolicBp != null && (
+                    <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
+                  )}
+                  {patientVitals.spo2Percent != null && (
+                    <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{patientVitals.spo2Percent}%</p></div>
+                  )}
+                  {patientVitals.respiratoryRate != null && (
+                    <div><span className="text-[10px] text-muted-foreground">Resp Rate</span><p className="font-medium">{patientVitals.respiratoryRate}/min</p></div>
+                  )}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => { setVitalsViewOpen(false); setVitalsModalOpen(true); }}
+                  >
+                    <Plus className="size-3.5" /> Add New Vitals
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (confirm('Delete this vitals record?')) {
+                        deleteVitalsMutation.mutate(patientVitals.id, {
+                          onSuccess: () => { setVitalsViewOpen(false); }
+                        });
+                      }
+                    }}
+                    disabled={deleteVitalsMutation.isPending}
+                  >
+                    <Trash2 className="size-3.5" /> Delete
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!patientVitals && (
+              <p className="text-xs text-muted-foreground">No vitals recorded yet for this patient.</p>
+            )}
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setVitalsViewOpen(false)}>Close</Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>

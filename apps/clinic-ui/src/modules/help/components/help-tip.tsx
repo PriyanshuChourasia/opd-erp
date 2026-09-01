@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { CircleHelp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAppSelector } from "@/store/hooks";
+import { selectHelpModeEnabled } from "@/store/ui-preferences-slice";
 import { loadHelpContent, type HelpModuleEntry, type HelpPageEntry } from "../data/help-content";
 import { useHelpForCurrentRoute } from "../data/use-help-route";
 import { MarkdownRenderer } from "./markdown-renderer";
@@ -48,7 +50,8 @@ export function HelpTip({ className }: { className?: string }) {
   const title = activePage?.title ?? activeModule?.title ?? "Help";
   const content = activePage?.content ?? activeModule?.content ?? "";
 
-  if (!currentHelp || HIDDEN_PATHS.has(location.pathname)) return null;
+  const helpModeEnabled = useAppSelector(selectHelpModeEnabled);
+  if (!helpModeEnabled || !currentHelp || HIDDEN_PATHS.has(location.pathname)) return null;
 
   return (
     <TooltipProvider delayDuration={100}>

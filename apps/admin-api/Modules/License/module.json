@@ -1,0 +1,12 @@
+{
+    "name": "License",
+    "alias": "license",
+    "description": "License (entitlement) module for the admin-api",
+    "keywords": [
+        "license"
+    ],
+    "priority": 25,
+    "providers": [
+        "Modules\\License\\Providers\\LicenseServiceProvider"
+    ]
+}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { CalendarClock, ChevronDown, ClipboardList, Download, Eye, FileText, HeartPulse, History, Plus, Printer, Search, X } from "lucide-react";
@@ -100,6 +101,7 @@ export function AppointmentsPage() {
   const [search, setSearch] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [statusConfirm, setStatusConfirm] = useState<string | null>(null);
+  const { dateRange } = useDateRangeSync();
   const [cancelReason, setCancelReason] = useState("");
 
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
@@ -324,12 +326,14 @@ export function AppointmentsPage() {
   }, [searchInput]);
 
   const { data: appointmentsResponse, isLoading } = useQuery({
-    queryKey: ["appointments", filterDate, filterStatus, filterCreator, search, pagination.pageIndex, pagination.pageSize],
+    queryKey: ["appointments", filterDate, filterStatus, filterCreator, search, pagination.pageIndex, pagination.pageSize, dateRange.from, dateRange.to],
     queryFn: () => fetchAppointments({
-      date: search ? undefined : (filterDate || undefined),
+      date: (search || dateRange.from || dateRange.to) ? undefined : (filterDate || undefined),
       status: filterStatus || undefined,
       createdById: filterCreator || undefined,
       search: search || undefined,
+      from: dateRange.from ?? undefined,
+      to: dateRange.to ?? undefined,
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
     }),

@@ -28,6 +28,7 @@ class StoreUserRequest extends FormRequest
             'pincode' => ['nullable', 'string', 'max:20'],
             'avatar_url' => ['nullable', 'string', 'max:500'],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
+            'organization_id' => ['nullable', 'integer', Rule::exists('organizations', 'id')],
         ];
     }
 }

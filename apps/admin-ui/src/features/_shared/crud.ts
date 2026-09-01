@@ -15,6 +15,8 @@ export interface ListParams {
   limit?: number;
   search?: string;
   country_id?: number;
+  organization_id?: number;
+  status?: string;
 }
 
 export interface CrudApi<T extends { id: string | number }, TInput> {

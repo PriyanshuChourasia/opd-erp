@@ -2,6 +2,7 @@ import { getPatientName } from "@/lib/api";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { FileText, HeartPulse, ListOrdered, Pencil, Receipt, Search, Trash2, X } from "lucide-react";
 import { fetchQueue, updateQueueStatus, deleteQueueEntry, checkoutAppointment, createPatientVitals, fetchPatientVitalsLatest, type QueueEntry } from "@/lib/api";
@@ -57,11 +58,15 @@ export function QueuePage() {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
   }
 
+  const { dateRange } = useDateRangeSync();
+
   const { data: response, isLoading } = useQuery({
-    queryKey: ["queue", filterDoctor, filterDate],
+    queryKey: ["queue", filterDoctor, filterDate, dateRange.from, dateRange.to],
     queryFn: () => fetchQueue({
       doctorId: filterDoctor || undefined,
-      date: filterDate || undefined,
+      date: (dateRange.from || dateRange.to) ? undefined : (filterDate || undefined),
+      from: dateRange.from ?? undefined,
+      to: dateRange.to ?? undefined,
       page: 1,
       limit: 100,
     }),

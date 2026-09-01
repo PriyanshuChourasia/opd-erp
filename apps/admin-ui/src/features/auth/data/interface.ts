@@ -6,6 +6,21 @@ export type UserableType =
   | "Pharmacist"
   | "LabStaff";
 
+export interface AuthOrganization {
+  id: string;
+  name: string;
+  status: string;
+}
+
+export interface AuthLicense {
+  id: string;
+  license_number: string;
+  status: string;
+  plan: string | null;
+  start_date: string | null;
+  expiry_date: string | null;
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -17,6 +32,9 @@ export interface AuthUser {
   permissions: string[];
   userableType?: UserableType | null;
   userableId?: string | null;
+  organizationId?: string | null;
+  organization?: AuthOrganization | null;
+  license?: AuthLicense | null;
   createdAt?: string;
 }
 

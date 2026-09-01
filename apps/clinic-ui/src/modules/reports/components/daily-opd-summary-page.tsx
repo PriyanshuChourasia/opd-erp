@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import {
   Bar,
   BarChart,
@@ -87,14 +88,15 @@ function StatusBadge({ status, count, percentage }: { status: string; count: num
 
 // ─── Main Page Component ─────────────────────────────────────
 export function DailyOpdSummaryPage() {
+  const { dateRange } = useDateRangeSync();
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
-  const [from, setFrom] = useState(todayStr);
-  const [to, setTo] = useState(tomorrowStr);
+  const [from, setFrom] = useState(dateRange.from ?? todayStr);
+  const [to, setTo] = useState(dateRange.to ?? tomorrowStr);
   const query = useDailyOpdSummary(from, to);
 
   const data = query.data?.data;

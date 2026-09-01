@@ -1188,13 +1188,15 @@ export function restoreDoctor(id: string) {
 
 // ─── Queue API ────────────────────────────────────────────────
 
-export function fetchQueue(params: { doctorId?: string; date?: string } & PaginationParams = {}) {
+export function fetchQueue(params: { doctorId?: string; date?: string; from?: string; to?: string } & PaginationParams = {}) {
   return request<PaginatedResult<QueueEntry>>({
     method: "GET",
     path: "/queue",
     params: {
       doctorId: params.doctorId,
       date: params.date,
+      from: params.from,
+      to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -1413,6 +1415,8 @@ export function fetchAppointments(
     patientId?: string;
     createdById?: string;
     search?: string;
+    from?: string;
+    to?: string;
   } & PaginationParams = {},
 ) {
   return request<PaginatedResult<Appointment>>({
@@ -1425,6 +1429,8 @@ export function fetchAppointments(
       patientId: params.patientId,
       createdById: params.createdById,
       search: params.search,
+      from: params.from,
+      to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -1611,12 +1617,14 @@ export function deletePermission(id: string) {
 
 // ─── Billing API ──────────────────────────────────────────────
 
-export function fetchBills(params: { patientId?: string } & PaginationParams = {}) {
+export function fetchBills(params: { patientId?: string; from?: string; to?: string } & PaginationParams = {}) {
   return request<PaginatedResult<Bill>>({
     method: "GET",
     path: "/billing",
     params: {
       patientId: params.patientId,
+      from: params.from,
+      to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },

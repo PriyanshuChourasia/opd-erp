@@ -1,0 +1,12 @@
+{
+    "name": "Organization",
+    "alias": "organization",
+    "description": "Organization (tenant) module for the admin-api",
+    "keywords": [
+        "organization"
+    ],
+    "priority": 20,
+    "providers": [
+        "Modules\\Organization\\Providers\\OrganizationServiceProvider"
+    ]
+}

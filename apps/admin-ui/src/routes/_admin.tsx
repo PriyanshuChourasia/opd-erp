@@ -10,6 +10,8 @@ import {
   BadgeCheck,
   Building2,
   Contact,
+  KeyRound,
+  Landmark,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -55,6 +57,11 @@ export const Route = createFileRoute("/_admin")({
 const UPCOMING_NAV = [
   { icon: ShieldCheck, label: "Roles & permissions" },
   { icon: Activity, label: "Audit logs" },
+] as const;
+
+const LICENSING_NAV = [
+  { to: "/organisation/organizations", label: "Organizations", icon: Landmark },
+  { to: "/organisation/licenses", label: "Licenses", icon: KeyRound },
 ] as const;
 
 const ORGANISATION_NAV = [
@@ -129,6 +136,32 @@ function AdminLayout() {
                     <TooltipContent side="right">Users</TooltipContent>
                   </Tooltip>
                 </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Licensing</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {LICENSING_NAV.map((item) => (
+                  <SidebarMenuItem key={item.label}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton
+                          isActive={pathname.startsWith(item.to)}
+                          asChild
+                        >
+                          <Link to={item.to}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                    </Tooltip>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

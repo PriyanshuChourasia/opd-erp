@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import {
   Bar,
   BarChart,
@@ -22,14 +23,15 @@ import { useDoctorWiseOpdReport } from "../data/hooks";
 import { formatCurrency } from "../data/utils";
 
 export function DoctorWiseOpdPage() {
+  const { dateRange } = useDateRangeSync();
   const today = new Date();
   const thirtyDaysAgo = new Date(today);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [from, setFrom] = useState(thirtyDaysAgo.toISOString().slice(0, 10));
-  const [to, setTo] = useState(tomorrow.toISOString().slice(0, 10));
+  const [from, setFrom] = useState(dateRange.from ?? thirtyDaysAgo.toISOString().slice(0, 10));
+  const [to, setTo] = useState(dateRange.to ?? tomorrow.toISOString().slice(0, 10));
   const query = useDoctorWiseOpdReport(from, to);
 
   const data = query.data?.data;

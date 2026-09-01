@@ -7,9 +7,13 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Modules\Organization\Models\Organization;
+use Modules\Role\Models\Role;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
 #[Fillable([
@@ -28,6 +32,7 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
     'status',
     'userable_type',
     'userable_id',
+    'organization_id',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
@@ -57,6 +62,22 @@ class User extends Authenticatable implements JWTSubject
         return $this->morphTo();
     }
 
+    /**
+     * The tenant organization this user belongs to.
+     */
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * Roles assigned to this user within their organization.
+     */
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'user_role');
+    }
+
     public function getJWTIdentifier(): mixed
     {
         return $this->getKey();
@@ -64,6 +85,8 @@ class User extends Authenticatable implements JWTSubject
 
     public function getJWTCustomClaims(): array
     {
-        return [];
+        return [
+            'organization_id' => $this->organization_id,
+        ];
     }
 }

@@ -13,6 +13,7 @@ import { DataTable } from "@/components/data-table/data-table";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { useAppSelector } from "@/store/hooks";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import { hasPermission } from "@/lib/roles";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -33,9 +34,11 @@ export function BillingPage() {
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
 
+  const { dateRange } = useDateRangeSync();
+
   const { data: response, isLoading } = useQuery({
-    queryKey: ["bills", pagination.pageIndex, pagination.pageSize],
-    queryFn: () => fetchBills({ page: pagination.pageIndex + 1, limit: pagination.pageSize }),
+    queryKey: ["bills", pagination.pageIndex, pagination.pageSize, dateRange.from, dateRange.to],
+    queryFn: () => fetchBills({ page: pagination.pageIndex + 1, limit: pagination.pageSize, from: dateRange.from ?? undefined, to: dateRange.to ?? undefined }),
     placeholderData: (previous) => previous,
     refetchInterval: 15_000,
   });

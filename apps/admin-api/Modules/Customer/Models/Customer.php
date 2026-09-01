@@ -5,14 +5,18 @@ namespace Modules\Customer\Models;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Modules\Document\Models\Document;
+use Modules\License\Models\License;
 
 class Customer extends Model
 {
     protected $fillable = [
         'first_name',
         'last_name',
+        'company_name',
+        'tax_number',
         'email',
         'phone',
         'gender',
@@ -22,6 +26,11 @@ class Customer extends Model
         'state',
         'country',
         'pincode',
+        'billing_address',
+        'billing_city',
+        'billing_state',
+        'billing_country',
+        'billing_pincode',
         'status',
         'user_id',
     ];
@@ -41,5 +50,10 @@ class Customer extends Model
     public function documents(): MorphMany
     {
         return $this->morphMany(Document::class, 'documentable');
+    }
+
+    public function licenses(): HasMany
+    {
+        return $this->hasMany(License::class);
     }
 }

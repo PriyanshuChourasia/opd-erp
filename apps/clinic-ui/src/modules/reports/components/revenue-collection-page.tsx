@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,14 +22,15 @@ import { formatCurrency, statusBadgeClass, formatStatus } from "../data/utils";
 import { toast } from "sonner";
 
 export function RevenueCollectionPage() {
+  const { dateRange } = useDateRangeSync();
   const today = new Date();
   const thirtyDaysAgo = new Date(today);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [from, setFrom] = useState(thirtyDaysAgo.toISOString().slice(0, 10));
-  const [to, setTo] = useState(tomorrow.toISOString().slice(0, 10));
+  const [from, setFrom] = useState(dateRange.from ?? thirtyDaysAgo.toISOString().slice(0, 10));
+  const [to, setTo] = useState(dateRange.to ?? tomorrow.toISOString().slice(0, 10));
   const [page, setPage] = useState(1);
   const limit = 50;
 

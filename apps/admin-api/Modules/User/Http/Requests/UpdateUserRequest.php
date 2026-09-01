@@ -30,6 +30,7 @@ class UpdateUserRequest extends FormRequest
             'pincode' => ['sometimes', 'nullable', 'string', 'max:20'],
             'avatar_url' => ['sometimes', 'nullable', 'string', 'max:500'],
             'status' => ['sometimes', 'nullable', Rule::in(['active', 'inactive'])],
+            'organization_id' => ['sometimes', 'nullable', 'integer', Rule::exists('organizations', 'id')],
         ];
     }
 }

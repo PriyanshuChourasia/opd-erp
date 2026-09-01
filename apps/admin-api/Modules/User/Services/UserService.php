@@ -19,8 +19,12 @@ class UserService implements UserServiceInterface
         $count = min(max((int) $request->integer('count'), 0), 100);
 
         if ($count > 0) {
-            $total = User::query()->count();
-            $users = User::query()
+            $query = User::query();
+            if ($organizationId = $request->input('organization_id')) {
+                $query->where('organization_id', (int) $organizationId);
+            }
+            $total = (clone $query)->count();
+            $users = (clone $query)
                 ->latest('id')
                 ->offset(($page - 1) * $count)
                 ->limit($count)
@@ -38,6 +42,10 @@ class UserService implements UserServiceInterface
         }
 
         $query = User::query();
+
+        if ($organizationId = $request->input('organization_id')) {
+            $query->where('organization_id', (int) $organizationId);
+        }
 
         $search = trim((string) $request->input('search', ''));
         if ($search !== '') {
@@ -100,6 +108,7 @@ class UserService implements UserServiceInterface
             'id' => (string) $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'organization_id' => $user->organization_id ? (string) $user->organization_id : null,
             'createdAt' => $user->created_at?->toIso8601String(),
         ];
     }

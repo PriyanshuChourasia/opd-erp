@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate } from "@tanstack/react-router";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import {
   CalendarClock,
   ClipboardList,
@@ -132,8 +133,9 @@ function EmptyState({ message }: { message: string }) {
 // ─── Main Dashboard ──────────────────────────────────────────
 export function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user);
-  const statsQuery = useDashboardStats();
-  const chartsQuery = useDashboardCharts();
+  const { dateRange } = useDateRangeSync();
+  const statsQuery = useDashboardStats(dateRange);
+  const chartsQuery = useDashboardCharts(dateRange);
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month">("today");
 
   const home = getHomeRoute(user?.roleName);

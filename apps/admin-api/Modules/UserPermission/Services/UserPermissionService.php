@@ -24,25 +24,29 @@ class UserPermissionService implements UserPermissionServiceInterface
             ->select(['user_permission.id', 'user_permission.user_id', 'user_permission.user_id', 'users.name as user_id___name', 'users.email as user_id___email', 'user_permission.permission_id', 'permissions.name as permission_id___name', 'permissions.slug as permission_id___slug']);
 
         if ($userId = $request->input('user_id')) {
-            $query->where($this->table . '.user_id', (int) $userId);
+            $query->where($this->table.'.user_id', (int) $userId);
         }
 
-        $paginator = $query->orderByDesc($this->table . '.id')->paginate($limit, ['*'], 'page', $page);
+        if ($organizationId = $request->input('organization_id')) {
+            $query->where('users.organization_id', (int) $organizationId);
+        }
+
+        $paginator = $query->orderByDesc($this->table.'.id')->paginate($limit, ['*'], 'page', $page);
 
         return [
             'data' => collect($paginator->items())->map(function ($row) {
                 return [
-            'id' => (string) $row->id,
-            'user' => [
-                'id' => (string) $row->user_id,
-                'name' => $row->user_id___name,
-                'email' => $row->user_id___email,
-            ],
-            'permission' => [
-                'id' => (string) $row->permission_id,
-                'name' => $row->permission_id___name,
-                'slug' => $row->permission_id___slug,
-            ],
+                    'id' => (string) $row->id,
+                    'user' => [
+                        'id' => (string) $row->user_id,
+                        'name' => $row->user_id___name,
+                        'email' => $row->user_id___email,
+                    ],
+                    'permission' => [
+                        'id' => (string) $row->permission_id,
+                        'name' => $row->permission_id___name,
+                        'slug' => $row->permission_id___slug,
+                    ],
                 ];
             })->values(),
             'meta' => [
@@ -79,7 +83,7 @@ class UserPermissionService implements UserPermissionServiceInterface
     {
         $row = DB::table($this->table)->find($id);
         if (! $row) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
         DB::table($this->table)->where('id', $id)->delete();
     }
@@ -88,7 +92,7 @@ class UserPermissionService implements UserPermissionServiceInterface
     {
         $row = DB::table($this->table)->find($id);
         if (! $row) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
 
         return [

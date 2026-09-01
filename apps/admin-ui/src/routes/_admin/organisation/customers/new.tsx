@@ -31,6 +31,8 @@ function NewCustomerPage() {
     defaultValues: {
       first_name: "",
       last_name: "",
+      company_name: "",
+      tax_number: "",
       email: "",
       phone: "",
       gender: "",
@@ -40,6 +42,11 @@ function NewCustomerPage() {
       state: "",
       country: "",
       pincode: "",
+      billing_address: "",
+      billing_city: "",
+      billing_state: "",
+      billing_country: "",
+      billing_pincode: "",
       status: "active",
       user_id: NONE,
     },
@@ -63,6 +70,8 @@ function NewCustomerPage() {
             {
               first_name: values.first_name,
               last_name: values.last_name || null,
+              company_name: values.company_name || null,
+              tax_number: values.tax_number || null,
               email: values.email,
               phone: values.phone || null,
               gender: values.gender || null,
@@ -72,6 +81,11 @@ function NewCustomerPage() {
               state: values.state || null,
               country: values.country || null,
               pincode: values.pincode || null,
+              billing_address: values.billing_address || null,
+              billing_city: values.billing_city || null,
+              billing_state: values.billing_state || null,
+              billing_country: values.billing_country || null,
+              billing_pincode: values.billing_pincode || null,
               status: values.status,
               user_id: values.user_id === NONE ? null : Number(values.user_id),
             },
@@ -90,6 +104,18 @@ function NewCustomerPage() {
             <FieldLabel htmlFor="last_name">Last name</FieldLabel>
             <Input id="last_name" {...form.register("last_name")} />
             <FieldError errors={form.formState.errors.last_name ? [form.formState.errors.last_name] : undefined} />
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="company_name">Company name</FieldLabel>
+            <Input id="company_name" placeholder="Purchasing company" {...form.register("company_name")} />
+            <FieldError errors={form.formState.errors.company_name ? [form.formState.errors.company_name] : undefined} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="tax_number">Tax / Registration number</FieldLabel>
+            <Input id="tax_number" {...form.register("tax_number")} />
+            <FieldError errors={form.formState.errors.tax_number ? [form.formState.errors.tax_number] : undefined} />
           </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -156,6 +182,36 @@ function NewCustomerPage() {
             <FieldLabel htmlFor="pincode">Pincode</FieldLabel>
             <Input id="pincode" {...form.register("pincode")} />
             <FieldError errors={form.formState.errors.pincode ? [form.formState.errors.pincode] : undefined} />
+          </Field>
+        </div>
+        <div className="mt-2 text-sm font-semibold text-muted-foreground">Billing details</div>
+        <Field>
+          <FieldLabel htmlFor="billing_address">Billing address</FieldLabel>
+          <Input id="billing_address" {...form.register("billing_address")} />
+          <FieldError errors={form.formState.errors.billing_address ? [form.formState.errors.billing_address] : undefined} />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="billing_city">City</FieldLabel>
+            <Input id="billing_city" {...form.register("billing_city")} />
+            <FieldError errors={form.formState.errors.billing_city ? [form.formState.errors.billing_city] : undefined} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="billing_state">State</FieldLabel>
+            <Input id="billing_state" {...form.register("billing_state")} />
+            <FieldError errors={form.formState.errors.billing_state ? [form.formState.errors.billing_state] : undefined} />
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="billing_country">Country</FieldLabel>
+            <Input id="billing_country" {...form.register("billing_country")} />
+            <FieldError errors={form.formState.errors.billing_country ? [form.formState.errors.billing_country] : undefined} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="billing_pincode">Pincode</FieldLabel>
+            <Input id="billing_pincode" {...form.register("billing_pincode")} />
+            <FieldError errors={form.formState.errors.billing_pincode ? [form.formState.errors.billing_pincode] : undefined} />
           </Field>
         </div>
         <Field>

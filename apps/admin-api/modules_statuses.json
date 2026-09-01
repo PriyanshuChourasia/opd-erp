@@ -13,5 +13,7 @@
     "Customer": true,
     "Document": true,
     "Country": true,
-    "State": true
+    "State": true,
+    "Organization": true,
+    "License": true
 }

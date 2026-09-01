@@ -10,6 +10,16 @@ body {
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Remove up/down arrows from number inputs */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
@@ -55,6 +65,7 @@ body {
 }
 
 :root {
+  --font-scale: 1;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -71,8 +82,8 @@ body {
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: var(--primary);
+  --input: var(--primary);
   --ring: oklch(0.6557 0.1319 168.46);
   --chart-1: oklch(0.6557 0.1319 168.46);
   --chart-2: oklch(0.556 0 0);
@@ -149,6 +160,7 @@ body {
   }
   html {
     @apply font-sans;
+    font-size: calc(1rem * var(--font-scale, 1));
   }
 }
 

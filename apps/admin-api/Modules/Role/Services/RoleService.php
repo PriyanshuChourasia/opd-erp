@@ -20,11 +20,15 @@ class RoleService implements RoleServiceInterface
 
         $query = DB::table($this->table);
 
+        if ($organizationId = $request->input('organization_id')) {
+            $query->where('organization_id', (int) $organizationId);
+        }
+
         $search = trim((string) $request->input('search', ''));
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%$search%");
-                    $q->orWhere('slug', 'like', "%$search%");
+                $q->where('name', 'like', "%$search%");
+                $q->orWhere('slug', 'like', "%$search%");
             });
         }
 
@@ -60,7 +64,7 @@ class RoleService implements RoleServiceInterface
     {
         $row = DB::table($this->table)->find($id);
         if (! $row) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
 
         DB::table($this->table)
@@ -74,7 +78,7 @@ class RoleService implements RoleServiceInterface
     {
         $row = DB::table($this->table)->find($id);
         if (! $row) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
         DB::table($this->table)->where('id', $id)->delete();
     }
@@ -83,7 +87,7 @@ class RoleService implements RoleServiceInterface
     {
         $row = DB::table($this->table)->find($id);
         if (! $row) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
 
         return (array) $row;

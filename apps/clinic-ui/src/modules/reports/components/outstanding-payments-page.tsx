@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,8 +60,9 @@ function startOfMonthStr() {
 
 // ─── Main Component ──────────────────────────────────────────
 export function OutstandingPaymentsPage() {
-  const [from, setFrom] = useState(() => daysAgoStr(90));
-  const [to, setTo] = useState(() => tomorrowStr());
+  const { dateRange } = useDateRangeSync();
+  const [from, setFrom] = useState(() => dateRange.from ?? daysAgoStr(90));
+  const [to, setTo] = useState(() => dateRange.to ?? tomorrowStr());
   const [doctorId, setDoctorId] = useState<string>("all");
   const [paymentStatus, setPaymentStatus] = useState<string>("all");
   const [page, setPage] = useState(1);

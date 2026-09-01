@@ -24,24 +24,28 @@ class UserRoleService implements UserRoleServiceInterface
             ->select(['user_role.id', 'user_role.user_id', 'user_role.user_id', 'users.name as user_id___name', 'users.email as user_id___email', 'user_role.role_id', 'roles.name as role_id___name']);
 
         if ($userId = $request->input('user_id')) {
-            $query->where($this->table . '.user_id', (int) $userId);
+            $query->where($this->table.'.user_id', (int) $userId);
         }
 
-        $paginator = $query->orderByDesc($this->table . '.id')->paginate($limit, ['*'], 'page', $page);
+        if ($organizationId = $request->input('organization_id')) {
+            $query->where('users.organization_id', (int) $organizationId);
+        }
+
+        $paginator = $query->orderByDesc($this->table.'.id')->paginate($limit, ['*'], 'page', $page);
 
         return [
             'data' => collect($paginator->items())->map(function ($row) {
                 return [
-            'id' => (string) $row->id,
-            'user' => [
-                'id' => (string) $row->user_id,
-                'name' => $row->user_id___name,
-                'email' => $row->user_id___email,
-            ],
-            'role' => [
-                'id' => (string) $row->role_id,
-                'name' => $row->role_id___name,
-            ],
+                    'id' => (string) $row->id,
+                    'user' => [
+                        'id' => (string) $row->user_id,
+                        'name' => $row->user_id___name,
+                        'email' => $row->user_id___email,
+                    ],
+                    'role' => [
+                        'id' => (string) $row->role_id,
+                        'name' => $row->role_id___name,
+                    ],
                 ];
             })->values(),
             'meta' => [
@@ -56,6 +60,8 @@ class UserRoleService implements UserRoleServiceInterface
     public function store(StoreUserRoleRequest $request): array
     {
         $data = $request->validated();
+
+        $this->assertSameOrganization((int) $data['user_id'], (int) $data['role_id']);
 
         $exists = DB::table($this->table)
             ->where('user_id', $data['user_id'])
@@ -74,11 +80,24 @@ class UserRoleService implements UserRoleServiceInterface
         return $this->getById($id);
     }
 
+    /**
+     * A user and a role can only be linked when they belong to the same organization.
+     */
+    private function assertSameOrganization(int $userId, int $roleId): void
+    {
+        $userOrgId = DB::table('users')->where('id', $userId)->value('organization_id');
+        $roleOrgId = DB::table('roles')->where('id', $roleId)->value('organization_id');
+
+        if ($userOrgId !== $roleOrgId) {
+            throw new HttpException(422, 'User and role must belong to the same organization.');
+        }
+    }
+
     public function destroy(int $id): void
     {
         $row = DB::table($this->table)->find($id);
         if (! $row) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
         DB::table($this->table)->where('id', $id)->delete();
     }
@@ -87,7 +106,7 @@ class UserRoleService implements UserRoleServiceInterface
     {
         $row = DB::table($this->table)->find($id);
         if (! $row) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
 
         return [

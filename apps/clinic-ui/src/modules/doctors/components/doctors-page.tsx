@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { CalendarClock, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, BadgeCheck, DollarSign, ShieldCheck, GraduationCap, User, UserX, UserCheck, Repeat, FileUp, FileText, Camera } from "lucide-react";
+import { CalendarClock, CalendarPlus, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, BadgeCheck, DollarSign, ShieldCheck, GraduationCap, User, UserX, UserCheck, Repeat, FileUp, FileText, Camera } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { DocumentManager } from "@/modules/documents/components/document-manager";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
@@ -33,6 +34,7 @@ function emptyScheduleForm(): DayForm[] {
 
 export function DoctorsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canCreate = hasPermission(permissions, "create", "doctors");
   const canUpdate = hasPermission(permissions, "update", "doctors");
@@ -423,6 +425,14 @@ export function DoctorsPage() {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Addresses</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => navigate({ to: "/appointments/new", search: { doctorId: doctor.id } })}>
+                        <CalendarPlus className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Book Appointment</TooltipContent>
                   </Tooltip>
                   {canUpdate && (
                     <Tooltip>

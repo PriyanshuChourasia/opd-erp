@@ -12,6 +12,7 @@ import { CreateDoctorWithUserDto } from './dto/create-doctor-with-user.dto';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { UpdateDoctorWithUserDto } from './dto/update-doctor-with-user.dto';
 import { FindDoctorsQueryDto } from './dto/find-doctors-query.dto';
+import { AccountingService } from '../accounting/accounting.service';
 
 /**
  * Manages doctor profiles, specializations, licenses, and verification workflow.
@@ -26,43 +27,58 @@ import { FindDoctorsQueryDto } from './dto/find-doctors-query.dto';
 export class DoctorsService
   implements IBaseService<Doctor, CreateDoctorDto, UpdateDoctorDto>, IPaginatable<Doctor, FindDoctorsQueryDto>
 {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accountingService: AccountingService,
+  ) {}
 
   async create(dto: CreateDoctorDto, userId?: string) {
-    const doctor = await this.prisma.doctor.create({
-      data: {
-        qualification: dto.qualification,
-        specialization: dto.specialization,
-        medicalRegistrationNo: dto.medicalRegistrationNo,
-        medicalCouncil: dto.medicalCouncil,
-        registrationYear: dto.registrationYear,
-        yearsOfExperience: dto.yearsOfExperience,
-        consultationFee: dto.consultationFee ?? 0,
-        consultationMode: dto.consultationMode ?? 'OFFLINE',
-        signature: dto.signature,
-        registrationCertificateUrl: dto.registrationCertificateUrl,
-        degreeCertificateUrl: dto.degreeCertificateUrl,
-        governmentIdUrl: dto.governmentIdUrl,
-        isActive: dto.isActive ?? true,
-        createdById: userId ?? null,
-      },
-    });
-
-    // Create default weekly schedule (Mon-Fri 9:00-17:00)
-    const defaultScheduleDays = [0, 1, 2, 3, 4]; // Monday=0 … Friday=4
-    for (const dayOfWeek of defaultScheduleDays) {
-      await this.prisma.employeeSchedule.create({
+    return this.prisma.$transaction(async (tx) => {
+      const doctor = await tx.doctor.create({
         data: {
-          employeeSchedulableType: 'Doctor',
-          employeeSchedulableId: doctor.id,
-          dayOfWeek,
-          startTime: '09:00',
-          endTime: '17:00',
+          qualification: dto.qualification,
+          specialization: dto.specialization,
+          medicalRegistrationNo: dto.medicalRegistrationNo,
+          medicalCouncil: dto.medicalCouncil,
+          registrationYear: dto.registrationYear,
+          yearsOfExperience: dto.yearsOfExperience,
+          consultationFee: dto.consultationFee ?? 0,
+          consultationMode: dto.consultationMode ?? 'OFFLINE',
+          signature: dto.signature,
+          registrationCertificateUrl: dto.registrationCertificateUrl,
+          degreeCertificateUrl: dto.degreeCertificateUrl,
+          governmentIdUrl: dto.governmentIdUrl,
+          isActive: dto.isActive ?? true,
+          createdById: userId ?? null,
         },
       });
-    }
 
-    return doctor;
+      // Create default weekly schedule (Mon-Fri 9:00-17:00)
+      const defaultScheduleDays = [0, 1, 2, 3, 4]; // Monday=0 … Friday=4
+      for (const dayOfWeek of defaultScheduleDays) {
+        await tx.employeeSchedule.create({
+          data: {
+            employeeSchedulableType: 'Doctor',
+            employeeSchedulableId: doctor.id,
+            dayOfWeek,
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+        });
+      }
+
+      // Every doctor always gets a Doctor Payables ledger, even before their first payout.
+      // No name field exists on Doctor itself (personal info lives on the linked User —
+      // see createWithUser below, which creates the ledger with the real name directly).
+      await this.accountingService.resolveOrCreateDoctorLedger(
+        tx,
+        doctor.id,
+        `Doctor (${doctor.medicalRegistrationNo})`,
+        userId,
+      );
+
+      return doctor;
+    });
   }
 
   async findAll(query: FindDoctorsQueryDto): Promise<PaginatedResult<Doctor>> {
@@ -358,6 +374,11 @@ export class DoctorsService
           },
         });
       }
+
+      // 5. Every doctor and every user always gets its own ledger.
+      const fullName = `${dto.firstName} ${dto.lastName}`.trim();
+      await this.accountingService.resolveOrCreateDoctorLedger(tx, doctor.id, fullName);
+      await this.accountingService.resolveOrCreateUserLedger(tx, user.id, fullName);
 
       return { doctor, user, addresses: createdAddresses };
     });

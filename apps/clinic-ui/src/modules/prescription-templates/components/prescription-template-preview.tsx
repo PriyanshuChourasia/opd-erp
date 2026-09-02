@@ -82,10 +82,26 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
   const headerLineColor: string = layout.headerLineColor ?? primaryColor;
   const recommendations: string[] = layout.recommendations ?? [];
   const footerText: string = layout.footerText ?? "";
+  const headerFields: { label: string; value: string; side: "left" | "right" }[] = layout.headerFields ?? [];
 
   const fontCss = FONT_FAMILIES.find((f) => f.value === fontFamily)?.css ?? "'Inter', sans-serif";
   const fontSizeMap = { small: "10px", medium: "12px", large: "14px" };
   const baseFontSize = fontSizeMap[fontSize as keyof typeof fontSizeMap] ?? "12px";
+
+  // ─── Helper: user-defined header label/value pairs (left or right side) ───
+  const HeaderExtraFields = ({ side }: { side: "left" | "right" }) => {
+    const fields = headerFields.filter((f) => f.side === side);
+    if (fields.length === 0) return null;
+    return (
+      <div className={side === "right" ? "text-right" : "text-left"}>
+        {fields.map((f, i) => (
+          <p key={i} className="text-[10px] text-muted-foreground">
+            <span className="font-medium">{f.label}:</span> {f.value}
+          </p>
+        ))}
+      </div>
+    );
+  };
 
   // ─── Helper: Header Line ───
   const HeaderLine = ({ color }: { color?: string }) => (
@@ -378,6 +394,51 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
     </div>
   );
 
+  // ─── Helper: Appointment Slip Template Content ───
+  const AppointmentSlipTemplateContent = () => (
+    <div className="px-4 py-3 space-y-3" style={{ fontSize: baseFontSize }}>
+      {/* Appointment Details */}
+      <div>
+        <p className="text-xs font-semibold mb-1.5" style={{ color: primaryColor }}>Appointment Details</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          {["Appointment ID", "Department", "Appointment Date", "Appointment Time", "Token / Queue No.", "Status"].map((field) => (
+            <div key={field} className="flex items-baseline gap-2">
+              <span className="text-[10px] text-muted-foreground shrink-0 w-28">{field}:</span>
+              <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Doctor */}
+      <div>
+        <p className="text-xs font-semibold mb-1" style={{ color: primaryColor }}>Consulting Doctor</p>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] text-muted-foreground shrink-0 w-28">Doctor:</span>
+          <span className="border-b border-dashed border-muted-foreground/30 flex-1">
+            {template.doctorName ? template.doctorName : <>&nbsp;</>}
+          </span>
+        </div>
+      </div>
+      {/* Reason for Visit */}
+      <div>
+        <p className="text-xs font-semibold mb-1" style={{ color: primaryColor }}>Reason for Visit</p>
+        <div className="border border-dashed border-muted-foreground/20 rounded h-10">&nbsp;</div>
+      </div>
+      {/* Instructions */}
+      <div>
+        <p className="text-xs font-semibold mb-1" style={{ color: primaryColor }}>Instructions</p>
+        <div className="space-y-1">
+          {["Please arrive 15 minutes before your scheduled time", "Carry a valid ID and previous medical records", "Bring this slip for reception check-in"].map((instr) => (
+            <label key={instr} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <span className="size-3 border rounded-sm shrink-0" />
+              {instr}
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   // ─── Helper: Full Body Content ───
   const BodyContent = ({ patientInline = false }: { patientInline?: boolean }) => (
     <>
@@ -386,6 +447,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
         <DiagnosisTemplateContent />
       ) : templateType === "test" ? (
         <TestTemplateContent />
+      ) : templateType === "appointment_slip" ? (
+        <AppointmentSlipTemplateContent />
       ) : (
         <>
           {freeFormMode ? <WritingLines /> : <MedicineTable />}
@@ -415,7 +478,9 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                       {template.doctorName}{template.doctorSpecialization && ` · ${template.doctorSpecialization}`}{template.doctorQualification && ` · ${template.doctorQualification}`}
                     </p>
                   )}
+                  <HeaderExtraFields side="left" />
                 </div>
+                <HeaderExtraFields side="right" />
                 {showRxSymbol && <span className="text-4xl font-bold italic" style={{ color: primaryColor, opacity: 0.4 }}>℞</span>}
               </div>
               {showPatientFields && <PatientFields />}

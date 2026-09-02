@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, BadgeIndianRupee } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, BadgeIndianRupee, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchAppointmentPayments, fetchBillPayments, type Payment } from "@/lib/api";
 
@@ -21,9 +21,11 @@ interface PaymentHistoryProps {
   appointmentId?: string;
   /** Pass billId to fetch bill-level payments */
   billId?: string;
+  /** Callback when 'View Receipt' is clicked — receives the payment row */
+  onViewReceipt?: (paymentId: string) => void;
 }
 
-export function PaymentHistory({ appointmentId, billId }: PaymentHistoryProps) {
+export function PaymentHistory({ appointmentId, billId, onViewReceipt }: PaymentHistoryProps) {
   const { data: payments, isLoading } = useQuery({
     queryKey: billId ? ["bill-payments", billId] : ["appointment-payments", appointmentId],
     queryFn: () => billId ? fetchBillPayments(billId) : fetchAppointmentPayments(appointmentId!),
@@ -72,6 +74,7 @@ export function PaymentHistory({ appointmentId, billId }: PaymentHistoryProps) {
               <th className="px-3 py-2">Reference</th>
               <th className="px-3 py-2">Collected By</th>
               <th className="px-3 py-2 text-right">Balance</th>
+              {onViewReceipt && <th className="px-3 py-2"></th>}
             </tr>
           </thead>
           <tbody>
@@ -129,6 +132,18 @@ export function PaymentHistory({ appointmentId, billId }: PaymentHistoryProps) {
                 <td className="px-3 py-2 text-right font-medium">
                   {currency(row.balance)}
                 </td>
+                {onViewReceipt && row.direction === "PAYMENT" && (
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      onClick={() => onViewReceipt(row.id)}
+                    >
+                      <FileText className="size-3" />
+                      Receipt
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

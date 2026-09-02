@@ -22,7 +22,11 @@ export class BillingController {
 
   @Get()
   @Permissions('read:billing')
-  findAll(@Query() query: FindBillsQueryDto) {
+  findAll(@Query() query: FindBillsQueryDto, @Req() req: { user: { id: string; userableType?: string; userableId?: string } }) {
+    // Patient portal: force scoping to own bills
+    if (req.user.userableType === 'Patient' && req.user.userableId) {
+      query.patientId = req.user.userableId;
+    }
     return this.service.findAll(query);
   }
 
@@ -48,6 +52,12 @@ export class BillingController {
   @Permissions('read:billing')
   getPayments(@Param('id') id: string) {
     return this.service.getPayments(id);
+  }
+
+  @Get(':id/payments/:paymentId/receipt')
+  @Permissions('read:billing')
+  getReceipt(@Param('id') id: string, @Param('paymentId') paymentId: string) {
+    return this.service.getReceipt(id, paymentId);
   }
 
   @Post(':id/refund')

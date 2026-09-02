@@ -36,7 +36,7 @@ const shiftData = [
 const RESOURCES = [
   // Core clinical
   'patients', 'appointments', 'doctors', 'prescriptions',
-  'medicine-catalog', 'queue', 'billing', 'dispensing',
+  'medicine-catalog', 'queue', 'billing', 'dispensing', 'discounts',
   'medicine-groups', 'units',
   'departments', 'designations', 'financial-years',
   // Diagnostics & orders
@@ -124,6 +124,9 @@ async function seedOrganisation() {
       website: 'https://cityclinic.com',
       registrationNumber: 'REG-MH-2024-0001',
       registrationFee: 100,
+      gstNumber: '27AABCU9603R1ZM',
+      panNumber: 'AABCU9603R',
+      cinNumber: 'U74999MH2014PTC255989',
     },
   });
   console.log('Seeded company.');
@@ -462,6 +465,7 @@ async function seedPermissions(): Promise<Permission[]> {
     'dashboard:read', 'dashboard:update',
     'diagnoses:read', 'diagnoses:update',
     'diagnosis-systems:read', 'diagnosis-systems:update',
+    'discounts:create', 'discounts:delete', 'discounts:manage', 'discounts:read', 'discounts:update',
     'dispensing:create', 'dispensing:delete', 'dispensing:manage', 'dispensing:read', 'dispensing:update',
     'doctors:create', 'doctors:delete', 'doctors:manage', 'doctors:read', 'doctors:update',
     'documents:create', 'documents:read', 'documents:update',
@@ -495,6 +499,8 @@ async function seedPermissions(): Promise<Permission[]> {
   ]);
   const receptionistReadResources = new Set([
     'medicine-catalog', 'lab-orders', 'radiology-orders', 'procedure-orders',
+    // Needed to populate the discount dropdown at payment time.
+    'discounts',
     // Needed to render available booking slots when scheduling/rescheduling appointments.
     'employee-schedules',
     // Needed to reprint a prescription on its doctor's assigned template.
@@ -567,7 +573,7 @@ async function seedPermissions(): Promise<Permission[]> {
 
   // ── Pharmacist: dispensing, prescriptions, medicine catalog ──
   const pharmacistReadResources = new Set([
-    'patients', 'prescriptions', 'medicine-catalog', 'dispensing', 'billing', 'doctors',
+    'patients', 'prescriptions', 'medicine-catalog', 'dispensing', 'billing', 'discounts', 'doctors',
     // Needed for sidebar header company name.
     'company',
   ]);
@@ -622,8 +628,15 @@ async function seedPermissions(): Promise<Permission[]> {
   const doctorAsAdminPerms = [...new Set([...adminPerms, ...doctorPerms])];
   const doctorAsAdmin = await upsertRoleWithPermissions('Doctor as Admin', 'Doctor with full admin access — clinical operations plus operational, billing, staff, and system management', doctorAsAdminPerms);
 
-  console.log(`Seeded roles: Developer (${superAdminPerms.length}), Admin (${adminPerms.length}), Doctor as Admin (${doctorAsAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}).`);
-  return { superAdmin, admin, doctorAsAdmin, receptionist, doctor, nurse, assistant, pharmacist, labTech };
+  // ── Patient: read-only access to own data ──
+  const patientReadResources = new Set(['appointments', 'prescriptions', 'lab-orders', 'billing']);
+  const patientPerms = permissions.filter(
+    (p) => patientReadResources.has(p.resource) && p.action === 'read',
+  );
+  const patientRole = await upsertRoleWithPermissions('Patient', 'Patient portal: read-only access to own appointments, prescriptions, lab orders, and bills', patientPerms);
+
+  console.log(`Seeded roles: Developer (${superAdminPerms.length}), Admin (${adminPerms.length}), Doctor as Admin (${doctorAsAdminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}), Patient (${patientPerms.length}).`);
+  return { superAdmin, admin, doctorAsAdmin, receptionist, doctor, nurse, assistant, pharmacist, labTech, patientRole };
 }
 
 async function seedUsers(
@@ -2043,11 +2056,7 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
 // ─── Prescription Templates ───────────────────────────────
 
 const prescriptionTemplateData = [
-  // ═══════════════════════════════════════════════════════════
-  // PRESCRIPTION TEMPLATES
-  // ═══════════════════════════════════════════════════════════
-
-  // ── 1. Classic — Traditional formal layout ──
+  // ── 1. Classic — Traditional formal layout (default prescription template) ──
   {
     name: 'Classic Clinic Rx',
     type: 'prescription',
@@ -2088,386 +2097,7 @@ const prescriptionTemplateData = [
       footerColumns: ['address', 'phone', 'email'],
     },
   },
-  // ── 2. Modern — Contemporary with colored header banner ──
-  {
-    name: 'Modern Clinic Rx',
-    type: 'prescription',
-    description: 'Contemporary design with gradient header banner, rounded elements, and color accents',
-    isDefault: false,
-    headerTitle: 'City Heart Clinic',
-    headerSubtitle: 'Cardiology & Cardiovascular Medicine',
-    clinicPhone: '022-25551235',
-    clinicEmail: 'heart@cityclinic.com',
-    clinicWebsite: 'https://cityclinic.com/heart',
-    doctorName: 'Dr. Arun Singh',
-    doctorSpecialization: 'Cardiology',
-    doctorQualification: 'MBBS, DM Cardiology',
-    doctorRegistrationNo: 'MCI-10005',
-    layout: {
-      layoutStyle: 'modern',
-      headerStyle: 'banner',
-      fontFamily: 'sans',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: false,
-      showFooter: true,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: true,
-      primaryColor: '#dc2626',
-      secondaryColor: '#fef2f2',
-      headerBgColor: '#dc2626',
-      recommendations: [],
-      footerText: '',
-      footerColumns: ['address', 'phone'],
-    },
-  },
-  // ── 3. Minimal — Stripped-down, quick prescriptions ──
-  {
-    name: 'Minimal Rx',
-    type: 'prescription',
-    description: 'Clean, minimal template without branding — ideal for quick prescriptions',
-    isDefault: false,
-    headerTitle: '',
-    headerSubtitle: '',
-    clinicPhone: '',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: '',
-    doctorSpecialization: '',
-    doctorQualification: '',
-    doctorRegistrationNo: '',
-    layout: {
-      layoutStyle: 'minimal',
-      headerStyle: 'left',
-      fontFamily: 'sans',
-      paperSize: 'A4',
-      fontSize: 'small',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: false,
-      showClinicAddress: false,
-      showRegistrationNo: false,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      primaryColor: '#000000',
-      secondaryColor: '#ffffff',
-      headerBgColor: '#000000',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-  // ── 4. Two-Column — Split layout for dense prescriptions ──
-  {
-    name: 'Two-Column Rx',
-    type: 'prescription',
-    description: 'Split layout: patient info on left, medicines on right — great for detailed prescriptions',
-    isDefault: false,
-    headerTitle: 'City Clinic — OPD',
-    headerSubtitle: 'Multi-Specialty Clinic',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'info@cityclinic.com',
-    clinicWebsite: 'https://cityclinic.com',
-    doctorName: 'Dr. Lakshmi Iyer',
-    doctorSpecialization: 'Gynecology',
-    doctorQualification: 'MBBS, MS OBG',
-    doctorRegistrationNo: 'MCI-10004',
-    layout: {
-      layoutStyle: 'two-column',
-      headerStyle: 'split',
-      fontFamily: 'sans',
-      paperSize: 'A4',
-      fontSize: 'small',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: true,
-      showFooter: true,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: true,
-      primaryColor: '#7c3aed',
-      secondaryColor: '#ede9fe',
-      headerBgColor: '#7c3aed',
-      recommendations: [
-        'Continue Breastfeeding',
-        'Vaccination Schedule',
-        'Growth Monitoring',
-        'Nutrition Advice',
-        'Iron Supplements',
-      ],
-      footerText: '',
-      footerColumns: ['address', 'phone', 'email'],
-    },
-  },
-  // ── 5. Compact — Dense layout for high-volume clinics ──
-  {
-    name: 'Compact Rx',
-    type: 'prescription',
-    description: 'Dense layout fitting more info in less space — perfect for high-volume OPD',
-    isDefault: false,
-    headerTitle: 'City Clinic — Express',
-    headerSubtitle: 'Quick Consultation Desk',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'express@cityclinic.com',
-    clinicWebsite: '',
-    doctorName: 'Dr. Vivek Mehta',
-    doctorSpecialization: 'Orthopedics',
-    doctorQualification: 'MBBS, MS Ortho',
-    doctorRegistrationNo: 'MCI-10003',
-    layout: {
-      layoutStyle: 'compact',
-      headerStyle: 'left',
-      fontFamily: 'sans',
-      paperSize: 'A5',
-      fontSize: 'small',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: false,
-      showFooter: true,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: false,
-      primaryColor: '#059669',
-      secondaryColor: '#d1fae5',
-      headerBgColor: '#059669',
-      recommendations: [],
-      footerText: '',
-      footerColumns: ['address', 'phone'],
-    },
-  },
-  // ── 6. Banner — Full-width header with centered content ──
-  {
-    name: 'Banner Rx',
-    type: 'prescription',
-    description: 'Full-width header banner with centered content — premium clinic look',
-    isDefault: false,
-    headerTitle: 'City Eye Centre',
-    headerSubtitle: 'Complete Eye Care & Vision Solutions',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'eyes@cityclinic.com',
-    clinicWebsite: 'https://cityclinic.com/eyes',
-    doctorName: 'Dr. Deepa Nair',
-    doctorSpecialization: 'Ophthalmology',
-    doctorQualification: 'MBBS, MS Ophthalmology',
-    doctorRegistrationNo: 'MCI-10008',
-    layout: {
-      layoutStyle: 'banner',
-      headerStyle: 'centered',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: true,
-      showFooter: true,
-      showQRCode: true,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: true,
-      showDiagnosis: true,
-      showNotes: true,
-      freeFormMode: false,
-      writingLineCount: 20,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#0891b2',
-      primaryColor: '#0891b2',
-      secondaryColor: '#ecfeff',
-      headerBgColor: '#0891b2',
-      recommendations: [
-        'Single Vision',
-        'Bifocal',
-        'Trifocal',
-        'Progressive',
-        'Polycarbonate',
-        'Trivex',
-        'Hi-Index',
-        'Anti-Reflective Coating',
-        'Photochromic',
-        'Tint',
-        'Polarized',
-      ],
-      footerText: 'Thank you for choosing City Eye Centre',
-      footerColumns: ['address', 'phone', 'email', 'website'],
-    },
-  },
-  // ── 7. Letterhead — Hospital letterhead with split header and line separator ──
-  {
-    name: 'Hospital Letterhead Rx',
-    type: 'prescription',
-    description: 'Classic hospital letterhead with doctor info left, hospital right, and colored separator line',
-    isDefault: false,
-    headerTitle: 'City Hospital',
-    headerSubtitle: 'Multi-Specialty Hospital',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'info@cityhospital.com',
-    clinicWebsite: 'https://cityhospital.com',
-    doctorName: 'Dr. Arun Singh',
-    doctorSpecialization: 'Cardiology',
-    doctorQualification: 'MBBS, DM Cardiology',
-    doctorRegistrationNo: 'MCI-10005',
-    layout: {
-      layoutStyle: 'letterhead',
-      headerStyle: 'split-line',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: false,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: false,
-      writingLineCount: 20,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#16a34a',
-      primaryColor: '#16a34a',
-      secondaryColor: '#dcfce7',
-      headerBgColor: '#16a34a',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-  // ── 8. Doctor's Script — Free-form writing pad with handwriting font ──
-  {
-    name: "Doctor's Script Pad",
-    type: 'prescription',
-    description: 'Free-form writing pad with lined paper and handwriting font — for doctors who prefer to write by hand',
-    isDefault: false,
-    headerTitle: '',
-    headerSubtitle: '',
-    clinicPhone: '',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: 'Dr. Priya Kapoor',
-    doctorSpecialization: 'Dermatology',
-    doctorQualification: 'MBBS, MD Dermatology',
-    doctorRegistrationNo: 'MCI-10006',
-    layout: {
-      layoutStyle: 'doctor-script',
-      headerStyle: 'left',
-      fontFamily: 'handwriting',
-      paperSize: 'A4',
-      fontSize: 'large',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: false,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: false,
-      freeFormMode: true,
-      writingLineCount: 25,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Dr. Priya Kapoor',
-      showHeaderLine: true,
-      headerLineColor: '#d97706',
-      primaryColor: '#d97706',
-      secondaryColor: '#fef3c7',
-      headerBgColor: '#d97706',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-  // ── 9. Prescription Pad — Classic pad with no footer, just signature ──
-  {
-    name: 'Quick Prescription Pad',
-    type: 'prescription',
-    description: 'Minimal pad — header, patient line, writing space, and signature. No footer, no table.',
-    isDefault: false,
-    headerTitle: '',
-    headerSubtitle: '',
-    clinicPhone: '022-25551234',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: 'Dr. Mohammed Farooq',
-    doctorSpecialization: 'ENT',
-    doctorQualification: 'MBBS, MS ENT',
-    doctorRegistrationNo: 'MCI-10007',
-    layout: {
-      layoutStyle: 'prescription-pad',
-      headerStyle: 'split-line',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: false,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: true,
-      writingLineCount: 22,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#7c3aed',
-      primaryColor: '#7c3aed',
-      secondaryColor: '#ede9fe',
-      headerBgColor: '#7c3aed',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-
-  // ═══════════════════════════════════════════════════════════
-  // DIAGNOSIS TEMPLATES
-  // ═══════════════════════════════════════════════════════════
-
-  // ── 10. Standard Diagnosis Report ──
+  // ── 2. Standard Diagnosis Report (default diagnosis template) ──
   {
     name: 'Standard Diagnosis Report',
     type: 'diagnosis',
@@ -2513,206 +2143,6 @@ const prescriptionTemplateData = [
       recommendations: [],
       footerText: '',
       footerColumns: ['address', 'phone'],
-    },
-  },
-
-  // ── 11. Fitness Certificate ──
-  {
-    name: 'Fitness Certificate',
-    type: 'diagnosis',
-    description: 'Medical fitness certificate for employment, sports, or travel',
-    isDefault: false,
-    headerTitle: 'City Hospital',
-    headerSubtitle: 'Medical Fitness Department',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'fitness@cityhospital.com',
-    clinicWebsite: '',
-    doctorName: 'Dr. Arun Singh',
-    doctorSpecialization: 'General Medicine',
-    doctorQualification: 'MBBS, MD',
-    doctorRegistrationNo: 'MCI-10005',
-    layout: {
-      layoutStyle: 'letterhead',
-      headerStyle: 'split-line',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: true,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: true,
-      freeFormMode: true,
-      writingLineCount: 18,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Doctor Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#0891b2',
-      primaryColor: '#0891b2',
-      secondaryColor: '#ecfeff',
-      headerBgColor: '#0891b2',
-      recommendations: [],
-      footerText: 'This certificate is valid for 30 days from the date of issue.',
-      footerColumns: ['address', 'phone'],
-    },
-  },
-
-  // ── 12. Sick Leave Certificate ──
-  {
-    name: 'Sick Leave Certificate',
-    type: 'diagnosis',
-    description: 'Sick leave / medical leave certificate for employers and institutions',
-    isDefault: false,
-    headerTitle: 'City Clinic',
-    headerSubtitle: '',
-    clinicPhone: '022-25551234',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: 'Dr. Sunita Verma',
-    doctorSpecialization: 'General Medicine',
-    doctorQualification: 'MBBS, DCH',
-    doctorRegistrationNo: 'MCI-10002',
-    layout: {
-      layoutStyle: 'minimal',
-      headerStyle: 'left',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: false,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: true,
-      writingLineCount: 12,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Doctor Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#d97706',
-      primaryColor: '#d97706',
-      secondaryColor: '#fef3c7',
-      headerBgColor: '#d97706',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-
-  // ═══════════════════════════════════════════════════════════
-  // LAB TEST TEMPLATES
-  // ═══════════════════════════════════════════════════════════
-
-  // ── 13. Standard Lab Test Order ──
-  {
-    name: 'Standard Lab Test Order',
-    type: 'test',
-    description: 'Comprehensive lab test order form with all test categories and checkboxes',
-    isDefault: true,
-    headerTitle: 'City Diagnostic Centre',
-    headerSubtitle: 'NABL Accredited Laboratory',
-    clinicPhone: '022-25551235',
-    clinicEmail: 'lab@cityclinic.com',
-    clinicWebsite: 'https://cityclinic.com/lab',
-    doctorName: '',
-    doctorSpecialization: '',
-    doctorQualification: '',
-    doctorRegistrationNo: '',
-    layout: {
-      layoutStyle: 'classic',
-      headerStyle: 'centered',
-      fontFamily: 'sans',
-      paperSize: 'A4',
-      fontSize: 'small',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: true,
-      showQRCode: true,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: false,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: false,
-      writingLineCount: 20,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Referring Doctor:',
-      showHeaderLine: true,
-      headerLineColor: '#dc2626',
-      primaryColor: '#dc2626',
-      secondaryColor: '#fef2f2',
-      headerBgColor: '#dc2626',
-      recommendations: [],
-      footerText: 'Report will be available in 24-48 hours',
-      footerColumns: ['address', 'phone', 'email'],
-    },
-  },
-
-  // ── 14. Quick Test Requisition ──
-  {
-    name: 'Quick Test Requisition',
-    type: 'test',
-    description: 'Minimal test requisition — just patient info and test checklist',
-    isDefault: false,
-    headerTitle: 'City Clinic Lab',
-    headerSubtitle: '',
-    clinicPhone: '022-25551234',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: 'Dr. Priya Kapoor',
-    doctorSpecialization: 'Dermatology',
-    doctorQualification: 'MBBS, MD Dermatology',
-    doctorRegistrationNo: 'MCI-10006',
-    layout: {
-      layoutStyle: 'minimal',
-      headerStyle: 'left',
-      fontFamily: 'sans',
-      paperSize: 'A5',
-      fontSize: 'small',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: false,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: false,
-      writingLineCount: 15,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Doctor:',
-      showHeaderLine: true,
-      headerLineColor: '#7c3aed',
-      primaryColor: '#7c3aed',
-      secondaryColor: '#ede9fe',
-      headerBgColor: '#7c3aed',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
     },
   },
 ];
@@ -2768,11 +2198,15 @@ async function seedAppointments(doctorRows: Doctor[]) {
   const doctor = doctorRows[0];
   if (!doctor) return;
 
-  const plan: { patientPhone: string; status: string; minutesFromNow: number }[] = [
+  const plan: { patientPhone: string; status: string; minutesFromNow: number; amountPaid?: number }[] = [
     { patientPhone: '9876543210', status: 'CHECKED_IN', minutesFromNow: 0 },
     { patientPhone: '9876543212', status: 'CHECKED_IN', minutesFromNow: 15 },
     { patientPhone: '9876543214', status: 'CONFIRMED', minutesFromNow: 60 },
     { patientPhone: '9876543216', status: 'COMPLETED', minutesFromNow: -60 },
+    // Missing statuses — exercise the narrowed filter and refund-gate logic
+    { patientPhone: '9876543210', status: 'SCHEDULED', minutesFromNow: 180 },
+    { patientPhone: '9876543212', status: 'NO_SHOW', minutesFromNow: -120 },
+    { patientPhone: '9876543214', status: 'CANCELLED', minutesFromNow: -30, amountPaid: 500 }, // triggers refund-decision modal path
   ];
 
   const now = new Date();
@@ -2788,6 +2222,7 @@ async function seedAppointments(doctorRows: Doctor[]) {
         type: 'CONSULTATION',
         status,
         amount: doctor.consultationFee || 500,
+        amountPaid: amountPaid ?? 0,
       },
     });
     if (status === 'CHECKED_IN') {
@@ -3254,19 +2689,490 @@ async function main() {
 
   await seedBloodGroups();
 
-  console.log('\n📊 Seeding demo transactional data...');
+  console.log('\n📊 Skipping demo transactional data (appointments, bills, prescriptions, accounting)...');
+  console.log('   Patients and medicines are kept from wipe-data.ts.');
+  console.log('   Run seedAccounting() separately if you need chart-of-accounts.');
 
-  await seedPatientsWithHistory(doctors);
-  await seedAppointments(doctors);
-  await seedBills();
-  await seedOrders(doctors);
-  await seedDispensing();
-  await seedPatientAllergies();
-
-  await seedPrescriptionTemplates();
-  await seedSidebarConfig();
+  // Uncomment below to re-seed specific data:
+  // await seedPatientsWithHistory(doctors);
+  // await seedAppointments(doctors);
+  // await seedBills();
+  // await seedOrders(doctors);
+  // await seedDispensing();
+  // await seedPatientAllergies();
+  // await seedPrescriptionTemplates();
+  // await seedAccounting();
+  // await backfillMissingLedgers();
+  // await seedAccountingDemoData();
+  // await seedSidebarConfig();
 
   console.log('✅ Seed complete.');
+}
+
+async function seedAccounting() {
+  // ── 1. Seed 5 Account Natures ──
+  const natures = [
+    { code: 'ASSET', name: 'Assets', normalBalance: 'DEBIT' },
+    { code: 'LIABILITY', name: 'Liabilities', normalBalance: 'CREDIT' },
+    { code: 'INCOME', name: 'Income', normalBalance: 'CREDIT' },
+    { code: 'EXPENSE', name: 'Expenses', normalBalance: 'DEBIT' },
+    { code: 'EQUITY', name: 'Equity', normalBalance: 'CREDIT' },
+  ];
+
+  const natureIdMap = new Map<string, string>();
+  for (const n of natures) {
+    const row = await prisma.accountNature.upsert({
+      where: { code: n.code },
+      update: { name: n.name, normalBalance: n.normalBalance },
+      create: n,
+    });
+    natureIdMap.set(n.code, row.id);
+  }
+  console.log(`Seeded ${natures.length} account natures.`);
+
+  // ── 2. Seed Tally-style primary Account Groups (hierarchical) ──
+  interface GroupSeed {
+    name: string;
+    nature: string; // code
+    parent?: string; // parent name within same nature
+    isReserved?: boolean;
+    affectsGrossProfit?: boolean;
+  }
+
+  const groupDefs: GroupSeed[] = [
+    // Assets
+    { name: 'Current Assets', nature: 'ASSET', isReserved: true },
+    { name: 'Bank Accounts', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Cash-in-Hand', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Sundry Debtors', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Staff Accounts', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Inventory Asset', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Fixed Assets', nature: 'ASSET', isReserved: true },
+
+    // Liabilities
+    { name: 'Current Liabilities', nature: 'LIABILITY', isReserved: true },
+    { name: 'Sundry Creditors', nature: 'LIABILITY', parent: 'Current Liabilities', isReserved: true },
+    { name: 'Doctor Payables', nature: 'LIABILITY', parent: 'Current Liabilities', isReserved: true },
+    { name: 'Duties & Taxes', nature: 'LIABILITY', parent: 'Current Liabilities', isReserved: true },
+    { name: 'GST Payable', nature: 'LIABILITY', parent: 'Duties & Taxes', isReserved: true },
+    { name: 'Long-term Liabilities', nature: 'LIABILITY', isReserved: true },
+
+    // Income
+    { name: 'Sales Accounts', nature: 'INCOME', isReserved: true, affectsGrossProfit: true },
+    { name: 'Pharmacy Sales', nature: 'INCOME', parent: 'Sales Accounts', affectsGrossProfit: true },
+    { name: 'Consultation Income', nature: 'INCOME', parent: 'Sales Accounts', affectsGrossProfit: true },
+    { name: 'Lab Income', nature: 'INCOME', parent: 'Sales Accounts', affectsGrossProfit: true },
+    { name: 'Other Income', nature: 'INCOME', isReserved: true },
+
+    // Expenses
+    { name: 'Purchase Accounts', nature: 'EXPENSE', isReserved: true, affectsGrossProfit: true },
+    { name: 'Cost of Goods Sold', nature: 'EXPENSE', parent: 'Purchase Accounts', affectsGrossProfit: true },
+    { name: 'Direct Expenses', nature: 'EXPENSE', isReserved: true, affectsGrossProfit: true },
+    { name: 'Indirect Expenses', nature: 'EXPENSE', isReserved: true },
+
+    // Equity
+    { name: 'Capital Account', nature: 'EQUITY', isReserved: true },
+    { name: 'Retained Earnings', nature: 'EQUITY', isReserved: true },
+  ];
+
+  // First pass: create all groups (parents first, then children)
+  const groupIdMap = new Map<string, string>(); // name → id
+  const deferred: GroupSeed[] = [];
+
+  for (const g of groupDefs) {
+    if (g.parent && !groupIdMap.has(g.parent)) {
+      deferred.push(g);
+      continue;
+    }
+    const natureId = natureIdMap.get(g.nature)!;
+    const parentGroupId = g.parent ? groupIdMap.get(g.parent) ?? null : null;
+    const row = await prisma.accountGroup.upsert({
+      where: { name_natureId: { name: g.name, natureId } },
+      update: { parentGroupId, isReserved: g.isReserved ?? false, affectsGrossProfit: g.affectsGrossProfit ?? false },
+      create: {
+        name: g.name,
+        natureId,
+        parentGroupId,
+        isReserved: g.isReserved ?? false,
+        affectsGrossProfit: g.affectsGrossProfit ?? false,
+      },
+    });
+    groupIdMap.set(g.name, row.id);
+  }
+
+  // Second pass: deferred children
+  for (const g of deferred) {
+    const natureId = natureIdMap.get(g.nature)!;
+    const parentGroupId = g.parent ? groupIdMap.get(g.parent) ?? null : null;
+    const row = await prisma.accountGroup.upsert({
+      where: { name_natureId: { name: g.name, natureId } },
+      update: { parentGroupId, isReserved: g.isReserved ?? false, affectsGrossProfit: g.affectsGrossProfit ?? false },
+      create: {
+        name: g.name,
+        natureId,
+        parentGroupId,
+        isReserved: g.isReserved ?? false,
+        affectsGrossProfit: g.affectsGrossProfit ?? false,
+      },
+    });
+    groupIdMap.set(g.name, row.id);
+  }
+  console.log(`Seeded ${groupDefs.length} account groups.`);
+
+  // ── 3. Seed default Ledgers ──
+  interface LedgerSeed {
+    name: string;
+    accountGroup: string;
+    isCashAccount?: boolean;
+    isBankAccount?: boolean;
+    isBillWiseTracking?: boolean;
+  }
+
+  const ledgerDefs: LedgerSeed[] = [
+    { name: 'Cash', accountGroup: 'Cash-in-Hand', isCashAccount: true },
+    { name: 'Bank Account', accountGroup: 'Bank Accounts', isBankAccount: true },
+    { name: 'Pharmacy Sales', accountGroup: 'Pharmacy Sales' },
+    { name: 'Consultation Income', accountGroup: 'Consultation Income' },
+    { name: 'Lab Income', accountGroup: 'Lab Income' },
+    { name: 'GST Payable', accountGroup: 'GST Payable' },
+    { name: 'Sundry Debtors', accountGroup: 'Sundry Debtors', isBillWiseTracking: true },
+    { name: 'Sundry Creditors', accountGroup: 'Sundry Creditors', isBillWiseTracking: true },
+    { name: 'Inventory Asset', accountGroup: 'Inventory Asset' },
+    { name: 'Cost of Goods Sold', accountGroup: 'Cost of Goods Sold' },
+    { name: 'Capital Account', accountGroup: 'Capital Account' },
+    { name: 'Retained Earnings', accountGroup: 'Retained Earnings' },
+  ];
+
+  let ledgerCount = 0;
+  for (const l of ledgerDefs) {
+    const accountGroupId = groupIdMap.get(l.accountGroup);
+    if (!accountGroupId) {
+      console.warn(`⚠️  Skipping ledger "${l.name}" — group "${l.accountGroup}" not found.`);
+      continue;
+    }
+    const existing = await prisma.ledger.findFirst({
+      where: { name: l.name, accountGroupId },
+    });
+    if (!existing) {
+      await prisma.ledger.create({
+        data: {
+          name: l.name,
+          accountGroupId,
+          isCashAccount: l.isCashAccount ?? false,
+          isBankAccount: l.isBankAccount ?? false,
+          isBillWiseTracking: l.isBillWiseTracking ?? false,
+        },
+      });
+      ledgerCount++;
+    }
+  }
+  console.log(`Seeded ${ledgerCount} default ledgers.`);
+
+  // ── 4. Seed VoucherTypes ──
+  const voucherTypes = [
+    { name: 'Sales', code: 'SALES', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'SAL', isSystemDefined: true },
+    { name: 'Purchase', code: 'PURCHASE', affectsAccounting: true, affectsInventory: true, numberingPrefix: 'PUR', isSystemDefined: true },
+    { name: 'Receipt', code: 'RECEIPT', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'REC', isSystemDefined: true },
+    { name: 'Payment', code: 'PAYMENT', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'PAY', isSystemDefined: true },
+    { name: 'Journal', code: 'JOURNAL', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'JNL', isSystemDefined: true },
+    { name: 'Contra', code: 'CONTRA', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'CTR', isSystemDefined: true },
+    { name: 'Stock Journal', code: 'STOCK_JOURNAL', affectsAccounting: false, affectsInventory: true, numberingPrefix: 'STK', isSystemDefined: true },
+    { name: 'Credit Note', code: 'CREDIT_NOTE', affectsAccounting: true, affectsInventory: true, numberingPrefix: 'CRN', isSystemDefined: true },
+    { name: 'Debit Note', code: 'DEBIT_NOTE', affectsAccounting: true, affectsInventory: true, numberingPrefix: 'DBN', isSystemDefined: true },
+  ];
+
+  const voucherTypeIdMap = new Map<string, string>();
+  for (const vt of voucherTypes) {
+    const row = await prisma.voucherType.upsert({
+      where: { code: vt.code },
+      update: { name: vt.name },
+      create: vt,
+    });
+    voucherTypeIdMap.set(vt.code, row.id);
+  }
+  console.log(`Seeded ${voucherTypes.length} voucher types.`);
+
+  // ── 5. Seed JournalTypes ──
+  const journalTypes = [
+    { code: 'GENERAL', name: 'General', requiresApproval: false },
+    { code: 'OPENING', name: 'Opening Balance', requiresApproval: true },
+    { code: 'CLOSING', name: 'Closing/Year-End', requiresApproval: true },
+    { code: 'ADJUSTING', name: 'Adjusting Entry', requiresApproval: true },
+    { code: 'SYSTEM_AUTO', name: 'System Auto-Generated', requiresApproval: false },
+  ];
+
+  const journalTypeIdMap = new Map<string, string>();
+  for (const jt of journalTypes) {
+    const row = await prisma.journalType.upsert({
+      where: { code: jt.code },
+      update: {},
+      create: jt,
+    });
+    journalTypeIdMap.set(jt.code, row.id);
+  }
+  console.log(`Seeded ${journalTypes.length} journal types.`);
+
+  // ── 6. Ensure a FinancialYear with isCurrent: true ──
+  const currentFY = await prisma.financialYear.findFirst({ where: { isCurrent: true } });
+  if (!currentFY) {
+    const now = new Date();
+    const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const fyStart = new Date(fyStartYear, 3, 1); // April 1
+    const fyEnd = new Date(fyStart.getFullYear() + 1, 2, 31); // March 31
+    const fyName = `${fyStart.getFullYear()}-${fyEnd.getFullYear()}`;
+    await prisma.financialYear.create({
+      data: { name: fyName, startDate: fyStart, endDate: fyEnd, isCurrent: true },
+    });
+    console.log(`Seeded financial year: ${fyName}`);
+  } else {
+    console.log(`Financial year already exists: ${currentFY.name}`);
+  }
+
+  // ── 7. Add linkedPaymentMethod to existing payment-method ledgers ──
+  // Map CASH to the Cash ledger, CARD/UPI to the Bank Account ledger
+  const cashLedger = await prisma.ledger.findFirst({ where: { name: 'Cash' } });
+  if (cashLedger && !cashLedger.linkedPaymentMethod) {
+    await prisma.ledger.update({ where: { id: cashLedger.id }, data: { linkedPaymentMethod: 'CASH' } });
+    console.log('Marked Cash ledger with linkedPaymentMethod = CASH');
+  }
+  const bankLedger = await prisma.ledger.findFirst({ where: { name: 'Bank Account' } });
+  if (bankLedger) {
+    // CARD and UPI are unique fields, so we can't set both on the same row.
+    // We'll handle CARD/UPI resolution in code by mapping both to Bank Account.
+    console.log('Bank Account ledger found — CARD/UPI will resolve to this ledger in code.');
+  }
+}
+
+/**
+ * Every Patient/Doctor/User must always have its own ledger (app-level invariant
+ * enforced going forward in patients/doctors/users/auth services). This backfills
+ * any row created before that wiring existed, or restored by a --fresh reseed.
+ */
+async function backfillMissingLedgers() {
+  const sundryDebtors = await prisma.accountGroup.findFirst({ where: { name: 'Sundry Debtors' } });
+  const doctorPayables = await prisma.accountGroup.findFirst({ where: { name: 'Doctor Payables' } });
+  const staffAccounts = await prisma.accountGroup.findFirst({ where: { name: 'Staff Accounts' } });
+  if (!sundryDebtors || !doctorPayables || !staffAccounts) {
+    console.warn('⚠️  Skipping ledger backfill — required account groups not found.');
+    return;
+  }
+
+  let patientCount = 0;
+  const patients = await prisma.patient.findMany({ where: { deletedAt: null } });
+  for (const p of patients) {
+    const existing = await prisma.ledger.findFirst({ where: { patientId: p.id } });
+    if (existing) continue;
+    await prisma.ledger.create({
+      data: {
+        name: `${p.firstName} ${p.lastName}`.trim(),
+        accountGroupId: sundryDebtors.id,
+        openingBalance: 0,
+        openingBalanceType: 'DEBIT',
+        isBillWiseTracking: true,
+        patientId: p.id,
+      },
+    });
+    patientCount++;
+  }
+
+  let doctorCount = 0;
+  const doctors = await prisma.doctor.findMany();
+  for (const d of doctors) {
+    const existing = await prisma.ledger.findFirst({ where: { doctorId: d.id } });
+    if (existing) continue;
+    const linkedUser = await prisma.user.findFirst({ where: { userableType: 'Doctor', userableId: d.id } });
+    const name = linkedUser ? `${linkedUser.firstName} ${linkedUser.lastName}`.trim() : `Doctor (${d.medicalRegistrationNo})`;
+    await prisma.ledger.create({
+      data: {
+        name,
+        accountGroupId: doctorPayables.id,
+        openingBalance: 0,
+        openingBalanceType: 'CREDIT',
+        isBillWiseTracking: true,
+        doctorId: d.id,
+      },
+    });
+    doctorCount++;
+  }
+
+  let userCount = 0;
+  const users = await prisma.user.findMany();
+  for (const u of users) {
+    const existing = await prisma.ledger.findFirst({ where: { userId: u.id } });
+    if (existing) continue;
+    await prisma.ledger.create({
+      data: {
+        name: `${u.firstName} ${u.lastName}`.trim(),
+        accountGroupId: staffAccounts.id,
+        openingBalance: 0,
+        openingBalanceType: 'DEBIT',
+        isBillWiseTracking: false,
+        userId: u.id,
+      },
+    });
+    userCount++;
+  }
+
+  console.log(`Backfilled ledgers: ${patientCount} patient(s), ${doctorCount} doctor(s), ${userCount} user(s).`);
+}
+
+/**
+ * Demo data to exercise the accounting engine end-to-end: one Sales voucher
+ * (consultation bill) + a partial Receipt against it, so Voucher/Journal/
+ * JournalLine/VoucherReference/Ledger.currentBalance can all be inspected
+ * together in prisma studio. Idempotent — skips if the demo bill already exists.
+ */
+async function seedAccountingDemoData() {
+  const existingDemo = await prisma.bill.findFirst({ where: { invoiceNo: 'DEMO-INV-0001' } });
+  if (existingDemo) {
+    console.log('Accounting demo data already seeded, skipping.');
+    return;
+  }
+
+  const patient = await prisma.patient.findFirst({ where: { deletedAt: null }, orderBy: { createdAt: 'asc' } });
+  const doctor = await prisma.doctor.findFirst({ orderBy: { createdAt: 'asc' } });
+  if (!patient || !doctor) {
+    console.warn('⚠️  Skipping accounting demo data — need at least one patient and one doctor seeded first.');
+    return;
+  }
+
+  const fy = await prisma.financialYear.findFirst({ where: { isCurrent: true } });
+  const salesType = await prisma.voucherType.findFirst({ where: { code: 'SALES' } });
+  const receiptType = await prisma.voucherType.findFirst({ where: { code: 'RECEIPT' } });
+  const generalJournalType = await prisma.journalType.findFirst({ where: { code: 'GENERAL' } });
+  const consultationIncome = await prisma.ledger.findFirst({ where: { name: 'Consultation Income' } });
+  const cashLedger = await prisma.ledger.findFirst({ where: { linkedPaymentMethod: 'CASH' } });
+  const patientLedger = await prisma.ledger.findFirst({ where: { patientId: patient.id } });
+  if (!fy || !salesType || !receiptType || !generalJournalType || !consultationIncome || !cashLedger || !patientLedger) {
+    console.warn('⚠️  Skipping accounting demo data — required masters not found. Run seedAccounting()/backfillMissingLedgers() first.');
+    return;
+  }
+
+  const consultationFee = doctor.consultationFee > 0 ? doctor.consultationFee : 500;
+
+  // 1. Demo Bill (consultation) — mirrors what BillingService.create() would produce.
+  const bill = await prisma.bill.create({
+    data: {
+      patientId: patient.id,
+      invoiceNo: 'DEMO-INV-0001',
+      subtotal: consultationFee,
+      discount: 0,
+      tax: 0,
+      total: consultationFee,
+      paymentMethod: 'CASH',
+      status: 'PENDING',
+      notes: 'Seed demo — consultation bill',
+      items: {
+        create: [
+          {
+            itemType: 'CONSULTATION',
+            itemId: doctor.id,
+            itemName: `Consultation — Dr. ${doctor.specialization ?? 'General'}`,
+            quantity: 1,
+            unitPrice: consultationFee,
+            amount: consultationFee,
+          },
+        ],
+      },
+    },
+  });
+
+  // 2. Sales voucher + journal: Dr Patient Ledger, Cr Consultation Income.
+  const salesVoucherCount = await prisma.voucher.count({ where: { voucherTypeId: salesType.id, financialYearId: fy.id } });
+  const salesVoucher = await prisma.voucher.create({
+    data: {
+      voucherTypeId: salesType.id,
+      voucherNumber: `${salesType.numberingPrefix}-${fy.id.slice(0, 8)}-${(salesVoucherCount + 1).toString().padStart(4, '0')}`,
+      financialYearId: fy.id,
+      partyLedgerId: patientLedger.id,
+      totalAmount: consultationFee,
+      status: 'POSTED',
+      sourceModule: 'Bill',
+      sourceId: bill.id,
+      notes: `Sales voucher for ${bill.invoiceNo}`,
+    },
+  });
+  const salesJournal = await prisma.journal.create({
+    data: {
+      voucherId: salesVoucher.id,
+      journalTypeId: generalJournalType.id,
+      isPosted: true,
+      totalDebit: consultationFee,
+      totalCredit: consultationFee,
+      notes: `Sales journal for ${bill.invoiceNo}`,
+    },
+  });
+  await prisma.journalLine.createMany({
+    data: [
+      { journalId: salesJournal.id, ledgerId: patientLedger.id, debitAmount: consultationFee, creditAmount: 0 },
+      { journalId: salesJournal.id, ledgerId: consultationIncome.id, debitAmount: 0, creditAmount: consultationFee },
+    ],
+  });
+  await prisma.ledger.update({ where: { id: patientLedger.id }, data: { currentBalance: { increment: consultationFee } } });
+  await prisma.ledger.update({ where: { id: consultationIncome.id }, data: { currentBalance: { increment: consultationFee } } });
+
+  // 3. Partial payment (60%) → Receipt voucher + journal + AGAINST_REF voucher reference.
+  const paidAmount = Math.round(consultationFee * 0.6);
+  const payment = await prisma.payment.create({
+    data: {
+      billId: bill.id,
+      patientId: patient.id,
+      amount: paidAmount,
+      method: 'CASH',
+      direction: 'PAYMENT',
+      notes: 'Seed demo — partial payment',
+    },
+  });
+  await prisma.bill.update({ where: { id: bill.id }, data: { paidAmount, status: 'PARTIALLY_PAID' } });
+
+  const receiptVoucherCount = await prisma.voucher.count({ where: { voucherTypeId: receiptType.id, financialYearId: fy.id } });
+  const receiptVoucher = await prisma.voucher.create({
+    data: {
+      voucherTypeId: receiptType.id,
+      voucherNumber: `${receiptType.numberingPrefix}-${fy.id.slice(0, 8)}-${(receiptVoucherCount + 1).toString().padStart(4, '0')}`,
+      financialYearId: fy.id,
+      partyLedgerId: patientLedger.id,
+      totalAmount: paidAmount,
+      status: 'POSTED',
+      sourceModule: 'Payment',
+      sourceId: payment.id,
+      notes: `Receipt for ${bill.invoiceNo}`,
+    },
+  });
+  const receiptJournal = await prisma.journal.create({
+    data: {
+      voucherId: receiptVoucher.id,
+      journalTypeId: generalJournalType.id,
+      isPosted: true,
+      totalDebit: paidAmount,
+      totalCredit: paidAmount,
+      notes: `Receipt journal for ${bill.invoiceNo}`,
+    },
+  });
+  await prisma.journalLine.createMany({
+    data: [
+      { journalId: receiptJournal.id, ledgerId: cashLedger.id, debitAmount: paidAmount, creditAmount: 0 },
+      { journalId: receiptJournal.id, ledgerId: patientLedger.id, debitAmount: 0, creditAmount: paidAmount },
+    ],
+  });
+  await prisma.ledger.update({ where: { id: cashLedger.id }, data: { currentBalance: { increment: paidAmount } } });
+  await prisma.ledger.update({ where: { id: patientLedger.id }, data: { currentBalance: { decrement: paidAmount } } });
+
+  await prisma.voucherReference.create({
+    data: {
+      voucherId: receiptVoucher.id,
+      referenceType: 'AGAINST_REF',
+      referencedVoucherId: salesVoucher.id,
+      ledgerId: patientLedger.id,
+      amount: paidAmount,
+    },
+  });
+
+  console.log(
+    `Seeded accounting demo data: Bill ${bill.invoiceNo} (₹${consultationFee}) → ` +
+      `Sales voucher ${salesVoucher.voucherNumber} + Receipt voucher ${receiptVoucher.voucherNumber} ` +
+      `(₹${paidAmount} paid, ₹${consultationFee - paidAmount} outstanding on ${patientLedger.name}).`,
+  );
 }
 
 async function seedSidebarConfig() {
@@ -3289,6 +3195,7 @@ async function seedSidebarConfig() {
   const superAdminId = roleMap.get('Super Admin') ?? developerId;
 
   const doctorAsAdminId = roleMap.get('Doctor as Admin');
+  const patientRoleId = roleMap.get('Patient');
 
   const allRoleIds = Array.from(roleMap.values());
   const clinicalRoles = [adminId, doctorId, receptionistId, nurseId, developerId].filter(Boolean);
@@ -3319,6 +3226,8 @@ async function seedSidebarConfig() {
     { label: 'Medicine Catalog', path: '/medicine-catalog', icon: 'Pill', group: 'Pharmacy & Billing', sortOrder: 0, roleIds: pharmacyRoles },
     { label: 'Billing', path: '/billing', icon: 'Receipt', group: 'Pharmacy & Billing', sortOrder: 1, roleIds: pharmacyRoles },
     { label: 'Dispensing', path: '/dispensing', icon: 'Package', group: 'Pharmacy & Billing', sortOrder: 2, roleIds: pharmacyRoles },
+    { label: 'Stock Inquiry', path: '/stock-inquiry', icon: 'Search', group: 'Pharmacy & Billing', sortOrder: 3, roleIds: pharmacyRoles },
+    { label: 'Purchase Entry', path: '/stock-purchase', icon: 'Truck', group: 'Pharmacy & Billing', sortOrder: 4, roleIds: pharmacyRoles },
 
     // Organisation group
     { label: 'Overview', path: '/organisation', icon: 'Building2', group: 'Organisation', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
@@ -3331,6 +3240,11 @@ async function seedSidebarConfig() {
     { label: 'Designations', path: '/organisation/designations', icon: 'UserCog', group: 'Organisation', sortOrder: 7, roleIds: [adminId, developerId].filter(Boolean) },
     { label: 'Financial Years', path: '/organisation/financial-years', icon: 'CalendarClock', group: 'Organisation', sortOrder: 8, roleIds: [adminId, developerId].filter(Boolean) },
 
+    // Accounting group
+    { label: 'Chart of Accounts', path: '/accounting', icon: 'BookOpen', group: 'Accounting', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Ledgers', path: '/accounting/ledgers', icon: 'BookMarked', group: 'Accounting', sortOrder: 1, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Vouchers', path: '/accounting/vouchers', icon: 'Receipt', group: 'Accounting', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
+
     // Access Control group
     { label: 'Roles & Permissions', path: '/organisation/roles', icon: 'ShieldCheck', group: 'Access Control', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
 
@@ -3338,6 +3252,13 @@ async function seedSidebarConfig() {
     { label: 'Overview', path: '/developer', icon: 'Cpu', group: 'Developer', sortOrder: 0, roleIds: [developerId].filter(Boolean) },
     { label: 'Modules', path: '/developer/modules', icon: 'Box', group: 'Developer', sortOrder: 1, roleIds: [developerId].filter(Boolean) },
     { label: 'Features', path: '/developer/features', icon: 'Zap', group: 'Developer', sortOrder: 2, roleIds: [developerId].filter(Boolean) },
+
+    // Patient Portal group
+    { label: 'Dashboard', path: '/patient', icon: 'LayoutDashboard', group: 'Patient Portal', sortOrder: 0, roleIds: [patientRoleId].filter(Boolean) },
+    { label: 'Appointments', path: '/patient/appointments', icon: 'CalendarClock', group: 'Patient Portal', sortOrder: 1, roleIds: [patientRoleId].filter(Boolean) },
+    { label: 'Prescriptions', path: '/patient/prescriptions', icon: 'ClipboardList', group: 'Patient Portal', sortOrder: 2, roleIds: [patientRoleId].filter(Boolean) },
+    { label: 'Lab Reports', path: '/patient/lab-orders', icon: 'FlaskConical', group: 'Patient Portal', sortOrder: 3, roleIds: [patientRoleId].filter(Boolean) },
+    { label: 'Bills', path: '/patient/bills', icon: 'Receipt', group: 'Patient Portal', sortOrder: 4, roleIds: [patientRoleId].filter(Boolean) },
 
     // Account group
     { label: 'Profile', path: '/profile', icon: 'User', group: 'Account', sortOrder: 0, roleIds: allRoleIds },

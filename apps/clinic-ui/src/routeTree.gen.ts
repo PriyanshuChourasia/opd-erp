@@ -33,6 +33,10 @@ import { Route as DashboardProfileRouteImport } from './routes/_dashboard/profil
 import { Route as DashboardQueueRouteImport } from './routes/_dashboard/queue'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard/settings'
 import { Route as DashboardShiftsRouteImport } from './routes/_dashboard/shifts'
+import { Route as DashboardStockInquiryRouteImport } from './routes/_dashboard/stock-inquiry'
+import { Route as DashboardStockPurchaseRouteImport } from './routes/_dashboard/stock-purchase'
+import { Route as DashboardAccountingLedgersRouteImport } from './routes/_dashboard/accounting/ledgers'
+import { Route as DashboardAccountingVouchersRouteImport } from './routes/_dashboard/accounting/vouchers'
 import { Route as DashboardAppointmentsIndexRouteImport } from './routes/_dashboard/appointments/index'
 import { Route as DashboardAppointmentsNewRouteImport } from './routes/_dashboard/appointments/new'
 import { Route as DashboardOrganisationIndexRouteImport } from './routes/_dashboard/organisation/index'
@@ -40,7 +44,6 @@ import { Route as DashboardOrganisationDepartmentsRouteImport } from './routes/_
 import { Route as DashboardOrganisationDesignationsRouteImport } from './routes/_dashboard/organisation/designations'
 import { Route as DashboardOrganisationDiscountsRouteImport } from './routes/_dashboard/organisation/discounts'
 import { Route as DashboardOrganisationFinancialYearsRouteImport } from './routes/_dashboard/organisation/financial-years'
-import { Route as DashboardOrganisationPrescriptionTemplatesRouteImport } from './routes/_dashboard/organisation/prescription-templates'
 import { Route as DashboardOrganisationRolesRouteImport } from './routes/_dashboard/organisation/roles'
 import { Route as DashboardOrganisationSidebarConfigRouteImport } from './routes/_dashboard/organisation/sidebar-config'
 import { Route as DashboardOrganisationUsersRouteImport } from './routes/_dashboard/organisation/users'
@@ -71,13 +74,17 @@ import { Route as ReceptionistReceptionistDoctorsRouteImport } from './routes/_r
 import { Route as ReceptionistReceptionistPatientsRouteImport } from './routes/_receptionist/receptionist/patients'
 import { Route as ReceptionistReceptionistPrescriptionsRouteImport } from './routes/_receptionist/receptionist/prescriptions'
 import { Route as ReceptionistReceptionistProfileRouteImport } from './routes/_receptionist/receptionist/profile'
+import { Route as DashboardAccountingLedgerLedgerIdRouteImport } from './routes/_dashboard/accounting/ledger/$ledgerId'
 import { Route as DashboardAppointmentsAppointmentIdEditRouteImport } from './routes/_dashboard/appointments/$appointmentId.edit'
+import { Route as DashboardOrganisationPrescriptionTemplatesIndexRouteImport } from './routes/_dashboard/organisation/prescription-templates/index'
+import { Route as DashboardOrganisationPrescriptionTemplatesNewRouteImport } from './routes/_dashboard/organisation/prescription-templates/new'
 import { Route as DeveloperDeveloperSchemaIndexRouteImport } from './routes/_developer/developer/schema/index'
 import { Route as DeveloperDeveloperSchemaModelRouteImport } from './routes/_developer/developer/schema/$model'
 import { Route as DoctorDoctorAdminAppointmentsRouteImport } from './routes/_doctor/doctor/admin.appointments'
 import { Route as DoctorDoctorAdminPrescriptionsRouteImport } from './routes/_doctor/doctor/admin.prescriptions'
 import { Route as ReceptionistReceptionistAppointmentsIndexRouteImport } from './routes/_receptionist/receptionist/appointments/index'
 import { Route as ReceptionistReceptionistAppointmentsNewRouteImport } from './routes/_receptionist/receptionist/appointments/new'
+import { Route as DashboardOrganisationPrescriptionTemplatesTemplateIdEditRouteImport } from './routes/_dashboard/organisation/prescription-templates/$templateId.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -194,6 +201,28 @@ const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
   path: '/shifts',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardStockInquiryRoute = DashboardStockInquiryRouteImport.update({
+  id: '/stock-inquiry',
+  path: '/stock-inquiry',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardStockPurchaseRoute = DashboardStockPurchaseRouteImport.update({
+  id: '/stock-purchase',
+  path: '/stock-purchase',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAccountingLedgersRoute =
+  DashboardAccountingLedgersRouteImport.update({
+    id: '/accounting/ledgers',
+    path: '/accounting/ledgers',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardAccountingVouchersRoute =
+  DashboardAccountingVouchersRouteImport.update({
+    id: '/accounting/vouchers',
+    path: '/accounting/vouchers',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardAppointmentsIndexRoute =
   DashboardAppointmentsIndexRouteImport.update({
     id: '/appointments/',
@@ -234,12 +263,6 @@ const DashboardOrganisationFinancialYearsRoute =
   DashboardOrganisationFinancialYearsRouteImport.update({
     id: '/organisation/financial-years',
     path: '/organisation/financial-years',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardOrganisationPrescriptionTemplatesRoute =
-  DashboardOrganisationPrescriptionTemplatesRouteImport.update({
-    id: '/organisation/prescription-templates',
-    path: '/organisation/prescription-templates',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardOrganisationRolesRoute =
@@ -410,10 +433,28 @@ const ReceptionistReceptionistProfileRoute =
     path: '/receptionist/profile',
     getParentRoute: () => ReceptionistRoute,
   } as any)
+const DashboardAccountingLedgerLedgerIdRoute =
+  DashboardAccountingLedgerLedgerIdRouteImport.update({
+    id: '/accounting/ledger/$ledgerId',
+    path: '/accounting/ledger/$ledgerId',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardAppointmentsAppointmentIdEditRoute =
   DashboardAppointmentsAppointmentIdEditRouteImport.update({
     id: '/appointments/$appointmentId/edit',
     path: '/appointments/$appointmentId/edit',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardOrganisationPrescriptionTemplatesIndexRoute =
+  DashboardOrganisationPrescriptionTemplatesIndexRouteImport.update({
+    id: '/organisation/prescription-templates/',
+    path: '/organisation/prescription-templates/',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardOrganisationPrescriptionTemplatesNewRoute =
+  DashboardOrganisationPrescriptionTemplatesNewRouteImport.update({
+    id: '/organisation/prescription-templates/new',
+    path: '/organisation/prescription-templates/new',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DeveloperDeveloperSchemaIndexRoute =
@@ -452,6 +493,12 @@ const ReceptionistReceptionistAppointmentsNewRoute =
     path: '/receptionist/appointments/new',
     getParentRoute: () => ReceptionistRoute,
   } as any)
+const DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute =
+  DashboardOrganisationPrescriptionTemplatesTemplateIdEditRouteImport.update({
+    id: '/organisation/prescription-templates/$templateId/edit',
+    path: '/organisation/prescription-templates/$templateId/edit',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -472,12 +519,15 @@ export interface FileRoutesByFullPath {
   '/queue': typeof DashboardQueueRoute
   '/settings': typeof DashboardSettingsRoute
   '/shifts': typeof DashboardShiftsRoute
+  '/stock-inquiry': typeof DashboardStockInquiryRoute
+  '/stock-purchase': typeof DashboardStockPurchaseRoute
+  '/accounting/ledgers': typeof DashboardAccountingLedgersRoute
+  '/accounting/vouchers': typeof DashboardAccountingVouchersRoute
   '/appointments/new': typeof DashboardAppointmentsNewRoute
   '/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
   '/organisation/designations': typeof DashboardOrganisationDesignationsRoute
   '/organisation/discounts': typeof DashboardOrganisationDiscountsRoute
   '/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
-  '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
@@ -510,13 +560,17 @@ export interface FileRoutesByFullPath {
   '/patient/': typeof PatientPatientIndexRoute
   '/pos/': typeof PosPosIndexRoute
   '/receptionist/': typeof ReceptionistReceptionistIndexRoute
+  '/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
+  '/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
   '/doctor/admin/prescriptions': typeof DoctorDoctorAdminPrescriptionsRoute
   '/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
+  '/organisation/prescription-templates/': typeof DashboardOrganisationPrescriptionTemplatesIndexRoute
   '/developer/schema/': typeof DeveloperDeveloperSchemaIndexRoute
   '/receptionist/appointments/': typeof ReceptionistReceptionistAppointmentsIndexRoute
+  '/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -537,12 +591,15 @@ export interface FileRoutesByTo {
   '/queue': typeof DashboardQueueRoute
   '/settings': typeof DashboardSettingsRoute
   '/shifts': typeof DashboardShiftsRoute
+  '/stock-inquiry': typeof DashboardStockInquiryRoute
+  '/stock-purchase': typeof DashboardStockPurchaseRoute
+  '/accounting/ledgers': typeof DashboardAccountingLedgersRoute
+  '/accounting/vouchers': typeof DashboardAccountingVouchersRoute
   '/appointments/new': typeof DashboardAppointmentsNewRoute
   '/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
   '/organisation/designations': typeof DashboardOrganisationDesignationsRoute
   '/organisation/discounts': typeof DashboardOrganisationDiscountsRoute
   '/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
-  '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/organisation/users': typeof DashboardOrganisationUsersRoute
@@ -575,13 +632,17 @@ export interface FileRoutesByTo {
   '/patient': typeof PatientPatientIndexRoute
   '/pos': typeof PosPosIndexRoute
   '/receptionist': typeof ReceptionistReceptionistIndexRoute
+  '/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
+  '/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
   '/doctor/admin/prescriptions': typeof DoctorDoctorAdminPrescriptionsRoute
   '/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
+  '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesIndexRoute
   '/developer/schema': typeof DeveloperDeveloperSchemaIndexRoute
   '/receptionist/appointments': typeof ReceptionistReceptionistAppointmentsIndexRoute
+  '/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -609,12 +670,15 @@ export interface FileRoutesById {
   '/_dashboard/queue': typeof DashboardQueueRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/shifts': typeof DashboardShiftsRoute
+  '/_dashboard/stock-inquiry': typeof DashboardStockInquiryRoute
+  '/_dashboard/stock-purchase': typeof DashboardStockPurchaseRoute
+  '/_dashboard/accounting/ledgers': typeof DashboardAccountingLedgersRoute
+  '/_dashboard/accounting/vouchers': typeof DashboardAccountingVouchersRoute
   '/_dashboard/appointments/new': typeof DashboardAppointmentsNewRoute
   '/_dashboard/organisation/departments': typeof DashboardOrganisationDepartmentsRoute
   '/_dashboard/organisation/designations': typeof DashboardOrganisationDesignationsRoute
   '/_dashboard/organisation/discounts': typeof DashboardOrganisationDiscountsRoute
   '/_dashboard/organisation/financial-years': typeof DashboardOrganisationFinancialYearsRoute
-  '/_dashboard/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesRoute
   '/_dashboard/organisation/roles': typeof DashboardOrganisationRolesRoute
   '/_dashboard/organisation/sidebar-config': typeof DashboardOrganisationSidebarConfigRoute
   '/_dashboard/organisation/users': typeof DashboardOrganisationUsersRoute
@@ -647,13 +711,17 @@ export interface FileRoutesById {
   '/_patient/patient/': typeof PatientPatientIndexRoute
   '/_pos/pos/': typeof PosPosIndexRoute
   '/_receptionist/receptionist/': typeof ReceptionistReceptionistIndexRoute
+  '/_dashboard/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/_dashboard/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
+  '/_dashboard/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/_developer/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/_doctor/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
   '/_doctor/doctor/admin/prescriptions': typeof DoctorDoctorAdminPrescriptionsRoute
   '/_receptionist/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
+  '/_dashboard/organisation/prescription-templates/': typeof DashboardOrganisationPrescriptionTemplatesIndexRoute
   '/_developer/developer/schema/': typeof DeveloperDeveloperSchemaIndexRoute
   '/_receptionist/receptionist/appointments/': typeof ReceptionistReceptionistAppointmentsIndexRoute
+  '/_dashboard/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -676,12 +744,15 @@ export interface FileRouteTypes {
     | '/queue'
     | '/settings'
     | '/shifts'
+    | '/stock-inquiry'
+    | '/stock-purchase'
+    | '/accounting/ledgers'
+    | '/accounting/vouchers'
     | '/appointments/new'
     | '/organisation/departments'
     | '/organisation/designations'
     | '/organisation/discounts'
     | '/organisation/financial-years'
-    | '/organisation/prescription-templates'
     | '/organisation/roles'
     | '/organisation/sidebar-config'
     | '/organisation/users'
@@ -714,13 +785,17 @@ export interface FileRouteTypes {
     | '/patient/'
     | '/pos/'
     | '/receptionist/'
+    | '/accounting/ledger/$ledgerId'
     | '/appointments/$appointmentId/edit'
+    | '/organisation/prescription-templates/new'
     | '/developer/schema/$model'
     | '/doctor/admin/appointments'
     | '/doctor/admin/prescriptions'
     | '/receptionist/appointments/new'
+    | '/organisation/prescription-templates/'
     | '/developer/schema/'
     | '/receptionist/appointments/'
+    | '/organisation/prescription-templates/$templateId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -741,12 +816,15 @@ export interface FileRouteTypes {
     | '/queue'
     | '/settings'
     | '/shifts'
+    | '/stock-inquiry'
+    | '/stock-purchase'
+    | '/accounting/ledgers'
+    | '/accounting/vouchers'
     | '/appointments/new'
     | '/organisation/departments'
     | '/organisation/designations'
     | '/organisation/discounts'
     | '/organisation/financial-years'
-    | '/organisation/prescription-templates'
     | '/organisation/roles'
     | '/organisation/sidebar-config'
     | '/organisation/users'
@@ -779,13 +857,17 @@ export interface FileRouteTypes {
     | '/patient'
     | '/pos'
     | '/receptionist'
+    | '/accounting/ledger/$ledgerId'
     | '/appointments/$appointmentId/edit'
+    | '/organisation/prescription-templates/new'
     | '/developer/schema/$model'
     | '/doctor/admin/appointments'
     | '/doctor/admin/prescriptions'
     | '/receptionist/appointments/new'
+    | '/organisation/prescription-templates'
     | '/developer/schema'
     | '/receptionist/appointments'
+    | '/organisation/prescription-templates/$templateId/edit'
   id:
     | '__root__'
     | '/'
@@ -812,12 +894,15 @@ export interface FileRouteTypes {
     | '/_dashboard/queue'
     | '/_dashboard/settings'
     | '/_dashboard/shifts'
+    | '/_dashboard/stock-inquiry'
+    | '/_dashboard/stock-purchase'
+    | '/_dashboard/accounting/ledgers'
+    | '/_dashboard/accounting/vouchers'
     | '/_dashboard/appointments/new'
     | '/_dashboard/organisation/departments'
     | '/_dashboard/organisation/designations'
     | '/_dashboard/organisation/discounts'
     | '/_dashboard/organisation/financial-years'
-    | '/_dashboard/organisation/prescription-templates'
     | '/_dashboard/organisation/roles'
     | '/_dashboard/organisation/sidebar-config'
     | '/_dashboard/organisation/users'
@@ -850,13 +935,17 @@ export interface FileRouteTypes {
     | '/_patient/patient/'
     | '/_pos/pos/'
     | '/_receptionist/receptionist/'
+    | '/_dashboard/accounting/ledger/$ledgerId'
     | '/_dashboard/appointments/$appointmentId/edit'
+    | '/_dashboard/organisation/prescription-templates/new'
     | '/_developer/developer/schema/$model'
     | '/_doctor/doctor/admin/appointments'
     | '/_doctor/doctor/admin/prescriptions'
     | '/_receptionist/receptionist/appointments/new'
+    | '/_dashboard/organisation/prescription-templates/'
     | '/_developer/developer/schema/'
     | '/_receptionist/receptionist/appointments/'
+    | '/_dashboard/organisation/prescription-templates/$templateId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1042,6 +1131,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardShiftsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/stock-inquiry': {
+      id: '/_dashboard/stock-inquiry'
+      path: '/stock-inquiry'
+      fullPath: '/stock-inquiry'
+      preLoaderRoute: typeof DashboardStockInquiryRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/stock-purchase': {
+      id: '/_dashboard/stock-purchase'
+      path: '/stock-purchase'
+      fullPath: '/stock-purchase'
+      preLoaderRoute: typeof DashboardStockPurchaseRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/accounting/ledgers': {
+      id: '/_dashboard/accounting/ledgers'
+      path: '/accounting/ledgers'
+      fullPath: '/accounting/ledgers'
+      preLoaderRoute: typeof DashboardAccountingLedgersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/accounting/vouchers': {
+      id: '/_dashboard/accounting/vouchers'
+      path: '/accounting/vouchers'
+      fullPath: '/accounting/vouchers'
+      preLoaderRoute: typeof DashboardAccountingVouchersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/appointments/': {
       id: '/_dashboard/appointments/'
       path: '/appointments'
@@ -1089,13 +1206,6 @@ declare module '@tanstack/react-router' {
       path: '/organisation/financial-years'
       fullPath: '/organisation/financial-years'
       preLoaderRoute: typeof DashboardOrganisationFinancialYearsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/organisation/prescription-templates': {
-      id: '/_dashboard/organisation/prescription-templates'
-      path: '/organisation/prescription-templates'
-      fullPath: '/organisation/prescription-templates'
-      preLoaderRoute: typeof DashboardOrganisationPrescriptionTemplatesRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/organisation/roles': {
@@ -1308,11 +1418,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceptionistReceptionistProfileRouteImport
       parentRoute: typeof ReceptionistRoute
     }
+    '/_dashboard/accounting/ledger/$ledgerId': {
+      id: '/_dashboard/accounting/ledger/$ledgerId'
+      path: '/accounting/ledger/$ledgerId'
+      fullPath: '/accounting/ledger/$ledgerId'
+      preLoaderRoute: typeof DashboardAccountingLedgerLedgerIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/appointments/$appointmentId/edit': {
       id: '/_dashboard/appointments/$appointmentId/edit'
       path: '/appointments/$appointmentId/edit'
       fullPath: '/appointments/$appointmentId/edit'
       preLoaderRoute: typeof DashboardAppointmentsAppointmentIdEditRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/organisation/prescription-templates/': {
+      id: '/_dashboard/organisation/prescription-templates/'
+      path: '/organisation/prescription-templates'
+      fullPath: '/organisation/prescription-templates/'
+      preLoaderRoute: typeof DashboardOrganisationPrescriptionTemplatesIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/organisation/prescription-templates/new': {
+      id: '/_dashboard/organisation/prescription-templates/new'
+      path: '/organisation/prescription-templates/new'
+      fullPath: '/organisation/prescription-templates/new'
+      preLoaderRoute: typeof DashboardOrganisationPrescriptionTemplatesNewRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_developer/developer/schema/': {
@@ -1357,6 +1488,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceptionistReceptionistAppointmentsNewRouteImport
       parentRoute: typeof ReceptionistRoute
     }
+    '/_dashboard/organisation/prescription-templates/$templateId/edit': {
+      id: '/_dashboard/organisation/prescription-templates/$templateId/edit'
+      path: '/organisation/prescription-templates/$templateId/edit'
+      fullPath: '/organisation/prescription-templates/$templateId/edit'
+      preLoaderRoute: typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
@@ -1375,12 +1513,15 @@ interface DashboardRouteChildren {
   DashboardQueueRoute: typeof DashboardQueueRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardShiftsRoute: typeof DashboardShiftsRoute
+  DashboardStockInquiryRoute: typeof DashboardStockInquiryRoute
+  DashboardStockPurchaseRoute: typeof DashboardStockPurchaseRoute
+  DashboardAccountingLedgersRoute: typeof DashboardAccountingLedgersRoute
+  DashboardAccountingVouchersRoute: typeof DashboardAccountingVouchersRoute
   DashboardAppointmentsNewRoute: typeof DashboardAppointmentsNewRoute
   DashboardOrganisationDepartmentsRoute: typeof DashboardOrganisationDepartmentsRoute
   DashboardOrganisationDesignationsRoute: typeof DashboardOrganisationDesignationsRoute
   DashboardOrganisationDiscountsRoute: typeof DashboardOrganisationDiscountsRoute
   DashboardOrganisationFinancialYearsRoute: typeof DashboardOrganisationFinancialYearsRoute
-  DashboardOrganisationPrescriptionTemplatesRoute: typeof DashboardOrganisationPrescriptionTemplatesRoute
   DashboardOrganisationRolesRoute: typeof DashboardOrganisationRolesRoute
   DashboardOrganisationSidebarConfigRoute: typeof DashboardOrganisationSidebarConfigRoute
   DashboardOrganisationUsersRoute: typeof DashboardOrganisationUsersRoute
@@ -1390,7 +1531,11 @@ interface DashboardRouteChildren {
   DashboardReportsRevenueCollectionRoute: typeof DashboardReportsRevenueCollectionRoute
   DashboardAppointmentsIndexRoute: typeof DashboardAppointmentsIndexRoute
   DashboardOrganisationIndexRoute: typeof DashboardOrganisationIndexRoute
+  DashboardAccountingLedgerLedgerIdRoute: typeof DashboardAccountingLedgerLedgerIdRoute
   DashboardAppointmentsAppointmentIdEditRoute: typeof DashboardAppointmentsAppointmentIdEditRoute
+  DashboardOrganisationPrescriptionTemplatesNewRoute: typeof DashboardOrganisationPrescriptionTemplatesNewRoute
+  DashboardOrganisationPrescriptionTemplatesIndexRoute: typeof DashboardOrganisationPrescriptionTemplatesIndexRoute
+  DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute: typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -1408,6 +1553,10 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardQueueRoute: DashboardQueueRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardShiftsRoute: DashboardShiftsRoute,
+  DashboardStockInquiryRoute: DashboardStockInquiryRoute,
+  DashboardStockPurchaseRoute: DashboardStockPurchaseRoute,
+  DashboardAccountingLedgersRoute: DashboardAccountingLedgersRoute,
+  DashboardAccountingVouchersRoute: DashboardAccountingVouchersRoute,
   DashboardAppointmentsNewRoute: DashboardAppointmentsNewRoute,
   DashboardOrganisationDepartmentsRoute: DashboardOrganisationDepartmentsRoute,
   DashboardOrganisationDesignationsRoute:
@@ -1415,8 +1564,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardOrganisationDiscountsRoute: DashboardOrganisationDiscountsRoute,
   DashboardOrganisationFinancialYearsRoute:
     DashboardOrganisationFinancialYearsRoute,
-  DashboardOrganisationPrescriptionTemplatesRoute:
-    DashboardOrganisationPrescriptionTemplatesRoute,
   DashboardOrganisationRolesRoute: DashboardOrganisationRolesRoute,
   DashboardOrganisationSidebarConfigRoute:
     DashboardOrganisationSidebarConfigRoute,
@@ -1429,8 +1576,16 @@ const DashboardRouteChildren: DashboardRouteChildren = {
     DashboardReportsRevenueCollectionRoute,
   DashboardAppointmentsIndexRoute: DashboardAppointmentsIndexRoute,
   DashboardOrganisationIndexRoute: DashboardOrganisationIndexRoute,
+  DashboardAccountingLedgerLedgerIdRoute:
+    DashboardAccountingLedgerLedgerIdRoute,
   DashboardAppointmentsAppointmentIdEditRoute:
     DashboardAppointmentsAppointmentIdEditRoute,
+  DashboardOrganisationPrescriptionTemplatesNewRoute:
+    DashboardOrganisationPrescriptionTemplatesNewRoute,
+  DashboardOrganisationPrescriptionTemplatesIndexRoute:
+    DashboardOrganisationPrescriptionTemplatesIndexRoute,
+  DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute:
+    DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

@@ -611,6 +611,7 @@ export interface Bill {
   paymentMethod: string;
   status: string;
   notes: string | null;
+  financialYearId?: string | null;
   createdAt: string;
   updatedAt: string;
   patient: Patient | null;
@@ -684,6 +685,7 @@ export interface Organisation {
   defaultDiscountType: string;
   gstNumber?: string | null;
   panNumber?: string | null;
+  cinNumber?: string | null;
   drugLicenseNumber?: string | null;
   drugLicenseExpiry?: string | null;
   taxRegistrationNumber?: string | null;
@@ -704,6 +706,7 @@ export interface UpdateOrganisationInput {
   defaultDiscountType?: string;
   gstNumber?: string;
   panNumber?: string;
+  cinNumber?: string;
   drugLicenseNumber?: string;
   drugLicenseExpiry?: string;
   taxRegistrationNumber?: string;
@@ -1123,6 +1126,21 @@ export function updatePatient(id: string, input: Partial<CreatePatientInput>) {
 
 export function deletePatient(id: string) {
   return request<void>({ method: "DELETE", path: `/patients/${id}` });
+}
+
+export interface PortalLoginResult {
+  userId: string;
+  username: string;
+  email: string;
+  password: string;
+}
+
+export function createPortalLogin(patientId: string, password?: string) {
+  return request<PortalLoginResult>({
+    method: "POST",
+    path: `/patients/${patientId}/portal-login`,
+    body: { password },
+  });
 }
 
 // ─── Doctor API ───────────────────────────────────────────────
@@ -1622,6 +1640,61 @@ export function refundBill(billId: string, payload: { amount: number; reason: st
   });
 }
 
+// ─── Receipt API ──────────────────────────────────────────────
+
+export interface ReceiptData {
+  receipt: {
+    voucherNumber: string | null;
+    voucherDate: string;
+    amount: number;
+    method: string;
+    referenceNumber: string | null;
+  };
+  bill: {
+    invoiceNo: string;
+    subtotal: number;
+    discount: number;
+    tax: number;
+    total: number;
+    items: BillItem[];
+    appointmentId: string | null;
+  };
+  patient: {
+    name: string;
+    patientCode: string;
+    contactNo: string;
+    email: string | null;
+  } | null;
+  address: {
+    line1: string;
+    line2: string | null;
+    city: string | null;
+    state: string | null;
+    postalCode: string | null;
+  } | null;
+  doctor: {
+    name: string;
+    specialization: string | null;
+  } | null;
+  company: {
+    name: string;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+    gstNumber: string | null;
+    panNumber: string | null;
+    cinNumber: string | null;
+  } | null;
+}
+
+export function fetchReceipt(billId: string, paymentId: string) {
+  return request<ReceiptData>({
+    method: "GET",
+    path: `/billing/${billId}/payments/${paymentId}/receipt`,
+  });
+}
+
 // ─── Role & Permission API ────────────────────────────────────
 
 export function fetchRoles(params: PaginationParams = {}) {
@@ -1699,12 +1772,13 @@ export function deletePermission(id: string) {
 
 // ─── Billing API ──────────────────────────────────────────────
 
-export function fetchBills(params: { patientId?: string; from?: string; to?: string } & PaginationParams = {}) {
+export function fetchBills(params: { patientId?: string; financialYearId?: string; from?: string; to?: string } & PaginationParams = {}) {
   return request<PaginatedResult<Bill>>({
     method: "GET",
     path: "/billing",
     params: {
       patientId: params.patientId,
+      financialYearId: params.financialYearId,
       from: params.from,
       to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
@@ -1959,7 +2033,7 @@ export function updateCompany(data: UpdateCompanyInput) {
 
 // ─── Prescription Template API ───────────────────────────────
 
-export type TemplateType = "prescription" | "diagnosis" | "test";
+export type TemplateType = "prescription" | "diagnosis" | "test" | "appointment_slip";
 
 export interface PrescriptionTemplate {
   id: string;
@@ -2484,4 +2558,273 @@ export async function downloadDocument(id: string, originalName: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+// ─── Stock API ───────────────────────────────────────────────
+
+export interface PurchaseItemInput {
+  medicineId: string;
+  quantity: number;
+  purchaseRate: number; // paise
+  mrp?: number;        // paise
+  batchNo?: string;
+  expiryDate?: string;
+}
+
+export interface CreatePurchaseInput {
+  supplierName?: string;
+  supplierLedgerId?: string;
+  items: PurchaseItemInput[];
+  tax?: number;     // paise
+  notes?: string;
+  purchaseDate?: string;
+}
+
+export interface PurchaseResult {
+  voucherId: string;
+  voucherNumber: string;
+  totalAmount: number;
+  itemCount: number;
+}
+
+export function createPurchase(input: CreatePurchaseInput) {
+  return request<PurchaseResult>({ method: "POST", path: "/stock/purchase", body: input });
+}
+
+export interface StockBatchSummary {
+  batchId: string;
+  batchNo: string | null;
+  expiryDate: string | null;
+  purchaseRate: number;
+  mrp: number;
+  currentQty: number;
+}
+
+export interface StockSummary {
+  stockItemId: string;
+  medicineId: string;
+  valuationMethod: string;
+  totalQty: number;
+  totalValue: number;
+  batches: StockBatchSummary[];
+}
+
+export function fetchStockSummary(medicineId: string) {
+  return request<StockSummary | null>({ method: "GET", path: `/stock/summary/${medicineId}` });
+}
+
+export interface StockLedgerEntry {
+  id: string;
+  stockItemId: string;
+  batchId: string;
+  quantity: number;
+  rate: number;
+  value: number;
+  runningBalanceQty: number;
+  runningBalanceValue: number;
+  movementType: string;
+  voucherId: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface StockItem {
+  id: string;
+  medicineId: string;
+  valuationMethod: string;
+  reorderLevel: number;
+  medicine: Medicine;
+  batches: StockBatchSummary[];
+}
+
+export function fetchStockItems(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<StockItem>>({
+    method: "GET",
+    path: "/stock/items",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchStockLedgerEntries(stockItemId: string) {
+  return request<StockLedgerEntry[]>({
+    method: "GET",
+    path: `/stock/items/${stockItemId}/ledger`,
+  });
+}
+
+// ─── Accounting API ───────────────────────────────────────────
+
+export interface AccountNature {
+  id: string;
+  code: string;
+  name: string;
+  normalBalance: string;
+}
+
+export interface AccountGroup {
+  id: string;
+  name: string;
+  natureId: string;
+  parentGroupId: string | null;
+  isReserved: boolean;
+  affectsGrossProfit: boolean;
+  nature: AccountNature;
+  parentGroup?: AccountGroup | null;
+  childGroups?: AccountGroup[];
+  ledgers?: Ledger[];
+}
+
+export interface Ledger {
+  id: string;
+  name: string;
+  code: string | null;
+  accountGroupId: string;
+  openingBalance: number;
+  openingBalanceType: string | null;
+  currentBalance: number;
+  isBillWiseTracking: boolean;
+  isCashAccount: boolean;
+  isBankAccount: boolean;
+  linkedPaymentMethod: string | null;
+  patientId: string | null;
+  doctorId: string | null;
+  userId: string | null;
+  isActive: boolean;
+  accountGroup: AccountGroup;
+  patient?: { id: string; firstName: string; lastName: string; patientCode: string } | null;
+}
+
+export interface LedgerWithJournalLines extends Ledger {
+  journalLines: {
+    id: string;
+    debitAmount: number;
+    creditAmount: number;
+    journal: {
+      id: string;
+      totalDebit: number;
+      totalCredit: number;
+      notes: string | null;
+      createdAt: string;
+      journalType: { code: string; name: string };
+      voucher: { voucherNumber: string; voucherType: { name: string } } | null;
+    };
+  }[];
+}
+
+export interface VoucherType {
+  id: string;
+  name: string;
+  code: string;
+  numberingPrefix: string;
+}
+
+export interface Voucher {
+  id: string;
+  voucherNumber: string;
+  voucherDate: string;
+  totalAmount: number;
+  status: string;
+  sourceModule: string | null;
+  sourceId: string | null;
+  notes: string | null;
+  voucherType: VoucherType;
+  financialYear: { id: string; name: string };
+  partyLedger: { id: string; name: string } | null;
+  journals: { id: string; journalType: { code: string; name: string } }[];
+}
+
+export interface VoucherWithJournals extends Voucher {
+  journals: {
+    id: string;
+    totalDebit: number;
+    totalCredit: number;
+    journalType: { code: string; name: string };
+    lines: {
+      id: string;
+      debitAmount: number;
+      creditAmount: number;
+      ledger: { id: string; name: string };
+    }[];
+  }[];
+  voucherReferencesGiven: { id: string; referenceType: string; amount: number }[];
+  voucherReferencesReceived: { id: string; referenceType: string; amount: number }[];
+}
+
+export interface Journal {
+  id: string;
+  totalDebit: number;
+  totalCredit: number;
+  isPosted: boolean;
+  notes: string | null;
+  createdAt: string;
+  journalType: { code: string; name: string };
+  voucher: { id: string; voucherNumber: string; voucherType: { name: string } } | null;
+  lines: {
+    id: string;
+    debitAmount: number;
+    creditAmount: number;
+    ledger: { id: string; name: string };
+  }[];
+}
+
+export function fetchAccountGroupsTree() {
+  return request<AccountNature[]>({ method: "GET", path: "/accounting/groups/tree" });
+}
+
+export function fetchLedgers(params: { accountGroupId?: string; patientId?: string; doctorId?: string; userId?: string; search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Ledger>>({
+    method: "GET",
+    path: "/accounting/ledgers",
+    params: {
+      accountGroupId: params.accountGroupId,
+      patientId: params.patientId,
+      doctorId: params.doctorId,
+      userId: params.userId,
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchLedger(id: string) {
+  return request<LedgerWithJournalLines>({ method: "GET", path: `/accounting/ledgers/${id}` });
+}
+
+export function fetchVouchers(params: { voucherTypeId?: string; financialYearId?: string; status?: string; search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Voucher>>({
+    method: "GET",
+    path: "/accounting/vouchers",
+    params: {
+      voucherTypeId: params.voucherTypeId,
+      financialYearId: params.financialYearId,
+      status: params.status,
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchVoucher(id: string) {
+  return request<VoucherWithJournals>({ method: "GET", path: `/accounting/vouchers/${id}` });
+}
+
+export function fetchJournals(params: { journalTypeId?: string; voucherId?: string; isPosted?: string; search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Journal>>({
+    method: "GET",
+    path: "/accounting/journals",
+    params: {
+      journalTypeId: params.journalTypeId,
+      voucherId: params.voucherId,
+      isPosted: params.isPosted,
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
 }

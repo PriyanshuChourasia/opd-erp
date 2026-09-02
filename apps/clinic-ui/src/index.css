@@ -165,24 +165,69 @@ input[type="number"] {
 }
 
 /* Reusable print-only area: mark the printable content with #print-area,
-   everything else in the app is hidden for the duration of window.print(). */
+   everything else in the app is hidden for the duration of window.print().
+   Uses `display: none` (not `visibility: hidden`) to hide everything else,
+   so hidden branches take zero layout height. An earlier version used
+   visibility + position:fixed/absolute to route around that reserved
+   height, but any positioned element whose containing block spans more
+   than one printed page gets repainted on every page it overlaps — which
+   is exactly why the slip/prescription was printing as a duplicated
+   second page. Removing the hidden content from flow entirely means
+   #print-area needs no special positioning at all, and pagination is
+   driven only by its own content height. Requires :has() (Chrome/Edge/
+   Safari 15.4+/Firefox 121+ — fine for this app's supported browsers). */
 @media print {
-  body > *:not(#print-slip-temp) {
-    visibility: hidden !important;
+  body > *:not(:has(#print-area)) {
+    display: none !important;
   }
-  #print-slip-temp,
-  #print-slip-temp * {
-    visibility: visible !important;
+  body *:not(#print-area):not(#print-area *):not(:has(#print-area)) {
+    display: none !important;
   }
-  #print-slip-temp {
-    position: fixed;
-    top: 0;
-    left: 0;
+  #print-area {
+    display: block !important;
     width: 100%;
-    z-index: 99999;
-    background: white;
-    padding: 20px;
   }
+  #print-area,
+  #print-area * {
+    /* Browsers skip background colors/images by default when printing, to
+       save ink — which is why the header banner and shaded rows came out
+       plain white. This forces them to print as shown on screen. */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* #print-area's Dialog ancestor otherwise keeps its on-screen chrome
+     (padding, card background, ring, centering transform, scroll clipping)
+     which would either frame the printed content in an unwanted box or,
+     via the transform, clip it to the dialog's on-screen scroll area. */
+  [data-slot="dialog-content"] {
+    position: static !important;
+    transform: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+    max-width: none !important;
+    inset: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Appointment slip prints on A5 landscape instead of the browser default.
+   Explicit mm dimensions (width first) instead of `size: A5 landscape` —
+   Chrome's support for the named-size + orientation keyword combination is
+   unreliable for named @page rules: it can silently fail to resolve and
+   fall back to the default page size while still hiding the print dialog's
+   Layout/Paper-size pickers (since it did see *a* `size` declaration),
+   leaving no way to fix it from the dialog. Explicit dimensions are
+   unambiguous. */
+@page appointment-slip {
+  size: 210mm 148mm;
+  margin: 6mm;
+}
+.slip-print-area {
+  page: appointment-slip;
 }
 
 /* Sidebar active item — solid primary color (only the active nav link) */

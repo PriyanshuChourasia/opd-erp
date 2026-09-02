@@ -30,8 +30,15 @@ export class PrescriptionsController {
   @Get()
   @Permissions('read:prescriptions')
   findAll(@Query() query: FindPrescriptionsQueryDto, @Req() req: AuthedRequest) {
-    const requestingDoctorId = req.user.userableType === 'Doctor' ? (req.user.userableId ?? undefined) : undefined;
-    return this.service.findAll(query, requestingDoctorId);
+    // Doctor portal: scope to own prescriptions
+    if (req.user.userableType === 'Doctor' && req.user.userableId) {
+      return this.service.findAll(query, req.user.userableId);
+    }
+    // Patient portal: scope to own prescriptions
+    if (req.user.userableType === 'Patient' && req.user.userableId) {
+      query.patientId = req.user.userableId;
+    }
+    return this.service.findAll(query);
   }
 
   @Get(':id')

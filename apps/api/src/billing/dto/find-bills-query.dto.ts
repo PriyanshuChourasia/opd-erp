@@ -7,6 +7,10 @@ export class FindBillsQueryDto extends PaginationQueryDto {
   patientId?: string;
 
   @IsOptional()
+  @IsString()
+  financialYearId?: string;
+
+  @IsOptional()
   @IsISO8601()
   from?: string;
 

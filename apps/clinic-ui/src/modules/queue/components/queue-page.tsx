@@ -21,8 +21,8 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { STATUS_STYLES } from "../data/interface";
 
-const QUEUE_STATUSES = ["WAITING", "SEND_IN", "IN_PROGRESS", "COMPLETED", "SKIPPED", "NO_SHOW"];
-const ACTIVE_STATUSES = ["WAITING", "SEND_IN", "IN_PROGRESS"];
+const QUEUE_STATUSES = ["WAITING", "IN_PROGRESS", "COMPLETED", "SKIPPED", "NO_SHOW"];
+const ACTIVE_STATUSES = ["WAITING", "IN_PROGRESS"];
 const HISTORY_STATUSES = ["COMPLETED", "SKIPPED", "NO_SHOW"];
 
 type QueueTab = "ACTIVE" | "HISTORY";
@@ -33,7 +33,7 @@ export function QueuePage() {
   const [filterDoctor, setFilterDoctor] = useState("");
   const [doctorFilterQuery, setDoctorFilterQuery] = useState("");
   const [tab, setTab] = useState<QueueTab>("ACTIVE");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [editPatientId, setEditPatientId] = useState<string | null>(null);
   // ── Vitals entry ──
@@ -266,32 +266,14 @@ export function QueuePage() {
                 </Tooltip>
               </div>
             ) : (
-              <>
-                <Select
-                  value={entry.status}
-                  onValueChange={(value) => {
-                    if (value === entry.status) return;
-                    statusMutation.mutate({ id: entry.id, status: value });
-                  }}
-                >
-                  <SelectTrigger size="sm" className="h-8 text-xs" aria-label="Change queue status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {QUEUE_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>{status.replace("_", " ")}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive" aria-label="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}>
-                      <Trash2 className="size-4.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Remove from Queue</TooltipContent>
-                </Tooltip>
-              </>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive" aria-label="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}>
+                    <Trash2 className="size-4.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Remove from Queue</TooltipContent>
+              </Tooltip>
             )}
           </div>
           </TooltipProvider>

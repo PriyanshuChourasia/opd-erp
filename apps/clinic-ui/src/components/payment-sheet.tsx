@@ -11,7 +11,8 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { PaymentHistory } from "@/components/payment-history";
 
 function currency(value: number) {
-  return `₹${value.toFixed(2)}`;
+  const safe = Number.isFinite(value) ? value : 0;
+  return `₹${safe.toFixed(2)}`;
 }
 
 function discountRuleLabel(rule: DiscountRule) {
@@ -36,8 +37,10 @@ export interface PaymentPayload {
 interface PaymentSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Total amount before discount adjustments */
+  /** Total amount before discount adjustments — the TRUE bill total, not the remaining balance. */
   subtotal: number;
+  /** Amount already collected against this bill in prior installments (0 for a fresh checkout). */
+  alreadyPaid?: number;
   isPending: boolean;
   onSubmit: (payload: PaymentPayload) => void;
   submitLabel: string;
@@ -51,6 +54,7 @@ export function PaymentSheet({
   open,
   onOpenChange,
   subtotal,
+  alreadyPaid = 0,
   isPending,
   onSubmit,
   submitLabel,
@@ -77,10 +81,11 @@ export function PaymentSheet({
     : 0;
 
   const netTotal = Math.max(0, subtotal - discountAmount);
-  const paidAmount = paidAmountInput ?? netTotal;
+  const amountDue = Math.max(0, netTotal - alreadyPaid);
+  const paidAmount = paidAmountInput ?? amountDue;
 
-  // Reset paid amount to full total when the total changes (re-sync unless user touched it)
-  useEffect(() => { setPaidAmountInput(null); }, [netTotal]);
+  // Reset paid amount to the full remaining balance when it changes (re-sync unless user touched it)
+  useEffect(() => { setPaidAmountInput(null); }, [amountDue]);
 
   function handleSubmit() {
     onSubmit({
@@ -94,7 +99,7 @@ export function PaymentSheet({
 
   return (
     <Sheet open={open} onOpenChange={(open) => { if (!open) onOpenChange(false); }}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" className="sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>Payment</SheetTitle>
           <SheetDescription>Select payment method and confirm the transaction.</SheetDescription>
@@ -182,21 +187,33 @@ export function PaymentSheet({
                 <span className="text-lg text-primary">{currency(netTotal)}</span>
               </div>
             </div>
+            {alreadyPaid > 0 && (
+              <div className="flex items-center justify-between text-green-600">
+                <span>Already Paid</span>
+                <span>−{currency(alreadyPaid)}</span>
+              </div>
+            )}
+            <div className="border-t pt-1.5">
+              <div className="flex items-center justify-between font-semibold">
+                <span>Amount Due</span>
+                <span className="text-lg text-primary">{currency(amountDue)}</span>
+              </div>
+            </div>
             <div className="flex items-center justify-between gap-3">
               <label htmlFor="pm-paid-amount" className="text-muted-foreground">Amount to collect now</label>
-              <Input id="pm-paid-amount" type="number" min={0} max={netTotal} className="w-28 text-right h-8 text-xs"
+              <Input id="pm-paid-amount" type="number" min={0} max={amountDue} className="w-28 text-right h-8 text-xs"
                 value={paidAmount}
-                onChange={(e) => setPaidAmountInput(Math.max(0, Math.min(netTotal, Number(e.target.value) || 0)))}
+                onChange={(e) => setPaidAmountInput(Math.max(0, Math.min(amountDue, Number(e.target.value) || 0)))}
               />
             </div>
             <div className="flex items-center justify-between font-semibold">
               <span>Amount Paid</span>
               <span className="text-lg text-green-600">{currency(paidAmount)}</span>
             </div>
-            {paidAmount < netTotal && (
+            {paidAmount < amountDue && (
               <div className="flex items-center justify-between text-sm font-medium text-amber-600">
                 <span>Balance Due</span>
-                <span>{currency(netTotal - paidAmount)}</span>
+                <span>{currency(amountDue - paidAmount)}</span>
               </div>
             )}
           </div>

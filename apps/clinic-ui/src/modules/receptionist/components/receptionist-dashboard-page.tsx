@@ -682,7 +682,7 @@ export function ReceptionistDashboardPage() {
                       onChange={(e) => setForm((p) => ({ ...p, registrationFee: Number(e.target.value) || 0 }))}
                     />
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {[50, 100, 200, 400, 500].map((val) => (
+                      {[0, 50, 100, 200, 400, 500].map((val) => (
                         <button
                           key={val}
                           type="button"

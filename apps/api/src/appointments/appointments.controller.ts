@@ -24,7 +24,11 @@ export class AppointmentsController {
 
   @Get()
   @Permissions('read:appointments')
-  findAll(@Query() query: FindAppointmentsQueryDto) {
+  findAll(@Query() query: FindAppointmentsQueryDto, @Req() req: { user: { id: string; userableType?: string; userableId?: string } }) {
+    // Patient portal: force scoping to own data
+    if (req.user.userableType === 'Patient' && req.user.userableId) {
+      query.patientId = req.user.userableId;
+    }
     return this.appointmentsService.findAll(query);
   }
 

@@ -2,6 +2,7 @@
 const DESK_ROLES = new Set(["RECEPTIONIST"]);
 const DOCTOR_ROLES = new Set(["DOCTOR", "DOCTOR AS ADMIN"]);
 const ADMIN_ROLES = new Set(["ADMIN", "SUPER ADMIN", "DEVELOPER", "DOCTOR AS ADMIN"]);
+const PATIENT_ROLES = new Set(["PATIENT"]);
 
 /** Admin roles can navigate to any layout without being redirected. */
 export function isAdminRole(roleName: string | undefined): boolean {
@@ -16,8 +17,9 @@ export function isDeveloperRole(roleName: string | undefined): boolean {
 
 export function getHomeRoute(
   roleName: string | undefined,
-): "/receptionist" | "/doctor" | "/dashboard" {
+): "/receptionist" | "/doctor" | "/dashboard" | "/patient" {
   const role = roleName?.toUpperCase();
+  if (role && PATIENT_ROLES.has(role)) return "/patient";
   if (role && DOCTOR_ROLES.has(role)) return "/doctor";
   if (role && DESK_ROLES.has(role)) return "/receptionist";
   if (role && ADMIN_ROLES.has(role)) return "/dashboard";

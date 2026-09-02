@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TokenNumberService } from '../common/services/token-number.service';
 import { paginate } from '../common/utils/paginate';
 import { getDoctorNameMap } from '../common/utils/doctor-names';
 import { resolveDiscount } from '../common/utils/discount';
@@ -44,28 +45,17 @@ export class AppointmentsService
     IBaseService<Appointment, CreateAppointmentDto, UpdateAppointmentStatusDto>,
     IPaginatable<Appointment, FindAppointmentsQueryDto>
 {
-  constructor(private readonly prisma: PrismaService) {}
-
-  private generateTokenNumber(date: Date, patientName: string): string {
-    const y = date.getFullYear().toString();
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const d = date.getDate().toString().padStart(2, '0');
-    const h = date.getHours().toString().padStart(2, '0');
-    const min = date.getMinutes().toString().padStart(2, '0');
-    const nameInitials = patientName
-      .split(' ')
-      .map((p) => p.charAt(0).toUpperCase())
-      .join('')
-      .slice(0, 4);
-    return `${y}${m}${d}-${nameInitials}-${h}${min}`;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokenNumberService: TokenNumberService,
+  ) {}
 
   async create(dto: CreateAppointmentDto, createdById?: string) {
     const date = new Date(dto.date);
 
     const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'PTNT';
-    const tokenNumber = this.generateTokenNumber(date, patientName);
+    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, date);
 
     let registrationFee = dto.registrationFee;
     if (registrationFee === undefined) {
@@ -75,7 +65,7 @@ export class AppointmentsService
     }
 
     // Booking alone does not queue the patient — they only enter the live
-    // token queue once checked in (see `update`, on the CHECKED_IN transition).
+    // token queue once Confirmed (see `update`, on the CONFIRMED transition).
     const appointment = await this.prisma.appointment.create({
       data: {
         patientId: dto.patientId,
@@ -90,7 +80,7 @@ export class AppointmentsService
         notes: dto.notes,
         tokenNumber,
       },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true } } },
+      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } } },
     });
 
     // Save version 1 history entry (mirroring PrescriptionHistory pattern)
@@ -167,7 +157,7 @@ export class AppointmentsService
           include: {
             patient: true,
             doctor: true,
-            bill: { select: { id: true, invoiceNo: true, status: true, total: true } },
+            bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } },
             queueEntry: { select: { tokenNumber: true } },
           },
           orderBy: [{ createdAt: 'desc' }, { date: 'desc' }],
@@ -190,7 +180,7 @@ export class AppointmentsService
       include: {
         patient: true,
         doctor: true,
-        bill: { select: { id: true, invoiceNo: true, status: true, total: true } },
+        bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } },
         queueEntry: { select: { tokenNumber: true } },
       },
     });
@@ -255,7 +245,7 @@ export class AppointmentsService
           cancellationReason: dto.status === 'CANCELLED' ? (dto.cancellationReason ?? null) : undefined,
           updatedById: userId ?? null,
         },
-        include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true } } },
+        include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } } },
       });
 
       // Process refund if requested
@@ -338,14 +328,14 @@ export class AppointmentsService
       return updated;
     });
 
-    // Checking in moves the patient into the live token queue. Idempotent —
-    // a queue entry already linked to this appointment is left alone.
-    if (dto.status === 'CHECKED_IN' && existing.status !== 'CHECKED_IN') {
+    // Confirming or starting consultation moves the patient into the live token queue.
+    // Idempotent — a queue entry already linked to this appointment is left alone.
+    if ((dto.status === 'CONFIRMED' || dto.status === 'IN_PROGRESS') && existing.status !== 'CONFIRMED' && existing.status !== 'IN_PROGRESS') {
       const alreadyQueued = await this.prisma.queueEntry.findUnique({ where: { appointmentId: id } });
       if (!alreadyQueued) {
         const checkedInAt = new Date();
         const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-        const tokenNumber = this.generateTokenNumber(checkedInAt, patientName);
+        const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, checkedInAt);
         await this.prisma.queueEntry.create({
           data: {
             patientId: appointment.patientId,
@@ -482,7 +472,7 @@ export class AppointmentsService
     const date = new Date(dto.date);
     const doctorId = dto.doctorId ?? existing.doctorId;
     const patientName = `${existing.patient.firstName} ${existing.patient.lastName}`;
-    const tokenNumber = this.generateTokenNumber(date, patientName);
+    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, date);
 
     // Calculate next version for history
     const lastHistory = await this.prisma.appointmentHistory.findFirst({
@@ -631,15 +621,17 @@ export class AppointmentsService
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
 
-    // Seed paidAmount from the actual ledger sum, not a guess.
+    // Seed paidAmount from the actual ledger sum only — payment never happens
+    // through the invoice/checkout flow itself, only via BillingService.addPayment()
+    // (which correctly records a Payment row + Receipt voucher/journal). This just
+    // credits whatever advance was already collected before invoicing.
     const advanceSum = await this.prisma.payment.aggregate({
       where: { appointmentId: id, direction: 'PAYMENT' },
       _sum: { amount: true },
     });
     const advancePaid = advanceSum._sum.amount ?? 0;
-    // Caller can override (e.g. paying in full at checkout); otherwise use ledger.
-    const paidAmount = dto.paidAmount ?? Math.min(advancePaid, total);
-    const status = paidAmount >= total ? 'PAID' : 'PARTIALLY_PAID';
+    const paidAmount = Math.min(advancePaid, total);
+    const status = paidAmount >= total ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'PENDING';
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Create the bill

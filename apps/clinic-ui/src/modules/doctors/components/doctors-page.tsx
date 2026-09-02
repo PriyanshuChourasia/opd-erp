@@ -40,7 +40,7 @@ export function DoctorsPage() {
   const canUpdate = hasPermission(permissions, "update", "doctors");
   const canDelete = hasPermission(permissions, "delete", "doctors");
   const [search, setSearch] = useState("");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -429,7 +429,7 @@ export function DoctorsPage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="ghost" size="icon" className="size-9 text-primary" onClick={() => navigate({ to: "/appointments/new", search: { doctorId: doctor.id } })}>
-                        <CalendarPlus className="size-5" fill="currentColor" />
+                        <CalendarPlus className="size-5" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Book Appointment</TooltipContent>

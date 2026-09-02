@@ -15,6 +15,7 @@ import { LoginDto } from './dto/login.dto';
 import type { AuthResponseDto, UserableType } from './dto/auth-response.dto';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
 import type { ChangePasswordDto } from './dto/change-password.dto';
+import { AccountingService } from '../accounting/accounting.service';
 
 function asUserableType(val: string | null): UserableType | null {
   const allowed: UserableType[] = ['Doctor', 'Patient', 'Nurse', 'Receptionist', 'Pharmacist', 'LabStaff'];
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -59,32 +61,43 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        username: dto.username,
-        firstName: dto.firstName,
-        middleName: dto.middleName,
-        lastName: dto.lastName,
-        email: dto.email,
-        mobileNumber: dto.mobileNumber,
-        countryCode: dto.countryCode ?? '+91',
-        gender: dto.gender,
-        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-        profilePhotoUrl: dto.profilePhotoUrl,
-        qualification: dto.qualification,
-        password: hashedPassword,
-        roleId: role.id,
-      },
-      include: {
-        role: {
-          include: {
-            rolePermissions: {
-              include: { permission: true },
+    // Create user (+ its Staff Accounts ledger, atomically)
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          username: dto.username,
+          firstName: dto.firstName,
+          middleName: dto.middleName,
+          lastName: dto.lastName,
+          email: dto.email,
+          mobileNumber: dto.mobileNumber,
+          countryCode: dto.countryCode ?? '+91',
+          gender: dto.gender,
+          dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+          profilePhotoUrl: dto.profilePhotoUrl,
+          qualification: dto.qualification,
+          password: hashedPassword,
+          roleId: role.id,
+        },
+        include: {
+          role: {
+            include: {
+              rolePermissions: {
+                include: { permission: true },
+              },
             },
           },
         },
-      },
+      });
+
+      // Every user always gets a Staff Accounts ledger, even before their first advance/reimbursement.
+      await this.accountingService.resolveOrCreateUserLedger(
+        tx,
+        created.id,
+        `${created.firstName} ${created.lastName}`.trim(),
+      );
+
+      return created;
     });
 
     // Generate tokens

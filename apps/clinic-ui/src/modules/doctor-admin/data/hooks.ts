@@ -6,6 +6,7 @@ import {
   fetchDoctorSlots,
   fetchAllDoctorSchedules,
   fetchPrescriptions,
+  fetchAppointments,
 } from "@/lib/api";
 import { useDashboardStats as useAdminDashboardStats } from "@/modules/dashboard/data/hooks";
 

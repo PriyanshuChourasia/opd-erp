@@ -56,8 +56,8 @@ export function RolesPage() {
   const user = useAppSelector((state) => state.auth.user);
   const canManage = isDeveloperRole(user?.roleName);
 
-  const [rolesPagination, setRolesPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
-  const [permsPagination, setPermsPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [rolesPagination, setRolesPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
+  const [permsPagination, setPermsPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
   // Paginated lists that back the two tables.
   const { data: rolesResponse, isLoading: rolesLoading } = useQuery({

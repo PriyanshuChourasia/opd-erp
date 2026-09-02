@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  CalendarDays,
   Clock,
   Search,
   Stethoscope,
@@ -10,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { extractApiError } from "@/lib/axios-client";
-import { createAppointment, getPatientName } from "@/lib/api";
+import { createAppointment, fetchAppointments, getPatientName, updateAppointmentStatus, type Appointment, type AppointmentStatus } from "@/lib/api";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   usePatientSearch,
@@ -25,7 +26,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DatePicker } from "@/components/ui/date-picker"
 
 /* ─── Helpers ────────────────────────────────────────────── */
 
@@ -62,6 +64,22 @@ const consultationTypes = [
  * SRP: Each sub-section (PatientSearch, SlotPicker, BookingForm)
  * is extracted into its own component. This file is the orchestrator.
  */
+const APPT_STATUS_STYLES: Record<string, string> = {
+  SCHEDULED: "bg-amber-100 text-amber-700",
+  CONFIRMED: "bg-blue-100 text-blue-700",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  COMPLETED: "bg-green-100 text-green-700",
+  CANCELLED: "bg-red-100 text-red-700",
+  CHECKED_IN: "bg-blue-100 text-blue-700",
+};
+
+const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "IN_PROGRESS", "COMPLETED"];
+
+function apptStatusLabel(status: string) {
+  if (status === 'IN_PROGRESS') return 'In-Queue';
+  return status.replace('_', ' ');
+}
+
 export function AdminAppointments() {
   const user = useCurrentUser();
   const queryClient = useQueryClient();
@@ -71,6 +89,39 @@ export function AdminAppointments() {
   const [slot, setSlot] = useState<string | null>(null);
   const [date, setDate] = useState(todayStr());
   const [type, setType] = useState("WALK_IN");
+
+  // ── Date range filter for appointments list ──
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(todayStr());
+
+  // ── Fetch this doctor's appointments ──
+  const doctorIdForQuery = user?.userableType === 'Doctor' && user?.userableId ? user.userableId : undefined;
+  const { data: appointmentsResponse, isLoading: appointmentsLoading } = useQuery({
+    queryKey: ['doctor-admin', 'my-appointments', doctorIdForQuery, dateFrom, dateTo],
+    queryFn: () => fetchAppointments({
+      doctorId: doctorIdForQuery,
+      from: dateFrom ? `${dateFrom}T00:00:00` : undefined,
+      to: dateTo ? `${dateTo}T23:59:59` : undefined,
+      page: 1,
+      limit: 100,
+    }),
+    enabled: !!doctorIdForQuery,
+  });
+  const myAppointments = useMemo(() => appointmentsResponse?.data ?? [], [appointmentsResponse]);
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: AppointmentStatus }) =>
+      updateAppointmentStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['doctor-admin', 'my-appointments'] });
+      toast.success('Appointment status updated');
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
 
   const { data: selectedPatient } = usePatient(patientId ?? undefined);
   const { data: doctorsResponse } = useDoctors();
@@ -121,14 +172,21 @@ export function AdminAppointments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">New Appointment</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Appointments</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Select a patient, pick a date and time slot.
+            Book new appointments and view your schedule.
           </p>
         </div>
-        <DatePicker value={date} onChange={(d) => { setDate(d); setSlot(null); }} />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-sm">
+            <CalendarDays className="size-4 text-muted-foreground" />
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs" />
+            <span className="text-muted-foreground">to</span>
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36 text-xs" />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -275,6 +333,73 @@ export function AdminAppointments() {
           )}
         </div>
       </div>
+
+      {/* ── My Appointments List ── */}
+      {doctorIdForQuery && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">My Appointments</h2>
+            <span className="text-sm text-muted-foreground">{myAppointments.length} appointment(s)</span>
+          </div>
+          {appointmentsLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : myAppointments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+              <CalendarDays className="mb-3 size-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-muted-foreground">No appointments found</p>
+              <p className="mt-1 text-xs text-muted-foreground/60">
+                No appointments in the selected date range
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {myAppointments.map((appt) => (
+                <div key={appt.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-primary">
+                        {new Date(appt.date).toLocaleDateString('en-IN', { day: '2-digit' })}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(appt.date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <div className="border-l pl-4">
+                      <p className="text-sm font-medium">
+                        {appt.patient ? getPatientName(appt.patient) : 'Unknown Patient'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(appt.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {appt.type.replace('_', ' ')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold">₹{appt.amount.toFixed(2)}</span>
+                    {(appt.status === 'SCHEDULED' || appt.status === 'CONFIRMED') ? (
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => statusMutation.mutate({ id: appt.id, status: 'IN_PROGRESS' })}
+                        disabled={statusMutation.isPending}
+                      >
+                        Start Consultation
+                      </Button>
+                    ) : (
+                      <Badge variant="outline" className={cn('text-[10px]', APPT_STATUS_STYLES[appt.status] ?? '')}>
+                        {appt.status === 'IN_PROGRESS' ? 'In Progress' : appt.status.replace('_', ' ')}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

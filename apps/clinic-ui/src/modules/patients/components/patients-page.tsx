@@ -1,9 +1,12 @@
-import { getPatientName, createPatientVitals } from "@/lib/api";
+import { getPatientName, createPatientVitals, createPortalLogin } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
+import { useNavigate } from "@tanstack/react-router";
 import {
+  CalendarPlus,
   HeartPulse,
+  LogIn,
   Pencil,
   Plus,
   Search,
@@ -65,13 +68,14 @@ function PatientAvatar({ photoUrl, name }: { photoUrl?: string; name: string }) 
 }
 
 export function PatientsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canCreate = hasPermission(permissions, "create", "patients");
   const canUpdate = hasPermission(permissions, "update", "patients");
   const canDelete = hasPermission(permissions, "delete", "patients");
   const [search, setSearch] = useState("");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -179,6 +183,14 @@ export function PatientsPage() {
   const deleteMutation = useMutation({
     mutationFn: deletePatient,
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setDeleteConfirm(null); toast.success("Patient deactivated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  const portalLoginMutation = useMutation({
+    mutationFn: (patientId: string) => createPortalLogin(patientId),
+    onSuccess: (result) => {
+      toast.success(`Portal login created — Username: ${result.username}, Password: ${result.password}`);
+    },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
@@ -394,6 +406,14 @@ export function PatientsPage() {
               </TooltipTrigger>
               <TooltipContent>Patient Vitals</TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8 text-primary" onClick={() => navigate({ to: "/appointments/new", search: { patientId: patient.id } })}>
+                  <CalendarPlus className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Book Appointment</TooltipContent>
+            </Tooltip>
             {canUpdate && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -402,6 +422,16 @@ export function PatientsPage() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Edit Patient</TooltipContent>
+              </Tooltip>
+            )}
+            {canUpdate && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-8 text-primary" onClick={() => portalLoginMutation.mutate(patient.id)} disabled={portalLoginMutation.isPending}>
+                    <LogIn className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Enable Portal Login</TooltipContent>
               </Tooltip>
             )}
             {canDelete && (deleteConfirm === patient.id ? (

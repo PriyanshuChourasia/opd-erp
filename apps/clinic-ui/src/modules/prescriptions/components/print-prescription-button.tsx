@@ -4,6 +4,7 @@ import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { fetchPrescriptionTemplateForDoctor, type Prescription } from "@/lib/api";
+import { printArea } from "@/lib/utils";
 import { PrescriptionTemplatePreview, type PrescriptionPrintData } from "@/modules/prescription-templates/components/prescription-template-preview";
 
 interface Props {
@@ -72,7 +73,7 @@ export function PrintPrescriptionButton({ prescription, variant = "button" }: Pr
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-            <Button onClick={() => window.print()} disabled={!template}>
+            <Button onClick={printArea} disabled={!template}>
               <Printer className="mr-2 size-3.5" />Print
             </Button>
           </DialogFooter>

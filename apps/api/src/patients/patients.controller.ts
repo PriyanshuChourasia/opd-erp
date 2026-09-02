@@ -17,6 +17,7 @@ import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { FindPatientsQueryDto } from './dto/find-patients-query.dto';
+import { CreatePortalLoginDto } from './dto/create-portal-login.dto';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('patients')
@@ -57,5 +58,15 @@ export class PatientsController {
   @Permissions('update:patients')
   restore(@Param('id') id: string) {
     return this.patientsService.restore(id);
+  }
+
+  @Post(':id/portal-login')
+  @Permissions('manage:patients')
+  createPortalLogin(
+    @Param('id') id: string,
+    @Body() dto: CreatePortalLoginDto,
+    @Req() req: { user: { id: string } },
+  ) {
+    return this.patientsService.createPortalLogin(id, dto, req.user.id);
   }
 }

@@ -4,7 +4,7 @@ import { useNavigate, useLocation, Link } from "@tanstack/react-router";
 import { useDateRangeSync } from "@/lib/date-range-search";
 import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { CalendarClock, ChevronDown, ClipboardList, Download, Eye, FileText, HeartPulse, History, Plus, Printer, Search, X } from "lucide-react";
+import { CalendarClock, ChevronDown, ClipboardList, Download, Eye, FileText, HeartPulse, History, Plus, Printer, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   fetchAppointments,
@@ -14,6 +14,7 @@ import {
   fetchDoctors,
   fetchUsers,
   fetchOrganisation,
+  fetchBill,
   updatePatient,
   createPrescription,
   createPatientVitals,
@@ -24,7 +25,7 @@ import {
   type AppointmentStatus,
   type BillItemInput,
 } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, printArea } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
@@ -42,9 +43,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
-import { RefundDecisionModal } from "@/components/refund-decision-modal";
+import { InvoiceViewSheet } from "@/components/invoice-view-sheet";
 
-const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW"];
+const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "IN_PROGRESS", "COMPLETED"];
 
 const APPT_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -58,10 +59,11 @@ const APPT_STATUS_STYLES: Record<string, string> = {
 };
 
 
-/** Checked-in patients are already sitting in the live queue — label the
- *  status accordingly rather than showing the raw "CHECKED IN" wording. */
+/** Confirmed appointments are the ones sitting in the live queue (see
+ *  AppointmentsService.update's CONFIRMED transition) — label plainly
+ *  otherwise, no special-casing needed beyond underscore→space. */
 function apptStatusLabel(status: string) {
-  return status === "CHECKED_IN" ? "In-Queue" : status.replace("_", " ");
+  return status.replace("_", " ");
 }
 
 function currency(value: number) { return `₹${value.toFixed(2)}`; }
@@ -91,10 +93,7 @@ export function AppointmentsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
-  const [statusConfirm, setStatusConfirm] = useState<string | null>(null);
   const { dateRange } = useDateRangeSync();
-  const [cancelReason, setCancelReason] = useState("");
-  const [refundModalAppt, setRefundModalAppt] = useState<Appointment | null>(null);
 
 
   // ── Invoice preview ──
@@ -102,6 +101,7 @@ export function AppointmentsPage() {
   const [invoiceDiscountRuleId, setInvoiceDiscountRuleId] = useState<string | null>(null);
   const [invoiceTax, setInvoiceTax] = useState(0);
   const [invoicePaymentMethod, setInvoicePaymentMethod] = useState("CASH");
+  const [showInvoicePreviewSheet, setShowInvoicePreviewSheet] = useState(false);
 
   const { data: invoicePreviewData, isLoading: invoicePreviewLoading } = useQuery({
     queryKey: ["appointment-invoice-preview", invoicePreviewAppt?.id],
@@ -172,17 +172,6 @@ export function AppointmentsPage() {
 
   // ── Print preview ──
   const [printAppt, setPrintAppt] = useState<Appointment | null>(null);
-  function printSlip() {
-    const el = document.getElementById('print-area');
-    if (!el) return;
-    // Clone into a temporary container outside the dialog portal
-    const container = document.createElement('div');
-    container.id = 'print-slip-temp';
-    container.appendChild(el.cloneNode(true));
-    document.body.appendChild(container);
-    window.print();
-    setTimeout(() => container.remove(), 1000);
-  }
 
   // ── Shared export column helpers ──
   function appointmentRow(appt: Appointment) {
@@ -257,26 +246,13 @@ export function AppointmentsPage() {
 
   const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
 
-  // ── Prescriptions lookup (for showing doctor notes on appointment rows) ──
-  const { data: prescriptionsResponse } = useQuery({
-    queryKey: ["prescriptions", "appt-notes-lookup"],
-    queryFn: () => fetchPrescriptions({ limit: 500 }),
+  // ── View Invoice ──
+  const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
+  const { data: viewInvoiceBill } = useQuery({
+    queryKey: ["bill", viewInvoiceId],
+    queryFn: () => fetchBill(viewInvoiceId!),
+    enabled: !!viewInvoiceId,
   });
-  const prescriptionNotesMap = useMemo(() => {
-    const map = new Map<string, { notes: string; date: string }>();
-    for (const rx of prescriptionsResponse?.data ?? []) {
-      if (!rx.notes) continue;
-      const key = `${rx.patientId}:${rx.doctorId}`;
-      const existing = map.get(key);
-      if (!existing || new Date(rx.createdAt) > new Date(existing.date)) {
-        map.set(key, { notes: rx.notes, date: rx.createdAt });
-      }
-    }
-    // Strip the date helper — only keep notes
-    const notesOnly = new Map<string, string>();
-    for (const [k, v] of map) notesOnly.set(k, v.notes);
-    return notesOnly;
-  }, [prescriptionsResponse]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -303,13 +279,9 @@ export function AppointmentsPage() {
   const pageCount = appointmentsResponse?.meta?.totalPages ?? 0;
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status, cancellationReason, refundDecision, refundAmount, refundReason }: {
-      id: string; status: AppointmentStatus; cancellationReason?: string;
-      refundDecision?: 'REFUND' | 'FORFEIT'; refundAmount?: number; refundReason?: string;
-    }) => updateAppointmentStatus(id, status, { cancellationReason, refundDecision, refundAmount, refundReason }),
+    mutationFn: ({ id, status }: { id: string; status: AppointmentStatus }) => updateAppointmentStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      setStatusConfirm(null); setCancelReason(""); setRefundModalAppt(null);
       toast.success("Appointment status updated");
     },
     onError: (err) => { toast.error(extractApiError(err)); },
@@ -415,16 +387,10 @@ export function AppointmentsPage() {
       header: () => <div className="text-center">Patient</div>,
       cell: ({ row }) => {
         const appt = row.original;
-        const rxNotes = prescriptionNotesMap.get(`${appt.patientId}:${appt.doctorId}`);
         return (
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{appt.patient ? getPatientName(appt.patient) : null}</p>
             <p className="text-xs text-muted-foreground">{appt.patient?.contactNo}</p>
-            {rxNotes && (
-              <p className="mt-0.5 text-[11px] text-blue-600 dark:text-blue-400 line-clamp-2 italic" title={rxNotes}>
-                {rxNotes}
-              </p>
-            )}
           </div>
         );
       },
@@ -502,14 +468,43 @@ export function AppointmentsPage() {
               </Tooltip>
             )}
             {appt.status !== "CANCELLED" && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-9" aria-label="Print appointment slip" onClick={() => setPrintAppt(appt)}>
-                    <Printer className="size-4.5 text-gray-600" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Print Slip</TooltipContent>
-              </Tooltip>
+              <>
+                {/* Invoice slip is always shown and always active now — rather than being
+                    swapped out for the Print Slip button. With no bill yet, it opens the
+                    same invoice-generation flow the (COMPLETED-only) Generate Invoice
+                    action below uses, instead of being disabled. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-9"
+                      aria-label="View invoice slip"
+                      onClick={() => {
+                        if (appt.bill) {
+                          setViewInvoiceId(appt.bill.id);
+                        } else {
+                          setInvoicePreviewAppt(appt);
+                          setInvoiceDiscountRuleId(null);
+                          setInvoiceTax(0);
+                          setInvoicePaymentMethod("CASH");
+                        }
+                      }}
+                    >
+                      <FileText className="size-4.5 text-green-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{appt.bill ? "Invoice Slip" : "Generate Invoice"}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-9" aria-label="Print appointment slip" onClick={() => setPrintAppt(appt)}>
+                      <Printer className="size-4.5 text-gray-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Print Slip</TooltipContent>
+                </Tooltip>
+              </>
             )}
             {appt.status === "COMPLETED" && (
               <>
@@ -527,17 +522,7 @@ export function AppointmentsPage() {
                   </TooltipTrigger>
                   <TooltipContent>Create Prescription</TooltipContent>
                 </Tooltip>
-                {appt.bill ? (
-                  appt.bill.paidAmount >= appt.bill.total ? (
-                    <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
-                      Paid
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                      Partial
-                    </Badge>
-                  )
-                ) : (
+                {!appt.bill && (
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                       Unpaid
@@ -559,43 +544,12 @@ export function AppointmentsPage() {
                 )}
               </>
             )}
-            {appt.status === "COMPLETED" ? null : statusConfirm === appt.id ? (
-              <div className="flex items-center gap-1">
-                <Input
-                  autoFocus
-                  placeholder="Reason *"
-                  className="h-8 w-36 text-xs"
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && cancelReason.trim()) statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason.trim() }); }}
-                />
-                <Button variant="destructive" size="sm" className="h-8 text-xs" disabled={!cancelReason.trim()} onClick={() => statusMutation.mutate({ id: appt.id, status: "CANCELLED", cancellationReason: cancelReason.trim() })}>Cancel</Button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-9" aria-label="Dismiss cancellation" onClick={() => { setStatusConfirm(null); setCancelReason(""); }}><X className="size-3.5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Dismiss</TooltipContent>
-                </Tooltip>
-              </div>
-            ) : (
+            {appt.status !== "COMPLETED" && APPT_STATUSES.includes(appt.status as AppointmentStatus) && (
               <Select
                 value={appt.status}
                 onValueChange={(value) => {
                   if (value === appt.status) return;
-                  if (value === "CANCELLED") {
-                    // Check if money was collected — if so, show refund decision modal
-                    if (appt.amountPaid > 0 || appt.bill) {
-                      setRefundModalAppt(appt);
-                    } else {
-                      setStatusConfirm(appt.id);
-                    }
-                    return;
-                  }
-                  statusMutation.mutate({ id: appt.id, status: value as AppointmentStatus }, {
-                    onSuccess: () => {
-                      if (value === "CHECKED_IN") queryClient.invalidateQueries({ queryKey: ["queue"] });
-                    },
-                  });
+                  statusMutation.mutate({ id: appt.id, status: value as AppointmentStatus });
                 }}
               >
                 <SelectTrigger size="sm" className="h-8 text-xs" aria-label="Change appointment status">
@@ -613,8 +567,7 @@ export function AppointmentsPage() {
         );
       },
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [statusConfirm, cancelReason]);
+  ], []);
 
   return (
     <div className="space-y-6">
@@ -649,11 +602,8 @@ export function AppointmentsPage() {
           <option value="">All statuses</option>
           <option value="SCHEDULED">Scheduled</option>
           <option value="CONFIRMED">Confirmed</option>
-          <option value="CHECKED_IN">In-Queue</option>
           <option value="IN_PROGRESS">In Progress</option>
           <option value="COMPLETED">Completed</option>
-          <option value="CANCELLED">Cancelled</option>
-          <option value="NO_SHOW">No Show</option>
         </select>
         <select
           className="flex h-9 rounded-none border border-input bg-background px-3 py-1 text-sm"
@@ -821,6 +771,9 @@ export function AppointmentsPage() {
 
           <SheetFooter>
             <Button variant="outline" onClick={() => setInvoicePreviewAppt(null)}>Cancel</Button>
+            <Button variant="outline" disabled={!invoicePreviewData} onClick={() => setShowInvoicePreviewSheet(true)}>
+              Preview
+            </Button>
             <Button
               onClick={() => invoiceCheckoutMutation.mutate()}
               disabled={!invoicePreviewData || invoiceCheckoutMutation.isPending}
@@ -830,6 +783,54 @@ export function AppointmentsPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* Invoice Preview (not-yet-saved) — same InvoiceViewSheet layout as a real
+          invoice, built from the live discount/tax/payment-method form state.
+          previewOnly suppresses Payment History (nothing to fetch — this sheet
+          never records payment, generating the invoice below does that later,
+          separately, via the real payment flow). */}
+      {invoicePreviewAppt && invoicePreviewData && (
+        <InvoiceViewSheet
+          bill={
+            showInvoicePreviewSheet
+              ? {
+                  id: "preview",
+                  patientId: invoicePreviewAppt.patientId,
+                  appointmentId: invoicePreviewAppt.id,
+                  invoiceNo: "PREVIEW",
+                  subtotal: invoiceSubtotal,
+                  discount: invoiceDiscount,
+                  tax: invoiceTax,
+                  total: Math.max(0, invoiceSubtotal - invoiceDiscount + invoiceTax),
+                  paymentMethod: invoicePaymentMethod,
+                  status: "PENDING",
+                  notes: null,
+                  financialYearId: null,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                  patient: invoicePreviewAppt.patient,
+                  appointment: invoicePreviewAppt.doctor
+                    ? { id: invoicePreviewAppt.id, doctorId: invoicePreviewAppt.doctorId, type: invoicePreviewAppt.type, date: invoicePreviewAppt.date, doctorName: invoicePreviewAppt.doctor.name ?? null }
+                    : null,
+                  items: invoicePreviewData.items.map((item, i) => ({
+                    id: `preview-${i}`,
+                    billId: "preview",
+                    itemType: item.itemType,
+                    itemId: item.itemId ?? null,
+                    itemName: item.itemName,
+                    quantity: item.quantity ?? 1,
+                    unitPrice: item.unitPrice,
+                    amount: (item.quantity ?? 1) * item.unitPrice,
+                    createdAt: new Date().toISOString(),
+                  })),
+                }
+              : null
+          }
+          onOpenChange={(open) => !open && setShowInvoicePreviewSheet(false)}
+          organisation={organisation ?? undefined}
+          previewOnly
+        />
+      )}
 
       {/* ── Create Prescription Sheet ── */}
       <Sheet open={rxSheetOpen} onOpenChange={(open) => { if (!open) { setRxSheetOpen(false); setRxAppointment(null); setRxShowDocs(false); setRxShowHistory(false); } }}>
@@ -1129,12 +1130,13 @@ export function AppointmentsPage() {
 
       {/* ── Appointment Slip Preview Dialog ── */}
       <Dialog open={!!printAppt} onOpenChange={(open) => { if (!open) setPrintAppt(null); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" showCloseButton>
+        <DialogContent className="sm:max-w-[calc(210mm+4rem)] max-h-[90vh] overflow-y-auto" showCloseButton>
           <DialogHeader>
             <DialogTitle>Appointment Slip Preview</DialogTitle>
           </DialogHeader>
 
-          <div id="print-area" className="bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
+          {/* Sized to A5 landscape (210mm x 148mm) to match the printed page */}
+          <div id="print-area" className="slip-print-area mx-auto w-[210mm] max-w-full min-h-[148mm] bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
             {printAppt && (() => {
               const aptDate = new Date(printAppt.date);
               const formattedDate = aptDate.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
@@ -1144,31 +1146,31 @@ export function AppointmentsPage() {
               return (
                 <>
                   {/* Header */}
-                  <div className="bg-[#1e3a5f] text-white py-4 px-6 text-center rounded-t">
-                    <h1 className="text-xl font-bold tracking-wide m-0">{organisation?.name ?? "CLINIC"}</h1>
-                    <p className="text-[11px] opacity-85 mt-1 m-0">
-                      {[organisation?.address, organisation?.phone].filter(Boolean).join(" | ") || "Healthcare Centre"}
-                    </p>
-                  </div>
-
-                  {/* Title */}
-                  <div className="bg-[#e8edf3] py-2.5 px-6 text-center border-b border-[#1e3a5f]">
-                    <h2 className="m-0 text-sm font-bold text-[#1e3a5f] tracking-[2px]">APPOINTMENT SLIP</h2>
+                  <div className="flex items-center justify-between gap-4 rounded-t bg-[#1e3a5f] px-6 py-4 text-white">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-lg font-bold text-[#1e3a5f]">
+                        {(organisation?.name ?? "C").trim().charAt(0).toUpperCase() || "C"}
+                      </div>
+                      <h1 className="m-0 text-xl font-bold tracking-wide">{organisation?.name ?? "CLINIC"}</h1>
+                    </div>
+                    <div className="text-right text-[11px] leading-relaxed opacity-90">
+                      {organisation?.phone && <div>{organisation.phone}</div>}
+                      <div>{organisation?.address || "Healthcare Centre"}</div>
+                      <div>{organisation?.website || "http://opd.codymitra.com"}</div>
+                      <div>
+                        Slip No: {apptId} | Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Body */}
                   <div className="py-5 px-6">
                     {printAppt.tokenNumber && (
-                      <div className="float-right border-2 border-[#1e3a5f] py-2 px-3.5 text-center ml-3 mb-2">
-                        <div className="text-[9px] font-bold text-[#1e3a5f] tracking-wide">TOKEN</div>
-                        <div className="text-xl font-bold text-[#1e3a5f]">#{printAppt.tokenNumber}</div>
+                      <div className="mb-4 inline-block border-2 border-[#1e3a5f] py-1.5 px-3.5">
+                        <span className="text-[11px] font-bold text-[#1e3a5f] tracking-wide">TOKEN NO:</span>{" "}
+                        <span className="text-base font-bold text-[#1e3a5f]">#{printAppt.tokenNumber}</span>
                       </div>
                     )}
-
-                    <div className="mb-3.5 text-[11px] text-gray-500">
-                      Slip No: <span className="font-mono font-bold">{apptId}</span>
-                      {" | "}Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                    </div>
 
                     <table className="w-full border-collapse mb-4 text-[13px]">
                       <tbody>
@@ -1190,20 +1192,30 @@ export function AppointmentsPage() {
                     </table>
 
                     {/* Appointment details */}
-                    <div className="font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] mb-2 pb-1 text-[11px] tracking-wide">APPOINTMENT DETAILS</div>
+                    <div className="font-bold text-[#1e3a5f] mb-2 text-[11px] tracking-wide">APPOINTMENT DETAILS</div>
                     <table className="w-full border-collapse mb-4 text-[13px]">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-300 py-1.5 px-2 text-left text-[11px] font-bold text-[#1e3a5f]">FIELD</th>
+                          <th className="border border-gray-300 py-1.5 px-2 text-left text-[11px] font-bold text-[#1e3a5f]">VALUE</th>
+                        </tr>
+                      </thead>
                       <tbody>
                         <tr>
-                          <td className="py-2 pr-1.5 w-1/4 font-bold text-gray-600 text-xs">Date</td>
-                          <td className="py-2 pr-1.5 w-1/4 font-bold">{formattedDate}</td>
-                          <td className="py-2 pr-1.5 w-1/4 font-bold text-gray-600 text-xs">Time</td>
-                          <td className="py-2 pr-1.5 w-1/4 font-bold">{formattedTime}</td>
+                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold text-gray-600">Date</td>
+                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold">{formattedDate}</td>
                         </tr>
                         <tr>
-                          <td className="py-1 pr-1.5 font-bold text-gray-600 text-xs">Type</td>
-                          <td className="py-1 pr-1.5 text-xs">{printAppt.type.replace("_", " ")}</td>
-                          <td className="py-1 pr-1.5 font-bold text-gray-600 text-xs">Status</td>
-                          <td className="py-1 pr-1.5 text-xs">{apptStatusLabel(printAppt.status)}</td>
+                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold text-gray-600">Time</td>
+                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold">{formattedTime}</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold text-gray-600">Type</td>
+                          <td className="border border-gray-200 py-1.5 px-2 text-xs">{printAppt.type.replace("_", " ")}</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold text-gray-600">Status</td>
+                          <td className="border border-gray-200 py-1.5 px-2 text-xs">{apptStatusLabel(printAppt.status)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -1212,7 +1224,7 @@ export function AppointmentsPage() {
                     <table className="w-full border-collapse mb-4 text-[13px]">
                       <thead>
                         <tr>
-                          <th colSpan={2} className="py-1 font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] text-[11px] tracking-wide text-left">AMOUNT SUMMARY</th>
+                          <th colSpan={2} className="py-1 font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] text-[11px] tracking-wide text-left">MONEY RECEIPT</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1264,30 +1276,17 @@ export function AppointmentsPage() {
             })()}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPrintAppt(null)}>Close</Button>
-            <Button variant="outline" onClick={printSlip}>
+          <DialogFooter className="bg-muted">
+            <Button variant="secondary" onClick={() => setPrintAppt(null)}>Close</Button>
+            <Button variant="default" onClick={printArea}>
               Print / Save as PDF
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Refund Decision Modal (for cancel/no-show with money collected) ── */}
-      <RefundDecisionModal
-        open={!!refundModalAppt}
-        onOpenChange={(open) => { if (!open) setRefundModalAppt(null); }}
-        netPaid={refundModalAppt?.amountPaid ?? 0}
-        isPending={statusMutation.isPending}
-        onConfirm={(decision) => {
-          if (!refundModalAppt) return;
-          statusMutation.mutate({
-            id: refundModalAppt.id,
-            status: "CANCELLED",
-            ...decision,
-          });
-        }}
-      />
+      {/* ── View Invoice ── */}
+      <InvoiceViewSheet bill={viewInvoiceBill ?? null} onOpenChange={(open) => !open && setViewInvoiceId(null)} organisation={organisation ?? undefined} />
     </div>
   );
 }

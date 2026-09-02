@@ -115,6 +115,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const isReceptionist = location.pathname.startsWith('/receptionist');
   const searchParams = useSearch({ strict: false }) as Record<string, string | undefined>;
   const preselectedDoctorId = searchParams.doctorId;
+  const preselectedPatientId = searchParams.patientId;
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
   const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
@@ -232,6 +233,17 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       // If doctor not found (invalid/stale id), fail silently — leave field unset
     }
   }, [preselectedDoctorId, doctors]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pre-select patient from query param (e.g. from Patients table "Book Appointment" button)
+  useEffect(() => {
+    if (preselectedPatientId && !form.patient) {
+      fetchPatient(preselectedPatientId).then((patient) => {
+        setForm((prev) => ({ ...prev, patient: { id: patient.id, firstName: patient.firstName, lastName: patient.lastName, contactNo: patient.contactNo } }));
+      }).catch(() => {
+        // If patient not found, fail silently
+      });
+    }
+  }, [preselectedPatientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Only one doctor in the system — default-select them so the receptionist
   // doesn't have to pick from a list of one.
@@ -714,13 +726,13 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                                       }}
                                       className={cn(
                                         "relative rounded-none border px-2.5 py-1 text-[11px] font-medium font-mono transition-all duration-150",
-                                        isBooked && "cursor-not-allowed border-red-200 bg-red-50 text-red-300 line-through",
+                                        isBooked && "cursor-not-allowed border-red-200 bg-red-50 text-red-600 min-w-[80px]",
                                         isPast && !isBooked && "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400",
                                         isSelected && !disabled && "z-10 border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary",
                                         !disabled && !isSelected && "border-input text-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
                                       )}
                                     >
-                                      {t}
+                                      {isBooked ? `${t} Booked` : t}
                                     </button>
                                   );
                                 })}
@@ -946,7 +958,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                     />
                   </div>
                   <div className="flex flex-wrap gap-1.5 pb-3">
-                    {[50, 100, 200, 400, 500].map((val) => (
+                    {[0, 50, 100, 200, 400, 500].map((val) => (
                       <button
                         key={val}
                         type="button"

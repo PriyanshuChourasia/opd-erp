@@ -43,6 +43,12 @@ import { FinancialYearsModule } from './financial-years/financial-years.module';
 import { DoctorDepartmentsModule } from './doctor-departments/doctor-departments.module';
 import { DoctorSpecializationsModule } from './doctor-specializations/doctor-specializations.module';
 import { BloodGroupsModule } from './blood-groups/blood-groups.module';
+import { StockModule } from './stock/stock.module';
+import { AccountGroupModule } from './accounting/account-group/account-group.module';
+import { AccountNatureModule } from './accounting/account-nature/account-nature.module';
+import { LedgerModule } from './accounting/ledger/ledger.module';
+import { VoucherModule } from './accounting/voucher/voucher.module';
+import { JournalModule } from './accounting/journal/journal.module';
 
 @Module({
   imports: [
@@ -90,6 +96,12 @@ import { BloodGroupsModule } from './blood-groups/blood-groups.module';
     DoctorDepartmentsModule,
     DoctorSpecializationsModule,
     BloodGroupsModule,
+    StockModule,
+    AccountGroupModule,
+    AccountNatureModule,
+    LedgerModule,
+    VoucherModule,
+    JournalModule,
   ],
 })
 export class AppModule {}

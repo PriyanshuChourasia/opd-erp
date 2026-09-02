@@ -7,9 +7,11 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { ModuleRegistryService } from '../common/services/module-registry.service';
 import { registry } from './registry';
+import { AccountingModule } from '../accounting/accounting.module';
 
 @Module({
   imports: [
+    AccountingModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],

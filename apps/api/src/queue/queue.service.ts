@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TokenNumberService } from '../common/services/token-number.service';
 import { paginate } from '../common/utils/paginate';
 import { getDoctorNameMap } from '../common/utils/doctor-names';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
@@ -22,21 +23,10 @@ import { applyDateRange } from '../common/dto/date-range-query.dto';
 export class QueueService
   implements IBaseService<QueueEntry, CreateQueueEntryDto, UpdateQueueStatusDto>, IPaginatable<QueueEntry, FindQueueQueryDto>
 {
-  constructor(private readonly prisma: PrismaService) {}
-
-  private generateTokenNumber(date: Date, patientName: string): string {
-    const y = date.getFullYear().toString();
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const d = date.getDate().toString().padStart(2, '0');
-    const h = date.getHours().toString().padStart(2, '0');
-    const min = date.getMinutes().toString().padStart(2, '0');
-    const nameInitials = patientName
-      .split(' ')
-      .map((p) => p.charAt(0).toUpperCase())
-      .join('')
-      .slice(0, 4);
-    return `${y}${m}${d}-${nameInitials}-${h}${min}`;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokenNumberService: TokenNumberService,
+  ) {}
 
   private readonly billSelect = { select: { id: true, invoiceNo: true, status: true } };
 
@@ -49,7 +39,7 @@ export class QueueService
       this.prisma.doctor.findUnique({ where: { id: dto.doctorId } }),
     ]);
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'PTNT';
-    const tokenNumber = this.generateTokenNumber(today, patientName);
+    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, today);
 
     // Pair the queue entry with a lightweight walk-in appointment so it can
     // be invoiced through the same checkout flow as scheduled appointments.

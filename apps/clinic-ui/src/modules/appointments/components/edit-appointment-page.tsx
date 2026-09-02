@@ -353,9 +353,14 @@ export function EditAppointmentPage() {
 
   const canSave = !!form.patient && !!form.doctorId && !!form.slot && !!form.type;
 
-  const dueAmount = appointment?.bill
-    ? Math.max(0, appointment.bill.total - appointment.bill.paidAmount)
-    : Math.max(0, form.amount + form.registrationFee - (appointment?.amountPaid ?? 0));
+  // True bill total and what's already been collected against it — kept
+  // separate so PaymentSheet can show a real "Net Total" alongside "Amount
+  // Due", instead of only ever seeing the already-reduced remaining balance.
+  const billSubtotal = appointment?.bill
+    ? (appointment.bill.total ?? 0)
+    : (Number(form.amount) || 0) + (Number(form.registrationFee) || 0);
+  const billAlreadyPaid = appointment?.bill ? (appointment.bill.paidAmount ?? 0) : (appointment?.amountPaid ?? 0);
+  const dueAmount = Math.max(0, billSubtotal - billAlreadyPaid);
 
   if (appointmentLoading) {
     return (
@@ -775,29 +780,29 @@ export function EditAppointmentPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 text-sm">
+                <div className="grid grid-cols-3 gap-x-4 gap-y-3 px-4 py-3 text-sm">
                   <PlaceholderField label="Gender" value={selectedPatient?.gender} />
                   <PlaceholderField
                     label="Age / DOB"
-                    value={selectedPatient?.dateOfBirth ? `${Math.floor((Date.now() - new Date(selectedPatient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} yrs · ${new Date(selectedPatient.dateOfBirth).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : undefined}
+                    value={selectedPatient?.dateOfBirth ? `${Math.floor((Date.now() - new Date(selectedPatient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} yrs` : undefined}
                   />
                   <PlaceholderField label="Blood Group" value={selectedPatient?.bloodGroup} />
+                  <PlaceholderField label="Phone" value={selectedPatient?.contactNo} />
                   <PlaceholderField label="Email" value={selectedPatient?.email} />
                   <PlaceholderField label="Registered On" value={selectedPatient?.createdAt ? new Date(selectedPatient.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : undefined} />
-                  <div className="col-span-2 grid grid-cols-2 gap-x-4">
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Address</span>
-                      <p className={cn("mt-0.5", selectedPatient?.address ? "" : "text-muted-foreground/50")}>
-                        {selectedPatient?.address || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Emergency Contact</span>
-                      <p className={cn("mt-0.5", selectedPatient?.emergencyContact ? "font-medium" : "text-muted-foreground/50")}>
-                        {selectedPatient?.emergencyContact || "—"}
-                      </p>
-                    </div>
+                  <div>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Address</span>
+                    <p className={cn("mt-0.5 text-xs", selectedPatient?.address ? "" : "text-muted-foreground/50")}>
+                      {selectedPatient?.address || "—"}
+                    </p>
                   </div>
+                  <div>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Emergency Contact</span>
+                    <p className={cn("mt-0.5 text-xs", selectedPatient?.emergencyContact ? "font-medium" : "text-muted-foreground/50")}>
+                      {selectedPatient?.emergencyContact || "—"}
+                    </p>
+                  </div>
+                  <PlaceholderField label="Patient Code" value={selectedPatient?.patientCode} />
                 </div>
 
                 <div className="border-t px-4 py-3">
@@ -939,7 +944,7 @@ export function EditAppointmentPage() {
                       />
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {[50, 100, 200, 400, 500].map((val) => (
+                      {[0, 50, 100, 200, 400, 500].map((val) => (
                         <button
                           key={val}
                           type="button"
@@ -960,7 +965,9 @@ export function EditAppointmentPage() {
                   <div className="border-t border-dashed" />
                   <div className="border-t" />
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">Total</span>
+                    <span className="text-sm font-semibold">
+                      {(appointment?.bill?.paidAmount ?? 0) > 0 ? "Remaining" : "Total"}
+                    </span>
                     <span className="text-lg font-bold text-primary">{currency(dueAmount)}</span>
                   </div>
                 </div>
@@ -1007,7 +1014,8 @@ export function EditAppointmentPage() {
       <PaymentSheet
         open={paymentSheetOpen}
         onOpenChange={setPaymentSheetOpen}
-        subtotal={dueAmount}
+        subtotal={billSubtotal}
+        alreadyPaid={billAlreadyPaid}
         isPending={saveAndPayMutation.isPending}
         onSubmit={(payload) => saveAndPayMutation.mutate(payload)}
         submitLabel={appointment?.bill?.id ? "Record Payment" : "Confirm & Pay"}

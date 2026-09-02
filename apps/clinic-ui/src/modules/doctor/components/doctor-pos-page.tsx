@@ -109,7 +109,6 @@ function totalTablets(dosage: string, duration: string, quantity: number): numbe
 
 const QUEUE_STATUS_STYLES: Record<string, string> = {
   WAITING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  SEND_IN: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
   IN_PROGRESS: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   SKIPPED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -188,9 +187,8 @@ export function DoctorPosPage() {
 
   const queue = response?.data ?? [];
   const waiting = queue.filter((e) => e.status === "WAITING");
-  const sendIn = queue.filter((e) => e.status === "SEND_IN");
   const inProgress = queue.filter((e) => e.status === "IN_PROGRESS");
-  const active = [...inProgress, ...sendIn, ...waiting];
+  const active = [...inProgress, ...waiting];
 
   const medicineResults = useQuery({
     queryKey: ["medicines", "search", medicineQuery],
@@ -425,7 +423,7 @@ export function DoctorPosPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Appointments</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {waiting.length} waiting &middot; {sendIn.length} to see &middot; {inProgress.length} in progress
+            {waiting.length} waiting &middot; {inProgress.length} in progress
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -521,25 +519,6 @@ export function DoctorPosPage() {
                               size="sm"
                               className="h-7 text-xs gap-1.5"
                               disabled={inProgress.length > 0}
-                              title={inProgress.length > 0 ? "Complete the current consultation first" : "Send patient in"}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                statusMutation.mutate({ id: entry.id, status: "SEND_IN" });
-                                if (!selectedEntry || selectedEntry.id === entry.id) {
-                                  setSelectedEntry({ ...entry, status: "SEND_IN" });
-                                }
-                              }}
-                            >
-                              <ArrowRight className="size-4 text-violet-600" />
-                              Send In
-                            </Button>
-                          )}
-                          {entry.status === "SEND_IN" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs gap-1.5"
-                              disabled={inProgress.length > 0}
                               title={inProgress.length > 0 ? "Complete the current consultation first" : "Start consultation"}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -553,7 +532,7 @@ export function DoctorPosPage() {
                               Start Consultation
                             </Button>
                           )}
-                          {(entry.status === "WAITING" || entry.status === "SEND_IN") && entry.appointment && (
+                          {entry.status === "WAITING" && entry.appointment && (
                             <>
                               <Button
                                 variant="ghost"

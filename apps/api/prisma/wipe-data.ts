@@ -1,6 +1,12 @@
 /**
- * Wipe ALL data from the database, keeping ONLY the superadmin and admin users
- * (and their roles + permissions).
+ * Wipe all transactional/demo data from the database, keeping only:
+ *   - ALL current User rows + their Roles/Permissions
+ *   - ONE Doctor (the first one) + its linked User
+ *   - ALL Patients
+ *   - ALL Medicines (and their Groups/Units)
+ *
+ * Everything else is deleted: appointments, bills, prescriptions, accounting,
+ * queues, orders, allergies, diagnoses, addresses, documents, etc.
  *
  * Run: npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/wipe-data.ts
  */
@@ -8,77 +14,95 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const KEEP_EMAILS = ['superadmin@clinic.com', 'admin@clinic.com'];
-
 async function main() {
-  console.log('🗑️  Wiping ALL data (keeping superadmin & admin only)...\n');
+  console.log('🗑️  Wiping all data except Users, one Doctor, Patients, Medicines...\n');
 
-  // Find users to keep
-  const keepUsers = await prisma.user.findMany({
-    where: { email: { in: KEEP_EMAILS } },
-    select: { id: true, email: true, roleId: true },
-  });
+  // ── Identify what to keep ──
+  const keepUsers = await prisma.user.findMany({ select: { id: true, email: true, roleId: true } });
+  const keepRoleIds = [...new Set(keepUsers.map((u) => u.roleId))];
   const keepUserIds = keepUsers.map((u) => u.id);
-  const keepRoleIds = keepUsers.map((u) => u.roleId);
+  console.log(`Keeping ${keepUsers.length} user(s) across ${keepRoleIds.length} role(s).`);
 
-  console.log('Keeping users:');
-  keepUsers.forEach((u) => console.log(`  - ${u.email} (${u.id})`));
-  console.log(`Keeping roles: ${keepRoleIds.join(', ')}\n`);
+  // Keep the first doctor (and its linked User)
+  const keepDoctor = await prisma.doctor.findFirst();
+  const keepDoctorIds = keepDoctor ? [keepDoctor.id] : [];
+  console.log(`Keeping ${keepDoctorIds.length} doctor(s): ${keepDoctor ? keepDoctor.medicalRegistrationNo : 'none'}.`);
 
-  // ── 1. Delete ALL transactional child records (breaks FK chains) ──
-  console.log('1/6  Deleting transactional child records...');
+  // Count what we're keeping
+  const patientCount = await prisma.patient.count();
+  const medicineCount = await prisma.medicine.count();
+  console.log(`Keeping ${patientCount} patient(s) and ${medicineCount} medicine(s).\n`);
+
+  // ── 1. Accounting: children before parents ──
+  console.log('1/8  Deleting accounting records...');
+  await prisma.voucherReference.deleteMany();
+  await prisma.journalLine.deleteMany();
+  await prisma.journal.deleteMany();
+  await prisma.voucher.deleteMany();
+  await prisma.ledger.deleteMany();
+  await prisma.accountGroup.deleteMany();
+  await prisma.accountNature.deleteMany();
+  await prisma.voucherType.deleteMany();
+  await prisma.journalType.deleteMany();
+
+  // ── 2. Billing/payment transactional child records ──
+  console.log('2/8  Deleting billing/payment records...');
+  await prisma.billItem.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.bill.deleteMany();
+
+  // ── 3. Clinical transactional records ──
+  console.log('3/8  Deleting clinical records...');
   await prisma.patientVitals.deleteMany();
   await prisma.patientAllergyRecord.deleteMany();
   await prisma.patientAllergy.deleteMany();
   await prisma.dispensing.deleteMany();
   await prisma.prescriptionItem.deleteMany();
   await prisma.prescriptionHistory.deleteMany();
-  await prisma.billItem.deleteMany();
-  await prisma.queueEntry.deleteMany();
-  await prisma.refreshToken.deleteMany();
-
-  // ── 2. Delete ALL transactional parent records ──
-  console.log('2/6  Deleting transactional parent records...');
   await prisma.prescription.deleteMany();
-  await prisma.bill.deleteMany();
+  await prisma.queueEntry.deleteMany();
   await prisma.appointment.deleteMany();
   await prisma.labOrder.deleteMany();
   await prisma.radiologyOrder.deleteMany();
   await prisma.procedureOrder.deleteMany();
 
-  // ── 3. Delete ALL reference/catalogue records ──
-  console.log('3/6  Deleting reference records...');
+  // ── 4. Reference/catalogue records (keeping Medicines + their Groups/Units) ──
+  console.log('4/8  Deleting reference records (keeping medicines)...');
   await prisma.employeeSchedule.deleteMany();
   await prisma.shift.deleteMany();
-  await prisma.patient.deleteMany();
-  await prisma.doctor.deleteMany();
-  await prisma.medicine.deleteMany();
-  await prisma.medicineGroup.deleteMany();
-  await prisma.unit.deleteMany();
+  // NOT deleting: patient, doctor (kept), medicine, medicineGroup, unit
   await prisma.allergy.deleteMany();
   await prisma.diagnosis.deleteMany();
   await prisma.diagnosisSystem.deleteMany();
   await prisma.address.deleteMany();
   await prisma.document.deleteMany();
   await prisma.prescriptionTemplate.deleteMany();
-  await prisma.organisation.deleteMany();
+  await prisma.financialYear.deleteMany();
+  await prisma.company.deleteMany();
+  await prisma.sidebarMenu.deleteMany();
 
-  // ── 4. Delete non-kept users ──
-  console.log('4/6  Deleting non-admin users...');
+  // ── 5. Delete non-kept doctors (keep only the first one) ──
+  console.log('5/8  Deleting non-kept doctors...');
+  const deletedDoctors = await prisma.doctor.deleteMany({
+    where: { id: { notIn: keepDoctorIds } },
+  });
+  console.log(`     Deleted ${deletedDoctors.count} doctor(s).`);
+
+  // ── 6. Delete non-kept users/roles ──
+  console.log('6/8  Deleting non-kept users/roles...');
   const deletedUsers = await prisma.user.deleteMany({
     where: { id: { notIn: keepUserIds } },
   });
-  console.log(`     Deleted ${deletedUsers.count} users`);
-
-  // ── 5. Delete non-kept roles ──
-  console.log('5/6  Deleting non-admin roles...');
   const deletedRoles = await prisma.role.deleteMany({
     where: { id: { notIn: keepRoleIds } },
   });
-  console.log(`     Deleted ${deletedRoles.count} roles`);
+  console.log(`     Deleted ${deletedUsers.count} user(s), ${deletedRoles.count} role(s).`);
 
-  // ── 6. Summary ──
-  console.log('\n6/6  Summary:');
+  // ── 7. RefreshTokens for kept users stay valid ──
+  console.log('7/8  Refresh tokens untouched (kept users stay logged in).');
+
+  // ── 8. Summary ──
+  console.log('\n8/8  Summary:');
   const counts = {
     users: await prisma.user.count(),
     roles: await prisma.role.count(),
@@ -89,11 +113,16 @@ async function main() {
     medicineGroups: await prisma.medicineGroup.count(),
     units: await prisma.unit.count(),
     appointments: await prisma.appointment.count(),
+    bills: await prisma.bill.count(),
     prescriptions: await prisma.prescription.count(),
+    ledgers: await prisma.ledger.count(),
+    vouchers: await prisma.voucher.count(),
+    journals: await prisma.journal.count(),
   };
   Object.entries(counts).forEach(([k, v]) => console.log(`   ${k}: ${v}`));
 
-  console.log('\n✅ Done! Only superadmin & admin remain.');
+  console.log('\n✅ Done! Kept: Users, one Doctor, Patients, Medicines.');
+  console.log('   Run `npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts` to rebuild.');
 }
 
 main()

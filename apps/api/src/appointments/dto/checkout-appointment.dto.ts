@@ -21,9 +21,4 @@ export class CheckoutAppointmentDto {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  paidAmount?: number;
 }

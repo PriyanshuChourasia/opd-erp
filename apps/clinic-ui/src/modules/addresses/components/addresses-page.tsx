@@ -17,7 +17,7 @@ const ADDRESS_TYPE_ICONS: Record<string, typeof MapPin> = {
 };
 
 export function AddressesPage() {
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterEntity, setFilterEntity] = useState("");

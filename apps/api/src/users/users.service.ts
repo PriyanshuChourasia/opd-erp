@@ -9,6 +9,7 @@ import type { PaginatedResult } from '../common/interfaces/paginated-result.inte
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AccountingService } from '../accounting/accounting.service';
 
 /** Selection shared by list queries — never selects `password` or `refreshTokens`. */
 const userListSelect = {
@@ -38,7 +39,10 @@ export type UserListItem = Prisma.UserGetPayload<{ select: typeof userListSelect
  */
 @Injectable()
 export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDto> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accountingService: AccountingService,
+  ) {}
 
   async findAll(query: FindUsersQueryDto): Promise<PaginatedResult<UserListItem>> {
     const searchFilter = SearchQueryBuilder.search(query.search, ['firstName', 'lastName', 'email', 'mobileNumber']);
@@ -93,23 +97,34 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    return this.prisma.user.create({
-      data: {
-        username: dto.username,
-        firstName: dto.firstName,
-        middleName: dto.middleName,
-        lastName: dto.lastName,
-        email: dto.email,
-        mobileNumber: dto.mobileNumber,
-        countryCode: dto.countryCode ?? '+91',
-        gender: dto.gender,
-        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-        profilePhotoUrl: dto.profilePhotoUrl,
-        qualification: dto.qualification,
-        password: hashedPassword,
-        roleId: dto.roleId,
-      },
-      select: userListSelect,
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          username: dto.username,
+          firstName: dto.firstName,
+          middleName: dto.middleName,
+          lastName: dto.lastName,
+          email: dto.email,
+          mobileNumber: dto.mobileNumber,
+          countryCode: dto.countryCode ?? '+91',
+          gender: dto.gender,
+          dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+          profilePhotoUrl: dto.profilePhotoUrl,
+          qualification: dto.qualification,
+          password: hashedPassword,
+          roleId: dto.roleId,
+        },
+        select: userListSelect,
+      });
+
+      // Every user always gets a Staff Accounts ledger, even before their first advance/reimbursement.
+      await this.accountingService.resolveOrCreateUserLedger(
+        tx,
+        user.id,
+        `${user.firstName} ${user.lastName}`.trim(),
+      );
+
+      return user;
     });
   }
 

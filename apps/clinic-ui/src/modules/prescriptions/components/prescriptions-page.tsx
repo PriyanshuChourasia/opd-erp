@@ -88,7 +88,7 @@ export function PrescriptionsPage() {
   const canReadOrganisation = hasPermission(user?.permissions, "read", "company");
   const canCreate = hasPermission(user?.permissions, "create", "prescriptions");
   const canUpdate = hasPermission(user?.permissions, "update", "prescriptions");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [invoicesOpen, setInvoicesOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
   const [editPatientId, setEditPatientId] = useState<string | null>(null);
@@ -437,7 +437,12 @@ export function PrescriptionsPage() {
     const doctorName = rx.doctor?.name ?? rx.doctor?.medicalRegistrationNo ?? '';
     const doctorQual = rx.doctor?.qualification ?? '';
     const doctorSpec = rx.doctor?.specialization ?? '';
+    const doctorRegNo = rx.doctor?.medicalRegistrationNo ?? '';
+    const orgPhone = organisation?.phone ?? '';
     const orgEmail = organisation?.email ?? '';
+    const logoInitial = orgName.trim().charAt(0).toUpperCase() || 'C';
+    const headerContactLine = [orgPhone, orgEmail].filter(Boolean).join(' &nbsp;|&nbsp; ');
+    const headerMetaLine = [`Date: ${formattedDate}`, doctorRegNo ? `Reg. No: ${doctorRegNo}` : ''].filter(Boolean).join(' &nbsp;|&nbsp; ');
 
     const medicineRows = rx.items.map((item, idx) => `
       <tr>
@@ -463,17 +468,34 @@ export function PrescriptionsPage() {
          </div>`
       : '';
 
-    return `<div style="border:2px solid #1e3a5f;max-width:800px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#000;">
-  <div style="background:#1e3a5f;color:#fff;padding:18px 24px;text-align:center;">
-    <h1 style="margin:0;font-size:22px;font-weight:bold;letter-spacing:1px;">${orgName}</h1>
-    <p style="margin:4px 0 0;font-size:11px;opacity:0.85;">${orgInfo}</p>
-  </div>
+    return `<div style="width:100%;font-family:Arial,Helvetica,sans-serif;color:#000;">
+  <table style="width:100%;border-collapse:collapse;background:#1e3a5f;">
+    <tr>
+      <td style="padding:16px 24px;">
+        <table style="border-collapse:collapse;">
+          <tr>
+            <td style="vertical-align:middle;padding-right:12px;">
+              <div style="width:44px;height:44px;border-radius:50%;background:#ffffff;color:#1e3a5f;font-size:18px;font-weight:bold;text-align:center;line-height:44px;">${logoInitial}</div>
+            </td>
+            <td style="vertical-align:middle;">
+              <div style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:1px;">${orgName}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+      <td style="padding:16px 24px;text-align:right;vertical-align:middle;color:#ffffff;font-size:11px;line-height:1.6;opacity:0.9;">
+        <div>${orgInfo}</div>
+        ${headerContactLine ? `<div>${headerContactLine}</div>` : ''}
+        <div>${headerMetaLine}</div>
+      </td>
+    </tr>
+  </table>
   <div style="background:#e8edf3;padding:10px 24px;text-align:center;border-bottom:1px solid #1e3a5f;">
     <h2 style="margin:0;font-size:16px;font-weight:bold;color:#1e3a5f;letter-spacing:2px;">MEDICAL PRESCRIPTION</h2>
   </div>
   <div style="padding:20px 24px;">
     <div style="margin-bottom:14px;font-size:11px;color:#666;">
-      Rx No: <span style="font-family:monospace;font-weight:bold;">${rxId}</span> | Date: ${formattedDate}
+      Rx No: <span style="font-family:monospace;font-weight:bold;">${rxId}</span>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px;">
       <tr>
@@ -495,7 +517,7 @@ export function PrescriptionsPage() {
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;">
       <thead>
         <tr style="background:#f0f2f5;">
-          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;">#</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;">SL.No.</th>
           <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:30%;">MEDICINE</th>
           <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:15%;">DOSAGE</th>
           <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:15%;">DURATION</th>
@@ -541,7 +563,7 @@ export function PrescriptionsPage() {
 </xml>
 <![endif]-->
 <style>
-  body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 20px; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; }
   table { border-collapse: collapse; }
   @page { size: A4; margin: 1cm; }
 </style>
@@ -629,9 +651,17 @@ ${buildPrescriptionBodyHtml(rx)}
         return (
           <div className="flex justify-end items-center gap-1">
             <PrintPrescriptionButton prescription={rx} variant="icon" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              title={rx.status === "ACTIVE" && canUpdate ? "PDF Preview" : "View"}
+              onClick={() => setPdfPreviewRx(rx)}
+            >
+              {rx.status === "ACTIVE" && canUpdate ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
+            </Button>
             <Select onValueChange={(value) => {
-              if (value === "pdf-preview") setPdfPreviewRx(rx);
-              else if (value === "export-word") exportWord(rx);
+              if (value === "export-word") exportWord(rx);
               else if (value === "edit") openEdit(rx);
               else if (value === "history") setHistoryRx(rx);
               else if (value === "invoices" && rx.patient) openInvoices(rx.patientId, rx.patient);
@@ -640,23 +670,14 @@ ${buildPrescriptionBodyHtml(rx)}
                 <SelectValue placeholder="Actions" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pdf-preview">
-                  <FileText className="mr-2 size-3.5" />
-                  PDF Preview
-                </SelectItem>
                 <SelectItem value="export-word">
                   <FileDown className="mr-2 size-3.5" />
                   Export Word
                 </SelectItem>
-                {rx.status === "ACTIVE" && canUpdate ? (
+                {rx.status === "ACTIVE" && canUpdate && (
                   <SelectItem value="edit">
                     <Pencil className="mr-2 size-3.5" />
                     Edit
-                  </SelectItem>
-                ) : (
-                  <SelectItem value="pdf-preview">
-                    <Eye className="mr-2 size-3.5" />
-                    View
                   </SelectItem>
                 )}
                 <SelectItem value="history">
@@ -1133,18 +1154,32 @@ ${buildPrescriptionBodyHtml(rx)}
             <DialogTitle>Prescription Preview</DialogTitle>
           </DialogHeader>
 
-          <div className="bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
+          <div className="overflow-hidden rounded border border-gray-200 bg-white text-black text-[13px] font-[Arial,Helvetica,sans-serif]">
             {pdfPreviewRx && (() => {
               const rxDate = new Date(pdfPreviewRx.createdAt);
               const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
               return (
                 <>
                   {/* Header */}
-                  <div className="bg-[#1e3a5f] text-white py-4 px-6 text-center rounded-t">
-                    <h1 className="text-xl font-bold tracking-wide m-0">{organisation?.name ?? "CLINIC"}</h1>
-                    <p className="text-[11px] opacity-85 mt-1 m-0">
-                      {[organisation?.address, organisation?.phone].filter(Boolean).join(" | ") || "Healthcare Centre"}
-                    </p>
+                  <div className="flex items-center justify-between gap-4 bg-[#1e3a5f] px-6 py-4 text-white">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-lg font-bold text-[#1e3a5f]">
+                        {(organisation?.name ?? "C").trim().charAt(0).toUpperCase() || "C"}
+                      </div>
+                      <h1 className="m-0 text-xl font-bold tracking-wide">{organisation?.name ?? "CLINIC"}</h1>
+                    </div>
+                    <div className="text-right text-[11px] leading-relaxed opacity-90">
+                      <div>{organisation?.address || "Healthcare Centre"}</div>
+                      {(organisation?.phone || organisation?.email) && (
+                        <div>{[organisation?.phone, organisation?.email].filter(Boolean).join(" | ")}</div>
+                      )}
+                      <div>
+                        {[
+                          `Date: ${formattedDate}`,
+                          pdfPreviewRx.doctor?.medicalRegistrationNo ? `Reg. No: ${pdfPreviewRx.doctor.medicalRegistrationNo}` : "",
+                        ].filter(Boolean).join(" | ")}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Title */}
@@ -1157,7 +1192,6 @@ ${buildPrescriptionBodyHtml(rx)}
                     {/* Reference */}
                     <div className="mb-3.5 text-[11px] text-gray-500">
                       Rx No: <span className="font-mono font-bold">{pdfPreviewRx.id.slice(0, 8).toUpperCase()}</span>
-                      {" | "}Date: {formattedDate}
                     </div>
 
                     {/* Patient & Doctor info */}
@@ -1192,7 +1226,7 @@ ${buildPrescriptionBodyHtml(rx)}
                     <table className="w-full border-collapse mb-4 text-xs">
                       <thead>
                         <tr className="bg-gray-100">
-                          <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px]">#</th>
+                          <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px]">SL.No.</th>
                           <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[30%]">MEDICINE</th>
                           <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[15%]">DOSAGE</th>
                           <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[15%]">DURATION</th>

@@ -67,7 +67,7 @@ export function PrintPrescriptionButton({ prescription, variant = "button" }: Pr
               No prescription template is configured. Create a default template under Organisation → Rx Templates first.
             </p>
           ) : (
-            <div id="print-area">
+            <div id="print-area" className="prescription-print-area">
               <PrescriptionTemplatePreview template={template} onOpenChange={() => {}} inline data={printData} />
             </div>
           )}

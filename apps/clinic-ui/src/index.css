@@ -177,6 +177,24 @@ input[type="number"] {
    driven only by its own content height. Requires :has() (Chrome/Edge/
    Safari 15.4+/Firefox 121+ — fine for this app's supported browsers). */
 @media print {
+  /* Radix's Dialog/Sheet scroll lock (react-remove-scroll) injects its own
+     <style> tag with `body[data-scroll-locked] { overflow: hidden !important;
+     position: relative !important; ... }` while any dialog is open, to stop
+     the page scrolling behind it. That lock is still in effect during
+     print/PDF generation (nothing resets it, and a plain `body {...}` rule
+     here can't out-specificity their attribute selector), and Chromium's
+     print engine — unlike a normal layout reflow — treats an ancestor's
+     overflow: hidden as a hard clip box even when paginating, not just on
+     screen. With #print-area's real content taller/wider than that clipped
+     box, the result is exactly the garbled, split-across-bogus-pages output
+     this stylesheet is trying to prevent below. `html body[...]` matches
+     their selector's specificity plus one, so it reliably wins regardless
+     of which <style> tag was inserted later. */
+  html body[data-scroll-locked] {
+    overflow: visible !important;
+    position: static !important;
+    width: auto !important;
+  }
   body > *:not(:has(#print-area)) {
     display: none !important;
   }
@@ -187,6 +205,17 @@ input[type="number"] {
     display: block !important;
     width: 100%;
   }
+  /* .slip-print-area (the appointment slip) is sized in physical mm to match
+     its own named A5-landscape @page (see @page appointment-slip below), not
+     to fill the print viewport. The generic #print-area{width:100%} rule
+     above is an ID selector, so it beats the element's own w-[198mm] class
+     purely on specificity -- without this override, the slip gets stretched
+     to the (much wider) print-layout viewport width instead of the page's
+     actual 198mm printable width, and Chromium's paginator then tiles/clips
+     the oversized content across bogus extra pages. */
+  #print-area.slip-print-area {
+    width: 198mm !important;
+  }
   #print-area,
   #print-area * {
     /* Browsers skip background colors/images by default when printing, to
@@ -195,17 +224,44 @@ input[type="number"] {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  /* #print-area's Dialog ancestor otherwise keeps its on-screen chrome
+  /* #print-area's Dialog/Sheet ancestor otherwise keeps its on-screen chrome
      (padding, card background, ring, centering transform, scroll clipping)
      which would either frame the printed content in an unwanted box or,
-     via the transform, clip it to the dialog's on-screen scroll area. */
+     via the transform/clipping, cut it off — e.g. a Sheet's fixed right
+     column would print showing only that column's slice of the content
+     with the rest of the page blank.
+     `translate: none` (in addition to `transform: none`) matters here:
+     Tailwind v4 compiles `-translate-x-1/2 -translate-y-1/2` (how these
+     on-screen-centered Dialogs are positioned) to the standalone CSS
+     `translate` property, not `transform: translate(...)`. It applies
+     independently of `position`, so without resetting it too, the element
+     stays shifted by -50%/-50% of its own size even once `position` is
+     back to `static` — shoving the printed content up and to the left,
+     off the page, which is what produced the clipped/split PDF output. */
   [data-slot="dialog-content"] {
     position: static !important;
     transform: none !important;
+    translate: none !important;
     overflow: visible !important;
     max-height: none !important;
     max-width: none !important;
     inset: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  [data-slot="sheet-content"] {
+    position: static !important;
+    inset: auto !important;
+    right: auto !important;
+    transform: none !important;
+    translate: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
     background: transparent !important;
@@ -228,6 +284,131 @@ input[type="number"] {
 }
 .slip-print-area {
   page: appointment-slip;
+}
+
+/* Dedicated print layout for the appointment slip (A5 landscape). The slip's
+   markup is already compact and sized to the sheet (198mm x 136mm), but print
+   must be deterministic: pin the box to the printable height so pagination
+   can never add a second page, forbid section splitting (esp. the MONEY
+   RECEIPT — see break-inside-avoid wrapper in appointments-page.tsx), and
+   drop the screen-only border/rounding so the coloured header/footer bands
+   run full-bleed edge to edge. Nothing is hidden or clipped — the compacted
+   content genuinely fits inside 136mm (verified at ~128mm worst case). */
+@media print {
+  #print-area.slip-print-area {
+    height: 136mm !important;
+    min-height: 0 !important;
+    max-height: 136mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  /* Keep each section/table on one page when possible */
+  #print-area.slip-print-area,
+  #print-area.slip-print-area > *,
+  #print-area.slip-print-area table,
+  #print-area.slip-print-area tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  #print-area.slip-print-area .rounded-t,
+  #print-area.slip-print-area .rounded-b {
+    border-radius: 0 !important;
+  }
+}
+
+/* Prescriptions print on A4 portrait with zero @page margin: the Rx
+   #print-area markup is an A4 sheet (794px x 1123px @96dpi = 210mm x 297mm,
+   incl. its own 40px gutter), so a margin-free named page makes the browser's
+   printable area line up 1:1 with that sheet — one page, no stray second
+   page from default-margin ICB mismatch. */
+@page prescription-a4 {
+  size: 210mm 297mm;
+  margin: 0;
+}
+.prescription-print-area {
+  page: prescription-a4;
+}
+
+/* Invoices print on A5 landscape too (same paper as the appointment slip),
+   with the invoice's #print-area (the document inside InvoiceViewSheet)
+   assigned to this named page. */
+@page invoice-a5 {
+  size: 210mm 148mm;
+  margin: 6mm;
+}
+.invoice-print-area {
+  page: invoice-a5;
+}
+
+/* Dedicated print layout for the invoice (A5 landscape). The on-screen sheet
+   markup uses generous Tailwind spacing tuned for a portrait page; print
+   compacts the vertical rhythm (block gaps, band/row padding, font sizes) so
+   a realistic invoice — verified up to ~12 line items — fits the 136mm
+   printable height on one page. If a bill has far more items the extra rows
+   flow onto a second page naturally; nothing is hidden or clipped. */
+@media print {
+  #print-area.invoice-print-area {
+    padding: 0 12px !important;
+    font-size: 11.5px !important;
+  }
+  /* space-y-4 → tight 1px gaps between blocks */
+  #print-area.invoice-print-area > * + * {
+    margin-top: 1px !important;
+  }
+  /* green banner blocks (top/bottom bands) */
+  #print-area.invoice-print-area .rounded-t-lg,
+  #print-area.invoice-print-area .rounded-b-lg {
+    padding-block: 3px !important;
+    padding-inline: 14px !important;
+    border-radius: 4px !important;
+  }
+  #print-area.invoice-print-area .rounded-t-lg .size-11 {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  #print-area.invoice-print-area .rounded-t-lg .text-xs {
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+  }
+  /* body text scale */
+  #print-area.invoice-print-area .text-xs {
+    font-size: 9.5px !important;
+    line-height: 1.1 !important;
+  }
+  #print-area.invoice-print-area .text-sm {
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+  }
+  #print-area.invoice-print-area .text-\[10px\] {
+    font-size: 9px !important;
+  }
+  /* bill-to / createdAt row */
+  #print-area.invoice-print-area .mt-1 {
+    margin-top: 0 !important;
+  }
+  /* appointment block */
+  #print-area.invoice-print-area .rounded-none {
+    padding-block: 1px !important;
+  }
+  /* items table: compact rows */
+  #print-area.invoice-print-area table td,
+  #print-area.invoice-print-area table th {
+    padding-block: 0 !important;
+  }
+  /* totals / payment-method / notes separators */
+  #print-area.invoice-print-area .pt-2 {
+    padding-top: 0 !important;
+  }
+  /* keep blocks unsplittable where possible */
+  #print-area.invoice-print-area,
+  #print-area.invoice-print-area > *,
+  #print-area.invoice-print-area table {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
 
 /* Sidebar active item — solid primary color (only the active nav link) */

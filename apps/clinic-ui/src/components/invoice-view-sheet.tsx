@@ -296,7 +296,7 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
           </div>
         </SheetHeader>
         {bill && (
-          <div ref={printAreaRef} id="print-area" className="space-y-4 px-4 pb-4 text-sm">
+          <div ref={printAreaRef} id="print-area" className="invoice-print-area space-y-4 px-4 pb-4 text-sm">
             {organisation && (
               <div className="rounded-t-lg bg-[#01aa82] px-5 py-4 text-white">
                 <div className="flex items-start justify-between gap-4">
@@ -440,17 +440,23 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
         </DialogContent>
       </Dialog>
 
-      {/* Print Preview Dialog */}
+      {/* Print Preview Dialog — near-full-viewport modal so the A5-landscape
+          page can be reviewed without the modal itself growing & scrolling:
+          header and footer stay pinned while only the page area scrolls. The
+          page div is sized to the A5-landscape sheet (210x148mm @96dpi) that
+          this invoice prints on — see @page invoice-a5 in index.css. */}
       <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
-        <DialogContent className="w-[min(90vw,896px)] sm:max-w-4xl overflow-y-auto max-h-[90vh]">
+        <DialogContent className="flex h-[95vh] w-[95vw] max-w-none flex-col overflow-hidden sm:max-w-none">
           <DialogHeader>
             <DialogTitle>Invoice Preview</DialogTitle>
           </DialogHeader>
-          {bill && (
-            <div className="bg-white p-8 mx-auto" style={{ maxWidth: '794px', minHeight: '1123px' }}>
-              <div dangerouslySetInnerHTML={{ __html: buildInvoiceHtml(bill, organisation) }} />
-            </div>
-          )}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {bill && (
+              <div className="bg-white p-8 mx-auto" style={{ maxWidth: '794px', minHeight: '559px' }}>
+                <div dangerouslySetInnerHTML={{ __html: buildInvoiceHtml(bill, organisation) }} />
+              </div>
+            )}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPrintPreviewOpen(false)}>Cancel</Button>
             <Button onClick={() => { setPrintPreviewOpen(false); printArea(); }} className="gap-1.5">

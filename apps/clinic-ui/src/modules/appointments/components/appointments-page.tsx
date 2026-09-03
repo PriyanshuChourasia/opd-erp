@@ -917,8 +917,14 @@ export function AppointmentsPage() {
             <DialogTitle>Appointment Slip Preview</DialogTitle>
           </DialogHeader>
 
-          {/* Sized to A5 landscape (210mm x 148mm) to match the printed page */}
-          <div id="print-area" className="slip-print-area mx-auto w-[210mm] max-w-full min-h-[148mm] bg-white text-black rounded border border-gray-200 p-5 text-[13px] font-[Arial,Helvetica,sans-serif]">
+          {/* Sized to the A5-landscape page's printable area — page is 210mm x
+              148mm (see @page appointment-slip in index.css) minus its 6mm
+              margin on every side, i.e. 198mm x 136mm. Sizing this to the
+              raw 210mm x 148mm page dimensions (as before) left content
+              6mm too wide on each side, which Chrome's print/PDF engine
+              handled by clipping/re-tiling the overflow onto a spurious
+              second page instead of just shrinking margins. */}
+          <div id="print-area" className="slip-print-area mx-auto w-[198mm] max-w-full min-h-[136mm] bg-white text-black rounded border border-gray-200 p-0 text-[10px] font-[Arial,Helvetica,sans-serif]">
             {printAppt && (() => {
               const aptDate = new Date(printAppt.date);
               const formattedDate = aptDate.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
@@ -928,14 +934,14 @@ export function AppointmentsPage() {
               return (
                 <>
                   {/* Header */}
-                  <div className="flex items-center justify-between gap-4 rounded-t bg-[#1e3a5f] px-6 py-4 text-white">
+                  <div className="flex items-center justify-between gap-3 rounded-t bg-[#1e3a5f] px-4 py-2 text-white">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-lg font-bold text-[#1e3a5f]">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#1e3a5f]">
                         {(organisation?.name ?? "C").trim().charAt(0).toUpperCase() || "C"}
                       </div>
-                      <h1 className="m-0 text-xl font-bold tracking-wide">{organisation?.name ?? "CLINIC"}</h1>
+                      <h1 className="m-0 text-base font-bold tracking-wide">{organisation?.name ?? "CLINIC"}</h1>
                     </div>
-                    <div className="text-right text-[11px] leading-relaxed opacity-90">
+                    <div className="text-right text-[9px] leading-tight opacity-90">
                       {organisation?.phone && <div>{organisation.phone}</div>}
                       <div>{organisation?.address || "Healthcare Centre"}</div>
                       <div>{organisation?.website || "http://opd.codymitra.com"}</div>
@@ -946,111 +952,114 @@ export function AppointmentsPage() {
                   </div>
 
                   {/* Body */}
-                  <div className="py-5 px-6">
+                  <div className="px-4 py-2">
                     {printAppt.tokenNumber && (
-                      <div className="mb-4 inline-block border-2 border-[#1e3a5f] py-1.5 px-3.5">
-                        <span className="text-[11px] font-bold text-[#1e3a5f] tracking-wide">TOKEN NO:</span>{" "}
-                        <span className="text-base font-bold text-[#1e3a5f]">#{printAppt.tokenNumber}</span>
+                      <div className="mb-1 inline-block border-2 border-[#1e3a5f] py-0.5 px-2">
+                        <span className="text-[9px] font-bold text-[#1e3a5f] tracking-wide">TOKEN NO:</span>{" "}
+                        <span className="text-[13px] font-bold text-[#1e3a5f]">#{printAppt.tokenNumber}</span>
                       </div>
                     )}
 
-                    <table className="w-full border-collapse mb-4 text-[13px]">
+                    <table className="w-full border-collapse mb-1.5 text-[10px]">
                       <tbody>
                         <tr>
                           <td className="w-1/2 align-top pr-3">
-                            <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PATIENT DETAILS</div>
-                            <div className="font-bold text-[13px] mb-0.5">{printAppt.patient ? getPatientName(printAppt.patient) : null}</div>
-                            <div className="text-xs text-gray-600 mb-0.5">Phone: {printAppt.patient?.contactNo}</div>
-                            {printAppt.patient?.email && <div className="text-xs text-gray-600">Email: {printAppt.patient.email}</div>}
+                            <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-0.5 pb-0.5 text-[10px] tracking-wide">PATIENT DETAILS</div>
+                            <div className="font-bold text-[11px] mb-0.5">{printAppt.patient ? getPatientName(printAppt.patient) : null}</div>
+                            <div className="text-[10px] text-gray-600 mb-0.5">Phone: {printAppt.patient?.contactNo}</div>
+                            {printAppt.patient?.email && <div className="text-[10px] text-gray-600">Email: {printAppt.patient.email}</div>}
                           </td>
                           <td className="w-1/2 align-top pl-3">
-                            <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">DOCTOR DETAILS</div>
-                            <div className="font-bold text-[13px] mb-0.5">{printAppt.doctor?.name ?? `Dr. ${printAppt.doctor?.medicalRegistrationNo}`}</div>
-                            {printAppt.doctor?.specialization && <div className="text-xs text-gray-600 mb-0.5">Specialization: {printAppt.doctor.specialization}</div>}
-                            {printAppt.doctor?.qualification && <div className="text-xs text-gray-600">Qualification: {printAppt.doctor.qualification}</div>}
+                            <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-0.5 pb-0.5 text-[10px] tracking-wide">DOCTOR DETAILS</div>
+                            <div className="font-bold text-[11px] mb-0.5">{printAppt.doctor?.name ?? `Dr. ${printAppt.doctor?.medicalRegistrationNo}`}</div>
+                            {printAppt.doctor?.specialization && <div className="text-[10px] text-gray-600 mb-0.5">Specialization: {printAppt.doctor.specialization}</div>}
+                            {printAppt.doctor?.qualification && <div className="text-[10px] text-gray-600">Qualification: {printAppt.doctor.qualification}</div>}
                           </td>
                         </tr>
                       </tbody>
                     </table>
 
                     {/* Appointment details */}
-                    <div className="font-bold text-[#1e3a5f] mb-2 text-[11px] tracking-wide">APPOINTMENT DETAILS</div>
-                    <table className="w-full border-collapse mb-4 text-[13px]">
+                    <div className="font-bold text-[#1e3a5f] mb-1 text-[10px] tracking-wide">APPOINTMENT DETAILS</div>
+                    <table className="w-full border-collapse mb-1.5 text-[10px]">
                       <thead>
                         <tr className="bg-gray-100">
-                          <th className="border border-gray-300 py-1.5 px-2 text-left text-[11px] font-bold text-[#1e3a5f]">FIELD</th>
-                          <th className="border border-gray-300 py-1.5 px-2 text-left text-[11px] font-bold text-[#1e3a5f]">VALUE</th>
+                          <th className="border border-gray-300 py-0.5 px-1.5 text-left text-[9px] font-bold text-[#1e3a5f]">FIELD</th>
+                          <th className="border border-gray-300 py-0.5 px-1.5 text-left text-[9px] font-bold text-[#1e3a5f]">VALUE</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold text-gray-600">Date</td>
-                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold">{formattedDate}</td>
+                          <td className="border border-gray-200 py-0.5 px-1.5 text-[9px] font-bold text-gray-600">Date</td>
+                          <td className="border border-gray-200 py-0.5 px-1.5 text-[10px] font-bold">{formattedDate}</td>
                         </tr>
                         <tr>
-                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold text-gray-600">Time</td>
-                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold">{formattedTime}</td>
+                          <td className="border border-gray-200 py-0.5 px-1.5 text-[9px] font-bold text-gray-600">Time</td>
+                          <td className="border border-gray-200 py-0.5 px-1.5 text-[10px] font-bold">{formattedTime}</td>
                         </tr>
                         <tr>
-                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold text-gray-600">Type</td>
-                          <td className="border border-gray-200 py-1.5 px-2 text-xs">{printAppt.type.replace("_", " ")}</td>
+                          <td className="border border-gray-200 py-0.5 px-1.5 text-[9px] font-bold text-gray-600">Type</td>
+                          <td className="border border-gray-200 py-0.5 px-1.5 text-[10px]">{printAppt.type.replace("_", " ")}</td>
                         </tr>
                         <tr>
-                          <td className="border border-gray-200 py-1.5 px-2 text-xs font-bold text-gray-600">Status</td>
-                          <td className="border border-gray-200 py-1.5 px-2 text-xs">{apptStatusLabel(printAppt.status)}</td>
+                          <td className="border border-gray-200 py-0.5 px-1.5 text-[9px] font-bold text-gray-600">Status</td>
+                          <td className="border border-gray-200 py-0.5 px-1.5 text-[10px]">{apptStatusLabel(printAppt.status)}</td>
                         </tr>
                       </tbody>
                     </table>
 
-                    {/* Amount summary */}
-                    <table className="w-full border-collapse mb-4 text-[13px]">
+                    {/* Amount summary — kept unsplittable (break-inside-avoid) so the MONEY
+                        RECEIPT can never be torn across printed pages */}
+                    <div className="break-inside-avoid">
+                    <table className="w-full border-collapse mb-1 text-[10px]">
                       <thead>
                         <tr>
-                          <th colSpan={2} className="py-1 font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] text-[11px] tracking-wide text-left">MONEY RECEIPT</th>
+                          <th colSpan={2} className="py-0.5 font-bold text-[#1e3a5f] border-b-2 border-[#1e3a5f] text-[10px] tracking-wide text-left">MONEY RECEIPT</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr className="border-b border-gray-200">
-                          <td className="py-2 pr-1.5 text-xs">Amount</td>
-                          <td className="py-2 pl-1.5 text-right text-xs">{currency(printAppt.amount)}</td>
+                          <td className="py-0.5 pr-1.5 text-[10px]">Amount</td>
+                          <td className="py-0.5 pl-1.5 text-right text-[10px]">{currency(printAppt.amount)}</td>
                         </tr>
                         {printAppt.registrationFee > 0 && (
                           <tr className="border-b border-gray-200">
-                            <td className="py-2 pr-1.5 text-xs">Registration Amount</td>
-                            <td className="py-2 pl-1.5 text-right text-xs">{currency(printAppt.registrationFee)}</td>
+                            <td className="py-0.5 pr-1.5 text-[10px]">Registration Amount</td>
+                            <td className="py-0.5 pl-1.5 text-right text-[10px]">{currency(printAppt.registrationFee)}</td>
                           </tr>
                         )}
                         {printAppt.amountPaid > 0 && (
                           <tr className="border-b border-gray-200">
-                            <td className="py-2 pr-1.5 text-xs">Amount Paid</td>
-                            <td className="py-2 pl-1.5 text-right text-xs">-{currency(printAppt.amountPaid)}</td>
+                            <td className="py-0.5 pr-1.5 text-[10px]">Amount Paid</td>
+                            <td className="py-0.5 pl-1.5 text-right text-[10px]">-{currency(printAppt.amountPaid)}</td>
                           </tr>
                         )}
                         <tr>
-                          <td className="py-2.5 pr-1.5 text-sm font-bold">Total Amount</td>
-                          <td className="py-2.5 pl-1.5 text-right text-sm font-bold text-[#1e3a5f]">{currency(totalFee)}</td>
+                          <td className="py-0.5 pr-1.5 text-[11px] font-bold">Total Amount</td>
+                          <td className="py-0.5 pl-1.5 text-right text-[11px] font-bold text-[#1e3a5f]">{currency(totalFee)}</td>
                         </tr>
                       </tbody>
                     </table>
+                    </div>
 
                     {/* Instructions */}
-                    <div className="bg-gray-50 border border-gray-200 py-2.5 px-3.5 mb-4 text-[11px] text-gray-600">
+                    <div className="bg-gray-50 border border-gray-200 py-1 px-2 mb-1 text-[9px] leading-tight text-gray-600">
                       <strong className="text-[#1e3a5f]">IMPORTANT:</strong> Please arrive 15 minutes before your scheduled time. Bring this slip, previous medical reports, and insurance documents if applicable.
                     </div>
 
                     {/* Signatures */}
-                    <div className="flex justify-between mt-5 text-[11px]">
+                    <div className="flex justify-between mt-2 text-[9px]">
                       <div className="text-center">
-                        <div className="w-36 border-t border-black mb-1 pt-1.5">Patient's Signature</div>
+                        <div className="w-32 border-t border-black mb-0.5 pt-0.5">Patient's Signature</div>
                       </div>
                       <div className="text-center">
-                        <div className="w-36 border-t border-black mb-1 pt-1.5">Receptionist's Signature</div>
+                        <div className="w-32 border-t border-black mb-0.5 pt-0.5">Receptionist's Signature</div>
                       </div>
                     </div>
                   </div>
 
                   {/* Footer */}
-                  <div className="bg-gray-100 py-2 px-6 text-center text-[10px] text-gray-500 border-t border-gray-200 rounded-b">
+                  <div className="bg-gray-100 py-1 px-3 text-center text-[8px] leading-tight text-gray-500 border-t border-gray-200 rounded-b">
                     This is a computer-generated slip. Generated on {new Date().toLocaleString("en-IN")} | {organisation?.email ? `Email: ${organisation.email}` : ""} | {organisation?.website ?? "www.clinic.com"}
                   </div>
                 </>

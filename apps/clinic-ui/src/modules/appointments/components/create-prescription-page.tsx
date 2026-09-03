@@ -398,7 +398,7 @@ export function CreatePrescriptionPage() {
               No prescription template configured. Create one under Organisation → Rx Templates.
             </p>
           ) : previewData ? (
-            <div id="print-area" className="bg-white mx-auto" style={{ width: '794px', minHeight: '1123px', padding: '40px' }}>
+            <div id="print-area" className="prescription-print-area bg-white mx-auto" style={{ width: '794px', minHeight: '1123px', padding: '40px' }}>
               <PrescriptionTemplatePreview template={template} onOpenChange={() => {}} inline data={previewData} />
             </div>
           ) : null}

@@ -433,6 +433,32 @@ async function seedBloodGroups() {
   console.log(`✅ Blood groups seeded (${bloodGroups.length} items).`);
 }
 
+// ─── Starter patients (lightweight — safe to seed online) ──
+// A handful of real Patient rows, no vitals/appointments/prescriptions.
+// Runs unconditionally (upsert by patientCode) every seed, including on a
+// fresh online/production deploy, unlike the heavy PATIENT_DEMOS generator
+// below (seedPatientsWithHistory), which is deliberately disabled in main()
+// so re-seeding a live DB doesn't keep regenerating 40+ demo patients.
+const STARTER_PATIENTS = [
+  { firstName: 'Neha', middleName: null, lastName: 'Kapoor', patientCode: 'NEHAKAPOOR-19950322', contactNo: '9876543292', email: 'neha.kapoor@example.com', dateOfBirth: new Date('1995-03-22'), gender: 'Female', bloodGroup: 'A+', address: '8 Sector 15, Noida, UP', emergencyContact: '9876543293', allergies: [], isFollowUp: false },
+  { firstName: 'Arjun', middleName: null, lastName: 'Reddy', patientCode: 'ARJUNREDDY-19880710', contactNo: '9876543294', email: 'arjun.reddy@example.com', dateOfBirth: new Date('1988-07-10'), gender: 'Male', bloodGroup: 'B+', address: '23 Jubilee Hills, Hyderabad, Telangana', emergencyContact: '9876543295', allergies: ['Peanuts'], isFollowUp: false },
+  { firstName: 'Fatima', middleName: null, lastName: 'Sheikh', patientCode: 'FATIMASHEIKH-19700208', contactNo: '9876543296', email: 'fatima.sheikh@example.com', dateOfBirth: new Date('1970-02-08'), gender: 'Female', bloodGroup: 'O-', address: '5 Marine Lines, Mumbai, Maharashtra', emergencyContact: '9876543297', allergies: ['Penicillin'], isFollowUp: true },
+  { firstName: 'Karan', middleName: null, lastName: 'Malhotra', patientCode: 'KARANMALHOTRA-20010914', contactNo: '9876543298', email: 'karan.malhotra@example.com', dateOfBirth: new Date('2001-09-14'), gender: 'Male', bloodGroup: 'AB+', address: '61 Model Town, Ludhiana, Punjab', emergencyContact: '9876543299', allergies: [], isFollowUp: false },
+];
+
+async function seedStarterPatients() {
+  let count = 0;
+  for (const p of STARTER_PATIENTS) {
+    await prisma.patient.upsert({
+      where: { patientCode: p.patientCode },
+      update: {},
+      create: p,
+    });
+    count++;
+  }
+  console.log(`✅ Starter patients seeded (${count} — safe to re-run, upserted by patientCode).`);
+}
+
 async function seedPermissions(): Promise<Permission[]> {
   const permissions: Permission[] = [];
   for (const resource of RESOURCES) {
@@ -2688,6 +2714,8 @@ async function main() {
   );
 
   await seedBloodGroups();
+
+  await seedStarterPatients();
 
   await seedPatientPortalLogins();
 

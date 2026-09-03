@@ -23,6 +23,7 @@ import { CompanyModule } from './company/company.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { EmployeeSchedulesModule } from './employee-schedules/employee-schedules.module';
+import { EmployeeScheduleExceptionsModule } from './employee-schedule-exceptions/employee-schedule-exceptions.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AllergiesModule } from './allergies/allergies.module';
 import { DiagnosesModule } from './diagnoses/diagnoses.module';
@@ -76,6 +77,7 @@ import { JournalModule } from './accounting/journal/journal.module';
     ShiftsModule,
     AddressesModule,
     EmployeeSchedulesModule,
+    EmployeeScheduleExceptionsModule,
     DocumentsModule,
     AllergiesModule,
     DiagnosesModule,

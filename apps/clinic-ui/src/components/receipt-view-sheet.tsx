@@ -83,6 +83,7 @@ function ReceiptDocument({ data }: { data: ReceiptData }) {
 
   return (
     <div id="print-area" className="space-y-5 px-4 pb-4 text-sm">
+      <img src="/header.png" alt="" className="invoice-banner-image w-full h-auto" />
       {/* Company Letterhead */}
       {company && (
         <div className="border-b pb-4 text-center">
@@ -263,6 +264,7 @@ function ReceiptDocument({ data }: { data: ReceiptData }) {
           Thank you for choosing {company?.name ?? "our services"}.
         </p>
       </div>
+      <img src="/footer.png" alt="" className="invoice-banner-image w-full h-auto" />
     </div>
   );
 }

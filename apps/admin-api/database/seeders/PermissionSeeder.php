@@ -31,6 +31,12 @@ class PermissionSeeder extends Seeder
             ['name' => 'Read Role', 'slug' => 'role.read', 'module' => 'Role'],
             ['name' => 'Update Role', 'slug' => 'role.update', 'module' => 'Role'],
             ['name' => 'Delete Role', 'slug' => 'role.delete', 'module' => 'Role'],
+            ['name' => 'Create Financial Year', 'slug' => 'financial-year.create', 'module' => 'FinancialYear'],
+            ['name' => 'Read Financial Year', 'slug' => 'financial-year.read', 'module' => 'FinancialYear'],
+            ['name' => 'Update Financial Year', 'slug' => 'financial-year.update', 'module' => 'FinancialYear'],
+            ['name' => 'Set Current Financial Year', 'slug' => 'financial-year.set-current', 'module' => 'FinancialYear'],
+            ['name' => 'Close Financial Year', 'slug' => 'financial-year.close', 'module' => 'FinancialYear'],
+            ['name' => 'Delete Financial Year', 'slug' => 'financial-year.delete', 'module' => 'FinancialYear'],
         ];
 
         foreach ($permissions as $permission) {

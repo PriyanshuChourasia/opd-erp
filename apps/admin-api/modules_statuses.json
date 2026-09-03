@@ -15,5 +15,6 @@
     "Country": true,
     "State": true,
     "Organization": true,
-    "License": true
+    "License": true,
+    "FinancialYear": true
 }

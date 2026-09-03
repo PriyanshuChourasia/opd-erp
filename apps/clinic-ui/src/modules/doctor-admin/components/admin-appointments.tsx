@@ -11,7 +11,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { extractApiError } from "@/lib/axios-client";
-import { createAppointment, fetchAppointments, getPatientName, updateAppointmentStatus, type Appointment, type AppointmentStatus } from "@/lib/api";
+import { createAppointment, fetchAppointments, getPatientName, updateAppointmentStatus, type Appointment, type AppointmentStatus, type SlotWindow } from "@/lib/api";
+import { timesInWindow, windowSectionLabel } from "@/lib/appointment-slot-utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   usePatientSearch,
@@ -35,20 +36,6 @@ function todayStr() {
   const d = new Date();
   const offset = d.getTimezoneOffset();
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
-
-function generateTimeSlots(start: string, end: string, intervalMinutes: number): string[] {
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  const startMin = (sh ?? 0) * 60 + (sm ?? 0);
-  const endMin = (eh ?? 0) * 60 + (em ?? 0);
-  const slots: string[] = [];
-  for (let m = startMin; m < endMin; m += intervalMinutes) {
-    const h = Math.floor(m / 60);
-    const min = m % 60;
-    slots.push(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
-  }
-  return slots;
 }
 
 const consultationTypes = [
@@ -133,26 +120,34 @@ export function AdminAppointments() {
 
   const selectedDoctor = doctors.find((d) => d.id === doctorId);
 
-  const selectedSchedule = useMemo(() => {
-    if (!doctorId || !date) return null;
+  // ── Resolved working windows for the selected doctor + date ──
+  // Prefers the backend-resolved windows (multi-shift rows AND one-off
+  // exceptions); falls back to the recurring weekly rows when the slots
+  // payload has no windows (older cache).
+  const resolvedWindows = useMemo<SlotWindow[]>(() => {
+    const apiWindows = slotsData?.windows;
+    if (apiWindows && apiWindows.length > 0) return apiWindows;
+    if (!doctorId || !date) return [];
     const dateObj = new Date(date + "T00:00:00");
     const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    return allSchedules.find((s) => s.employeeSchedulableId === doctorId && s.dayOfWeek === dayOfWeek) ?? null;
-  }, [allSchedules, doctorId, date]);
+    return allSchedules
+      .filter((s) => s.employeeSchedulableId === doctorId && s.dayOfWeek === dayOfWeek)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+      .map((s) => ({
+        windowStart: s.startTime,
+        windowEnd: s.endTime,
+        shiftId: s.shiftId ?? null,
+        shiftName: s.shift?.name ?? null,
+        isException: false,
+        exceptionType: null,
+        label: s.shift?.name ?? `${s.startTime}–${s.endTime}`,
+      }));
+  }, [slotsData, allSchedules, doctorId, date]);
 
   const bookedSlots = useMemo(() => {
     if (!slotsData?.slots) return [];
     return slotsData.slots.filter((s) => s.booked > 0).map((s) => s.time);
   }, [slotsData]);
-
-  const availableSlots = useMemo(() => {
-    if (!selectedSchedule) return [];
-    const all = generateTimeSlots(selectedSchedule.startTime, selectedSchedule.endTime, 30);
-    const now = new Date();
-    const isToday = date === todayStr();
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    return all.filter((t) => !bookedSlots.includes(t) && !(isToday && t < currentTime));
-  }, [selectedSchedule, bookedSlots, date]);
 
   const createMutation = useMutation({
     mutationFn: () =>        createAppointment({
@@ -240,27 +235,54 @@ export function AdminAppointments() {
                       <Skeleton key={i} className="h-9 rounded-lg" />
                     ))}
                   </div>
-                ) : !selectedSchedule ? (
+                ) : slotsData && slotsData.dayOff ? (
+                  <p className="text-sm text-amber-600">Not available — the doctor has a day off on this date.</p>
+                ) : resolvedWindows.length === 0 ? (
                   <p className="text-sm text-amber-600">No schedule for this doctor on this date.</p>
-                ) : availableSlots.length === 0 ? (
+                ) : slotsData && !slotsData.available ? (
                   <p className="text-sm text-muted-foreground">No available slots for this date.</p>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                    {availableSlots.map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setSlot(t)}
-                        className={cn(
-                          "rounded-lg border px-2 py-2 text-xs font-mono font-medium transition-all",
-                          slot === t
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-muted text-foreground hover:border-primary/50 hover:bg-primary/5"
-                        )}
-                      >
-                        {t}
-                      </button>
-                    ))}
+                  <div className="space-y-3">
+                    {resolvedWindows.map((w) => {
+                      const now = new Date();
+                      const isToday = date === todayStr();
+                      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+                      const all = timesInWindow(w.windowStart, w.windowEnd, 30);
+                      const available = all.filter(
+                        (t) => !bookedSlots.includes(t) && !(isToday && t < currentTime),
+                      );
+                      return (
+                        <div key={`${w.windowStart}-${w.windowEnd}-${w.shiftId ?? "custom"}`} className="space-y-1.5">
+                          {(resolvedWindows.length > 1 || w.isException) && (
+                            <p className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                              <Clock className="size-3" />
+                              {windowSectionLabel(w, date)}
+                            </p>
+                          )}
+                          {available.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">All times in this window are booked or have passed.</p>
+                          ) : (
+                            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                              {available.map((t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => setSlot(t)}
+                                  className={cn(
+                                    "rounded-lg border px-2 py-2 text-xs font-mono font-medium transition-all",
+                                    slot === t
+                                      ? "border-primary bg-primary text-primary-foreground"
+                                      : "border-muted text-foreground hover:border-primary/50 hover:bg-primary/5"
+                                  )}
+                                >
+                                  {t}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

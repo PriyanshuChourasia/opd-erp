@@ -23,10 +23,12 @@ import {
   type CreateDoctorWithUserInput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { groupSlotsByWindow } from "@/lib/appointment-slot-utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -223,15 +225,17 @@ export function ReceptionistDashboardPage() {
 
   // Build a schedule map for the selected date
   const doctorScheduleMap = useMemo(() => {
-    if (!form.date) return new Map<string, { startTime: string; endTime: string }>();
+    if (!form.date) return new Map<string, { startTime: string; endTime: string }[]>();
     const dateObj = new Date(form.date + "T00:00:00");
     const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    const map = new Map<string, { startTime: string; endTime: string }>();
+    const map = new Map<string, { startTime: string; endTime: string }[]>();
     for (const sched of allSchedules) {
-      if (sched.dayOfWeek === dayOfWeek) {
-        map.set(sched.employeeSchedulableId, { startTime: sched.startTime, endTime: sched.endTime });
-      }
+      if (sched.dayOfWeek !== dayOfWeek) continue;
+      const list = map.get(sched.employeeSchedulableId) ?? [];
+      list.push({ startTime: sched.startTime, endTime: sched.endTime });
+      map.set(sched.employeeSchedulableId, list);
     }
+    for (const list of map.values()) list.sort((a, b) => a.startTime.localeCompare(b.startTime));
     return map;
   }, [allSchedules, form.date]);
 
@@ -613,10 +617,10 @@ export function ReceptionistDashboardPage() {
                                   {d.specialization}
                                   {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ""}
                                 </span>
-                                {schedule && (
+                                {schedule && schedule.length > 0 && (
                                   <span className="mt-1 inline-flex items-center gap-1 rounded-none border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[11px] font-semibold font-mono text-primary">
                                     <Clock className="size-3" />
-                                    {schedule.startTime} – {schedule.endTime}
+                                    {schedule.map((s) => `${s.startTime}–${s.endTime}`).join(" · ")}
                                   </span>
                                 )}
                               </button>
@@ -717,33 +721,50 @@ export function ReceptionistDashboardPage() {
                   {slotsQuery.isLoading ? (
                     <p className="text-sm text-muted-foreground">Loading slots...</p>
                   ) : !slotsQuery.data?.available && slotsQuery.data ? (
-                    <p className="text-sm text-muted-foreground">No slots available for this day.</p>
+                    <p className="text-sm text-muted-foreground">
+                      {slotsQuery.data.dayOff ? "Not available — day off on this date." : "No slots available for this day."}
+                    </p>
                   ) : (
                     <div className="space-y-2">
-                      {slotsQuery.data && slotsQuery.data.slots.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {slotsQuery.data.slots.map((slot) => (
-                            <button
-                              key={slot.time}
-                              type="button"
-                              disabled={!slot.available}
-                              className={cn(
-                                "rounded-none border px-3 py-2 text-xs font-medium transition-colors",
-                                !slot.available && "cursor-not-allowed border-destructive/20 bg-destructive/5 text-destructive/60 line-through",
-                                slot.available && form.slot === slot.time
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : slot.available
-                                    ? "border-green-300 bg-green-50 text-green-700 hover:border-green-400 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
-                                    : ""
-                              )}
-                              onClick={() => setForm((p) => ({ ...p, slot: slot.time }))}
-                            >
-                              {slot.time}
-                              {!slot.available && <span className="ml-0.5 text-[8px]">({slot.booked})</span>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {slotsQuery.data && slotsQuery.data.slots.length > 0 && (() => {
+                        const sections = groupSlotsByWindow(slotsQuery.data!.slots, form.date);
+                        return (
+                          <div className="space-y-2.5">
+                            {sections.map((section) => (
+                              <div key={section.key} className="space-y-1">
+                                {(sections.length > 1 || section.isException) && (
+                                  <p className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                                    <Clock className="size-3" />
+                                    {section.label}
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap gap-1.5">
+                                  {section.slots.map((slot) => (
+                                    <button
+                                      key={slot.time}
+                                      type="button"
+                                      disabled={!slot.available}
+                                      className={cn(
+                                        "rounded-none border px-3 py-2 text-xs font-medium transition-colors",
+                                        !slot.available && "cursor-not-allowed border-destructive/20 bg-destructive/5 text-destructive/60 line-through",
+                                        slot.available && form.slot === slot.time
+                                          ? "border-primary bg-primary text-primary-foreground"
+                                          : slot.available
+                                            ? "border-green-300 bg-green-50 text-green-700 hover:border-green-400 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
+                                            : ""
+                                      )}
+                                      onClick={() => setForm((p) => ({ ...p, slot: slot.time }))}
+                                    >
+                                      {slot.time}
+                                      {!slot.available && <span className="ml-0.5 text-[8px]">({slot.booked})</span>}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {(!slotsQuery.data || slotsQuery.data.slots.length === 0) && (
                         <div className="flex items-center gap-2 text-sm">
                           <Input
@@ -848,7 +869,7 @@ export function ReceptionistDashboardPage() {
               </Field>
               <Field>
                 <FieldLabel>Password *</FieldLabel>
-                <Input type="password" placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
+                <PasswordInput placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
               </Field>
             </div>
             <Field>

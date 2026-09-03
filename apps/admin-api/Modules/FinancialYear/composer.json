@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/financial-year",
+    "description": "Financial Year module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\FinancialYear\\": "",
+            "Modules\\FinancialYear\\Database\\Factories\\": "database/factories/",
+            "Modules\\FinancialYear\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\FinancialYear\\Tests\\": "tests/"
+        }
+    }
+}

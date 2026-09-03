@@ -21,6 +21,7 @@ import { setCredentials } from "@/store/auth-slice";
 import { getHomeRoute } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Card,
   CardContent,
@@ -381,9 +382,8 @@ function HeroSection() {
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="hero-password">Password</FieldLabel>
-                      <Input
+                      <PasswordInput
                         id="hero-password"
-                        type="password"
                         placeholder="At least 8 characters"
                         autoComplete="new-password"
                         {...form.register("password")}
@@ -400,9 +400,8 @@ function HeroSection() {
                       <FieldLabel htmlFor="hero-confirm-password">
                         Confirm password
                       </FieldLabel>
-                      <Input
+                      <PasswordInput
                         id="hero-confirm-password"
-                        type="password"
                         placeholder="Repeat your password"
                         autoComplete="new-password"
                         {...form.register("confirmPassword")}

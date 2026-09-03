@@ -42,16 +42,24 @@ export class EmployeeSchedulesService
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateEmployeeScheduleDto) {
-    // Auto-upsert: if a schedule already exists for this employee on this day,
-    // update it instead of creating a duplicate. This prevents "overlap" errors
-    // when the frontend sends a CREATE for a day that already has a schedule
-    // (e.g., after applying a template before schedules finish loading).
+    // Auto-upsert — but keyed to THIS shift, not to the whole day. A schedule
+    // row is only "the same shift being re-saved" when its time range overlaps
+    // the incoming range (e.g. the frontend re-POSTs a CREATE for a block that
+    // already exists after applying a template before schedules finish
+    // loading); in that case update it instead of creating a duplicate.
+    // A NON-overlapping range on the same day (e.g. adding an Evening shift
+    // next to an existing Morning shift) falls through to overlap validation
+    // + create, producing a second row for that day.
     const existing = await this.prisma.employeeSchedule.findFirst({
       where: {
         employeeSchedulableType: dto.employeeSchedulableType,
         employeeSchedulableId: dto.employeeSchedulableId,
         dayOfWeek: dto.dayOfWeek,
+        // Overlap: existing.startTime < newEndTime AND existing.endTime > newStartTime
+        startTime: { lt: dto.endTime },
+        endTime: { gt: dto.startTime },
       },
+      orderBy: [{ startTime: 'asc' }, { id: 'asc' }],
     });
 
     if (existing) {
@@ -66,7 +74,9 @@ export class EmployeeSchedulesService
       });
     }
 
-    // No existing schedule — validate no overlap with OTHER schedules
+    // No overlapping schedule — validate no overlap with OTHER schedules and
+    // create a new row (this is what makes a second, non-overlapping shift on
+    // the same day possible)
     await this.validateNoOverlap(
       dto.employeeSchedulableType,
       dto.employeeSchedulableId,

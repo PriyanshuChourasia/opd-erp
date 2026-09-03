@@ -7,12 +7,23 @@ export interface EmployeeScheduleDay {
   shift?: { id: string; name: string; code: string } | null;
 }
 
-export interface DayForm {
-  enabled: boolean;
+/**
+ * One working window on a given day — maps 1:1 to an EmployeeSchedule row.
+ * A doctor can have several non-overlapping blocks on the same day
+ * (e.g. a Morning shift and an Evening shift).
+ */
+export interface DayBlock {
+  /** EmployeeSchedule.id once the block has been saved server-side. */
   id?: string;
   startTime: string;
   endTime: string;
   shiftId?: string;
+}
+
+export interface DayForm {
+  enabled: boolean;
+  /** The shift blocks for this day; empty when the day is off. */
+  blocks: DayBlock[];
 }
 
 /**

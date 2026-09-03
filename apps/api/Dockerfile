@@ -26,8 +26,18 @@ RUN cd apps/api && npm run build
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 
-# Prisma needs OpenSSL even at runtime — the slim image doesn't have it
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Prisma needs OpenSSL even at runtime — the slim image doesn't have it.
+# postgresql-client-16 provides pg_dump/pg_restore for the pre-deploy backup
+# step in docker-entrypoint.sh. The client major version must match the
+# postgres:16 server — pg_dump refuses to dump a server newer than itself,
+# and Debian bookworm's stock client is v15 — so pull v16 from the PGDG repo.
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl ca-certificates gnupg openssl \
+ && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg \
+ && echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update -y \
+ && apt-get install -y --no-install-recommends postgresql-client-16 \
+ && rm -rf /var/lib/apt/lists/*
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}

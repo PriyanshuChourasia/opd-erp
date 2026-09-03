@@ -2,24 +2,21 @@ import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, useSearch } from "@tanstack/react-router";
-import { ChevronDown, Clock, HeartPulse, History, Pencil, Plus, Search, Stethoscope, Trash2, UserPlus, X } from "lucide-react";
+import { ChevronDown, HeartPulse, History, Pencil, Plus, Search, Stethoscope, Trash2, UserPlus, X } from "lucide-react";
 import {
   createAppointment,
   createDoctorWithUser,
   checkoutAppointment,
   fetchDoctors,
-  fetchDoctorSlots,
   fetchPatients,
   fetchPatient,
   fetchOrganisation,
   fetchAppointments,
   updatePatient,
-  fetchAllDoctorSchedules,
   fetchPatientVitalsLatest,
   createPatientVitals,
   deletePatientVitals,
   type AppointmentType,
-  type EmployeeSchedule,
   type CreateDoctorWithUserInput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -27,6 +24,7 @@ import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -42,20 +40,6 @@ const CONSULTATION_TYPES = [
 ] as const;
 
 function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
-
-function generateTimeSlots(start: string, end: string, intervalMinutes: number): string[] {
-  const startParts = start.split(':');
-  const endParts = end.split(':');
-  const startMin = parseInt(startParts[0] ?? '0') * 60 + parseInt(startParts[1] ?? '0');
-  const endMin = parseInt(endParts[0] ?? '0') * 60 + parseInt(endParts[1] ?? '0');
-  const slots: string[] = [];
-  for (let m = startMin; m < endMin; m += intervalMinutes) {
-    const h = Math.floor(m / 60);
-    const min = m % 60;
-    slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
-  }
-  return slots;
-}
 
 function PlaceholderField({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -99,13 +83,12 @@ interface BookingForm {
   registrationFee: number | null;
   isNewPatient: boolean;
   date: string;
-  slot: string | null;
   notes: string;
   allergies: string[];
 }
 
 function emptyBookingForm(): BookingForm {
-  return { patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: null, isNewPatient: false, date: todayStr(), slot: null, notes: "", allergies: [] };
+  return { patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: null, isNewPatient: false, date: todayStr(), notes: "", allergies: [] };
 }
 
 export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) {
@@ -118,7 +101,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const preselectedPatientId = searchParams.patientId;
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
-  const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
   const [form, setForm] = useState<BookingForm>(emptyBookingForm());
   const [patientQuery, setPatientQuery] = useState("");
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
@@ -230,7 +212,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     if (preselectedDoctorId && doctors.length > 0 && !form.doctorId) {
       const doctor = doctors.find((d) => d.id === preselectedDoctorId);
       if (doctor) {
-        setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, amount: doctor.consultationFee ?? prev.amount }));
+        setForm((prev) => ({ ...prev, doctorId: doctor.id, amount: doctor.consultationFee ?? prev.amount }));
       }
       // If doctor not found (invalid/stale id), fail silently — leave field unset
     }
@@ -252,94 +234,15 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   useEffect(() => {
     const doctor = doctors[0];
     if (!preselectedDoctorId && doctors.length === 1 && doctor && !form.doctorId) {
-      setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, amount: doctor.consultationFee ?? prev.amount }));
+      setForm((prev) => ({ ...prev, doctorId: doctor.id, amount: doctor.consultationFee ?? prev.amount }));
     }
   }, [preselectedDoctorId, doctors]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch all doctor schedules in one call (no dependency on doctors list)
-  const { data: allSchedules = [] } = useQuery({
-    queryKey: ["employee-schedules", "all-doctors"],
-    queryFn: async (): Promise<EmployeeSchedule[]> => {
-      const res = await fetchAllDoctorSchedules();
-      return res?.data ?? [];
-    },
-    enabled: canReadEmployeeSchedules,
-    refetchOnMount: true,
-    staleTime: 0,
-  });
-
-  // Compute which doctor IDs are available on the selected date
-  const availableDoctorIds = useMemo(() => {
-    if (!form.date) return new Set(doctors.map((d) => d.id));
-    const dateObj = new Date(form.date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7; // JS Sunday=0 → Monday=0
-    const available = new Set<string>();
-    for (const sched of allSchedules) {
-      if (sched.dayOfWeek === dayOfWeek) {
-        available.add(sched.employeeSchedulableId);
-      }
-    }
-    return available;
-  }, [allSchedules, form.date, doctors]);
-
-  // Map doctor ID → schedule for the selected date (to show times in dropdown)
-  const doctorScheduleMap = useMemo(() => {
-    if (!form.date) return new Map<string, { startTime: string; endTime: string }>();
-    const dateObj = new Date(form.date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    const map = new Map<string, { startTime: string; endTime: string }>();
-    for (const sched of allSchedules) {
-      if (sched.dayOfWeek === dayOfWeek) {
-        map.set(sched.employeeSchedulableId, { startTime: sched.startTime, endTime: sched.endTime });
-      }
-    }
-    return map;
-  }, [allSchedules, form.date]);
 
   const patientResults = useQuery({
     queryKey: ["appointment-patients", patientQuery],
     queryFn: () => fetchPatients({ search: patientQuery, limit: 8 }),
     enabled: patientQuery.trim().length >= 1 && !form.patient,
   });
-  const slotsQuery = useQuery({ queryKey: ["doctor-slots", form.doctorId, form.date], queryFn: () => fetchDoctorSlots(form.doctorId, form.date), enabled: canReadEmployeeSchedules && !!form.doctorId && !!form.date });
-
-  // ── Selected doctor's schedule for the chosen date ──
-  const selectedDoctorSchedule = useMemo(() => {
-    if (!form.doctorId || !form.date) return null;
-    const dateObj = new Date(form.date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    return allSchedules.find(
-      (s) => s.employeeSchedulableId === form.doctorId && s.dayOfWeek === dayOfWeek
-    ) ?? null;
-  }, [allSchedules, form.doctorId, form.date]);
-
-  // ── Auto-advance date to next available weekday when current date has no schedule ──
-  useEffect(() => {
-    if (!form.doctorId || !allSchedules.length || !form.date) return;
-    if (selectedDoctorSchedule) return; // current date has a schedule, no need to advance
-    // Find next available date (up to 14 days ahead)
-    const base = new Date(form.date + "T00:00:00");
-    for (let i = 1; i <= 14; i++) {
-      const next = new Date(base);
-      next.setDate(next.getDate() + i);
-      const dow = (next.getDay() + 6) % 7;
-      const hasSchedule = allSchedules.some(
-        (s) => s.employeeSchedulableId === form.doctorId && s.dayOfWeek === dow,
-      );
-      if (hasSchedule) {
-        const offset = next.getTimezoneOffset();
-        const nextStr = new Date(next.getTime() - offset * 60_000).toISOString().slice(0, 10);
-        setForm((prev) => ({ ...prev, date: nextStr, slot: null }));
-        break;
-      }
-    }
-  }, [form.doctorId, form.date, allSchedules, selectedDoctorSchedule]);
-
-  // ── Already-booked slot times ──
-  const bookedSlots = useMemo(() => {
-    if (!slotsQuery.data?.slots) return [];
-    return slotsQuery.data.slots.filter((s) => s.booked > 0).map((s) => s.time);
-  }, [slotsQuery.data]);
 
   const patientHistory = useQuery({
     queryKey: ["patient-history", form.patient?.id],
@@ -361,7 +264,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       return createAppointment({
         patientId: form.patient!.id,
         doctorId: form.doctorId,
-        date: `${form.date}T${form.slot}:00`,
+        date: `${form.date}T09:00:00`,
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
@@ -370,7 +273,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-slots", form.doctorId, form.date] });
       toast.success("Appointment booked successfully");
       navigate({ to: isReceptionist ? '/receptionist/appointments' : '/appointments' });
     },
@@ -385,7 +287,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       const appointment = await createAppointment({
         patientId: form.patient!.id,
         doctorId: form.doctorId,
-        date: `${form.date}T${form.slot}:00`,
+        date: `${form.date}T09:00:00`,
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
@@ -402,7 +304,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-slots", form.doctorId, form.date] });
       queryClient.invalidateQueries({ queryKey: ["billing"] });
       toast.success("Appointment booked and paid successfully");
       setPaymentSheetOpen(false);
@@ -417,7 +318,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     mutationFn: (input: CreateDoctorWithUserInput) => createDoctorWithUser(input),
     onSuccess: (result: any) => {
       const doctor = result?.data ?? result?.doctor ?? result;
-      setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, amount: doctor.consultationFee ?? prev.amount }));
+      setForm((prev) => ({ ...prev, doctorId: doctor.id, amount: doctor.consultationFee ?? prev.amount }));
       setDoctorFormOpen(false);
       setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", mobileNumber: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 });
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
@@ -427,7 +328,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  const canBook = !!form.patient && !!form.doctorId && !!form.slot && !!form.type;
+  const canBook = !!form.patient && !!form.doctorId && !!form.type;
 
   return (
     <div className="w-full space-y-6">
@@ -436,7 +337,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">New Appointment</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Register the patient, pick a doctor and slot, then confirm the fee.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Register the patient, pick a doctor and date, then confirm the fee.</p>
             </div>
           </div>
         )}
@@ -445,7 +346,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
             type="date"
             className="w-auto"
             value={form.date}
-            onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value, doctorId: "", slot: null }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value, doctorId: "" }))}
           />
           <div className="flex gap-1.5">
             {[
@@ -456,7 +357,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
               <button
                 key={value}
                 type="button"
-                onClick={() => setForm((prev) => ({ ...prev, date: value, doctorId: "", slot: null }))}
+                onClick={() => setForm((prev) => ({ ...prev, date: value, doctorId: "" }))}
                 className={cn(
                   "shrink-0 rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
                   form.date === value
@@ -549,7 +450,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                     value={form.doctorId ? (doctors.find((d) => d.id === form.doctorId)?.name ?? '') : doctorSearchQuery}
                     onChange={(e) => {
                       if (form.doctorId) {
-                        setForm((prev) => ({ ...prev, doctorId: '', slot: null }));
+                        setForm((prev) => ({ ...prev, doctorId: '' }));
                         setDoctorSearchQuery(e.target.value);
                       } else {
                         setDoctorSearchQuery(e.target.value);
@@ -573,7 +474,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                             type="button"
                             className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
                             onMouseDown={() => {
-                              setForm((prev) => ({ ...prev, doctorId: d.id, slot: null, amount: d.consultationFee ?? prev.amount }));
+                              setForm((prev) => ({ ...prev, doctorId: d.id, amount: d.consultationFee ?? prev.amount }));
                               setDoctorSearchQuery("");
                               setDoctorSearchOpen(false);
                             }}
@@ -586,7 +487,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                             {doctorScheduleMap.has(d.id) && (
                               <span className="mt-1 inline-flex items-center gap-1 rounded-none border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[11px] font-semibold font-mono text-primary">
                                 <Clock className="size-3" />
-                                {doctorScheduleMap.get(d.id)!.startTime} – {doctorScheduleMap.get(d.id)!.endTime}
+                                {doctorScheduleMap.get(d.id)!.map((s) => `${s.startTime}–${s.endTime}`).join(" · ")}
                               </span>
                             )}
                           </button>
@@ -618,151 +519,20 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 />
               </Field>
 
-              {/* ── Slot + Consultation type (side by side) ── */}
-              <div className="grid grid-cols-2 gap-4">
-                <Field><FieldLabel>Slot *</FieldLabel>
-                  {form.doctorId ? (
-                    slotsQuery.isLoading ? (
-                      <p className="text-sm text-muted-foreground">Loading slots...</p>
-                    ) : !selectedDoctorSchedule ? (
-                      <div className="space-y-2">
-                        <p className="text-sm text-amber-600">No schedule for this day. Select a different date.</p>
-                        <Input
-                          type="time"
-                          value={form.slot ?? ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, slot: e.target.value || null }))}
-                        />
-                      </div>
-                    ) : !slotsQuery.data?.available ? (
-                      <p className="text-sm text-muted-foreground">No slots available for this day.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {/* Schedule range */}
-                        {selectedDoctorSchedule && (
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
-                            <span className="font-medium text-foreground">Hours:</span>
-                            <span className="rounded-none border border-input px-1.5 py-0.5 font-mono">
-                              {selectedDoctorSchedule.startTime}
-                            </span>
-                            <span className="text-muted-foreground">–</span>
-                            <span className="rounded-none border border-input px-1.5 py-0.5 font-mono">
-                              {selectedDoctorSchedule.endTime}
-                            </span>
-                            {bookedSlots.length > 0 && (
-                              <span className="text-muted-foreground">{bookedSlots.length} booked</span>
-                            )}
-                          </div>
-                        )}
-                        {/* Time input */}
-                        <Input
-                          type="time"
-                          value={form.slot ?? ""}
-                          min={(() => {
-                            if (!selectedDoctorSchedule) return '';
-                            if (form.date !== todayStr()) return selectedDoctorSchedule.startTime;
-                            const now = new Date();
-                            const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                            return nowTime > selectedDoctorSchedule.startTime ? nowTime : selectedDoctorSchedule.startTime;
-                          })()}
-                          max={selectedDoctorSchedule?.endTime ?? ""}
-                          onChange={(e) => {
-                            const time = e.target.value;
-                            if (!time) {
-                              setForm((prev) => ({ ...prev, slot: null }));
-                              return;
-                            }
-                            if (selectedDoctorSchedule) {
-                              if (time < selectedDoctorSchedule.startTime || time >= selectedDoctorSchedule.endTime) {
-                                toast.error(`Time must be between ${selectedDoctorSchedule.startTime} and ${selectedDoctorSchedule.endTime}`);
-                                return;
-                              }
-                            }
-                            if (form.date === todayStr()) {
-                              const now = new Date();
-                              const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                              if (time < nowTime) {
-                                toast.error("Cannot select a time that has already passed");
-                                return;
-                              }
-                            }
-                            if (bookedSlots.includes(time)) {
-                              toast.error("This time is already booked");
-                              return;
-                            }
-                            setForm((prev) => ({ ...prev, slot: time }));
-                          }}
-                        />
-
-                        {/* Visual slot grid */}
-                        {selectedDoctorSchedule && (() => {
-                          const slots = generateTimeSlots(selectedDoctorSchedule.startTime, selectedDoctorSchedule.endTime, 30);
-                          const now = new Date();
-                          const today = todayStr();
-                          const isToday = form.date === today;
-                          const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                          return (
-                            <div>
-                              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                Available slots
-                                {bookedSlots.length > 0 && (
-                                  <span className="ml-2 text-red-500">({bookedSlots.length} booked)</span>
-                                )}
-                              </span>
-                              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {slots.map((t) => {
-                                  const isBooked = bookedSlots.includes(t);
-                                  const isPast = isToday && t < currentTime;
-                                  const disabled = isBooked || isPast;
-                                  const isSelected = form.slot === t;
-                                  return (
-                                    <button
-                                      key={t}
-                                      type="button"
-                                      disabled={disabled}
-                                      title={isBooked ? "Already booked" : isPast ? "Time has passed" : `Select ${t}`}
-                                      onClick={() => {
-                                        if (!disabled) {
-                                          setForm((prev) => ({ ...prev, slot: t }));
-                                        }
-                                      }}
-                                      className={cn(
-                                        "relative rounded-none border px-2.5 py-1 text-[11px] font-medium font-mono transition-all duration-150",
-                                        isBooked && "cursor-not-allowed border-red-200 bg-red-50 text-red-600 min-w-[80px]",
-                                        isPast && !isBooked && "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400",
-                                        isSelected && !disabled && "z-10 border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary",
-                                        !disabled && !isSelected && "border-input text-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
-                                      )}
-                                    >
-                                      {isBooked ? `${t} Booked` : t}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex h-9.5 items-center rounded-none border border-dashed border-input bg-muted/30 px-3">
-                      <p className="text-sm text-muted-foreground/60">Select a doctor to view available slots</p>
-                    </div>
-                  )}
-                </Field>
-                <Field><FieldLabel>Consultation type *</FieldLabel>
-                  <div className="grid grid-cols-1 gap-2">
-                    {CONSULTATION_TYPES.map((t) => {
-                      const Icon = t.icon;
-                      return (
-                        <button key={t.value} type="button" className={cn("flex items-center gap-2 rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
-                          <Icon className="size-4 shrink-0" />
-                          <p className="font-medium text-foreground">{t.label}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Field>
-              </div>
+              {/* ── Consultation type ── */}
+              <Field><FieldLabel>Consultation type *</FieldLabel>
+                <div className="grid grid-cols-2 gap-2">
+                  {CONSULTATION_TYPES.map((t) => {
+                    const Icon = t.icon;
+                    return (
+                      <button key={t.value} type="button" className={cn("flex items-center gap-2 rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
+                        <Icon className="size-4 shrink-0" />
+                        <p className="font-medium text-foreground">{t.label}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
 
               {/* ── Notes ── */}
               <Field><FieldLabel htmlFor="a-notes">Notes</FieldLabel>
@@ -1070,7 +840,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
               </Field>
               <Field>
                 <FieldLabel>Password *</FieldLabel>
-                <Input type="password" placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
+                <PasswordInput placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
               </Field>
             </div>
             <Field>

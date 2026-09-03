@@ -344,11 +344,32 @@ export interface DoctorSlot {
   capacity: number;
   booked: number;
   available: boolean;
+  /** Which shift/window produced this slot (recurring schedule or one-off exception). */
+  shiftId?: string | null;
+  shiftName?: string | null;
+  windowStart?: string;
+  windowEnd?: string;
+  /** True when the slot comes from a one-off EmployeeScheduleException. */
+  isException?: boolean;
+  exceptionType?: "EXTRA_SHIFT" | "OVERRIDE" | "DAY_OFF" | null;
+}
+
+export interface SlotWindow {
+  windowStart: string;
+  windowEnd: string;
+  shiftId?: string | null;
+  shiftName?: string | null;
+  isException?: boolean;
+  exceptionType?: "EXTRA_SHIFT" | "OVERRIDE" | "DAY_OFF" | null;
+  label: string;
 }
 
 export interface DoctorSlots {
   available: boolean;
   slots: DoctorSlot[];
+  windows?: SlotWindow[];
+  /** True when a DAY_OFF exception suppresses this date entirely. */
+  dayOff?: boolean;
 }
 
 export type AppointmentType =
@@ -1315,6 +1336,70 @@ export function fetchDoctorSlots(doctorId: string, date: string) {
     path: "/employee-schedules/slots",
     params: { employeeSchedulableType: 'Doctor', employeeSchedulableId: doctorId, date },
   });
+}
+
+// ─── One-off schedule exceptions API ────────────────────────
+
+export type EmployeeScheduleExceptionType = "EXTRA_SHIFT" | "OVERRIDE" | "DAY_OFF";
+
+export interface EmployeeScheduleException {
+  id: string;
+  date: string;
+  type: EmployeeScheduleExceptionType;
+  startTime: string;
+  endTime: string;
+  shiftId?: string | null;
+  shift?: Shift | null;
+  employeeSchedulableType: string;
+  employeeSchedulableId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEmployeeScheduleExceptionInput {
+  date: string; // YYYY-MM-DD
+  type: EmployeeScheduleExceptionType;
+  startTime: string;
+  endTime: string;
+  shiftId?: string;
+  employeeSchedulableType: string;
+  employeeSchedulableId: string;
+}
+
+export function fetchEmployeeScheduleExceptions(params: {
+  employeeSchedulableType?: string;
+  employeeSchedulableId?: string;
+  type?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+} = {}) {
+  return request<PaginatedResult<EmployeeScheduleException>>({
+    method: "GET",
+    path: "/employee-schedule-exceptions",
+    params: {
+      employeeSchedulableType: params.employeeSchedulableType,
+      employeeSchedulableId: params.employeeSchedulableId,
+      type: params.type,
+      from: params.from,
+      to: params.to,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function createEmployeeScheduleException(input: CreateEmployeeScheduleExceptionInput) {
+  return request<EmployeeScheduleException>({
+    method: "POST",
+    path: "/employee-schedule-exceptions",
+    body: input,
+  });
+}
+
+export function deleteEmployeeScheduleException(id: string) {
+  return request<void>({ method: "DELETE", path: `/employee-schedule-exceptions/${id}` });
 }
 
 // ─── Shift API ────────────────────────────────────────────────

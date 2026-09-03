@@ -205,16 +205,45 @@ input[type="number"] {
     display: block !important;
     width: 100%;
   }
-  /* .slip-print-area (the appointment slip) is sized in physical mm to match
-     its own named A5-landscape @page (see @page appointment-slip below), not
-     to fill the print viewport. The generic #print-area{width:100%} rule
-     above is an ID selector, so it beats the element's own w-[198mm] class
-     purely on specificity -- without this override, the slip gets stretched
-     to the (much wider) print-layout viewport width instead of the page's
-     actual 198mm printable width, and Chromium's paginator then tiles/clips
-     the oversized content across bogus extra pages. */
+  /* While the appointment slip is the print target, pin the root boxes to
+     the A5-landscape sheet so nothing outside #print-area can influence
+     pagination or margins. Scoped with :has() so prescription/invoice
+     prints (same stylesheet, different #print-area classes) are untouched. */
+  html:has(#print-area.slip-print-area),
+  html:has(#print-area.slip-print-area) body {
+    width: 210mm !important;
+    height: 148mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  /* .slip-print-area (the appointment slip) is the ENTIRE A5-landscape page:
+     210mm x 148mm with a 6mm border-box padding (see @page appointment-slip
+     and .slip-print-area below), so its content box is exactly the 198mm x
+     136mm printable area. The generic #print-area{width:100%} rule above is
+     an ID selector and would otherwise stretch the slip to the print-layout
+     viewport; this higher-specificity rule re-pins the slip to the physical
+     sheet with !important so the page geometry is identical in every build
+     — no Tailwind arbitrary-mm utilities involved, so there is nothing for
+     dev/prod CSS ordering to disagree about. The overflow: hidden is NOT a
+     content-clipping crutch: the compacted content genuinely fits the 136mm
+     content height (~128mm worst case); it only guarantees that mm/px
+     rounding can never spill a hair's width onto a second page. */
   #print-area.slip-print-area {
-    width: 198mm !important;
+    display: block !important;
+    width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
+    height: 148mm !important;
+    min-height: 148mm !important;
+    max-height: 148mm !important;
+    margin: 0 !important;
+    padding: 6mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    background: white !important;
+    color: black !important;
+    border: none !important;
+    border-radius: 0 !important;
   }
   #print-area,
   #print-area * {
@@ -280,31 +309,32 @@ input[type="number"] {
    unambiguous. */
 @page appointment-slip {
   size: 210mm 148mm;
-  margin: 6mm;
+  margin: 0;
 }
 .slip-print-area {
   page: appointment-slip;
+  /* The slip IS the full A5-landscape sheet (210mm x 148mm), and the 6mm
+     gutter is its own border-box padding — so the printable content area
+     comes out to exactly 198mm x 136mm with nothing but plain CSS involved.
+     Sizing the element instead of splitting the page geometry between @page
+     margins (margin: 6mm) and Tailwind w-[198mm]/h-[136mm] utilities on the
+     element keeps dev and production builds identical: physical geometry
+     can't drift when Tailwind's arbitrary-class emission or CSS order
+     changes between builds. Applies on screen too, so the preview dialog
+     shows the true sheet with its gutter. */
+  width: 210mm;
+  height: 148mm;
+  padding: 6mm;
+  box-sizing: border-box;
 }
 
-/* Dedicated print layout for the appointment slip (A5 landscape). The slip's
-   markup is already compact and sized to the sheet (198mm x 136mm), but print
-   must be deterministic: pin the box to the printable height so pagination
-   can never add a second page, forbid section splitting (esp. the MONEY
-   RECEIPT — see break-inside-avoid wrapper in appointments-page.tsx), and
-   drop the screen-only border/rounding so the coloured header/footer bands
-   run full-bleed edge to edge. Nothing is hidden or clipped — the compacted
-   content genuinely fits inside 136mm (verified at ~128mm worst case). */
+/* Dedicated print layout for the appointment slip (A5 landscape). The exact
+   sheet geometry and 6mm gutter are re-pinned with !important inside the
+   @media print block above, so dev/prod CSS ordering can't shift them and
+   pagination can never add a second page. What remains here: forbid section
+   splitting (esp. the MONEY RECEIPT — see the break-inside-avoid wrapper in
+   appointments-page.tsx) and drop the screen-only border/rounding. */
 @media print {
-  #print-area.slip-print-area {
-    height: 136mm !important;
-    min-height: 0 !important;
-    max-height: 136mm !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-sizing: border-box !important;
-    border: none !important;
-    border-radius: 0 !important;
-  }
   /* Keep each section/table on one page when possible */
   #print-area.slip-print-area,
   #print-area.slip-print-area > *,
@@ -341,6 +371,17 @@ input[type="number"] {
 }
 .invoice-print-area {
   page: invoice-a5;
+}
+
+/* Hospital letterhead banner (header.png / footer.png), used on invoices
+   and receipts. The source images are wide strips (~4:1 and ~7.8:1) —
+   capped to a slim height so they read as a letterhead accent rather than
+   dominating the page, on screen and in print alike. */
+.invoice-banner-image {
+  max-height: 90px;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
 }
 
 /* Dedicated print layout for the invoice (A5 landscape). The on-screen sheet

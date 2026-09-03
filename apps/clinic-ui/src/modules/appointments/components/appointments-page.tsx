@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "@tanstack/react-router";
-import { useDateRangeSync } from "@/lib/date-range-search";
 import { getPatientName } from "@/lib/api";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { CalendarClock, ChevronDown, ClipboardList, Download, Eye, FileText, HeartPulse, History, Plus, Printer, Search } from "lucide-react";
@@ -33,6 +32,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DataTable } from "@/components/data-table/data-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -89,7 +89,10 @@ export function AppointmentsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
-  const { dateRange } = useDateRangeSync();
+
+  // Page-local date range — filters ONLY this appointments list, independent
+  // of the global header date range (which drives Queue/Reports/Billing/etc).
+  const [apptDateRange, setApptDateRange] = useState<{ from?: string; to?: string }>({});
 
 
 
@@ -169,7 +172,7 @@ export function AppointmentsPage() {
         th { background: #f3f4f6; font-weight: bold; }
         tr:nth-child(even) { background: #f9fafb; }
       </style></head><body>
-      <h2>Appointments Report — ${dateRange.from && dateRange.to ? (dateRange.from + ' to ' + dateRange.to) : 'All Dates'}</h2>
+      <h2>Appointments Report — ${apptDateRange.from && apptDateRange.to ? (apptDateRange.from + ' to ' + apptDateRange.to) : 'All Dates'}</h2>
       <table>
         <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
         <tbody>
@@ -218,13 +221,13 @@ export function AppointmentsPage() {
   }, [searchInput]);
 
   const { data: appointmentsResponse, isLoading } = useQuery({
-    queryKey: ["appointments", filterStatus, filterCreator, search, pagination.pageIndex, pagination.pageSize, dateRange.from, dateRange.to],
+    queryKey: ["appointments", filterStatus, filterCreator, search, pagination.pageIndex, pagination.pageSize, apptDateRange.from, apptDateRange.to],
     queryFn: () => fetchAppointments({
       status: filterStatus || undefined,
       createdById: filterCreator || undefined,
       search: search || undefined,
-      from: dateRange.from ?? undefined,
-      to: dateRange.to ?? undefined,
+      from: apptDateRange.from ?? undefined,
+      to: apptDateRange.to ?? undefined,
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
     }),
@@ -573,6 +576,14 @@ export function AppointmentsPage() {
             <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
           ))}
         </select>
+        {/* Date range for this list only (independent of the global header range) */}
+        <DateRangePicker
+          value={apptDateRange.from || apptDateRange.to ? { from: apptDateRange.from, to: apptDateRange.to } : undefined}
+          onChange={(range) => {
+            setApptDateRange({ from: range.from, to: range.to });
+            setPagination((p) => ({ ...p, pageIndex: 0 }));
+          }}
+        />
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={exportToExcel} disabled={!appointments.length}>
             <Download className="mr-1.5 size-3.5" />
@@ -917,14 +928,18 @@ export function AppointmentsPage() {
             <DialogTitle>Appointment Slip Preview</DialogTitle>
           </DialogHeader>
 
-          {/* Sized to the A5-landscape page's printable area — page is 210mm x
-              148mm (see @page appointment-slip in index.css) minus its 6mm
-              margin on every side, i.e. 198mm x 136mm. Sizing this to the
-              raw 210mm x 148mm page dimensions (as before) left content
-              6mm too wide on each side, which Chrome's print/PDF engine
-              handled by clipping/re-tiling the overflow onto a spurious
-              second page instead of just shrinking margins. */}
-          <div id="print-area" className="slip-print-area mx-auto w-[198mm] max-w-full min-h-[136mm] bg-white text-black rounded border border-gray-200 p-0 text-[10px] font-[Arial,Helvetica,sans-serif]">
+          {/* The slip renders as a full A5-landscape sheet: 210mm x 148mm,
+              with the 6mm gutter applied as the sheet's own border-box
+              padding (see @page appointment-slip and .slip-print-area in
+              index.css), leaving a 198mm x 136mm content area. The physical
+              page geometry deliberately lives in plain CSS, NOT in Tailwind
+              arbitrary-mm utilities like w-[198mm]/min-h-[136mm]: those
+              resolved differently in the production build than in dev (class
+              emission/CSS order differs), which let the printed sheet shrink
+              below the printable width and left large horizontal gaps. Only
+              screen cosmetics (border, rounding, centering) remain as
+              utilities here — print overrides them via #print-area rules. */}
+          <div id="print-area" className="slip-print-area mx-auto my-4 bg-white text-black rounded border border-gray-200 font-[Arial,Helvetica,sans-serif] text-[10px]">
             {printAppt && (() => {
               const aptDate = new Date(printAppt.date);
               const formattedDate = aptDate.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
@@ -934,21 +949,9 @@ export function AppointmentsPage() {
               return (
                 <>
                   {/* Header */}
-                  <div className="flex items-center justify-between gap-3 rounded-t bg-[#1e3a5f] px-4 py-2 text-white">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#1e3a5f]">
-                        {(organisation?.name ?? "C").trim().charAt(0).toUpperCase() || "C"}
-                      </div>
-                      <h1 className="m-0 text-base font-bold tracking-wide">{organisation?.name ?? "CLINIC"}</h1>
-                    </div>
-                    <div className="text-right text-[9px] leading-tight opacity-90">
-                      {organisation?.phone && <div>{organisation.phone}</div>}
-                      <div>{organisation?.address || "Healthcare Centre"}</div>
-                      <div>{organisation?.website || "http://opd.codymitra.com"}</div>
-                      <div>
-                        Slip No: {apptId} | Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                      </div>
-                    </div>
+                  <img src="/header.png" alt="" className="w-full h-auto rounded-t border border-gray-200" />
+                  <div className="flex items-center justify-end gap-3 px-4 py-1 text-[9px] leading-tight text-gray-600">
+                    Slip No: {apptId} | Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                   </div>
 
                   {/* Body */}
@@ -1059,9 +1062,10 @@ export function AppointmentsPage() {
                   </div>
 
                   {/* Footer */}
-                  <div className="bg-gray-100 py-1 px-3 text-center text-[8px] leading-tight text-gray-500 border-t border-gray-200 rounded-b">
+                  <div className="bg-gray-100 py-1 px-3 text-center text-[8px] leading-tight text-gray-500 border-t border-gray-200">
                     This is a computer-generated slip. Generated on {new Date().toLocaleString("en-IN")} | {organisation?.email ? `Email: ${organisation.email}` : ""} | {organisation?.website ?? "www.clinic.com"}
                   </div>
+                  <img src="/footer.png" alt="" className="w-full h-auto rounded-b border border-gray-200" />
                 </>
               );
             })()}

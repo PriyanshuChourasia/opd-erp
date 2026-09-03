@@ -42,7 +42,6 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DataTable } from "@/components/data-table/data-table";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
-import { PrintPrescriptionButton } from "./print-prescription-button";
 
 const RX_STATUS_STYLES: Record<string, string> = {
   ACTIVE: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -85,9 +84,10 @@ export function PrescriptionsPage() {
   // doesn't imply they could browse other doctors' prescriptions.
   const user = useAppSelector((state) => state.auth.user);
   const isDoctor = user?.userableType === "Doctor";
-  const canReadOrganisation = hasPermission(user?.permissions, "read", "company");
   const canCreate = hasPermission(user?.permissions, "create", "prescriptions");
   const canUpdate = hasPermission(user?.permissions, "update", "prescriptions");
+  const canReadOrganisation = hasPermission(user?.permissions, "read", "company");
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [invoicesOpen, setInvoicesOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
@@ -143,8 +143,6 @@ export function PrescriptionsPage() {
     enabled: !isDoctor,
   });
   const doctors = doctorsResponse?.data ?? [];
-
-  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
 
   const { data: billsResponse, isLoading: billsLoading } = useQuery({
     queryKey: ["bills", "patient", selectedPatient?.id],
@@ -428,8 +426,6 @@ export function PrescriptionsPage() {
   function buildPrescriptionBodyHtml(rx: Prescription): string {
     const rxDate = new Date(rx.createdAt);
     const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
-    const orgName = organisation?.name ?? 'CLINIC';
-    const orgInfo = organisation?.address || 'Healthcare Centre';
     const rxId = rx.id.slice(0, 8).toUpperCase();
     const patientName = rx.patient ? getPatientName(rx.patient) : '';
     const patientPhone = rx.patient?.contactNo ?? '';
@@ -438,11 +434,7 @@ export function PrescriptionsPage() {
     const doctorQual = rx.doctor?.qualification ?? '';
     const doctorSpec = rx.doctor?.specialization ?? '';
     const doctorRegNo = rx.doctor?.medicalRegistrationNo ?? '';
-    const orgPhone = organisation?.phone ?? '';
     const orgEmail = organisation?.email ?? '';
-    const logoInitial = orgName.trim().charAt(0).toUpperCase() || 'C';
-    const headerContactLine = [orgPhone, orgEmail].filter(Boolean).join(' &nbsp;|&nbsp; ');
-    const headerMetaLine = [`Date: ${formattedDate}`, doctorRegNo ? `Reg. No: ${doctorRegNo}` : ''].filter(Boolean).join(' &nbsp;|&nbsp; ');
 
     const medicineRows = rx.items.map((item, idx) => `
       <tr>
@@ -468,34 +460,15 @@ export function PrescriptionsPage() {
          </div>`
       : '';
 
-    return `<div style="width:100%;font-family:Arial,Helvetica,sans-serif;color:#000;">
-  <table style="width:100%;border-collapse:collapse;background:#1e3a5f;">
-    <tr>
-      <td style="padding:16px 24px;">
-        <table style="border-collapse:collapse;">
-          <tr>
-            <td style="vertical-align:middle;padding-right:12px;">
-              <div style="width:44px;height:44px;border-radius:50%;background:#ffffff;color:#1e3a5f;font-size:18px;font-weight:bold;text-align:center;line-height:44px;">${logoInitial}</div>
-            </td>
-            <td style="vertical-align:middle;">
-              <div style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:1px;">${orgName}</div>
-            </td>
-          </tr>
-        </table>
-      </td>
-      <td style="padding:16px 24px;text-align:right;vertical-align:middle;color:#ffffff;font-size:11px;line-height:1.6;opacity:0.9;">
-        <div>${orgInfo}</div>
-        ${headerContactLine ? `<div>${headerContactLine}</div>` : ''}
-        <div>${headerMetaLine}</div>
-      </td>
-    </tr>
-  </table>
+    return `<div style="width:100%;font-family:Arial,Helvetica,sans-serif;color:#000;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+  <img src="/header.png" alt="" style="width:100%;height:auto;max-height:90px;object-fit:contain;display:block;"/>
   <div style="background:#e8edf3;padding:10px 24px;text-align:center;border-bottom:1px solid #1e3a5f;">
     <h2 style="margin:0;font-size:16px;font-weight:bold;color:#1e3a5f;letter-spacing:2px;">MEDICAL PRESCRIPTION</h2>
   </div>
   <div style="padding:20px 24px;">
-    <div style="margin-bottom:14px;font-size:11px;color:#666;">
-      Rx No: <span style="font-family:monospace;font-weight:bold;">${rxId}</span>
+    <div style="margin-bottom:14px;font-size:11px;color:#666;display:flex;justify-content:space-between;">
+      <span>Rx No: <span style="font-family:monospace;font-weight:bold;">${rxId}</span></span>
+      <span>${[`Date: ${formattedDate}`, doctorRegNo ? `Reg. No: ${doctorRegNo}` : ''].filter(Boolean).join(' &nbsp;|&nbsp; ')}</span>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px;">
       <tr>
@@ -545,6 +518,7 @@ export function PrescriptionsPage() {
   <div style="background:#f0f2f5;padding:8px 24px;text-align:center;font-size:10px;color:#666;border-top:1px solid #ddd;">
     Computer-generated prescription | Generated on ${new Date().toLocaleString('en-IN')} | ${organisation?.phone ? `Phone: ${organisation.phone}` : ''} ${orgEmail ? `| Email: ${orgEmail}` : ''}
   </div>
+  <img src="/footer.png" alt="" style="width:100%;height:auto;max-height:90px;object-fit:contain;display:block;"/>
 </div>`;
   }
 
@@ -650,7 +624,6 @@ ${buildPrescriptionBodyHtml(rx)}
         const rx = row.original;
         return (
           <div className="flex justify-end items-center gap-1">
-            <PrintPrescriptionButton prescription={rx} variant="icon" />
             <Button
               variant="ghost"
               size="icon"
@@ -1161,26 +1134,7 @@ ${buildPrescriptionBodyHtml(rx)}
               return (
                 <>
                   {/* Header */}
-                  <div className="flex items-center justify-between gap-4 bg-[#1e3a5f] px-6 py-4 text-white">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-lg font-bold text-[#1e3a5f]">
-                        {(organisation?.name ?? "C").trim().charAt(0).toUpperCase() || "C"}
-                      </div>
-                      <h1 className="m-0 text-xl font-bold tracking-wide">{organisation?.name ?? "CLINIC"}</h1>
-                    </div>
-                    <div className="text-right text-[11px] leading-relaxed opacity-90">
-                      <div>{organisation?.address || "Healthcare Centre"}</div>
-                      {(organisation?.phone || organisation?.email) && (
-                        <div>{[organisation?.phone, organisation?.email].filter(Boolean).join(" | ")}</div>
-                      )}
-                      <div>
-                        {[
-                          `Date: ${formattedDate}`,
-                          pdfPreviewRx.doctor?.medicalRegistrationNo ? `Reg. No: ${pdfPreviewRx.doctor.medicalRegistrationNo}` : "",
-                        ].filter(Boolean).join(" | ")}
-                      </div>
-                    </div>
-                  </div>
+                  <img src="/header.png" alt="" className="invoice-banner-image w-full h-auto" />
 
                   {/* Title */}
                   <div className="bg-[#e8edf3] py-2.5 px-6 text-center border-b border-[#1e3a5f]">
@@ -1190,8 +1144,14 @@ ${buildPrescriptionBodyHtml(rx)}
                   {/* Body */}
                   <div className="py-5 px-6">
                     {/* Reference */}
-                    <div className="mb-3.5 text-[11px] text-gray-500">
-                      Rx No: <span className="font-mono font-bold">{pdfPreviewRx.id.slice(0, 8).toUpperCase()}</span>
+                    <div className="mb-3.5 flex items-center justify-between text-[11px] text-gray-500">
+                      <span>Rx No: <span className="font-mono font-bold">{pdfPreviewRx.id.slice(0, 8).toUpperCase()}</span></span>
+                      <span>
+                        {[
+                          `Date: ${formattedDate}`,
+                          pdfPreviewRx.doctor?.medicalRegistrationNo ? `Reg. No: ${pdfPreviewRx.doctor.medicalRegistrationNo}` : "",
+                        ].filter(Boolean).join(" | ")}
+                      </span>
                     </div>
 
                     {/* Patient & Doctor info */}
@@ -1273,9 +1233,10 @@ ${buildPrescriptionBodyHtml(rx)}
                   </div>
 
                   {/* Footer */}
-                  <div className="bg-gray-100 py-2 px-6 text-center text-[10px] text-gray-500 border-t border-gray-200 rounded-b">
+                  <div className="bg-gray-100 py-2 px-6 text-center text-[10px] text-gray-500 border-t border-gray-200">
                     Computer-generated prescription | Generated on {new Date().toLocaleString('en-IN')} | {organisation?.phone ? `Phone: ${organisation.phone}` : ''} {organisation?.email ? `| Email: ${organisation.email}` : ''}
                   </div>
+                  <img src="/footer.png" alt="" className="invoice-banner-image w-full h-auto" />
                 </>
               );
             })()}

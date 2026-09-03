@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -332,9 +333,8 @@ export function UsersPage() {
                     <FieldLabel htmlFor="u-password">
                       {editingId ? "New Password (leave blank to keep)" : "Password *"}
                     </FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="u-password"
-                      type="password"
                       placeholder={editingId ? "Unchanged" : "Min 8 chars"}
                       value={form.password ?? ""}
                       onChange={(e) => setForm({ ...form, password: e.target.value })}

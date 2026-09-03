@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Eye, History, Plus, Trash2, AlertTriangle, HeartPulse } from "lucide-react";
+import { Download, Eye, History, Plus, Trash2, AlertTriangle, HeartPulse, Printer } from "lucide-react";
 import {
   fetchAppointment,
   fetchPatientVitalsLatest,
   fetchPrescriptions,
   fetchMedicines,
-  fetchPrescriptionTemplateForDoctor,
+  fetchOrganisation,
   createPrescription,
   getPatientName,
   type PrescriptionItem,
@@ -15,6 +15,8 @@ import {
 import { cn, printArea } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
+import { hasPermission } from "@/lib/roles";
+import { useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +24,6 @@ import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
-import { PrescriptionTemplatePreview, type PrescriptionPrintData } from "@/modules/prescription-templates/components/prescription-template-preview";
 
 interface RxItem {
   medicineId: string;
@@ -43,6 +44,7 @@ export function CreatePrescriptionPage() {
   const navigate = useNavigate();
   const { appointmentId } = useParams({ from: "/_dashboard/appointments/$appointmentId/prescription" });
 
+  const user = useAppSelector((state) => state.auth.user);
   const [diagnosis, setDiagnosis] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<RxItem[]>([emptyRxItem()]);
@@ -142,18 +144,173 @@ export function CreatePrescriptionPage() {
 
   // ── Prescription preview ──
   const [previewOpen, setPreviewOpen] = useState(false);
-  const { data: template, isLoading: templateLoading } = useQuery({
-    queryKey: ["prescription-template-for-doctor", appointment?.doctorId],
-    queryFn: () => fetchPrescriptionTemplateForDoctor(appointment!.doctorId),
-    enabled: previewOpen && !!appointment?.doctorId,
-  });
-  const previewData: PrescriptionPrintData | null = appointment ? {
-    patient: { firstName: appointment.patient?.firstName ?? "", lastName: appointment.patient?.lastName ?? "", dateOfBirth: appointment.patient?.dateOfBirth, gender: appointment.patient?.gender },
-    items: items.filter((it) => it.medicineName.trim()).map((it) => ({ medicineName: it.medicineName, dosage: it.dosage, duration: it.duration, instructions: it.instructions })),
-    diagnosis: diagnosis.length > 0 ? diagnosis.join(", ") : undefined,
-    notes: notes.trim() || undefined,
-    date: new Date().toLocaleDateString(),
-  } : null;
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const canReadOrganisation = hasPermission(user?.permissions, "read", "company");
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
+  const previewItems = useMemo(() => items.filter((it) => it.medicineName.trim()), [items]);
+  const previewDiagnosis = diagnosis.length > 0 ? diagnosis.join(", ") : undefined;
+  const previewNotes = notes.trim() || undefined;
+
+  /**
+   * Self-contained HTML mirroring the preview JSX above (same header.png/
+   * footer.png/border/layout), inline-styled so it renders in an isolated
+   * iframe for PDF capture — same pattern as prescriptions-page.tsx's
+   * buildPrescriptionBodyHtml.
+   */
+  function buildPreviewHtml(): string {
+    if (!appointment) return "";
+    const patientName = appointment.patient ? getPatientName(appointment.patient) : "";
+    const doctorName = appointment.doctor?.name ?? appointment.doctor?.medicalRegistrationNo ?? "";
+    const rows = (previewItems.length > 0 ? previewItems : [{ medicineName: "Verbal Instructions", dosage: "As per doctor's advice", frequency: "", duration: "", quantity: 1, instructions: "" }])
+      .map((item, idx) => `
+      <tr>
+        <td style="border:1px solid #ddd;padding:6px 8px;text-align:center;font-size:11px;color:#666;">${idx + 1}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;font-weight:bold;font-size:12px;">${item.medicineName}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;font-size:12px;">${item.dosage || '—'}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;font-size:12px;">${[item.frequency, item.duration].filter(Boolean).join(" ") || '—'}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;text-align:center;font-size:12px;">${item.quantity}</td>
+        <td style="border:1px solid #ddd;padding:6px 8px;font-size:11px;color:#555;">${item.instructions || '—'}</td>
+      </tr>`).join('');
+    const diagnosisSection = previewDiagnosis
+      ? `<div style="margin-bottom:16px;">
+           <div style="font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;font-size:11px;letter-spacing:1px;padding-bottom:4px;">DIAGNOSIS</div>
+           <p style="margin:0;font-size:13px;">${previewDiagnosis}</p>
+         </div>`
+      : '';
+    const notesSection = previewNotes
+      ? `<div style="margin-bottom:16px;">
+           <div style="font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;font-size:11px;letter-spacing:1px;padding-bottom:4px;">NOTES</div>
+           <p style="margin:0;font-size:12px;">${previewNotes}</p>
+         </div>`
+      : '';
+    return `<div style="width:100%;font-family:Arial,Helvetica,sans-serif;color:#000;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+  <img src="/header.png" alt="" style="width:100%;height:auto;max-height:90px;object-fit:contain;display:block;border:1px solid #e5e7eb;border-radius:6px;"/>
+  <div style="background:#e8edf3;padding:10px 24px;text-align:center;border-bottom:1px solid #1e3a5f;">
+    <h2 style="margin:0;font-size:16px;font-weight:bold;color:#1e3a5f;letter-spacing:2px;">MEDICAL PRESCRIPTION</h2>
+  </div>
+  <div style="padding:20px 24px;">
+    <div style="margin-bottom:14px;font-size:11px;color:#666;display:flex;justify-content:space-between;">
+      <span>Ref: <span style="font-family:monospace;font-weight:bold;">${appointmentId.slice(0, 8).toUpperCase()}</span></span>
+      <span>${[`Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}`, appointment.doctor?.medicalRegistrationNo ? `Reg. No: ${appointment.doctor.medicalRegistrationNo}` : ''].filter(Boolean).join(' &nbsp;|&nbsp; ')}</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px;">
+      <tr>
+        <td style="width:50%;vertical-align:top;padding-right:12px;">
+          <div style="font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;padding-bottom:4px;font-size:11px;letter-spacing:1px;">PATIENT DETAILS</div>
+          <div style="font-weight:bold;font-size:13px;margin-bottom:3px;">${patientName}</div>
+          <div style="font-size:12px;color:#444;margin-bottom:2px;">Phone: ${appointment.patient?.contactNo ?? ''}</div>
+          ${appointment.patient?.email ? `<div style="font-size:12px;color:#444;">Email: ${appointment.patient.email}</div>` : ''}
+        </td>
+        <td style="width:50%;vertical-align:top;padding-left:12px;">
+          <div style="font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;padding-bottom:4px;font-size:11px;letter-spacing:1px;">PRESCRIBED BY</div>
+          <div style="font-weight:bold;font-size:13px;margin-bottom:3px;">Dr. ${doctorName}</div>
+          ${appointment.doctor?.qualification ? `<div style="font-size:12px;color:#444;margin-bottom:2px;">${appointment.doctor.qualification}</div>` : ''}
+          ${appointment.doctor?.specialization ? `<div style="font-size:12px;color:#444;">${appointment.doctor.specialization}</div>` : ''}
+        </td>
+      </tr>
+    </table>
+    ${diagnosisSection}
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;">
+      <thead>
+        <tr style="background:#f3f4f6;">
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;">SL.No.</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:30%;">MEDICINE</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:15%;">DOSAGE</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:15%;">DURATION</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;width:10%;">QTY</th>
+          <th style="border:1px solid #ccc;padding:7px 8px;text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;">INSTRUCTIONS</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+    ${notesSection}
+    <div style="margin-top:20px;display:flex;justify-content:flex-end;">
+      <div style="text-align:center;">
+        <div style="width:180px;border-top:1px solid #000;margin-bottom:4px;padding-top:6px;">
+          <span style="font-size:12px;font-weight:bold;">Dr. ${doctorName}</span>
+        </div>
+        <div style="font-size:11px;color:#666;">Doctor's Signature & Stamp</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding:8px 12px;background:#f8f9fa;border:1px solid #ddd;font-size:9px;color:#888;line-height:1.4;">
+      This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
+    </div>
+  </div>
+  <div style="background:#f0f2f5;padding:8px 24px;text-align:center;font-size:10px;color:#666;border-top:1px solid #ddd;">
+    Computer-generated prescription preview | Generated on ${new Date().toLocaleString('en-IN')} | ${organisation?.phone ? `Phone: ${organisation.phone}` : ''} ${organisation?.email ? `| Email: ${organisation.email}` : ''}
+  </div>
+  <img src="/footer.png" alt="" style="width:100%;height:auto;max-height:90px;object-fit:contain;display:block;border:1px solid #e5e7eb;border-radius:6px;"/>
+</div>`;
+  }
+
+  async function downloadPreviewPdf() {
+    if (!appointment) return;
+    setGeneratingPdf(true);
+    let iframe: HTMLIFrameElement | null = null;
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+      iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:820px;height:100px;border:0;';
+      document.body.appendChild(iframe);
+      await new Promise<void>((resolve, reject) => {
+        iframe!.onload = () => resolve();
+        iframe!.onerror = () => reject(new Error('Failed to load PDF render frame'));
+        iframe!.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;">${buildPreviewHtml()}</body></html>`;
+      });
+      const doc = iframe.contentDocument;
+      if (!doc?.body) throw new Error('PDF render frame did not initialize');
+      const contentHeight = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+      iframe.style.height = `${contentHeight}px`;
+
+      const canvas = await html2canvas(doc.body, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        windowWidth: 820,
+        windowHeight: contentHeight,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      const margin = 0.5;
+      const pageWidth = 8.27;
+      const pageHeight = 11.69;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const usableHeight = pageHeight - margin * 2;
+
+      const pdf = new jsPDF({ unit: 'in', format: 'a4', orientation: 'portrait' });
+      let heightLeft = imgHeight;
+      let position = margin;
+      pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+      heightLeft -= usableHeight;
+      while (heightLeft > 0) {
+        position = margin - (imgHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+        heightLeft -= usableHeight;
+      }
+
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `prescription-preview-${appointment.patient ? getPatientName(appointment.patient).replace(/\s+/g, '-') : appointmentId}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      toast.success('PDF downloaded successfully');
+    } catch (err) {
+      console.error('PDF generation failed', err);
+      toast.error('Failed to generate PDF');
+    } finally {
+      iframe?.remove();
+      setGeneratingPdf(false);
+    }
+  }
 
   function addItem() { setItems((prev) => [...prev, emptyRxItem()]); }
   function removeItem(idx: number) { setItems((prev) => prev.filter((_, i) => i !== idx)); }
@@ -387,25 +544,120 @@ export function CreatePrescriptionPage() {
         </div>
       </div>
 
-      {/* ── Prescription Preview Dialog ── */}
+      {/* ── Prescription Preview Dialog ──
+          Same header.png/footer.png-branded design as the saved-prescription
+          preview in prescriptions-page.tsx — kept in sync deliberately, since
+          this is the same document before vs. after Save. Built from local
+          form state (not a saved Prescription row), so it works even before
+          this prescription has ever been saved, and doesn't depend on a
+          PrescriptionTemplate existing for the doctor. */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="overflow-y-auto max-h-[95vh]" style={{ maxWidth: '794px', width: '794px' }}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto" showCloseButton>
           <DialogHeader><DialogTitle>Prescription Preview</DialogTitle></DialogHeader>
-          {templateLoading ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">Loading template...</p>
-          ) : !template ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">
-              No prescription template configured. Create one under Organisation → Rx Templates.
-            </p>
-          ) : previewData ? (
-            <div id="print-area" className="prescription-print-area bg-white mx-auto" style={{ width: '794px', minHeight: '1123px', padding: '40px' }}>
-              <PrescriptionTemplatePreview template={template} onOpenChange={() => {}} inline data={previewData} />
+          {appointment && (
+            <div id="print-area" className="prescription-print-area overflow-hidden rounded border border-gray-200 bg-white text-black text-[13px] font-[Arial,Helvetica,sans-serif]">
+              <img src="/header.png" alt="" className="invoice-banner-image w-full h-auto" />
+
+              <div className="bg-[#e8edf3] py-2.5 px-6 text-center border-b border-[#1e3a5f]">
+                <h2 className="m-0 text-sm font-bold text-[#1e3a5f] tracking-[2px]">MEDICAL PRESCRIPTION</h2>
+              </div>
+
+              <div className="py-5 px-6">
+                <div className="mb-3.5 flex items-center justify-between text-[11px] text-gray-500">
+                  <span>Ref: <span className="font-mono font-bold">{appointmentId.slice(0, 8).toUpperCase()}</span></span>
+                  <span>
+                    {[
+                      `Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+                      appointment.doctor?.medicalRegistrationNo ? `Reg. No: ${appointment.doctor.medicalRegistrationNo}` : "",
+                    ].filter(Boolean).join(" | ")}
+                  </span>
+                </div>
+
+                <table className="w-full border-collapse mb-4 text-[13px]">
+                  <tbody>
+                    <tr>
+                      <td className="w-1/2 align-top pr-3">
+                        <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PATIENT DETAILS</div>
+                        <div className="font-bold text-[13px] mb-0.5">{appointment.patient ? getPatientName(appointment.patient) : null}</div>
+                        <div className="text-xs text-gray-600 mb-0.5">Phone: {appointment.patient?.contactNo}</div>
+                        {appointment.patient?.email && <div className="text-xs text-gray-600">Email: {appointment.patient.email}</div>}
+                      </td>
+                      <td className="w-1/2 align-top pl-3">
+                        <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PRESCRIBED BY</div>
+                        <div className="font-bold text-[13px] mb-0.5">Dr. {appointment.doctor?.name ?? appointment.doctor?.medicalRegistrationNo}</div>
+                        {appointment.doctor?.qualification && <div className="text-xs text-gray-600 mb-0.5">{appointment.doctor.qualification}</div>}
+                        {appointment.doctor?.specialization && <div className="text-xs text-gray-600">{appointment.doctor.specialization}</div>}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {previewDiagnosis && (
+                  <div className="mb-4">
+                    <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">DIAGNOSIS</div>
+                    <p className="m-0 text-[13px]">{previewDiagnosis}</p>
+                  </div>
+                )}
+
+                <table className="w-full border-collapse mb-4 text-xs">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px]">SL.No.</th>
+                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[30%]">MEDICINE</th>
+                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[15%]">DOSAGE</th>
+                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[15%]">DURATION</th>
+                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[10%]">QTY</th>
+                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px]">INSTRUCTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(previewItems.length > 0 ? previewItems : [{ medicineName: "Verbal Instructions", dosage: "As per doctor's advice", frequency: "", duration: "", quantity: 1, instructions: "", medicineId: "" }]).map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="border border-gray-200 p-1.5 text-center text-[11px] text-gray-500">{idx + 1}</td>
+                        <td className="border border-gray-200 p-1.5 font-bold text-xs">{item.medicineName}</td>
+                        <td className="border border-gray-200 p-1.5 text-xs">{item.dosage || '—'}</td>
+                        <td className="border border-gray-200 p-1.5 text-xs">{[item.frequency, item.duration].filter(Boolean).join(" ") || '—'}</td>
+                        <td className="border border-gray-200 p-1.5 text-center text-xs">{item.quantity}</td>
+                        <td className="border border-gray-200 p-1.5 text-[11px] text-gray-600">{item.instructions || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {previewNotes && (
+                  <div className="mb-4">
+                    <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">NOTES</div>
+                    <p className="m-0 text-xs">{previewNotes}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end mt-10">
+                  <div className="text-center">
+                    <div className="w-44 border-t border-black mb-1 pt-1.5">
+                      <span className="text-xs font-bold">Dr. {appointment.doctor?.name ?? appointment.doctor?.medicalRegistrationNo}</span>
+                    </div>
+                    <div className="text-[11px] text-gray-600">Doctor's Signature & Stamp</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-2 bg-gray-50 border border-gray-200 text-[9px] text-gray-500 leading-relaxed">
+                  This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
+                </div>
+              </div>
+
+              <div className="bg-gray-100 py-2 px-6 text-center text-[10px] text-gray-500 border-t border-gray-200">
+                Computer-generated prescription preview | Generated on {new Date().toLocaleString('en-IN')} | {organisation?.phone ? `Phone: ${organisation.phone}` : ''} {organisation?.email ? `| Email: ${organisation.email}` : ''}
+              </div>
+              <img src="/footer.png" alt="" className="invoice-banner-image w-full h-auto" />
             </div>
-          ) : null}
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
-            <Button onClick={printArea} disabled={!template}>
-              Print
+            <Button variant="outline" onClick={printArea} disabled={!appointment} className="gap-1.5">
+              <Printer className="size-3.5" />Print
+            </Button>
+            <Button onClick={downloadPreviewPdf} disabled={!appointment || generatingPdf} className="gap-1.5">
+              <Download className="size-3.5" />{generatingPdf ? "Generating…" : "Download PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>

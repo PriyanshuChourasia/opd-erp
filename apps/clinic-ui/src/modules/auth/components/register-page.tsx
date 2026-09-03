@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Card,
   CardContent,
@@ -125,9 +126,8 @@ export function RegisterPage() {
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     autoComplete="new-password"
                     {...form.register("password")}
                   />
@@ -135,9 +135,8 @@ export function RegisterPage() {
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
-                  <Input
+                  <PasswordInput
                     id="confirmPassword"
-                    type="password"
                     autoComplete="new-password"
                     {...form.register("confirmPassword")}
                   />

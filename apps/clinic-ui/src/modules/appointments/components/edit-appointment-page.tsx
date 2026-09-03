@@ -2,7 +2,7 @@ import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { AlertTriangle, ChevronDown, Clock, History, Pencil, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, History, Pencil, Plus, Search, X } from "lucide-react";
 import {
   checkoutAppointment,
   addBillPayment,
@@ -10,23 +10,21 @@ import {
   fetchAppointment,
   updateAppointment,
   fetchDoctors,
-  fetchDoctorSlots,
   fetchPatients,
   fetchPatient,
   fetchOrganisation,
   fetchAppointments,
   updatePatient,
-  fetchAllDoctorSchedules,
   fetchPatientVitalsLatest,
   type AppointmentType,
   type CreateDoctorWithUserInput,
-  type EmployeeSchedule,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -42,20 +40,6 @@ const CONSULTATION_TYPES = [
 ] as const;
 
 function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
-
-function generateTimeSlots(start: string, end: string, intervalMinutes: number): string[] {
-  const startParts = start.split(':');
-  const endParts = end.split(':');
-  const startMin = parseInt(startParts[0] ?? '0') * 60 + parseInt(startParts[1] ?? '0');
-  const endMin = parseInt(endParts[0] ?? '0') * 60 + parseInt(endParts[1] ?? '0');
-  const slots: string[] = [];
-  for (let m = startMin; m < endMin; m += intervalMinutes) {
-    const h = Math.floor(m / 60);
-    const min = m % 60;
-    slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
-  }
-  return slots;
-}
 
 function PlaceholderField({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -94,10 +78,6 @@ function localDateStr(d: Date) {
   const offset = d.getTimezoneOffset();
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
-function localTimeStr(d: Date) {
-  const offset = d.getTimezoneOffset();
-  return new Date(d.getTime() - offset * 60_000).toISOString().slice(11, 16);
-}
 
 interface EditForm {
   patient: { id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null;
@@ -106,7 +86,6 @@ interface EditForm {
   amount: number;
   registrationFee: number;
   date: string;
-  slot: string | null;
   notes: string;
   allergies: string[];
 }
@@ -117,8 +96,7 @@ export function EditAppointmentPage() {
   const { appointmentId } = useParams({ from: "/_dashboard/appointments/$appointmentId/edit" });
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
-  const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
-  const [form, setForm] = useState<EditForm>({ patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: 0, date: todayStr(), slot: null, notes: "", allergies: [] });
+  const [form, setForm] = useState<EditForm>({ patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: 0, date: todayStr(), notes: "", allergies: [] });
   const [formReady, setFormReady] = useState(false);
   const [patientQuery, setPatientQuery] = useState("");
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
@@ -158,7 +136,6 @@ export function EditAppointmentPage() {
         amount: appointment.amount,
         registrationFee: appointment.registrationFee,
         date: localDateStr(d),
-        slot: localTimeStr(d),
         notes: appointment.notes ?? "",
         allergies: appointment.patient.allergies ?? [],
       });
@@ -192,64 +169,11 @@ export function EditAppointmentPage() {
   });
   const doctors = useMemo(() => doctorsResponse?.data ?? [], [doctorsResponse]);
 
-  const { data: allSchedules = [] } = useQuery({
-    queryKey: ["employee-schedules", "all-doctors"],
-    queryFn: async (): Promise<EmployeeSchedule[]> => {
-      const res = await fetchAllDoctorSchedules();
-      return res?.data ?? [];
-    },
-    enabled: canReadEmployeeSchedules,
-    refetchOnMount: true,
-    staleTime: 0,
-  });
-
-  const availableDoctorIds = useMemo(() => {
-    if (!form.date) return new Set(doctors.map((d) => d.id));
-    const dateObj = new Date(form.date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    const available = new Set<string>();
-    for (const sched of allSchedules) {
-      if (sched.dayOfWeek === dayOfWeek) {
-        available.add(sched.employeeSchedulableId);
-      }
-    }
-    return available;
-  }, [allSchedules, form.date, doctors]);
-
-  // Map doctor ID → schedule for the selected date (to show times in dropdown)
-  const doctorScheduleMap = useMemo(() => {
-    if (!form.date) return new Map<string, { startTime: string; endTime: string }>();
-    const dateObj = new Date(form.date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    const map = new Map<string, { startTime: string; endTime: string }>();
-    for (const sched of allSchedules) {
-      if (sched.dayOfWeek === dayOfWeek) {
-        map.set(sched.employeeSchedulableId, { startTime: sched.startTime, endTime: sched.endTime });
-      }
-    }
-    return map;
-  }, [allSchedules, form.date]);
-
   const patientResults = useQuery({
     queryKey: ["appointment-patients", patientQuery],
     queryFn: () => fetchPatients({ search: patientQuery, limit: 8 }),
     enabled: patientQuery.trim().length >= 1 && !form.patient,
   });
-  const slotsQuery = useQuery({ queryKey: ["doctor-slots", form.doctorId, form.date], queryFn: () => fetchDoctorSlots(form.doctorId, form.date), enabled: !!form.doctorId && !!form.date });
-
-  const selectedDoctorSchedule = useMemo(() => {
-    if (!form.doctorId || !form.date) return null;
-    const dateObj = new Date(form.date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    return allSchedules.find(
-      (s) => s.employeeSchedulableId === form.doctorId && s.dayOfWeek === dayOfWeek
-    ) ?? null;
-  }, [allSchedules, form.doctorId, form.date]);
-
-  const bookedSlots = useMemo(() => {
-    if (!slotsQuery.data?.slots) return [];
-    return slotsQuery.data.slots.filter((s) => s.booked > 0).map((s) => s.time);
-  }, [slotsQuery.data]);
 
   const patientHistory = useQuery({
     queryKey: ["patient-history", form.patient?.id],
@@ -265,7 +189,7 @@ export function EditAppointmentPage() {
     mutationFn: (input: CreateDoctorWithUserInput) => createDoctorWithUser(input),
     onSuccess: (result: any) => {
       const doctor = result?.data ?? result?.doctor ?? result;
-      setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, amount: doctor.consultationFee ?? prev.amount }));
+      setForm((prev) => ({ ...prev, doctorId: doctor.id, amount: doctor.consultationFee ?? prev.amount }));
       setDoctorFormOpen(false);
       setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 });
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
@@ -282,7 +206,7 @@ export function EditAppointmentPage() {
       }
       return updateAppointment(appointmentId, {
         doctorId: form.doctorId,
-        date: `${form.date}T${form.slot}:00`,
+        date: `${form.date}T09:00:00`,
         type: form.type,
         amount: form.amount,
         registrationFee: form.registrationFee,
@@ -306,7 +230,7 @@ export function EditAppointmentPage() {
       }
       await updateAppointment(appointmentId, {
         doctorId: form.doctorId,
-        date: `${form.date}T${form.slot}:00`,
+        date: `${form.date}T09:00:00`,
         type: form.type,
         amount: form.amount,
         registrationFee: form.registrationFee,
@@ -350,7 +274,7 @@ export function EditAppointmentPage() {
     },
   });
 
-  const canSave = !!form.patient && !!form.doctorId && !!form.slot && !!form.type;
+  const canSave = !!form.patient && !!form.doctorId && !!form.type;
 
   // True bill total and what's already been collected against it — kept
   // separate so PaymentSheet can show a real "Net Total" alongside "Amount
@@ -404,7 +328,7 @@ export function EditAppointmentPage() {
             type="date"
             className="w-auto"
             value={form.date}
-            onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value, slot: null }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
           />
           <div className="flex gap-1.5">
             {[
@@ -415,7 +339,7 @@ export function EditAppointmentPage() {
               <button
                 key={value}
                 type="button"
-                onClick={() => setForm((prev) => ({ ...prev, date: value, slot: null }))}
+                onClick={() => setForm((prev) => ({ ...prev, date: value }))}
                 className={cn(
                   "shrink-0 rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
                   form.date === value
@@ -511,7 +435,7 @@ export function EditAppointmentPage() {
                         {doctors.find((d) => d.id === form.doctorId)?.name ?? 'Doctor'}
                         {doctors.find((d) => d.id === form.doctorId)?.consultationFee ? ` · ${currency(doctors.find((d) => d.id === form.doctorId)!.consultationFee)}` : ''}
                       </span>
-                      <Button variant="ghost" size="icon-sm" title="Clear doctor" aria-label="Clear doctor" onClick={() => setForm((prev) => ({ ...prev, doctorId: "", slot: null }))}>
+                      <Button variant="ghost" size="icon-sm" title="Clear doctor" aria-label="Clear doctor" onClick={() => setForm((prev) => ({ ...prev, doctorId: "" }))}>
                         <X className="size-3.5" />
                       </Button>
                     </div>
@@ -543,7 +467,7 @@ export function EditAppointmentPage() {
                             type="button"
                             className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
                             onMouseDown={() => {
-                              setForm((prev) => ({ ...prev, doctorId: d.id, slot: null, amount: d.consultationFee ?? prev.amount }));
+                              setForm((prev) => ({ ...prev, doctorId: d.id, amount: d.consultationFee ?? prev.amount }));
                               setDoctorSearchQuery("");
                               setDoctorSearchOpen(false);
                             }}
@@ -553,12 +477,6 @@ export function EditAppointmentPage() {
                               {d.specialization}
                               {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ''}
                             </span>
-                            {doctorScheduleMap.has(d.id) && (
-                              <span className="mt-1 inline-flex items-center gap-1 rounded-none border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[11px] font-semibold font-mono text-primary">
-                                <Clock className="size-3" />
-                                {doctorScheduleMap.get(d.id)!.startTime} – {doctorScheduleMap.get(d.id)!.endTime}
-                              </span>
-                            )}
                           </button>
                         ))}
                       {doctors.length === 0 && (
@@ -586,7 +504,7 @@ export function EditAppointmentPage() {
                   <Field><FieldLabel>Slot *</FieldLabel>
                     {slotsQuery.isLoading ? (
                       <p className="text-sm text-muted-foreground">Loading slots...</p>
-                    ) : !selectedDoctorSchedule ? (
+                    ) : resolvedWindows.length === 0 ? (
                       <div className="space-y-2">
                         <p className="text-sm text-amber-600">No schedule for this day. Select a different date.</p>
                         <Input
@@ -595,51 +513,37 @@ export function EditAppointmentPage() {
                           onChange={(e) => setForm((prev) => ({ ...prev, slot: e.target.value || null }))}
                         />
                       </div>
-                    ) : !slotsQuery.data?.available ? (
-                      <p className="text-sm text-muted-foreground">No slots available for this day.</p>
+                    ) : slotsQuery.data && !slotsQuery.data.available ? (
+                      <p className="text-sm text-muted-foreground">
+                        {slotsQuery.data.dayOff
+                          ? "Not available — the doctor has a day off on this date."
+                          : "No slots available for this day."}
+                      </p>
                     ) : (
-                      <div className="space-y-2">
-                        {selectedDoctorSchedule && (
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
-                            <span className="font-medium text-foreground">Hours:</span>
-                            <span className="rounded-none border border-input px-1.5 py-0.5 font-mono">
-                              {selectedDoctorSchedule.startTime}
-                            </span>
-                            <span className="text-muted-foreground">–</span>
-                            <span className="rounded-none border border-input px-1.5 py-0.5 font-mono">
-                              {selectedDoctorSchedule.endTime}
-                            </span>
-                            {bookedSlots.length > 0 && (
-                              <span className="text-muted-foreground">{bookedSlots.length} booked</span>
-                            )}
-                          </div>
-                        )}
+                      <div className="space-y-3">
+                        {/* Manual time entry, validated against the resolved windows */}
                         <Input
                           type="time"
                           value={form.slot ?? ""}
-                          min={(() => {
-                            if (!selectedDoctorSchedule) return '';
-                            if (form.date !== todayStr()) return selectedDoctorSchedule.startTime;
-                            const now = new Date();
-                            const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                            return nowTime > selectedDoctorSchedule.startTime ? nowTime : selectedDoctorSchedule.startTime;
-                          })()}
-                          max={selectedDoctorSchedule?.endTime ?? ""}
                           onChange={(e) => {
                             const time = e.target.value;
                             if (!time) {
                               setForm((prev) => ({ ...prev, slot: null }));
                               return;
                             }
-                            if (selectedDoctorSchedule) {
-                              if (time < selectedDoctorSchedule.startTime || time >= selectedDoctorSchedule.endTime) {
-                                toast.error(`Time must be between ${selectedDoctorSchedule.startTime} and ${selectedDoctorSchedule.endTime}`);
-                                return;
-                              }
+                            const insideWindow = resolvedWindows.some(
+                              (w) => time >= w.windowStart && time < w.windowEnd,
+                            );
+                            if (!insideWindow) {
+                              const rangeText = resolvedWindows
+                                .map((w) => `${w.windowStart}–${w.windowEnd}`)
+                                .join(" / ");
+                              toast.error(`Time must be within the doctor's hours (${rangeText})`);
+                              return;
                             }
                             if (form.date === todayStr()) {
                               const now = new Date();
-                              const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                              const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
                               if (time < nowTime) {
                                 toast.error("Cannot select a time that has already passed");
                                 return;
@@ -652,22 +556,45 @@ export function EditAppointmentPage() {
                             setForm((prev) => ({ ...prev, slot: time }));
                           }}
                         />
-                        {/* Visual slot grid */}
-                        {selectedDoctorSchedule && (() => {
-                          const slots = generateTimeSlots(selectedDoctorSchedule.startTime, selectedDoctorSchedule.endTime, 30);
-                          const now = new Date();
-                          const today = todayStr();
-                          const isToday = form.date === today;
-                          const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                          return (
-                            <div>
-                              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                Available slots
-                                {bookedSlots.length > 0 && (
-                                  <span className="ml-2 text-red-500">({bookedSlots.length} booked)</span>
-                                )}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                          <span className="font-medium text-foreground">Hours:</span>
+                          {resolvedWindows.map((w) => (
+                            <span key={`${w.windowStart}-${w.windowEnd}-${w.shiftId ?? "custom"}`} className="inline-flex items-center gap-1.5">
+                              <span className="rounded-none border border-input px-1.5 py-0.5 font-mono">
+                                {w.windowStart}
                               </span>
-                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              <span className="text-muted-foreground">–</span>
+                              <span className="rounded-none border border-input px-1.5 py-0.5 font-mono">
+                                {w.windowEnd}
+                              </span>
+                              {w.isException && (
+                                <span className="rounded-none border border-amber-300 bg-amber-50 px-1 py-0.5 font-medium text-amber-700">
+                                  {w.exceptionType === "OVERRIDE" ? "Override" : "Extra shift"} · one-off
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                          {bookedSlots.length > 0 && (
+                            <span className="text-muted-foreground">{bookedSlots.length} booked</span>
+                          )}
+                        </div>
+
+                        {/* Window-grouped slot grids */}
+                        {resolvedWindows.map((w) => {
+                          const slots = timesInWindow(w.windowStart, w.windowEnd, 30);
+                          const now = new Date();
+                          const isToday = form.date === todayStr();
+                          const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+                          const sectionLabel = windowSectionLabel(w, form.date);
+                          return (
+                            <div key={`grid-${w.windowStart}-${w.windowEnd}-${w.shiftId ?? "custom"}`} className="space-y-1.5">
+                              {(resolvedWindows.length > 1 || w.isException) && (
+                                <p className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                                  <Clock className="size-3" />
+                                  {sectionLabel}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap gap-1.5">
                                 {slots.map((t) => {
                                   const isBooked = bookedSlots.includes(t);
                                   const isPast = isToday && t < currentTime;
@@ -699,7 +626,7 @@ export function EditAppointmentPage() {
                               </div>
                             </div>
                           );
-                        })()}
+                        })}
                       </div>
                     )}
                   </Field>
@@ -1052,7 +979,7 @@ export function EditAppointmentPage() {
               </Field>
               <Field>
                 <FieldLabel>Password *</FieldLabel>
-                <Input type="password" placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
+                <PasswordInput placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
               </Field>
             </div>
             <Field>

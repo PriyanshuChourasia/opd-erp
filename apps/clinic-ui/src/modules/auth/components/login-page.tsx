@@ -14,27 +14,11 @@ import {
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { cn } from "@/lib/utils";
 import { loginSchema, type LoginValues } from "../data/schema";
 import { useLogin } from "../data/hooks";
-
-interface TestAccount {
-  role: string;
-  email: string;
-  password: string;
-}
-
-const testAccounts: TestAccount[] = [
-  { role: "Doctor", email: "rajesh.sharma@clinic.com", password: "Doctor@123" },
-  { role: "Admin", email: "admin@clinic.com", password: "Password@123" },
-  { role: "Receptionist", email: "receptionist@clinic.com", password: "Password@123" },
-  { role: "Nurse", email: "meera@clinic.com", password: "Password@123" },
-  { role: "Pharmacist", email: "rakesh@clinic.com", password: "Password@123" },
-  { role: "Lab Tech", email: "kiran@clinic.com", password: "Password@123" },
-  { role: "Patient", email: "sureshbabu19650819@patient.portal", password: "Patient@123" },
-];
 
 const workflowSteps = [
   { icon: Users, label: "Patient registration" },
@@ -45,22 +29,13 @@ const workflowSteps = [
   { icon: Pill, label: "Pharmacy dispensing" },
 ];
 
-const DEFAULT_ACCOUNT = { email: "rajesh.sharma@clinic.com", password: "Doctor@123" };
-
 export function LoginPage() {
   const loginMutation = useLogin();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: DEFAULT_ACCOUNT.email, password: DEFAULT_ACCOUNT.password },
+    defaultValues: { email: "", password: "" },
   });
-
-  const selectedEmail = form.watch("email");
-
-  function fillCredentials(account: TestAccount) {
-    form.setValue("email", account.email);
-    form.setValue("password", account.password);
-  }
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -116,37 +91,6 @@ export function LoginPage() {
             </p>
           </div>
 
-          {/* ─── Demo accounts ──────────────────────────────────── */}
-          <div className="mb-5">
-            <div className="mb-2 flex items-center gap-2">
-              <Shield className="size-3.5 text-muted-foreground" />
-              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Demo accounts — Doctor pre-filled
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {testAccounts.map((account) => {
-                const isSelected = account.email === selectedEmail;
-                return (
-                  <button
-                    key={account.email}
-                    type="button"
-                    onClick={() => fillCredentials(account)}
-                    aria-pressed={isSelected}
-                    className={cn(
-                      "border px-2.5 py-1 text-xs transition-colors",
-                      isSelected
-                        ? "border-primary bg-primary/10 font-medium text-primary"
-                        : "border-input text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                    )}
-                  >
-                    {account.role}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <Card>
             <CardContent className="pt-6">
               <form
@@ -155,15 +99,14 @@ export function LoginPage() {
               >
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="email">Email or Username *</FieldLabel>
+                    <FieldLabel htmlFor="email">Email or Username</FieldLabel>
                     <Input id="email" placeholder="email@clinic.com or username" autoComplete="username" {...form.register("email")} />
                     <FieldError errors={form.formState.errors.email ? [form.formState.errors.email] : undefined} />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="password">Password *</FieldLabel>
-                    <Input
+                    <FieldLabel htmlFor="password">Password</FieldLabel>
+                    <PasswordInput
                       id="password"
-                      type="password"
                       autoComplete="current-password"
                       {...form.register("password")}
                     />

@@ -52,6 +52,7 @@ model User {
   createdDispensings           Dispensing[]           @relation("DispensingCreated")
   createdShifts                Shift[]                @relation("ShiftCreated")
   createdEmployeeSchedules     EmployeeSchedule[]     @relation("EmployeeScheduleCreated")
+  createdEmployeeScheduleExceptions EmployeeScheduleException[] @relation("EmployeeScheduleExceptionCreated")
   createdAddresses             Address[]              @relation("AddressCreated")
   createdDocuments             Document[]             @relation("DocumentCreated")
   createdCompanies             Company[]              @relation("CompanyCreated")
@@ -111,6 +112,7 @@ model User {
   deletedProcedureOrders       ProcedureOrder[]        @relation("ProcedureOrderDeleted")
   deletedRadiologyOrders       RadiologyOrder[]        @relation("RadiologyOrderDeleted")
   deletedEmployeeSchedules     EmployeeSchedule[]      @relation("EmployeeScheduleDeleted")
+  deletedEmployeeScheduleExceptions EmployeeScheduleException[] @relation("EmployeeScheduleExceptionDeleted")
   updatedDiscountRules         DiscountRule[]          @relation("DiscountRuleUpdated")
   deletedDiscountRules         DiscountRule[]          @relation("DiscountRuleDeleted")
   updatedAccountGroups         AccountGroup[]          @relation("AccountGroupUpdated")
@@ -129,6 +131,7 @@ model User {
   updatedDispensings           Dispensing[]           @relation("DispensingUpdated")
   updatedShifts                Shift[]                @relation("ShiftUpdated")
   updatedEmployeeSchedules     EmployeeSchedule[]     @relation("EmployeeScheduleUpdated")
+  updatedEmployeeScheduleExceptions EmployeeScheduleException[] @relation("EmployeeScheduleExceptionUpdated")
   updatedAddresses             Address[]              @relation("AddressUpdated")
   updatedDocuments             Document[]             @relation("DocumentUpdated")
   updatedCompanies             Company[]              @relation("CompanyUpdated")
@@ -1037,6 +1040,7 @@ model Shift {
   createdBy      User?              @relation("ShiftCreated", fields: [createdById], references: [id])
   updatedBy      User?              @relation("ShiftUpdated", fields: [updatedById], references: [id])
   schedules      EmployeeSchedule[]
+  exceptions     EmployeeScheduleException[]
 }
 
 model EmployeeSchedule {
@@ -1060,6 +1064,51 @@ model EmployeeSchedule {
   deletedBy   User?    @relation("EmployeeScheduleDeleted", fields: [deletedById], references: [id])
   @@index([employeeSchedulableType, employeeSchedulableId, dayOfWeek], map: "emp_sched_type_id_dow")
   @@index([employeeSchedulableType, employeeSchedulableId], map: "emp_sched_type_id")
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+enum EmployeeScheduleExceptionType {
+  EXTRA_SHIFT // Layered ON TOP of the recurring weekly schedule for that date
+  OVERRIDE // Replaces the recurring weekly schedule for that date
+  DAY_OFF // Employee unavailable that date
+}
+
+/// One-off / date-specific schedule change. Unlike EmployeeSchedule (which is
+/// keyed by dayOfWeek and recurs weekly), each row applies to exactly one
+/// calendar date and does not touch the employee's recurring schedule.
+/// Multiple rows per date are allowed (e.g. two EXTRA_SHIFT rows, or recurring
+/// weekly rows plus an EXTRA_SHIFT row on the same date).
+///
+/// date is stored as a calendar date normalized to LOCAL midnight, the same
+/// convention appointment date-range queries and the slot generator use
+/// (gte: date, lt: nextDay on the local start-of-day). Not @db.Date on
+/// purpose: Postgres derives @db.Date from a Date's UTC components, which for
+/// positive offsets (IST etc.) shifts the stored day back by one.
+model EmployeeScheduleException {
+  id                      String                        @id @default(uuid())
+  date                    DateTime
+  type                    EmployeeScheduleExceptionType
+  startTime               String
+  endTime                 String
+  shiftId                 String?
+  shift                   Shift?                        @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  employeeSchedulableType String
+  employeeSchedulableId   String
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
+  createdById             String?
+  updatedById             String?
+  deletedAt               DateTime?
+  deletedById             String?
+  createdBy               User?                         @relation("EmployeeScheduleExceptionCreated", fields: [createdById], references: [id])
+  updatedBy               User?                         @relation("EmployeeScheduleExceptionUpdated", fields: [updatedById], references: [id])
+  deletedBy               User?                         @relation("EmployeeScheduleExceptionDeleted", fields: [deletedById], references: [id])
+
+  @@index([employeeSchedulableType, employeeSchedulableId, date], map: "emp_sched_exc_type_id_date")
+  @@index([employeeSchedulableType, employeeSchedulableId], map: "emp_sched_exc_type_id")
+  @@index([date], map: "emp_sched_exc_date")
+  @@index([shiftId])
   @@index([createdById])
   @@index([updatedById])
 }

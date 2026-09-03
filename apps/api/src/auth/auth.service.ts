@@ -32,9 +32,14 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
+    // Trim identifiers so copy-pasted whitespace can't create near-duplicate
+    // accounts (spaces around an email/username are never intentional).
+    const email = dto.email.trim();
+    const username = dto.username.trim();
+
     // Check if email already exists
     const existingEmail = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email },
     });
     if (existingEmail) {
       throw new ConflictException('A user with this email already exists');
@@ -42,7 +47,7 @@ export class AuthService {
 
     // Check if username already exists
     const existingUsername = await this.prisma.user.findUnique({
-      where: { username: dto.username },
+      where: { username },
     });
     if (existingUsername) {
       throw new ConflictException('A user with this username already exists');
@@ -65,11 +70,11 @@ export class AuthService {
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
-          username: dto.username,
+          username,
           firstName: dto.firstName,
           middleName: dto.middleName,
           lastName: dto.lastName,
-          email: dto.email,
+          email,
           mobileNumber: dto.mobileNumber,
           countryCode: dto.countryCode ?? '+91',
           gender: dto.gender,
@@ -123,12 +128,18 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
+    // Trim the identifier so copy-pasted whitespace can't make a valid
+    // login fail (spaces around an email/username are never intentional).
+    // Password is deliberately NOT trimmed — whitespace can be part of one.
+    const email = dto.email?.trim();
+    const username = dto.username?.trim();
+
     // Find user by email or username
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
-          dto.email ? { email: dto.email } : {},
-          dto.username ? { username: dto.username } : {},
+          email ? { email } : {},
+          username ? { username } : {},
         ].filter((cond) => Object.keys(cond).length > 0),
       },
       include: {
@@ -234,8 +245,10 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
-    // If email is being changed, check it's not taken
+    // If email is being changed, trim it (copy-pasted whitespace is never
+    // intentional) and check it's not taken
     if (dto.email) {
+      dto.email = dto.email.trim();
       const existing = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });

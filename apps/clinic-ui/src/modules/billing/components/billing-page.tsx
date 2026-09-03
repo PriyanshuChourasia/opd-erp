@@ -26,7 +26,7 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
-function currency(value: number) { return `₹${value.toFixed(2)}`; }
+function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
 export function BillingPage() {
   const queryClient = useQueryClient();

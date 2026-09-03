@@ -33,6 +33,7 @@ const testAccounts: TestAccount[] = [
   { role: "Nurse", email: "meera@clinic.com", password: "Password@123" },
   { role: "Pharmacist", email: "rakesh@clinic.com", password: "Password@123" },
   { role: "Lab Tech", email: "kiran@clinic.com", password: "Password@123" },
+  { role: "Patient", email: "sureshbabu19650819@patient.portal", password: "Patient@123" },
 ];
 
 const workflowSteps = [

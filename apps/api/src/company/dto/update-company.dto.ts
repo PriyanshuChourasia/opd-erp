@@ -53,6 +53,10 @@ export class UpdateCompanyDto {
 
   @IsOptional()
   @IsString()
+  logoUrl?: string;
+
+  @IsOptional()
+  @IsString()
   drugLicenseNumber?: string;
 
   @IsOptional()

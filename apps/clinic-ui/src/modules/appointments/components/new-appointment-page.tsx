@@ -41,7 +41,7 @@ const CONSULTATION_TYPES = [
   { value: "CONSULTATION", label: "Consultation", icon: Stethoscope },
 ] as const;
 
-function currency(value: number) { return `₹${value.toFixed(2)}`; }
+function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
 function generateTimeSlots(start: string, end: string, intervalMinutes: number): string[] {
   const startParts = start.split(':');
@@ -175,6 +175,8 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const deleteVitalsMutation = useMutation({
     mutationFn: (id: string) => deletePatientVitals(id),
     onSuccess: () => {
+      // Immediately clear cached vitals so the UI reflects deletion instantly
+      queryClient.setQueryData(["patientVitals", "latest", form.patient?.id], null);
       queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
       toast.success("Vitals deleted");
     },
@@ -394,7 +396,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
         discountRuleId: payload.discountRuleId,
         tax: payload.tax > 0 ? payload.tax : undefined,
-        paidAmount: payload.paidAmount,
         notes: payload.notes || undefined,
       });
       return appointment;
@@ -1028,7 +1029,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       <PaymentSheet
         open={paymentSheetOpen}
         onOpenChange={setPaymentSheetOpen}
-        subtotal={Math.max(0, form.amount + regFeeAmount)}
+        subtotal={Math.max(0, (Number(form.amount) || 0) + (Number(regFeeAmount) || 0))}
         isPending={bookAndPayMutation.isPending}
         onSubmit={(payload) => bookAndPayMutation.mutate(payload)}
         submitLabel="Confirm & Book"

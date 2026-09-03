@@ -199,8 +199,11 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
   );
 
   // ─── Helper: Writing Lines (for free-form mode) ───
-  const WritingLines = () => (
-    freeFormMode && showWritingLines ? (
+  // `force` lets the inherently free-form layouts (doctor-script,
+  // prescription-pad) render writing lines even when the generic
+  // freeFormMode toggle is off.
+  const WritingLines = ({ force = false }: { force?: boolean }) => (
+    (force || freeFormMode) && showWritingLines ? (
       <div className="px-4 py-3" style={{ fontSize: baseFontSize }}>
         {data ? (
           <div className="space-y-2 whitespace-pre-wrap">
@@ -700,10 +703,10 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               {/* Compact Patient Row */}
               {showPatientFields && (
                 <div className="flex items-center gap-4 px-3 py-1.5" style={{ borderBottom: `1px solid ${primaryColor}15` }}>
-                  <span className="text-muted-foreground">Name: <span className="text-foreground">___________</span></span>
-                  <span className="text-muted-foreground">Age: <span className="text-foreground">___</span></span>
-                  <span className="text-muted-foreground">Sex: <span className="text-foreground">___</span></span>
-                  <span className="text-muted-foreground">Date: <span className="text-foreground">___________</span></span>
+                  <span className="text-muted-foreground">Name: <span className="text-foreground">{data ? patientName : "___________"}</span></span>
+                  <span className="text-muted-foreground">Age: <span className="text-foreground">{data ? patientAge : "___"}</span></span>
+                  <span className="text-muted-foreground">Sex: <span className="text-foreground">{data ? patientGender : "___"}</span></span>
+                  <span className="text-muted-foreground">Date: <span className="text-foreground">{data ? patientDate : "___________"}</span></span>
                 </div>
               )}
               {/* Compact Medicine List */}
@@ -821,7 +824,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               {/* Patient row */}
               {showPatientFields && <PatientFields inline />}
               {/* Writing lines — the main body */}
-              <WritingLines />
+              <WritingLines force />
               {/* Diagnosis + Notes */}
               <DiagnosisNotes />
               <Recommendations />
@@ -867,7 +870,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               {/* Patient fields — single line */}
               {showPatientFields && <PatientFields inline />}
               {/* Free-form writing lines */}
-              <WritingLines />
+              <WritingLines force />
               {/* Signature at bottom right */}
               <SignatureLine />
             </div>

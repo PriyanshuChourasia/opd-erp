@@ -118,6 +118,8 @@ export function AdminAppointments() {
       updateAppointmentStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['doctor-admin', 'my-appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['queue'] });
       toast.success('Appointment status updated');
     },
     onError: (err) => toast.error(extractApiError(err)),

@@ -2689,6 +2689,8 @@ async function main() {
 
   await seedBloodGroups();
 
+  await seedPatientPortalLogins();
+
   console.log('\n📊 Skipping demo transactional data (appointments, bills, prescriptions, accounting)...');
   console.log('   Patients and medicines are kept from wipe-data.ts.');
   console.log('   Run seedAccounting() separately if you need chart-of-accounts.');
@@ -3281,6 +3283,45 @@ async function seedSidebarConfig() {
   }
 
   console.log(`✅ Sidebar config seeded (${menuItems.length} items).`);
+}
+
+async function seedPatientPortalLogins() {
+  const patients = await prisma.patient.findMany({ where: { deletedAt: null }, take: 3 });
+  const patientRole = await prisma.role.findFirst({ where: { name: 'Patient' } });
+  if (!patientRole || patients.length === 0) {
+    console.log('⚠️  Skipping patient portal logins — no Patient role or patients found.');
+    return;
+  }
+
+  const bcrypt = await import('bcryptjs');
+  let created = 0;
+  for (const patient of patients) {
+    const existing = await prisma.user.findFirst({
+      where: { userableType: 'Patient', userableId: patient.id },
+    });
+    if (existing) continue;
+
+    const username = patient.patientCode?.toLowerCase().replace(/[^a-z0-9]/g, '') || `patient${created + 1}`;
+    const rawPassword = 'Patient@123';
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+    await prisma.user.create({
+      data: {
+        email: `${username}@patient.portal`,
+        username,
+        password: hashedPassword,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        userableType: 'Patient',
+        userableId: patient.id,
+        roleId: patientRole.id,
+        isActive: true,
+      },
+    });
+    console.log(`   🧑‍🤒 Portal login created for ${patient.firstName} ${patient.lastName} (user: ${username}, pass: ${rawPassword})`);
+    created++;
+  }
+  console.log(`✅ Patient portal logins seeded (${created} new).`);
 }
 
 main()

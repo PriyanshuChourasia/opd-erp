@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Globe, Mail, MapPin, ShieldCheck, Users, Settings } from "lucide-react";
+import { Building2, Globe, ImageUp, Mail, MapPin, ShieldCheck, Users, Settings, X } from "lucide-react";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ import {
   fetchRoles,
   fetchUsers,
   updateCompany,
+  uploadDocument,
+  type DocumentRecord,
   type UpdateCompanyInput,
 } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -36,6 +38,7 @@ const emptyForm: UpdateCompanyInput = {
   drugLicenseNumber: "",
   drugLicenseExpiry: "",
   taxRegistrationNumber: "",
+  logoUrl: "",
 };
 
 export function CompanyPage() {
@@ -84,6 +87,7 @@ export function CompanyPage() {
         drugLicenseNumber: company.drugLicenseNumber ?? "",
         drugLicenseExpiry: company.drugLicenseExpiry ? company.drugLicenseExpiry.slice(0, 10) : "",
         taxRegistrationNumber: company.taxRegistrationNumber ?? "",
+        logoUrl: company.logoUrl ?? "",
       });
     } else {
       setForm(emptyForm);
@@ -103,6 +107,20 @@ export function CompanyPage() {
 
   function handleSave() {
     saveMutation.mutate(form);
+  }
+
+  const logoUploading = useMutation({
+    mutationFn: (file: File) =>
+      uploadDocument(file, "logo", "company", company?.id ?? "company", { isPrimary: true }),
+    onSuccess: (doc: DocumentRecord) => {
+      setForm((prev) => ({ ...prev, logoUrl: doc.fileName }));
+      toast.success("Logo uploaded");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  function handleLogoFile(file?: File | null) {
+    if (file) logoUploading.mutate(file);
   }
 
   return (
@@ -224,6 +242,40 @@ export function CompanyPage() {
           </SheetHeader>
           <div className="flex-1 space-y-4 px-4">
             <FieldGroup>
+              <Field>
+                <FieldLabel>Clinic Logo</FieldLabel>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                    {form.logoUrl ? (
+                      <img src={`/uploads/documents/${form.logoUrl}`} alt="Clinic logo" className="size-full object-contain" />
+                    ) : (
+                      <Building2 className="size-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm font-medium hover:bg-muted">
+                      <ImageUp className="size-4" />
+                      {logoUploading.isPending ? "Uploading…" : "Upload logo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={logoUploading.isPending}
+                        onChange={(e) => handleLogoFile(e.target.files?.[0])}
+                      />
+                    </label>
+                    {form.logoUrl && (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                        onClick={() => setForm((prev) => ({ ...prev, logoUrl: "" }))}
+                      >
+                        <X className="size-3" /> Remove logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </Field>
               <Field>
                 <FieldLabel htmlFor="org-name">Clinic Name *</FieldLabel>
                 <Input id="org-name" placeholder="My Clinic" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />

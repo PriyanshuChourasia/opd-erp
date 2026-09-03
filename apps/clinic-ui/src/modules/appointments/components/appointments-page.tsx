@@ -9,8 +9,6 @@ import * as XLSX from "xlsx";
 import {
   fetchAppointments,
   updateAppointmentStatus,
-  checkoutAppointment,
-  fetchAppointmentInvoicePreview,
   fetchDoctors,
   fetchUsers,
   fetchOrganisation,
@@ -20,10 +18,8 @@ import {
   createPatientVitals,
   fetchPatientVitalsLatest,
   fetchPrescriptions,
-  fetchDiscountRules,
   type Appointment,
   type AppointmentStatus,
-  type BillItemInput,
 } from "@/lib/api";
 import { cn, printArea } from "@/lib/utils";
 import { toast } from "sonner";
@@ -66,7 +62,7 @@ function apptStatusLabel(status: string) {
   return status.replace("_", " ");
 }
 
-function currency(value: number) { return `₹${value.toFixed(2)}`; }
+function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
 /** Derive payment status from appointment data */
 function paymentStatus(appt: Appointment): { label: string; className: string } {
@@ -75,10 +71,10 @@ function paymentStatus(appt: Appointment): { label: string; className: string } 
     if (s === "PAID") return { label: "Paid", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
     if (s === "REFUNDED") return { label: "Refunded", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" };
     if (s === "PARTIALLY_PAID") return { label: "Partial", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
-    return { label: "Unpaid", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
+    return { label: "Due", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
   }
   if (appt.amountPaid > 0) return { label: "Advance", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
-  return { label: "Unpaid", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
+  return { label: "Due", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
 }
 export function AppointmentsPage() {
   const queryClient = useQueryClient();
@@ -96,48 +92,7 @@ export function AppointmentsPage() {
   const { dateRange } = useDateRangeSync();
 
 
-  // ── Invoice preview ──
-  const [invoicePreviewAppt, setInvoicePreviewAppt] = useState<Appointment | null>(null);
-  const [invoiceDiscountRuleId, setInvoiceDiscountRuleId] = useState<string | null>(null);
-  const [invoiceTax, setInvoiceTax] = useState(0);
-  const [invoicePaymentMethod, setInvoicePaymentMethod] = useState("CASH");
-  const [showInvoicePreviewSheet, setShowInvoicePreviewSheet] = useState(false);
 
-  const { data: invoicePreviewData, isLoading: invoicePreviewLoading } = useQuery({
-    queryKey: ["appointment-invoice-preview", invoicePreviewAppt?.id],
-    queryFn: () => fetchAppointmentInvoicePreview(invoicePreviewAppt!.id),
-    enabled: !!invoicePreviewAppt,
-  });
-
-  const { data: invoiceDiscountRulesResponse } = useQuery({
-    queryKey: ["discount-rules", "active"],
-    queryFn: () => fetchDiscountRules({ activeOnly: true, limit: 100 }),
-    enabled: !!invoicePreviewAppt,
-  });
-  const invoiceDiscountRules = invoiceDiscountRulesResponse?.data ?? [];
-  const selectedInvoiceDiscountRule = invoiceDiscountRules.find((r) => r.id === invoiceDiscountRuleId) ?? null;
-  const invoiceSubtotal = invoicePreviewData?.items.reduce((sum, item) => sum + (item.quantity ?? 1) * item.unitPrice, 0) ?? 0;
-  const invoiceDiscount = selectedInvoiceDiscountRule
-    ? selectedInvoiceDiscountRule.type === "PERCENTAGE"
-      ? Math.round((invoiceSubtotal * selectedInvoiceDiscountRule.value) / 100)
-      : Math.min(selectedInvoiceDiscountRule.value, invoiceSubtotal)
-    : 0;
-
-  const invoiceCheckoutMutation = useMutation({
-    mutationFn: () =>
-      checkoutAppointment(invoicePreviewAppt!.id, {
-        discountRuleId: invoiceDiscountRuleId ?? undefined,
-        tax: invoiceTax,
-        paymentMethod: invoicePaymentMethod as "CASH" | "CARD" | "UPI",
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      setInvoicePreviewAppt(null);
-      setInvoiceDiscountRuleId(null);
-      toast.success("Invoice generated successfully");
-    },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
 
   // ── Vitals entry ──
   const [vitalsOpen, setVitalsOpen] = useState(false);
@@ -467,35 +422,35 @@ export function AppointmentsPage() {
                 <TooltipContent>Vitals</TooltipContent>
               </Tooltip>
             )}
-            {appt.status !== "CANCELLED" && (
+            {appt.status !== "CANCELLED" && appt.status !== "COMPLETED" && (
               <>
-                {/* Invoice slip is always shown and always active now — rather than being
-                    swapped out for the Print Slip button. With no bill yet, it opens the
-                    same invoice-generation flow the (COMPLETED-only) Generate Invoice
-                    action below uses, instead of being disabled. */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9"
-                      aria-label="View invoice slip"
-                      onClick={() => {
+                <div className="flex items-center gap-1">                    <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-9" aria-label="View invoice" onClick={() => {
                         if (appt.bill) {
                           setViewInvoiceId(appt.bill.id);
                         } else {
-                          setInvoicePreviewAppt(appt);
-                          setInvoiceDiscountRuleId(null);
-                          setInvoiceTax(0);
-                          setInvoicePaymentMethod("CASH");
+                          toast.info("No invoice yet. Use Edit \u2192 Save & Pay to generate an invoice.");
                         }
-                      }}
-                    >
-                      <FileText className="size-4.5 text-green-600" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{appt.bill ? "Invoice Slip" : "Generate Invoice"}</TooltipContent>
-                </Tooltip>
+                      }}>
+                        <FileText className={cn("size-4.5", appt.bill ? "text-green-600" : "text-muted-foreground")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{appt.bill ? (appt.bill.status === "PAID" ? "View Receipt" : "View Invoice") : "No invoice yet"}</TooltipContent>
+                  </Tooltip>
+                  {appt.bill ? (
+                    <Badge variant="outline" className={cn("text-[10px]",
+                      appt.bill.status === "PAID" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                        : "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
+                    )}>
+                      {appt.bill.status === "PAID" ? "Paid" : "Due"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                      Due
+                    </Badge>
+                  )}
+                </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="size-9" aria-label="Print appointment slip" onClick={() => setPrintAppt(appt)}>
@@ -510,38 +465,41 @@ export function AppointmentsPage() {
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-9" aria-label="Create prescription with doctor's remarks" onClick={() => {
-                      setRxAppointment(appt);
-                      setRxDiagnosis("");
-                      setRxDoctorRemarks("");
-
-                      setRxSheetOpen(true);
+                    <Button variant="ghost" size="icon" className="size-9" aria-label="Edit prescription" onClick={() => {
+                      navigate({ to: `/appointments/${appt.id}/prescription` });
                     }}>
                       <ClipboardList className="size-4.5 text-indigo-600" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Create Prescription</TooltipContent>
+                  <TooltipContent>Edit Prescription</TooltipContent>
                 </Tooltip>
-                {!appt.bill && (
-                  <div className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                      Unpaid
+                <div className="flex items-center gap-1">                    <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-9" aria-label="View invoice" onClick={() => {
+                        if (appt.bill) {
+                          setViewInvoiceId(appt.bill.id);
+                        } else {
+                          toast.info("No invoice yet. Use Edit \u2192 Save & Pay to generate an invoice.");
+                        }
+                      }}>
+                        <FileText className={cn("size-4.5", appt.bill ? "text-green-600" : "text-muted-foreground")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{appt.bill ? (appt.bill.status === "PAID" ? "View Receipt" : "View Invoice") : "No invoice yet"}</TooltipContent>
+                  </Tooltip>
+                  {appt.bill ? (
+                    <Badge variant="outline" className={cn("text-[10px]",
+                      appt.bill.status === "PAID" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                        : "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
+                    )}>
+                      {appt.bill.status === "PAID" ? "Paid" : "Due"}
                     </Badge>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-9" aria-label="Generate invoice" onClick={() => {
-                          setInvoicePreviewAppt(appt);
-                          setInvoiceDiscountRuleId(null);
-                          setInvoiceTax(0);
-                          setInvoicePaymentMethod("CASH");
-                        }}>
-                          <FileText className="size-4.5 text-green-600" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Generate Invoice</TooltipContent>
-                    </Tooltip>
-                  </div>
-                )}
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                      Due
+                    </Badge>
+                  )}
+                </div>
               </>
             )}
             {appt.status !== "COMPLETED" && APPT_STATUSES.includes(appt.status as AppointmentStatus) && (
@@ -648,190 +606,6 @@ export function AppointmentsPage() {
       </Card>
       </div>
 
-      {/* ── Invoice Preview Sheet ── */}
-      <Sheet open={!!invoicePreviewAppt} onOpenChange={(open) => { if (!open) { setInvoicePreviewAppt(null); } }}>
-        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Invoice Preview</SheetTitle>
-            <SheetDescription>
-              {invoicePreviewAppt ? `Review invoice for ${invoicePreviewAppt.patient ? getPatientName(invoicePreviewAppt.patient) : ""}` : ""}
-            </SheetDescription>
-          </SheetHeader>
-
-          {invoicePreviewLoading ? (
-            <div className="flex-1 px-4 pb-4">
-              <p className="text-sm text-muted-foreground">Loading preview...</p>
-            </div>
-          ) : invoicePreviewData ? (
-            <div className="flex-1 space-y-4 px-4 pb-4">
-              {/* Patient & Doctor info */}
-              <div className="rounded-none border bg-muted/20 p-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Patient</span>
-                  <span className="font-medium">{invoicePreviewAppt?.patient ? getPatientName(invoicePreviewAppt.patient) : "—"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Doctor</span>
-                  <span className="font-medium">{invoicePreviewAppt?.doctor?.name ?? invoicePreviewAppt?.doctor?.medicalRegistrationNo ?? "—"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</span>
-                  <span className="font-medium">{invoicePreviewAppt ? new Date(invoicePreviewAppt.date).toLocaleDateString() : "—"}</span>
-                </div>
-              </div>
-
-              {/* Line items */}
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Line Items</p>
-                <div className="space-y-1.5">
-                  {invoicePreviewData.items.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-none border px-3 py-2 text-sm">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{item.itemName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.quantity ?? 1} × {currency(item.unitPrice)}
-                        </p>
-                      </div>
-                      <span className="ml-3 shrink-0 font-medium">
-                        {currency((item.quantity ?? 1) * item.unitPrice)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Totals */}
-              <div className="space-y-1.5 border-t pt-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">
-                    {currency(invoicePreviewData.items.reduce((sum, item) => sum + (item.quantity ?? 1) * item.unitPrice, 0))}
-                  </span>
-                </div>
-                {invoiceDiscount > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Discount{selectedInvoiceDiscountRule ? ` (${selectedInvoiceDiscountRule.name})` : ""}</span>
-                    <span className="font-medium text-destructive">-{currency(invoiceDiscount)}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="font-medium">+{currency(invoiceTax)}</span>
-                </div>
-                <div className="flex items-center justify-between border-t pt-1.5 text-base font-semibold">
-                  <span>Total</span>
-                  <span>{currency(invoiceSubtotal - invoiceDiscount + invoiceTax)}</span>
-                </div>
-              </div>
-
-              {/* Discount & Tax inputs */}
-              <div className="grid grid-cols-2 gap-3">
-                <Field>
-                  <FieldLabel htmlFor="inv-discount">Discount (optional)</FieldLabel>
-                  <Select value={invoiceDiscountRuleId ?? "none"} onValueChange={(v) => setInvoiceDiscountRuleId(v === "none" ? null : v)}>
-                    <SelectTrigger id="inv-discount"><SelectValue placeholder="No discount" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No discount</SelectItem>
-                      {invoiceDiscountRules.map((rule) => (
-                        <SelectItem key={rule.id} value={rule.id}>
-                          {rule.name} ({rule.type === "PERCENTAGE" ? `${rule.value}%` : currency(rule.value)})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="inv-tax">Tax (₹)</FieldLabel>
-                  <Input
-                    id="inv-tax"
-                    type="number"
-                    min={0}
-                    value={invoiceTax}
-                    onChange={(e) => setInvoiceTax(Math.max(0, Number(e.target.value) || 0))}
-                  />
-                </Field>
-              </div>
-
-              {/* Payment method */}
-              <Field>
-                <FieldLabel htmlFor="inv-payment">Payment Method</FieldLabel>
-                <select
-                  id="inv-payment"
-                  className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
-                  value={invoicePaymentMethod}
-                  onChange={(e) => setInvoicePaymentMethod(e.target.value)}
-                >
-                  <option value="CASH">Cash</option>
-                  <option value="CARD">Card</option>
-                  <option value="UPI">UPI</option>
-                </select>
-              </Field>
-            </div>
-          ) : null}
-
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setInvoicePreviewAppt(null)}>Cancel</Button>
-            <Button variant="outline" disabled={!invoicePreviewData} onClick={() => setShowInvoicePreviewSheet(true)}>
-              Preview
-            </Button>
-            <Button
-              onClick={() => invoiceCheckoutMutation.mutate()}
-              disabled={!invoicePreviewData || invoiceCheckoutMutation.isPending}
-            >
-              {invoiceCheckoutMutation.isPending ? "Generating..." : "Generate Invoice"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      {/* Invoice Preview (not-yet-saved) — same InvoiceViewSheet layout as a real
-          invoice, built from the live discount/tax/payment-method form state.
-          previewOnly suppresses Payment History (nothing to fetch — this sheet
-          never records payment, generating the invoice below does that later,
-          separately, via the real payment flow). */}
-      {invoicePreviewAppt && invoicePreviewData && (
-        <InvoiceViewSheet
-          bill={
-            showInvoicePreviewSheet
-              ? {
-                  id: "preview",
-                  patientId: invoicePreviewAppt.patientId,
-                  appointmentId: invoicePreviewAppt.id,
-                  invoiceNo: "PREVIEW",
-                  subtotal: invoiceSubtotal,
-                  discount: invoiceDiscount,
-                  tax: invoiceTax,
-                  total: Math.max(0, invoiceSubtotal - invoiceDiscount + invoiceTax),
-                  paymentMethod: invoicePaymentMethod,
-                  status: "PENDING",
-                  notes: null,
-                  financialYearId: null,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                  patient: invoicePreviewAppt.patient,
-                  appointment: invoicePreviewAppt.doctor
-                    ? { id: invoicePreviewAppt.id, doctorId: invoicePreviewAppt.doctorId, type: invoicePreviewAppt.type, date: invoicePreviewAppt.date, doctorName: invoicePreviewAppt.doctor.name ?? null }
-                    : null,
-                  items: invoicePreviewData.items.map((item, i) => ({
-                    id: `preview-${i}`,
-                    billId: "preview",
-                    itemType: item.itemType,
-                    itemId: item.itemId ?? null,
-                    itemName: item.itemName,
-                    quantity: item.quantity ?? 1,
-                    unitPrice: item.unitPrice,
-                    amount: (item.quantity ?? 1) * item.unitPrice,
-                    createdAt: new Date().toISOString(),
-                  })),
-                }
-              : null
-          }
-          onOpenChange={(open) => !open && setShowInvoicePreviewSheet(false)}
-          organisation={organisation ?? undefined}
-          previewOnly
-        />
-      )}
-
       {/* ── Create Prescription Sheet ── */}
       <Sheet open={rxSheetOpen} onOpenChange={(open) => { if (!open) { setRxSheetOpen(false); setRxAppointment(null); setRxShowDocs(false); setRxShowHistory(false); } }}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
@@ -853,6 +627,14 @@ export function AppointmentsPage() {
                 <span className="font-medium">{rxAppointment?.doctor?.name ?? rxAppointment?.doctor?.medicalRegistrationNo ?? "—"}</span>
               </div>
             </div>
+
+            {/* Appointment Notes */}
+            {rxAppointment?.notes && (
+              <div className="rounded-none border border-primary/20 bg-primary/5 p-3">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-primary/80">Appointment Notes</span>
+                <p className="mt-1 text-sm text-foreground/80 whitespace-pre-wrap">{rxAppointment.notes}</p>
+              </div>
+            )}
 
             {/* ── Quick action buttons: Documents & History ── */}
             <div className="grid grid-cols-2 gap-2">

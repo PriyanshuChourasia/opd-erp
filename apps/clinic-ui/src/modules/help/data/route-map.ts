@@ -71,6 +71,7 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/appointments": { module: "appointments", page: "appointments-page" },
   "/appointments/new": { module: "appointments", page: "new-appointment-page" },
   "/appointments/$appointmentId/edit": { module: "appointments", page: "edit-appointment-page" },
+  "/appointments/$appointmentId/prescription": { module: "appointments", page: "create-prescription-page" },
   "/queue": { module: "queue" },
 
   // Receptionist workspace

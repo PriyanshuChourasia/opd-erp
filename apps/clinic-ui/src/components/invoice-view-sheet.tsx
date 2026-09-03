@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, Printer } from "lucide-react";
+import { Download, Eye, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { getPatientName, type Bill, type Organisation } from "@/lib/api";
 import { printArea } from "@/lib/utils";
@@ -36,6 +36,12 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// Clinic brand colour used for the invoice header / footer bands. Kept as a
+// plain hex so it works in the inline-styled PDF/print markup (Tailwind's
+// oklch utilities don't survive html2canvas/iframe rendering).
+const BRAND = "#01aa82";
+const BRAND_SOFT = "#e6f7f2";
+
 /**
  * Self-contained invoice markup — every style is inline (no Tailwind classes,
  * no CSS custom properties) so it renders in an isolated iframe for PDF
@@ -48,16 +54,24 @@ function buildInvoiceHtml(bill: Bill, organisation?: Organisation): string {
   const billToName = bill.patient ? getPatientName(bill.patient) : "Walk-in customer";
 
   const orgBlock = organisation
-    ? `<div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:16px;">
-         <p style="margin:0;font-weight:600;font-size:14px;">${escapeHtml(organisation.name)}</p>
-         ${organisation.address ? `<p style="margin:2px 0 0;font-size:11px;color:#6b7280;">${escapeHtml(organisation.address)}</p>` : ""}
-         <p style="margin:2px 0 0;font-size:11px;color:#6b7280;">${escapeHtml([organisation.phone, organisation.email].filter(Boolean).join(" · "))}</p>
-         ${organisation.registrationNumber ? `<p style="margin:2px 0 0;font-size:11px;color:#6b7280;">Reg. No: ${escapeHtml(organisation.registrationNumber)}</p>` : ""}
+    ? `<div style="background:${BRAND};color:#ffffff;border-radius:8px 8px 0 0;padding:14px 20px;margin-bottom:16px;">
+         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+           <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+             ${organisation.logoUrl ? `<img src="/uploads/documents/${escapeHtml(organisation.logoUrl)}" alt="${escapeHtml(organisation.name)}" style="width:44px;height:44px;object-fit:contain;background:#ffffff;border-radius:6px;padding:2px;flex-shrink:0;"/>` : ""}
+             <p style="margin:0;font-weight:700;font-size:16px;line-height:1.3;">${escapeHtml(organisation.name)}</p>
+           </div>
+           <div style="text-align:right;font-size:11px;color:${BRAND_SOFT};line-height:1.5;">
+             ${organisation.address ? `<p style="margin:0 0 2px;">${escapeHtml(organisation.address)}</p>` : ""}
+             <p style="margin:0 0 2px;">${escapeHtml([organisation.phone, organisation.email].filter(Boolean).join(" · "))}</p>
+             ${organisation.gstNumber ? `<p style="margin:0 0 2px;">GST No: ${escapeHtml(organisation.gstNumber)}</p>` : ""}
+             ${organisation.registrationNumber ? `<p style="margin:0;">Reg. No: ${escapeHtml(organisation.registrationNumber)}</p>` : ""}
+           </div>
+         </div>
        </div>`
     : "";
 
   const appointmentBlock = bill.appointment
-    ? `<div style="border:1px solid #e5e7eb;padding:8px 12px;font-size:11px;color:#6b7280;margin-bottom:16px;">
+    ? `<div style="border:1px solid #e5e7eb;padding:8px 12px;font-size:11px;color:#6b7280;margin-bottom:16px;border-left:3px solid ${BRAND};">
          ${bill.appointment.doctorName ? `<p style="margin:0 0 2px;">Doctor: <span style="color:#000;">${escapeHtml(bill.appointment.doctorName)}</span></p>` : ""}
          <p style="margin:0 0 2px;">Visit type: <span style="color:#000;">${escapeHtml(bill.appointment.type.replace("_", " "))}</span></p>
          <p style="margin:0;">Visit date: <span style="color:#000;">${new Date(bill.appointment.date).toLocaleDateString()}</span></p>
@@ -112,12 +126,18 @@ function buildInvoiceHtml(bill: Bill, organisation?: Organisation): string {
     ${bill.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Discount</span><span>-${currency(bill.discount)}</span></div>` : ""}
     ${bill.tax > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Tax</span><span>${currency(bill.tax)}</span></div>` : ""}
     <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;color:#000;margin-top:2px;"><span>Total</span><span>${currency(bill.total)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#16a34a;font-weight:600;margin-top:2px;"><span>Paid</span><span>${currency(bill.paidAmount ?? 0)}</span></div>
+    ${(bill.total - (bill.paidAmount ?? 0)) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#d97706;font-weight:600;margin-top:2px;"><span>Due</span><span>${currency(bill.total - (bill.paidAmount ?? 0))}</span></div>` : ""}
   </div>
   <div style="display:flex;justify-content:space-between;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:8px;font-size:12px;color:#6b7280;">
     <span>Payment method</span>
     <span style="color:#000;">${escapeHtml(bill.paymentMethod)}</span>
   </div>
   ${notesBlock}
+  <div style="background:${BRAND};color:#ffffff;border-radius:0 0 8px 8px;padding:10px 20px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;font-size:11px;">
+    <span style="color:${BRAND_SOFT};">Thank you for your visit — please keep this invoice for your records.</span>
+    <span style="font-weight:600;">${escapeHtml(bill.invoiceNo)}</span>
+  </div>
 </div>`;
 }
 
@@ -146,6 +166,7 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const printAreaRef = useRef<HTMLDivElement>(null);
 
   // Clean up object URL on unmount or when preview closes
@@ -250,7 +271,7 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
 
   return (
     <Sheet open={!!bill} onOpenChange={(open) => !open && onOpenChange(false)}>
-      <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -261,7 +282,10 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
             </div>
             {bill && (
               <div className="flex gap-1.5 shrink-0">
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={printArea}>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPrintPreviewOpen(true)}>
+                  <Eye className="size-3.5" />Preview
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setPrintPreviewOpen(false); printArea(); }}>
                   <Printer className="size-3.5" />Print
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={generatePdf} disabled={pdfGenerating}>
@@ -274,15 +298,25 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
         {bill && (
           <div ref={printAreaRef} id="print-area" className="space-y-4 px-4 pb-4 text-sm">
             {organisation && (
-              <div className="border-b pb-3">
-                <p className="font-semibold">{organisation.name}</p>
-                {organisation.address && <p className="text-xs text-muted-foreground">{organisation.address}</p>}
-                <p className="text-xs text-muted-foreground">
-                  {[organisation.phone, organisation.email].filter(Boolean).join(" · ")}
-                </p>
-                {organisation.registrationNumber && (
-                  <p className="text-xs text-muted-foreground">Reg. No: {organisation.registrationNumber}</p>
-                )}
+              <div className="rounded-t-lg bg-[#01aa82] px-5 py-4 text-white">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {organisation.logoUrl && (
+                      <img
+                        src={`/uploads/documents/${organisation.logoUrl}`}
+                        alt={organisation.name}
+                        className="size-11 shrink-0 rounded-md bg-white object-contain p-0.5"
+                      />
+                    )}
+                    <p className="font-semibold">{organisation.name}</p>
+                  </div>
+                  <div className="text-right text-xs leading-relaxed text-emerald-50">
+                    {organisation.address && <p>{organisation.address}</p>}
+                    <p>{[organisation.phone, organisation.email].filter(Boolean).join(" · ")}</p>
+                    {organisation.gstNumber && <p>GST No: {organisation.gstNumber}</p>}
+                    {organisation.registrationNumber && <p>Reg. No: {organisation.registrationNumber}</p>}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -335,6 +369,10 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
               {bill.discount > 0 && <div className="flex justify-between"><span>Discount</span><span>-{currency(bill.discount)}</span></div>}
               {bill.tax > 0 && <div className="flex justify-between"><span>Tax</span><span>{currency(bill.tax)}</span></div>}
               <div className="flex justify-between text-sm font-semibold text-foreground"><span>Total</span><span>{currency(bill.total)}</span></div>
+              <div className="flex justify-between text-xs text-green-600 font-medium"><span>Paid</span><span>{currency(bill.paidAmount ?? 0)}</span></div>
+              {(bill.total - (bill.paidAmount ?? 0)) > 0 && (
+                <div className="flex justify-between text-xs text-amber-600 font-medium"><span>Due</span><span>{currency(bill.total - (bill.paidAmount ?? 0))}</span></div>
+              )}
             </div>
 
             <div className="flex justify-between border-t pt-2 text-xs text-muted-foreground">
@@ -348,6 +386,11 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
                 <p className="text-xs">{bill.notes}</p>
               </div>
             )}
+
+            <div className="flex items-center justify-between rounded-b-lg bg-[#01aa82] px-5 py-3 text-xs text-emerald-50">
+              <span>Thank you for your visit — please keep this invoice for your records.</span>
+              <span className="font-semibold">{bill.invoiceNo}</span>
+            </div>
           </div>
         )}
 
@@ -375,7 +418,7 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
 
       {/* PDF Preview Dialog */}
       <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && closePdfPreview()}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[min(90vw,42rem)] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Invoice Preview</DialogTitle>
           </DialogHeader>
@@ -392,6 +435,26 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
             <Button variant="outline" onClick={closePdfPreview}>Cancel</Button>
             <Button onClick={downloadPdf} className="gap-1.5">
               <Download className="size-3.5" />Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Preview Dialog */}
+      <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
+        <DialogContent className="w-[min(90vw,896px)] sm:max-w-4xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+          </DialogHeader>
+          {bill && (
+            <div className="bg-white p-8 mx-auto" style={{ maxWidth: '794px', minHeight: '1123px' }}>
+              <div dangerouslySetInnerHTML={{ __html: buildInvoiceHtml(bill, organisation) }} />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintPreviewOpen(false)}>Cancel</Button>
+            <Button onClick={() => { setPrintPreviewOpen(false); printArea(); }} className="gap-1.5">
+              <Printer className="size-3.5" />Print
             </Button>
           </DialogFooter>
         </DialogContent>

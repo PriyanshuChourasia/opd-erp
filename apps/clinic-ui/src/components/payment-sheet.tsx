@@ -11,8 +11,8 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { PaymentHistory } from "@/components/payment-history";
 
 function currency(value: number) {
-  const safe = Number.isFinite(value) ? value : 0;
-  return `₹${safe.toFixed(2)}`;
+  const n = typeof value === 'number' ? value : Number(value) || 0;
+  return `₹${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
 }
 
 function discountRuleLabel(rule: DiscountRule) {

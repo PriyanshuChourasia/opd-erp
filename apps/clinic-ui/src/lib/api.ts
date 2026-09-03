@@ -608,6 +608,7 @@ export interface Bill {
   discount: number;
   tax: number;
   total: number;
+  paidAmount: number;
   paymentMethod: string;
   status: string;
   notes: string | null;
@@ -689,6 +690,7 @@ export interface Organisation {
   drugLicenseNumber?: string | null;
   drugLicenseExpiry?: string | null;
   taxRegistrationNumber?: string | null;
+  logoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -710,6 +712,7 @@ export interface UpdateOrganisationInput {
   drugLicenseNumber?: string;
   drugLicenseExpiry?: string;
   taxRegistrationNumber?: string;
+  logoUrl?: string;
 }
 
 export type Company = Organisation;
@@ -1578,7 +1581,7 @@ export function fetchAppointmentInvoicePreview(id: string) {
   });
 }
 
-export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; referenceNumber?: string; discountRuleId?: string; tax?: number; paidAmount?: number; notes?: string }) {
+export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; referenceNumber?: string; discountRuleId?: string; tax?: number; notes?: string }) {
   return request<Bill>({
     method: "POST",
     path: `/appointments/${id}/checkout`,

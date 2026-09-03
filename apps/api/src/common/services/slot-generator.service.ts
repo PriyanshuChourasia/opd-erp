@@ -83,6 +83,7 @@ export class SlotGeneratorService {
           doctorId: employeeSchedulableId,
           date: { gte: date, lt: nextDay },
           status: { not: 'CANCELLED' },
+          deletedAt: null,
         },
         select: { date: true, patient: { select: { firstName: true, lastName: true } } },
       });

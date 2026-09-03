@@ -43,7 +43,7 @@ export const BILL_STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
-export function currency(value: number) { return `₹${value.toFixed(2)}`; }
+export function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 export function todayStr() {
   const d = new Date();
   const offset = d.getTimezoneOffset();

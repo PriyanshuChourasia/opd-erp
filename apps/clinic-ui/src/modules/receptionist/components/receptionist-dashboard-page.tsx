@@ -69,7 +69,7 @@ function twoDaysLaterStr() {
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
 
-function currency(value: number) { return `₹${value.toFixed(2)}`; }
+function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
 const APPT_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -306,7 +306,6 @@ export function ReceptionistDashboardPage() {
         ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
         discountRuleId: payload.discountRuleId,
         tax: payload.tax > 0 ? payload.tax : undefined,
-        paidAmount: payload.paidAmount,
         notes: payload.notes || undefined,
       });
       return appointment;

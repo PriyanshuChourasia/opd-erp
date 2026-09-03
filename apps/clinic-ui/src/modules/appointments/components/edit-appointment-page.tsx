@@ -41,7 +41,7 @@ const CONSULTATION_TYPES = [
   { value: "CONSULTATION", label: "Consultation" },
 ] as const;
 
-function currency(value: number) { return `₹${value.toFixed(2)}`; }
+function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
 function generateTimeSlots(start: string, end: string, intervalMinutes: number): string[] {
   const startParts = start.split(':');
@@ -329,7 +329,6 @@ export function EditAppointmentPage() {
           ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
           discountRuleId: payload.discountRuleId,
           tax: payload.tax > 0 ? payload.tax : undefined,
-          paidAmount: payload.paidAmount,
           notes: payload.notes || undefined,
         });
       }
@@ -357,9 +356,9 @@ export function EditAppointmentPage() {
   // separate so PaymentSheet can show a real "Net Total" alongside "Amount
   // Due", instead of only ever seeing the already-reduced remaining balance.
   const billSubtotal = appointment?.bill
-    ? (appointment.bill.total ?? 0)
+    ? (Number(appointment.bill.total) || 0)
     : (Number(form.amount) || 0) + (Number(form.registrationFee) || 0);
-  const billAlreadyPaid = appointment?.bill ? (appointment.bill.paidAmount ?? 0) : (appointment?.amountPaid ?? 0);
+  const billAlreadyPaid = appointment?.bill ? (Number(appointment.bill.paidAmount) || 0) : (Number(appointment?.amountPaid) || 0);
   const dueAmount = Math.max(0, billSubtotal - billAlreadyPaid);
 
   if (appointmentLoading) {

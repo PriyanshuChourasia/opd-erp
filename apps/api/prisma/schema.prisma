@@ -1141,6 +1141,7 @@ model Company {
   gstNumber             String?
   panNumber             String?
   cinNumber             String?
+  logoUrl               String?
   drugLicenseNumber     String?
   drugLicenseExpiry     DateTime?
   taxRegistrationNumber String?

@@ -218,6 +218,7 @@ export function DoctorPosPage() {
     mutationFn: ({ id, status }: { id: string; status: string }) => updateQueueStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["queue"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
       toast.success("Status updated");
     },
     onError: (err) => toast.error(extractApiError(err)),
@@ -331,8 +332,8 @@ export function DoctorPosPage() {
       if (appointmentId) {
         await updateAppointmentStatus(appointmentId, "COMPLETED");
       }
-      // Delete the queue entry (remove from queue)
-      await deleteQueueEntry(selectedEntry!.id);
+      // Mark queue entry as completed (no delete:queue permission needed)
+      await updateQueueStatus(selectedEntry!.id, 'COMPLETED');
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["queue"] });

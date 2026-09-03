@@ -60,7 +60,16 @@ export function QueuePage() {
   });
 
   const allQueue = response?.data ?? [];
-  const activeQueue = useMemo(() => allQueue.filter((e) => ACTIVE_STATUSES.includes(e.status)), [allQueue]);
+  const activeQueue = useMemo(() => allQueue
+    .filter((e) => ACTIVE_STATUSES.includes(e.status))
+    .sort((a, b) => {
+      // IN_PROGRESS entries appear first, then WAITING by token number
+      if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
+      if (a.status !== 'IN_PROGRESS' && b.status === 'IN_PROGRESS') return 1;
+      const aNum = parseInt(a.tokenNumber ?? '0', 10) || 0;
+      const bNum = parseInt(b.tokenNumber ?? '0', 10) || 0;
+      return aNum - bNum;
+    }), [allQueue]);
   const historyQueue = useMemo(() => allQueue.filter((e) => HISTORY_STATUSES.includes(e.status)), [allQueue]);
   const tabQueue = tab === "ACTIVE" ? activeQueue : historyQueue;
 

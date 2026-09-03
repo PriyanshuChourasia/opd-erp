@@ -60,7 +60,7 @@ const BILL_STATUS_STYLES: Record<string, string> = {
 
 const RX_STATUSES = ["ACTIVE", "DISPENSED", "CANCELLED"];
 
-function currency(value: number) { return `₹${value.toFixed(2)}`; }
+function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
 function todayStr() {
   const d = new Date();

@@ -76,6 +76,7 @@ import { Route as ReceptionistReceptionistPrescriptionsRouteImport } from './rou
 import { Route as ReceptionistReceptionistProfileRouteImport } from './routes/_receptionist/receptionist/profile'
 import { Route as DashboardAccountingLedgerLedgerIdRouteImport } from './routes/_dashboard/accounting/ledger/$ledgerId'
 import { Route as DashboardAppointmentsAppointmentIdEditRouteImport } from './routes/_dashboard/appointments/$appointmentId.edit'
+import { Route as DashboardAppointmentsAppointmentIdPrescriptionRouteImport } from './routes/_dashboard/appointments/$appointmentId.prescription'
 import { Route as DashboardOrganisationPrescriptionTemplatesIndexRouteImport } from './routes/_dashboard/organisation/prescription-templates/index'
 import { Route as DashboardOrganisationPrescriptionTemplatesNewRouteImport } from './routes/_dashboard/organisation/prescription-templates/new'
 import { Route as DeveloperDeveloperSchemaIndexRouteImport } from './routes/_developer/developer/schema/index'
@@ -445,6 +446,12 @@ const DashboardAppointmentsAppointmentIdEditRoute =
     path: '/appointments/$appointmentId/edit',
     getParentRoute: () => DashboardRoute,
   } as any)
+const DashboardAppointmentsAppointmentIdPrescriptionRoute =
+  DashboardAppointmentsAppointmentIdPrescriptionRouteImport.update({
+    id: '/appointments/$appointmentId/prescription',
+    path: '/appointments/$appointmentId/prescription',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardOrganisationPrescriptionTemplatesIndexRoute =
   DashboardOrganisationPrescriptionTemplatesIndexRouteImport.update({
     id: '/organisation/prescription-templates/',
@@ -562,6 +569,7 @@ export interface FileRoutesByFullPath {
   '/receptionist/': typeof ReceptionistReceptionistIndexRoute
   '/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
+  '/appointments/$appointmentId/prescription': typeof DashboardAppointmentsAppointmentIdPrescriptionRoute
   '/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
@@ -634,6 +642,7 @@ export interface FileRoutesByTo {
   '/receptionist': typeof ReceptionistReceptionistIndexRoute
   '/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
+  '/appointments/$appointmentId/prescription': typeof DashboardAppointmentsAppointmentIdPrescriptionRoute
   '/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
@@ -713,6 +722,7 @@ export interface FileRoutesById {
   '/_receptionist/receptionist/': typeof ReceptionistReceptionistIndexRoute
   '/_dashboard/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/_dashboard/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
+  '/_dashboard/appointments/$appointmentId/prescription': typeof DashboardAppointmentsAppointmentIdPrescriptionRoute
   '/_dashboard/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/_developer/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/_doctor/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
@@ -787,6 +797,7 @@ export interface FileRouteTypes {
     | '/receptionist/'
     | '/accounting/ledger/$ledgerId'
     | '/appointments/$appointmentId/edit'
+    | '/appointments/$appointmentId/prescription'
     | '/organisation/prescription-templates/new'
     | '/developer/schema/$model'
     | '/doctor/admin/appointments'
@@ -859,6 +870,7 @@ export interface FileRouteTypes {
     | '/receptionist'
     | '/accounting/ledger/$ledgerId'
     | '/appointments/$appointmentId/edit'
+    | '/appointments/$appointmentId/prescription'
     | '/organisation/prescription-templates/new'
     | '/developer/schema/$model'
     | '/doctor/admin/appointments'
@@ -937,6 +949,7 @@ export interface FileRouteTypes {
     | '/_receptionist/receptionist/'
     | '/_dashboard/accounting/ledger/$ledgerId'
     | '/_dashboard/appointments/$appointmentId/edit'
+    | '/_dashboard/appointments/$appointmentId/prescription'
     | '/_dashboard/organisation/prescription-templates/new'
     | '/_developer/developer/schema/$model'
     | '/_doctor/doctor/admin/appointments'
@@ -1432,6 +1445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAppointmentsAppointmentIdEditRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/appointments/$appointmentId/prescription': {
+      id: '/_dashboard/appointments/$appointmentId/prescription'
+      path: '/appointments/$appointmentId/prescription'
+      fullPath: '/appointments/$appointmentId/prescription'
+      preLoaderRoute: typeof DashboardAppointmentsAppointmentIdPrescriptionRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/organisation/prescription-templates/': {
       id: '/_dashboard/organisation/prescription-templates/'
       path: '/organisation/prescription-templates'
@@ -1533,6 +1553,7 @@ interface DashboardRouteChildren {
   DashboardOrganisationIndexRoute: typeof DashboardOrganisationIndexRoute
   DashboardAccountingLedgerLedgerIdRoute: typeof DashboardAccountingLedgerLedgerIdRoute
   DashboardAppointmentsAppointmentIdEditRoute: typeof DashboardAppointmentsAppointmentIdEditRoute
+  DashboardAppointmentsAppointmentIdPrescriptionRoute: typeof DashboardAppointmentsAppointmentIdPrescriptionRoute
   DashboardOrganisationPrescriptionTemplatesNewRoute: typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   DashboardOrganisationPrescriptionTemplatesIndexRoute: typeof DashboardOrganisationPrescriptionTemplatesIndexRoute
   DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute: typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
@@ -1580,6 +1601,8 @@ const DashboardRouteChildren: DashboardRouteChildren = {
     DashboardAccountingLedgerLedgerIdRoute,
   DashboardAppointmentsAppointmentIdEditRoute:
     DashboardAppointmentsAppointmentIdEditRoute,
+  DashboardAppointmentsAppointmentIdPrescriptionRoute:
+    DashboardAppointmentsAppointmentIdPrescriptionRoute,
   DashboardOrganisationPrescriptionTemplatesNewRoute:
     DashboardOrganisationPrescriptionTemplatesNewRoute,
   DashboardOrganisationPrescriptionTemplatesIndexRoute:

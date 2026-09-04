@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -137,8 +137,8 @@ export function OutstandingPaymentsPage() {
     toast.success("Excel exported successfully");
   }
 
-  // ── Export to PDF ────────────────────────────────────────────
-  async function exportToPdf() {
+  // ── Print report ────────────────────────────────────────────
+  async function printReport() {
     const result = await exportQuery.refetch();
     const rows = result.data?.data?.rows ?? [];
     if (rows.length === 0) {
@@ -205,8 +205,8 @@ export function OutstandingPaymentsPage() {
       printWindow.focus();
       printWindow.print();
     } catch (err) {
-      console.error('PDF generation failed', err);
-      toast.error('Failed to generate PDF');
+      console.error('Failed to open the print window', err);
+      toast.error('Failed to print the report');
     }
   }
 
@@ -272,9 +272,9 @@ export function OutstandingPaymentsPage() {
                 <Download className="h-4 w-4 mr-1" />
                 Excel
               </Button>
-              <Button variant="outline" size="sm" onClick={exportToPdf}>
-                <Download className="h-4 w-4 mr-1" />
-                PDF
+              <Button variant="outline" size="sm" onClick={printReport}>
+                <Printer className="h-4 w-4 mr-1" />
+                Print
               </Button>
             </div>
           </div>

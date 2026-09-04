@@ -349,17 +349,89 @@ input[type="number"] {
   }
 }
 
-/* Prescriptions print on A4 portrait with zero @page margin: the Rx
-   #print-area markup is an A4 sheet (794px x 1123px @96dpi = 210mm x 297mm,
-   incl. its own 40px gutter), so a margin-free named page makes the browser's
-   printable area line up 1:1 with that sheet — one page, no stray second
-   page from default-margin ICB mismatch. */
+/* Prescriptions print on A4 portrait with zero @page margin: a margin-free
+   named page makes the browser's printable area line up 1:1 with the Rx
+   sheet. The sheet's physical geometry is re-pinned to exactly 210mm x
+   297mm in the dedicated @media print block below, so the on-screen px
+   preview (794px x 1123px @96dpi = 210mm x 297.06mm incl. its 1px border)
+   can never spill a rounding sliver onto a second page. */
 @page prescription-a4 {
   size: 210mm 297mm;
   margin: 0;
 }
 .prescription-print-area {
   page: prescription-a4;
+}
+
+/* .prescription-print-area (the A4 prescription) is the ENTIRE A4-portrait
+   page. Inside @media print the sheet is pinned to the physical 210mm x
+   297mm sheet with !important (same rationale as the .slip-print-area block
+   above): the flex-column layout from the preview markup is preserved —
+   header (shrink-0, full bleed) → content (flex: 1 1 auto, its own
+   20px/24px padding) → footer (shrink-0, full bleed) — so the footer image
+   sits at the physical bottom edge and the signature row, which carries
+   margin-top:auto inside the content column, stays immediately above it.
+   The screen-only border/rounding and the footer's screen-only mt-auto are
+   dropped, and overflow:hidden guarantees a stray hair of rounding can
+   never mint a second page. Screen preview is untouched — everything here
+   is scoped to @media print. Scoped with :has(> img:first-child) so only
+   the A4 prescription sheets are affected — the template-based prescription
+   print (print-prescription-button, whose #print-area wraps a
+   PrescriptionTemplatePreview root div) keeps its natural pagination. */
+@media print {
+  /* Screen-only A4-preview scaling (see A4Preview) must not leak into
+     print: collapse the scale wrappers so #print-area sits directly on the
+     physical sheet. Inline styles can't beat these !important resets. */
+  .rx-preview-viewport,
+  .rx-preview-scaler,
+  .rx-preview-page {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+  html:has(#print-area.prescription-print-area:has(> img:first-child)),
+  html:has(#print-area.prescription-print-area:has(> img:first-child)) body {
+    width: 210mm !important;
+    height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  #print-area.prescription-print-area:has(> img:first-child) {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    background: white !important;
+    color: black !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  /* Footer wrapper is the last direct child: the content column above it is
+     flex:1, so the footer is already pinned to the bottom — drop its
+     screen-only mt-auto so no auto margin can create slack below content. */
+  #print-area.prescription-print-area:has(> img:first-child) > *:last-child {
+    margin-top: 0 !important;
+  }
+  /* Header/footer images stay full-bleed and unclipped. */
+  #print-area.prescription-print-area:has(> img:first-child) img {
+    max-width: none !important;
+  }
 }
 
 /* Invoices print on A5 landscape too (same paper as the appointment slip),

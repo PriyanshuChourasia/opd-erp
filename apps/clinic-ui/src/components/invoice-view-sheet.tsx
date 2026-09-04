@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, Eye, Printer } from "lucide-react";
-import { toast } from "sonner";
+import { useRef, useState } from "react";
+import { Eye, Printer } from "lucide-react";
 import { getPatientName, type Bill, type Organisation } from "@/lib/api";
 import { printArea } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,7 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
-// Plain hex equivalents of STATUS_STYLES, for the inline-styled PDF markup
+// Plain hex equivalents of STATUS_STYLES, for the inline-styled print markup
 // (which can't use Tailwind's oklch-based utility classes — see buildInvoiceHtml).
 const STATUS_HEX: Record<string, { bg: string; fg: string }> = {
   PENDING: { bg: "#fef3c7", fg: "#b45309" },
@@ -37,17 +36,15 @@ function escapeHtml(value: string): string {
 }
 
 // Clinic brand colour used for the invoice header / footer bands. Kept as a
-// plain hex so it works in the inline-styled PDF/print markup (Tailwind's
-// oklch utilities don't survive html2canvas/iframe rendering).
+// plain hex so it works in the inline-styled print markup (Tailwind's oklch
+// utilities can't be relied on in print).
 const BRAND = "#01aa82";
 const BRAND_SOFT = "#e6f7f2";
 
 /**
  * Self-contained invoice markup — every style is inline (no Tailwind classes,
- * no CSS custom properties) so it renders in an isolated iframe for PDF
- * capture without html2canvas choking on Tailwind v4's oklch() colors (see
- * the identical pattern/reasoning in prescriptions-page.tsx's
- * buildPrescriptionBodyHtml).
+ * no CSS custom properties) so it renders cleanly in the print preview and in
+ * the browser print output.
  */
 function buildInvoiceHtml(bill: Bill, organisation?: Organisation): string {
   const statusHex = STATUS_HEX[bill.status] ?? { bg: "#f3f4f6", fg: "#4b5563" };
@@ -163,111 +160,8 @@ interface InvoiceViewSheetProps {
  */
 export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly = false }: InvoiceViewSheetProps) {
   const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
-  const [pdfGenerating, setPdfGenerating] = useState(false);
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const printAreaRef = useRef<HTMLDivElement>(null);
-
-  // Clean up object URL on unmount or when preview closes
-  useEffect(() => {
-    return () => {
-      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-    };
-  }, [pdfPreviewUrl]);
-
-  const generatePdf = useCallback(async () => {
-    if (!bill) return;
-    setPdfGenerating(true);
-    let iframe: HTMLIFrameElement | null = null;
-    try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-
-      // Render into an isolated iframe rather than screenshotting the live
-      // Sheet DOM: html2canvas clones the target element's *own* document,
-      // and this app's document uses Tailwind v4's oklch() colors, which
-      // html2canvas can't parse regardless of how many computed-style
-      // properties get resolved back to rgb() on the clone (tried that —
-      // some color source, likely a pseudo-element, always slips through).
-      // An iframe with its own self-contained (inline-styled, Tailwind-free)
-      // document sidesteps the problem instead of chasing it. Same pattern
-      // as prescriptions-page.tsx's downloadPdfFromPreview.
-      iframe = document.createElement("iframe");
-      iframe.style.cssText = "position:fixed;top:-10000px;left:-10000px;width:820px;height:100px;border:0;";
-      document.body.appendChild(iframe);
-      await new Promise<void>((resolve, reject) => {
-        iframe!.onload = () => resolve();
-        iframe!.onerror = () => reject(new Error("Failed to load PDF render frame"));
-        iframe!.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;">${buildInvoiceHtml(bill, organisation)}</body></html>`;
-      });
-      const doc = iframe.contentDocument;
-      if (!doc?.body) throw new Error("PDF render frame did not initialize");
-      const contentHeight = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-      iframe.style.height = `${contentHeight}px`;
-
-      const canvas = await html2canvas(doc.body, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        windowWidth: 820,
-        windowHeight: contentHeight,
-      });
-      const imgData = canvas.toDataURL("image/jpeg", 0.98);
-
-      const margin = 0.5; // inches
-      const pageWidth = 8.27;
-      const pageHeight = 11.69; // A4
-      const imgWidth = pageWidth - margin * 2;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const usableHeight = pageHeight - margin * 2;
-
-      const pdf = new jsPDF({ unit: "in", format: "a4", orientation: "portrait" });
-      let heightLeft = imgHeight;
-      let position = margin;
-      pdf.addImage(imgData, "JPEG", margin, position, imgWidth, imgHeight);
-      heightLeft -= usableHeight;
-      while (heightLeft > 0) {
-        position = margin - (imgHeight - heightLeft);
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", margin, position, imgWidth, imgHeight);
-        heightLeft -= usableHeight;
-      }
-
-      const pdfBlob = pdf.output("blob");
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfBlob(pdfBlob);
-      setPdfPreviewUrl(url);
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      toast.error("Could not generate the PDF. Please try again or use Print instead.");
-    } finally {
-      iframe?.remove();
-      setPdfGenerating(false);
-    }
-  }, [bill, organisation]);
-
-  const downloadPdf = useCallback(() => {
-    if (!pdfBlob || !bill) return;
-    const url = URL.createObjectURL(pdfBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Invoice-${bill.invoiceNo}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    setPdfPreviewUrl(null);
-    setPdfBlob(null);
-  }, [pdfBlob, bill]);
-
-  const closePdfPreview = useCallback(() => {
-    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-    setPdfPreviewUrl(null);
-    setPdfBlob(null);
-  }, [pdfPreviewUrl]);
 
   return (
     <Sheet open={!!bill} onOpenChange={(open) => !open && onOpenChange(false)}>
@@ -287,9 +181,6 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setPrintPreviewOpen(false); printArea(); }}>
                   <Printer className="size-3.5" />Print
-                </Button>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={generatePdf} disabled={pdfGenerating}>
-                  <Download className="size-3.5" />{pdfGenerating ? "Generating…" : "PDF"}
                 </Button>
               </div>
             )}
@@ -417,29 +308,6 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
       />
 
       {/* PDF Preview Dialog */}
-      <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && closePdfPreview()}>
-        <DialogContent className="w-[min(90vw,42rem)] sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Invoice Preview</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-auto rounded border">
-            {pdfPreviewUrl && (
-              <iframe
-                src={pdfPreviewUrl}
-                className="h-[60vh] w-full"
-                title="PDF Preview"
-              />
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closePdfPreview}>Cancel</Button>
-            <Button onClick={downloadPdf} className="gap-1.5">
-              <Download className="size-3.5" />Download
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Print Preview Dialog — near-full-viewport modal so the A5-landscape
           page can be reviewed without the modal itself growing & scrolling:
           header and footer stay pinned while only the page area scrolls. The

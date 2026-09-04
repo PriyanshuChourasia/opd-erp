@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useDailyOpdSummary } from "../data/hooks";
 import { formatCurrency } from "../data/utils";
@@ -166,8 +166,8 @@ export function DailyOpdSummaryPage() {
     toast.success("Excel exported successfully");
   }
 
-  // ── Export to PDF ────────────────────────────────────────────
-  async function exportToPdf() {
+  // ── Print report ────────────────────────────────────────────
+  async function printReport() {
     if (!data) return;
     try {
       const rangeLabel = from === to ? from : `${from} to ${to}`;
@@ -248,8 +248,8 @@ export function DailyOpdSummaryPage() {
       printWindow.focus();
       printWindow.print();
     } catch (err) {
-      console.error('PDF generation failed', err);
-      toast.error('Failed to generate PDF');
+      console.error('Failed to open the print window', err);
+      toast.error('Failed to print the report');
     }
   }
 
@@ -276,11 +276,11 @@ export function DailyOpdSummaryPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={exportToPdf}
+            onClick={printReport}
             disabled={!data || data.summary.totalAppointments === 0}
           >
-            <Download className="h-4 w-4 mr-1" />
-            PDF
+            <Printer className="h-4 w-4 mr-1" />
+            Print
           </Button>
         </div>
       </div>

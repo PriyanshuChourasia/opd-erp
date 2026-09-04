@@ -18,7 +18,7 @@ The Appointments module handles the full appointment lifecycle — booking, resc
 - **Generate invoice** — Checkout of a completed appointment creates the bill; the row then shows a Paid badge with the invoice number.
 - **Create prescription** — Records diagnosis + doctor's remarks as a prescription (with a "Verbal Instructions" item when no medicines are added).
 - **Reschedule** — Change an appointment's date/doctor via its Edit page; no time-slot picking.
-- **Print slip** — Generates an appointment slip PDF (html2pdf) or prints via the browser.
+- **Print slip** — Opens the browser print dialog for the appointment slip (choose "Save as PDF" there if you want a PDF).
 
 ## Events
 

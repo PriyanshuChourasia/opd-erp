@@ -158,8 +158,8 @@ export function AppointmentsPage() {
     XLSX.writeFile(wb, `appointments_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
-  // ── Export to PDF ──
-  async function exportToPdf() {
+  // ── Print report ──
+  async function printReport() {
     const rows = appointmentsResponse?.data ?? [];
     if (rows.length === 0) return;
     const cols = ["Token", "Patient", "Phone", "Doctor", "Specialization", "Date", "Time", "Type", "Status", "Payment Status", "Amount", "Registration Amount"];
@@ -589,9 +589,9 @@ export function AppointmentsPage() {
             <Download className="mr-1.5 size-3.5" />
             Excel
           </Button>
-          <Button variant="outline" size="sm" onClick={exportToPdf} disabled={!appointments.length}>
-            <Download className="mr-1.5 size-3.5" />
-            PDF
+          <Button variant="outline" size="sm" onClick={printReport} disabled={!appointments.length}>
+            <Printer className="mr-1.5 size-3.5" />
+            Print
           </Button>
         </div>
       </div>

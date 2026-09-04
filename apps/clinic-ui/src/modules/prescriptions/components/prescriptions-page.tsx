@@ -2,7 +2,7 @@ import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, FileDown, FileText, Eye, Pill, Plus, X, Clock } from "lucide-react";
+import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, FileDown, FileText, Eye, Pill, Plus, X, Clock, Printer } from "lucide-react";
 import {
   fetchPrescriptions,
   createPrescription,
@@ -20,13 +20,13 @@ import {
   type Medicine,
   type Patient,
 } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, printArea } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
 import { useDateRangeSync } from "@/lib/date-range-search";
-import { downloadBlob, generatePaginatedRxPdf } from "@/lib/rx-export";
+import { downloadBlob } from "@/lib/rx-export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,6 +42,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DataTable } from "@/components/data-table/data-table";
+import { A4Preview } from "@/components/a4-preview";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 
 const RX_STATUS_STYLES: Record<string, string> = {
@@ -332,9 +333,8 @@ export function PrescriptionsPage() {
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  // ── PDF Preview and Export Word ──
+  // ── Print Preview and Export Word ──
   const [pdfPreviewRx, setPdfPreviewRx] = useState<Prescription | null>(null);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // ── Version History ──
   const [historyRx, setHistoryRx] = useState<Prescription | null>(null);
@@ -344,36 +344,10 @@ export function PrescriptionsPage() {
     enabled: !!historyRx,
   });
 
-  async function downloadPdfFromPreview() {
-    const rx = pdfPreviewRx;
-    if (!rx) return;
-    setGeneratingPdf(true);
-    try {
-      const filename = `prescription-${rx.patient ? getPatientName(rx.patient).replace(/\s+/g, '-') : rx.id}.pdf`;
-      // Real A4-page pagination: content is measured in an isolated render
-      // frame and flowed onto fixed 794 x 1123px page elements (header.png /
-      // title / padded content / footer repeated on EVERY page). Each page is
-      // rasterized separately and placed on exactly one 210 x 297mm PDF page
-      // — no tall-canvas slicing, so an empty trailing page can never occur.
-      await generatePaginatedRxPdf({
-        chrome: rxChromeHtml(),
-        contentHtml: rxContentHtml(rx),
-        filename,
-      });
-      toast.success('PDF downloaded successfully');
-    } catch (err) {
-      console.error('PDF generation failed', err);
-      toast.error('Failed to generate PDF');
-    } finally {
-      setGeneratingPdf(false);
-    }
-  }
-
   /**
-   * Reusable chrome strips (header.png / title / computer-generated band +
-   * footer.png) repeated verbatim on EVERY PDF page, and reused by the Word
-   * single-sheet layout. Header/footer are full-bleed; only the main content
-   * carries padding.
+   * Reusable chrome strips (header.png / computer-generated band + footer.png)
+   * used by the Word single-sheet layout. Header/footer are full-bleed; only
+   * the main content carries padding.
    */
   function rxChromeHtml() {
     // Origin-qualified URLs: relative paths resolve differently inside the
@@ -382,9 +356,6 @@ export function PrescriptionsPage() {
     const footerUrl = new URL('/footer.png', window.location.origin).href;
     return {
       header: `<img src="${headerUrl}" alt="" style="width:100%;height:auto;display:block;margin:0;padding:0;border:0;"/>`,
-      title: `<div style="background:#e8edf3;padding:10px 24px;text-align:center;border-bottom:1px solid #1e3a5f;">
-    <h2 style="margin:0;font-size:16px;font-weight:bold;color:#1e3a5f;letter-spacing:2px;">MEDICAL PRESCRIPTION</h2>
-  </div>`,
       footer: `<div style="box-sizing:border-box;width:100%;">
     <div style="background:#f0f2f5;padding:8px 24px;text-align:center;font-size:10px;color:#666;border-top:1px solid #ddd;">
       Computer-generated prescription | Generated on ${new Date().toLocaleString('en-IN')} | ${organisation?.phone ? `Phone: ${organisation.phone}` : ''} ${organisation?.email ? `| Email: ${organisation.email}` : ''}
@@ -397,8 +368,7 @@ export function PrescriptionsPage() {
   /**
    * The flowing prescription content (Rx line, patient/doctor, diagnosis,
    * medicine table, notes, signature, disclaimer). This is the single source
-   * of truth consumed by BOTH the paginated PDF (blocks are measured and
-   * distributed across real fixed A4 pages) and the Word document.
+   * of truth for the Word document.
    */
   function rxContentHtml(rx: Prescription): string {
     const rxDate = new Date(rx.createdAt);
@@ -477,42 +447,51 @@ export function PrescriptionsPage() {
       </tbody>
     </table>
     ${notesSection}
-    <div style="margin-top:20px;display:flex;justify-content:flex-end;">
-      <div style="text-align:center;">
-        <div style="width:180px;border-top:1px solid #000;margin-bottom:4px;padding-top:6px;">
-          <span style="font-size:12px;font-weight:bold;">Dr. ${doctorName}</span>
-        </div>
-        <div style="font-size:11px;color:#666;">Doctor's Signature & Stamp</div>
-      </div>
-    </div>
     <div style="margin-top:16px;padding:8px 12px;background:#f8f9fa;border:1px solid #ddd;font-size:9px;color:#888;line-height:1.4;">
       This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
     </div>`;
   }
 
   /**
-   * One flowing A4-styled sheet for the Word .doc — same chrome and content
-   * as the PDF pages (content that exceeds one sheet flows naturally in Word).
+   * Bottom signature row (patient left, doctor right) — kept at the bottom
+   * of the Word sheet via margin-top:auto in the flex content column.
+   */
+  function rxSignatureHtml(rx: Prescription): string {
+    const doctorName = rx.doctor?.name ?? rx.doctor?.medicalRegistrationNo ?? '';
+    return `<div style="margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;width:100%;padding-top:24px;box-sizing:border-box;">
+      <div style="width:180px;text-align:center;">
+        <div style="border-top:1px solid #000;padding-top:6px;font-size:11px;color:#333;">Patient Signature</div>
+      </div>
+      <div style="width:180px;text-align:center;">
+        <div style="border-top:1px solid #000;padding-top:6px;font-size:11px;font-weight:bold;">Dr. ${doctorName}</div>
+        <div style="font-size:10px;color:#666;margin-top:2px;">Doctor's Signature &amp; Stamp</div>
+      </div>
+    </div>`;
+  }
+
+  /**
+   * One flowing A4-styled sheet for the Word .doc — content that exceeds
+   * one sheet flows naturally in Word.
    */
   function buildPrescriptionBodyHtml(rx: Prescription): string {
     const chrome = rxChromeHtml();
     return `<div class="prescription-page" style="display:flex;flex-direction:column;box-sizing:border-box;width:794px;min-width:794px;min-height:1123px;margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;color:#000;">
   ${chrome.header}
-  ${chrome.title}
-  <div style="flex:1 1 auto;box-sizing:border-box;width:100%;min-width:0;padding:20px 24px;">
+  <div style="display:flex;flex-direction:column;flex:1 1 auto;box-sizing:border-box;width:100%;min-width:0;padding:20px 24px;">
     ${rxContentHtml(rx)}
+    ${rxSignatureHtml(rx)}
   </div>
   ${chrome.footer}
 </div>`;
   }
 
-  /** Full HTML document wrapping {@link buildPrescriptionBodyHtml} — used for Export Word and the PDF capture iframe. */
+  /** Full HTML document wrapping {@link buildPrescriptionBodyHtml} — used for Export Word. */
   function buildPrescriptionHtml(rx: Prescription): string {
     return `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="utf-8">
-<title>Medical Prescription</title>
+<title>Prescription</title>
 <!--[if gte mso 9]>
 <xml>
   <w:WordDocument>
@@ -608,7 +587,7 @@ ${buildPrescriptionBodyHtml(rx)}
               variant="ghost"
               size="icon"
               className="size-8"
-              title={rx.status === "ACTIVE" && canUpdate ? "PDF Preview" : "View"}
+              title={rx.status === "ACTIVE" && canUpdate ? "Preview" : "View"}
               onClick={() => setPdfPreviewRx(rx)}
             >
               {rx.status === "ACTIVE" && canUpdate ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
@@ -1100,14 +1079,15 @@ ${buildPrescriptionBodyHtml(rx)}
         </SheetContent>
       </Sheet>
 
-      {/* ── PDF Preview Dialog ── */}
+      {/* ── Print Preview Dialog ── */}
       <Dialog open={!!pdfPreviewRx} onOpenChange={(open) => { if (!open) setPdfPreviewRx(null); }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto" showCloseButton>
-          <DialogHeader>
+        <DialogContent className="flex max-h-[95vh] flex-col overflow-hidden sm:max-w-[850px]" showCloseButton>
+          <DialogHeader className="shrink-0">
             <DialogTitle>Prescription Preview</DialogTitle>
           </DialogHeader>
 
-          <div className="flex min-h-[1123px] flex-col overflow-hidden rounded border border-gray-200 bg-white text-black text-[13px] font-[Arial,Helvetica,sans-serif]">
+          <A4Preview>
+          <div id="print-area" className="prescription-print-area flex min-h-[1123px] w-full flex-col overflow-hidden rounded border border-gray-200 bg-white text-black text-[13px] font-[Arial,Helvetica,sans-serif]">
             {pdfPreviewRx && (() => {
               const rxDate = new Date(pdfPreviewRx.createdAt);
               const formattedDate = rxDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -1116,13 +1096,9 @@ ${buildPrescriptionBodyHtml(rx)}
                   {/* Header — full page width */}
                   <img src="/header.png" alt="" className="block w-full h-auto shrink-0" />
 
-                  {/* Title */}
-                  <div className="shrink-0 bg-[#e8edf3] py-2.5 px-6 text-center border-b border-[#1e3a5f]">
-                    <h2 className="m-0 text-sm font-bold text-[#1e3a5f] tracking-[2px]">MEDICAL PRESCRIPTION</h2>
-                  </div>
-
-                  {/* Body — flexes to fill, pushing the footer to the bottom */}
-                  <div className="min-w-0 flex-1 px-6 py-5">
+                  {/* Body — flex column so content fills and the signature row
+                      and footer anchor to the bottom */}
+                  <div className="flex min-w-0 flex-1 flex-col px-6 py-5">
                     {/* Reference */}
                     <div className="mb-3.5 flex items-center justify-between text-[11px] text-gray-500">
                       <span>Rx No: <span className="font-mono font-bold">{pdfPreviewRx.id.slice(0, 8).toUpperCase()}</span></span>
@@ -1196,19 +1172,20 @@ ${buildPrescriptionBodyHtml(rx)}
                       </div>
                     )}
 
-                    {/* Signature */}
-                    <div className="flex justify-end mt-10">
-                      <div className="text-center">
-                        <div className="w-44 border-t border-black mb-1 pt-1.5">
-                          <span className="text-xs font-bold">Dr. {pdfPreviewRx.doctor?.name ?? pdfPreviewRx.doctor?.medicalRegistrationNo}</span>
-                        </div>
-                        <div className="text-[11px] text-gray-600">Doctor's Signature & Stamp</div>
-                      </div>
-                    </div>
-
                     {/* Disclaimer */}
                     <div className="mt-4 p-2 bg-gray-50 border border-gray-200 text-[9px] text-gray-500 leading-relaxed">
                       This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
+                    </div>
+
+                    {/* Signature — anchored to the bottom of the content area */}
+                    <div className="mt-auto flex items-end justify-between pt-6">
+                      <div className="w-44 text-center">
+                        <div className="border-t border-black pt-1.5 text-[11px] text-gray-700">Patient Signature</div>
+                      </div>
+                      <div className="w-44 text-center">
+                        <div className="border-t border-black pt-1.5 text-xs font-bold">Dr. {pdfPreviewRx.doctor?.name ?? pdfPreviewRx.doctor?.medicalRegistrationNo}</div>
+                        <div className="mt-0.5 text-[10px] text-gray-600">Doctor's Signature & Stamp</div>
+                      </div>
                     </div>
                   </div>
 
@@ -1223,11 +1200,12 @@ ${buildPrescriptionBodyHtml(rx)}
               );
             })()}
           </div>
+          </A4Preview>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setPdfPreviewRx(null)}>Close</Button>
-            <Button disabled={generatingPdf} onClick={downloadPdfFromPreview}>
-              {generatingPdf ? "Generating…" : "Download PDF"}
+            <Button variant="default" onClick={printArea} className="gap-1.5">
+              <Printer className="size-3.5" />Print
             </Button>
           </DialogFooter>
         </DialogContent>

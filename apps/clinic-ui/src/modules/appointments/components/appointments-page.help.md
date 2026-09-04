@@ -14,7 +14,7 @@ The Appointments page (`/appointments`) is the operational list of all appointme
 - **Created-by (employee) filter** — Filters by the employee who created the appointment. Effect: refetches with `createdById`.
 - **Change status dropdown (row)** — Updates the appointment status. Effects: calls `updateAppointmentStatus`; invalidates the `appointments` cache and shows "Appointment status updated". Selecting CANCELLED asks for an optional reason first; selecting RESCHEDULED sets the status directly (change date/doctor via the Eye icon); selecting CHECKED_IN also invalidates the `queue` cache (the patient enters the live queue).
 - **Eye (view/edit) icon** — Navigates to `/appointments/$appointmentId/edit`. Effect: opens the edit page for that appointment.
-- **Printer icon** — Opens the Appointment Slip Preview dialog. Effect: renders a printable slip; "Download PDF" generates a PDF via html2pdf; "Print" opens a browser print window.
+- **Printer icon** — Opens the Appointment Slip Preview dialog. Effect: renders a printable slip; "Print / Save as PDF" opens the browser print window (you can save the slip as a PDF from there).
 - **Create prescription (COMPLETED rows)** — Opens the Create Prescription sheet. Effect: entering a diagnosis + required doctor's remarks and confirming calls `createPrescription` with a "Verbal Instructions" item; invalidates `prescriptions`; closes the sheet.
 - **Generate invoice (COMPLETED + unpaid rows)** — Opens the Invoice Preview sheet with the appointment's line items pre-filled. Effect: adjusting discount/tax/payment method and confirming calls `checkoutAppointment`; invalidates `appointments`; shows "Invoice generated successfully". The row then shows a "Paid" badge with the invoice number.
 - **Bulk "Generate N invoices"** — Runs checkout sequentially for all COMPLETED appointments without bills. Effect: creates invoices one at a time (sequential on purpose so invoice numbers don't collide); toasts the number succeeded/failed; invalidates `appointments`.
@@ -34,5 +34,5 @@ The Appointments page (`/appointments`) is the operational list of all appointme
 - Status badges color-coded per status; CHECKED_IN renders as "In-Queue".
 - Embedded Appointments / Queue tabs.
 - Invoice preview with line items, discount/tax, payment method (CASH/CARD/UPI).
-- Appointment slip preview with PDF download and browser print.
+- Appointment slip preview with browser print (save-as-PDF available from the print dialog).
 - Rescheduling via the appointment's Edit page (no time-slot picking).

@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { toast } from "sonner";
+import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { getPatientName } from "@/lib/api";
+import { printArea } from "@/lib/utils";
 
 export interface PrescriptionPreviewItem {
   id?: string;
@@ -173,74 +173,6 @@ export function downloadPrescriptionWord(data: PrescriptionPreviewData, filename
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/**
- * Renders the prescription into an isolated iframe and rasterizes it with html2canvas rather
- * than screenshotting the live preview DOM: html2canvas clones the target element's *own*
- * document, and the app's document uses Tailwind v4's oklch() colors, which html2canvas can't
- * parse — cloning the whole app tree to find them is also what causes a multi-second freeze.
- * A self-contained iframe document (inline-styled, Tailwind-free) sidesteps both.
- */
-export async function downloadPrescriptionPdf(data: PrescriptionPreviewData, filenameHint?: string) {
-  let iframe: HTMLIFrameElement | null = null;
-  try {
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-      import("html2canvas"),
-      import("jspdf"),
-    ]);
-
-    iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:-10000px;left:-10000px;width:820px;height:100px;border:0;";
-    document.body.appendChild(iframe);
-    await new Promise<void>((resolve, reject) => {
-      iframe!.onload = () => resolve();
-      iframe!.onerror = () => reject(new Error("Failed to load PDF render frame"));
-      iframe!.srcdoc = buildPrescriptionDocumentHtml(data);
-    });
-    const doc = iframe.contentDocument;
-    if (!doc?.body) throw new Error("PDF render frame did not initialize");
-    const contentHeight = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-    iframe.style.height = `${contentHeight}px`;
-
-    const canvas = await html2canvas(doc.body, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      windowWidth: 820,
-      windowHeight: contentHeight,
-    });
-    const imgData = canvas.toDataURL("image/jpeg", 0.95);
-
-    const margin = 0.5; // inches
-    const pageWidth = 8.27;
-    const pageHeight = 11.69; // A4
-    const imgWidth = pageWidth - margin * 2;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const usableHeight = pageHeight - margin * 2;
-
-    const pdf = new jsPDF({ unit: "in", format: "a4", orientation: "portrait" });
-    let heightLeft = imgHeight;
-    let position = margin;
-    pdf.addImage(imgData, "JPEG", margin, position, imgWidth, imgHeight);
-    heightLeft -= usableHeight;
-    while (heightLeft > 0) {
-      position = margin - (imgHeight - heightLeft);
-      pdf.addPage();
-      pdf.addImage(imgData, "JPEG", margin, position, imgWidth, imgHeight);
-      heightLeft -= usableHeight;
-    }
-
-    const blob = pdf.output("blob");
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `prescription-${downloadFileNameBase(data, filenameHint)}.pdf`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  } finally {
-    iframe?.remove();
-  }
-}
-
 interface PrescriptionPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -250,23 +182,7 @@ interface PrescriptionPreviewDialogProps {
 }
 
 /** A4 prescription preview — header/footer are the clinic's branded header.png/footer.png. */
-export function PrescriptionPreviewDialog({ open, onOpenChange, data, filenameHint }: PrescriptionPreviewDialogProps) {
-  const [generatingPdf, setGeneratingPdf] = useState(false);
-
-  async function handleDownloadPdf() {
-    if (!data) return;
-    setGeneratingPdf(true);
-    try {
-      await downloadPrescriptionPdf(data, filenameHint);
-      toast.success("PDF downloaded successfully");
-    } catch (err) {
-      console.error("PDF generation failed", err);
-      toast.error("Failed to generate PDF");
-    } finally {
-      setGeneratingPdf(false);
-    }
-  }
-
+export function PrescriptionPreviewDialog({ open, onOpenChange, data }: PrescriptionPreviewDialogProps) {
   const patientName = data?.patient ? getPatientName(data.patient) : "";
   const doctorName = data?.doctor?.name ?? data?.doctor?.medicalRegistrationNo ?? "";
 
@@ -277,7 +193,7 @@ export function PrescriptionPreviewDialog({ open, onOpenChange, data, filenameHi
           <DialogTitle>Prescription Preview</DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-hidden rounded border border-gray-200 bg-white text-black text-[13px] font-[Arial,Helvetica,sans-serif]">
+        <div id="print-area" className="prescription-print-area overflow-hidden rounded border border-gray-200 bg-white text-black text-[13px] font-[Arial,Helvetica,sans-serif]">
           {data && (
             <>
               <img src="/header.png" alt="" className="block w-full h-auto" />
@@ -367,8 +283,8 @@ export function PrescriptionPreviewDialog({ open, onOpenChange, data, filenameHi
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button disabled={generatingPdf || !data} onClick={handleDownloadPdf}>
-            {generatingPdf ? "Generating…" : "Download PDF"}
+          <Button onClick={printArea} disabled={!data} className="gap-1.5">
+            <Printer className="size-3.5" />Print
           </Button>
         </DialogFooter>
       </DialogContent>

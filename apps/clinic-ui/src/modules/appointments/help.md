@@ -12,20 +12,18 @@ The Appointments module handles the full appointment lifecycle — booking, resc
 
 ## Shared Actions & Effects
 
-- **Book** — Creates the appointment (token auto-assigned per doctor per day), invalidates the appointments + slot caches, toasts success, navigates to the list.
+- **Book** — Creates the appointment for the chosen date (token auto-assigned per doctor per day), invalidates the appointments cache, toasts success, navigates to the list. Booking needs patient + doctor + date + type — there is no time-slot selection; appointments store a nominal 09:00 time and visit order is set later at queue check-in.
 - **Book & Pay** — Creates the appointment then checkouts it with the payment method; additionally invalidates the billing cache.
-- **Advance status** — Changing status calls `updateAppointmentStatus`; CHECKED_IN also refreshes the live queue; CANCELLED optionally records a reason; RESCHEDULED opens the reschedule flow.
+- **Advance status** — Changing status calls `updateAppointmentStatus`; CHECKED_IN also refreshes the live queue; CANCELLED optionally records a reason; RESCHEDULED sets the status the same way (rescheduling to a new date/doctor is done from the appointment's Edit page).
 - **Generate invoice** — Checkout of a completed appointment creates the bill; the row then shows a Paid badge with the invoice number.
 - **Create prescription** — Records diagnosis + doctor's remarks as a prescription (with a "Verbal Instructions" item when no medicines are added).
-- **Reschedule** — Changes date/doctor/slot and reloads slot availability.
+- **Reschedule** — Change an appointment's date/doctor via its Edit page; no time-slot picking.
 - **Print slip** — Generates an appointment slip PDF (html2pdf) or prints via the browser.
 
 ## Events
 
 - **Auto-refresh** — Appointment lists refresh on data mutations; the receptionist dashboard refreshes every 15 seconds.
 - **Search debounce** — 300 ms after typing before refetching.
-- **Slot availability** — `fetchDoctorSlots(doctorId, date)` runs whenever doctor or date changes; unavailable/past/booked slots are disabled.
-- **Doctor schedule awareness** — Doctors only appear for days they are scheduled (EmployeeSchedule); the doctor's hours are shown in the picker.
 - **Prescription notes lookup** — The list shows the latest doctor notes per patient+doctor.
 
 ## Features

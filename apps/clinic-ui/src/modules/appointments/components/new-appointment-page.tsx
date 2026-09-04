@@ -484,12 +484,6 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                               {d.specialization}
                               {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ''}
                             </span>
-                            {doctorScheduleMap.has(d.id) && (
-                              <span className="mt-1 inline-flex items-center gap-1 rounded-none border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[11px] font-semibold font-mono text-primary">
-                                <Clock className="size-3" />
-                                {doctorScheduleMap.get(d.id)!.map((s) => `${s.startTime}–${s.endTime}`).join(" · ")}
-                              </span>
-                            )}
                           </button>
                         ))}
                       {doctors.length === 0 && (

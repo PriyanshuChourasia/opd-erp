@@ -498,159 +498,16 @@ export function EditAppointmentPage() {
               </Field>
               </div>
 
-              {/* ── Slot + Consultation type (side by side) ── */}
-              {form.doctorId ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <Field><FieldLabel>Slot *</FieldLabel>
-                    {slotsQuery.isLoading ? (
-                      <p className="text-sm text-muted-foreground">Loading slots...</p>
-                    ) : resolvedWindows.length === 0 ? (
-                      <div className="space-y-2">
-                        <p className="text-sm text-amber-600">No schedule for this day. Select a different date.</p>
-                        <Input
-                          type="time"
-                          value={form.slot ?? ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, slot: e.target.value || null }))}
-                        />
-                      </div>
-                    ) : slotsQuery.data && !slotsQuery.data.available ? (
-                      <p className="text-sm text-muted-foreground">
-                        {slotsQuery.data.dayOff
-                          ? "Not available — the doctor has a day off on this date."
-                          : "No slots available for this day."}
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* Manual time entry, validated against the resolved windows */}
-                        <Input
-                          type="time"
-                          value={form.slot ?? ""}
-                          onChange={(e) => {
-                            const time = e.target.value;
-                            if (!time) {
-                              setForm((prev) => ({ ...prev, slot: null }));
-                              return;
-                            }
-                            const insideWindow = resolvedWindows.some(
-                              (w) => time >= w.windowStart && time < w.windowEnd,
-                            );
-                            if (!insideWindow) {
-                              const rangeText = resolvedWindows
-                                .map((w) => `${w.windowStart}–${w.windowEnd}`)
-                                .join(" / ");
-                              toast.error(`Time must be within the doctor's hours (${rangeText})`);
-                              return;
-                            }
-                            if (form.date === todayStr()) {
-                              const now = new Date();
-                              const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-                              if (time < nowTime) {
-                                toast.error("Cannot select a time that has already passed");
-                                return;
-                              }
-                            }
-                            if (bookedSlots.includes(time)) {
-                              toast.error("This time is already booked");
-                              return;
-                            }
-                            setForm((prev) => ({ ...prev, slot: time }));
-                          }}
-                        />
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
-                          <span className="font-medium text-foreground">Hours:</span>
-                          {resolvedWindows.map((w) => (
-                            <span key={`${w.windowStart}-${w.windowEnd}-${w.shiftId ?? "custom"}`} className="inline-flex items-center gap-1.5">
-                              <span className="rounded-none border border-input px-1.5 py-0.5 font-mono">
-                                {w.windowStart}
-                              </span>
-                              <span className="text-muted-foreground">–</span>
-                              <span className="rounded-none border border-input px-1.5 py-0.5 font-mono">
-                                {w.windowEnd}
-                              </span>
-                              {w.isException && (
-                                <span className="rounded-none border border-amber-300 bg-amber-50 px-1 py-0.5 font-medium text-amber-700">
-                                  {w.exceptionType === "OVERRIDE" ? "Override" : "Extra shift"} · one-off
-                                </span>
-                              )}
-                            </span>
-                          ))}
-                          {bookedSlots.length > 0 && (
-                            <span className="text-muted-foreground">{bookedSlots.length} booked</span>
-                          )}
-                        </div>
-
-                        {/* Window-grouped slot grids */}
-                        {resolvedWindows.map((w) => {
-                          const slots = timesInWindow(w.windowStart, w.windowEnd, 30);
-                          const now = new Date();
-                          const isToday = form.date === todayStr();
-                          const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-                          const sectionLabel = windowSectionLabel(w, form.date);
-                          return (
-                            <div key={`grid-${w.windowStart}-${w.windowEnd}-${w.shiftId ?? "custom"}`} className="space-y-1.5">
-                              {(resolvedWindows.length > 1 || w.isException) && (
-                                <p className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                                  <Clock className="size-3" />
-                                  {sectionLabel}
-                                </p>
-                              )}
-                              <div className="flex flex-wrap gap-1.5">
-                                {slots.map((t) => {
-                                  const isBooked = bookedSlots.includes(t);
-                                  const isPast = isToday && t < currentTime;
-                                  const disabled = isBooked || isPast;
-                                  const isSelected = form.slot === t;
-                                  return (
-                                    <button
-                                      key={t}
-                                      type="button"
-                                      disabled={disabled}
-                                      title={isBooked ? "Already booked" : isPast ? "Time has passed" : `Select ${t}`}
-                                      onClick={() => {
-                                        if (!disabled) {
-                                          setForm((prev) => ({ ...prev, slot: t }));
-                                        }
-                                      }}
-                                      className={cn(
-                                        "relative rounded-none border px-2.5 py-1 text-[11px] font-medium font-mono transition-all duration-150",
-                                        isBooked && "cursor-not-allowed border-red-200 bg-red-50 text-red-300 line-through",
-                                        isPast && !isBooked && "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400",
-                                        isSelected && !disabled && "z-10 border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary",
-                                        !disabled && !isSelected && "border-input text-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
-                                      )}
-                                    >
-                                      {t}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </Field>
-                  <Field><FieldLabel>Consultation type *</FieldLabel>
-                    <div className="grid grid-cols-1 gap-2">
-                      {CONSULTATION_TYPES.map((t) => (
-                        <button key={t.value} type="button" className={cn("rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
-                          <p className="font-medium text-foreground">{t.label}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
+              {/* ── Consultation type ── */}
+              <Field><FieldLabel>Consultation type *</FieldLabel>
+                <div className="grid grid-cols-2 gap-2">
+                  {CONSULTATION_TYPES.map((t) => (
+                    <button key={t.value} type="button" className={cn("rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
+                      <p className="font-medium text-foreground">{t.label}</p>
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <Field><FieldLabel>Consultation type *</FieldLabel>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CONSULTATION_TYPES.map((t) => (
-                      <button key={t.value} type="button" className={cn("rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
-                        <p className="font-medium text-foreground">{t.label}</p>
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-              )}
+              </Field>
 
               {/* ── Notes ── */}
               <Field><FieldLabel htmlFor="a-notes">Notes</FieldLabel>

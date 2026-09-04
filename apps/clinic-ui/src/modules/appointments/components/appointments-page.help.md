@@ -12,13 +12,13 @@ The Appointments page (`/appointments`) is the operational list of all appointme
 - **Doctor filter search** — Picks a doctor and resets pagination. Effect: list refetches with `doctorId`.
 - **Status filter dropdown** — Filters by SCHEDULED / CONFIRMED / CHECKED_IN / IN_PROGRESS / COMPLETED / CANCELLED / RESCHEDULED / NO_SHOW. Effect: refetches with `status`.
 - **Created-by (employee) filter** — Filters by the employee who created the appointment. Effect: refetches with `createdById`.
-- **Change status dropdown (row)** — Updates the appointment status. Effects: calls `updateAppointmentStatus`; invalidates the `appointments` cache and shows "Appointment status updated". Selecting CANCELLED asks for an optional reason first; selecting RESCHEDULED opens the reschedule sheet; selecting CHECKED_IN also invalidates the `queue` cache (the patient enters the live queue).
+- **Change status dropdown (row)** — Updates the appointment status. Effects: calls `updateAppointmentStatus`; invalidates the `appointments` cache and shows "Appointment status updated". Selecting CANCELLED asks for an optional reason first; selecting RESCHEDULED sets the status directly (change date/doctor via the Eye icon); selecting CHECKED_IN also invalidates the `queue` cache (the patient enters the live queue).
 - **Eye (view/edit) icon** — Navigates to `/appointments/$appointmentId/edit`. Effect: opens the edit page for that appointment.
 - **Printer icon** — Opens the Appointment Slip Preview dialog. Effect: renders a printable slip; "Download PDF" generates a PDF via html2pdf; "Print" opens a browser print window.
 - **Create prescription (COMPLETED rows)** — Opens the Create Prescription sheet. Effect: entering a diagnosis + required doctor's remarks and confirming calls `createPrescription` with a "Verbal Instructions" item; invalidates `prescriptions`; closes the sheet.
 - **Generate invoice (COMPLETED + unpaid rows)** — Opens the Invoice Preview sheet with the appointment's line items pre-filled. Effect: adjusting discount/tax/payment method and confirming calls `checkoutAppointment`; invalidates `appointments`; shows "Invoice generated successfully". The row then shows a "Paid" badge with the invoice number.
 - **Bulk "Generate N invoices"** — Runs checkout sequentially for all COMPLETED appointments without bills. Effect: creates invoices one at a time (sequential on purpose so invoice numbers don't collide); toasts the number succeeded/failed; invalidates `appointments`.
-- **Reschedule sheet** — Pick new date/doctor/slot. Effect: calls `rescheduleAppointment`; invalidates `appointments`; shows "Appointment rescheduled".
+- **Reschedule** — Open the appointment via the Eye (view/edit) icon and change its date/doctor on the Edit Appointment page; no time-slot selection.
 - **Queue tab** — Switches the embedded panel to the Queue page component.
 
 ## Events
@@ -35,4 +35,4 @@ The Appointments page (`/appointments`) is the operational list of all appointme
 - Embedded Appointments / Queue tabs.
 - Invoice preview with line items, discount/tax, payment method (CASH/CARD/UPI).
 - Appointment slip preview with PDF download and browser print.
-- Reschedule flow with slot availability checks.
+- Rescheduling via the appointment's Edit page (no time-slot picking).

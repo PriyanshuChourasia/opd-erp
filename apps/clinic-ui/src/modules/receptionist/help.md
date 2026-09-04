@@ -6,7 +6,7 @@ The Receptionist area (`/_receptionist/receptionist/`) is the landing workspace 
 
 ## Actions & Effects
 
-- **Book a new appointment** — Opens the booking sheet (from Overview or Quick Appointment). Effect: search/register a patient, pick a doctor, type, and slot; on confirm calls `createAppointment`; invalidates appointments, slots, and dashboard caches; toasts "Appointment booked successfully".
+- **Book a new appointment** — Opens the booking sheet (from Overview or Quick Appointment). Effect: search/register a patient, pick a doctor and consultation type for the chosen date; on confirm calls `createAppointment`; invalidates the appointments and dashboard caches; toasts "Appointment booked successfully". There is no time-slot selection — the booking is recorded for the date, and visit order is set later at queue check-in.
 - **Register patient inline** — From the patient search, "Register Patient". Effect: creates the patient, selects them, and resets the registration fee to default; toasts "Patient registered successfully".
 - **Create doctor inline** — From the doctor search, "New Doctor". Effect: calls `createDoctorWithUser`; the doctor is auto-selected with their consultation fee; invalidates doctors + schedules; toasts "Doctor created and selected".
 - **Book & Pay** — Books the appointment, then opens the PaymentSheet. Effect: additionally calls `checkoutAppointment` (payment method, discount, tax); invalidates billing; toasts "Appointment booked and paid successfully".
@@ -17,11 +17,9 @@ The Receptionist area (`/_receptionist/receptionist/`) is the landing workspace 
 ## Events
 
 - **Auto-refresh** — Today's appointments and queue refetch every 15 seconds.
-- **Slot availability** — Slots load from `fetchDoctorSlots` once a doctor + date are chosen; unavailable slots are disabled.
-- **Doctor schedule hours** — Doctor search shows each doctor's schedule window for the selected date.
 
 ## Features
 
 - 5 stat tiles: today's appointments, patients in queue, registered patients, pending prescriptions, today's revenue.
-- Quick booking sheet with inline patient/doctor registration, allergy select, 6 consultation types, fee + registration fee presets, slot grid, and notes.
+- Quick booking sheet with inline patient/doctor registration, allergy select, consultation types, fee + registration fee presets, and notes — no slot grid.
 - Tabbed layout: Overview / Quick Appointment / Appointments / Queues.

@@ -2,10 +2,9 @@ import { getPatientName } from "@/lib/api";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { CalendarClock, ClipboardList, Clock, History, ListOrdered, Pencil, Plus, Receipt, Search, Stethoscope, Users, X } from "lucide-react";
+import { CalendarClock, ClipboardList, History, ListOrdered, Pencil, Plus, Receipt, Search, Stethoscope, Users, X } from "lucide-react";
 import {
   fetchDoctors,
-  fetchDoctorSlots,
   fetchPatients,
   createPatient,
   createDoctorWithUser,
@@ -14,7 +13,6 @@ import {
   fetchOrganisation,
   createAppointment,
   fetchQueue,
-  fetchAllDoctorSchedules,
   fetchBloodGroups,
   type Doctor,
   type Appointment,
@@ -23,7 +21,6 @@ import {
   type CreateDoctorWithUserInput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { groupSlotsByWindow } from "@/lib/appointment-slot-utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
@@ -98,13 +95,12 @@ interface BookingForm {
   amount: number;
   registrationFee: number | null;
   date: string;
-  slot: string | null;
   notes: string;
   allergies: string[];
 }
 
 function emptyForm(): BookingForm {
-  return { patient: null, type: "WALK_IN", doctorId: "", amount: 100, registrationFee: null, date: todayStr(), slot: null, notes: "", allergies: [] };
+  return { patient: null, type: "WALK_IN", doctorId: "", amount: 100, registrationFee: null, date: todayStr(), notes: "", allergies: [] };
 }
 
 export function ReceptionistDashboardPage() {
@@ -114,7 +110,6 @@ export function ReceptionistDashboardPage() {
   const stats = statsQuery.data;
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
-  const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
 
   const { data: todayAppointmentsData, isLoading: loadingAppts } = useQuery({
     queryKey: ["dashboard-today-appointments"],
@@ -195,7 +190,7 @@ export function ReceptionistDashboardPage() {
     mutationFn: (input: CreateDoctorWithUserInput) => createDoctorWithUser(input),
     onSuccess: (result: any) => {
       const doctor = result?.data ?? result?.doctor ?? result;
-      setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, amount: doctor.consultationFee ?? prev.amount }));
+      setForm((prev) => ({ ...prev, doctorId: doctor.id, amount: doctor.consultationFee ?? prev.amount }));
       setDoctorFormOpen(false);
       setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 });
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
@@ -210,41 +205,6 @@ export function ReceptionistDashboardPage() {
     queryFn: () => fetchDoctors({ limit: 100 }),
   });
   const doctors = doctorsResponse?.data ?? [];
-
-  // Fetch all doctor schedules in one call
-  const { data: allSchedules = [] } = useQuery({
-    queryKey: ["employee-schedules", "all-doctors"],
-    queryFn: async () => {
-      const res = await fetchAllDoctorSchedules();
-      return Array.isArray(res) ? res : (res as any)?.data ?? [];
-    },
-    enabled: canReadEmployeeSchedules,
-    refetchOnMount: true,
-    staleTime: 0,
-  });
-
-  // Build a schedule map for the selected date
-  const doctorScheduleMap = useMemo(() => {
-    if (!form.date) return new Map<string, { startTime: string; endTime: string }[]>();
-    const dateObj = new Date(form.date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    const map = new Map<string, { startTime: string; endTime: string }[]>();
-    for (const sched of allSchedules) {
-      if (sched.dayOfWeek !== dayOfWeek) continue;
-      const list = map.get(sched.employeeSchedulableId) ?? [];
-      list.push({ startTime: sched.startTime, endTime: sched.endTime });
-      map.set(sched.employeeSchedulableId, list);
-    }
-    for (const list of map.values()) list.sort((a, b) => a.startTime.localeCompare(b.startTime));
-    return map;
-  }, [allSchedules, form.date]);
-
-  // Slots for the selected doctor + date
-  const slotsQuery = useQuery({
-    queryKey: ["doctor-slots", form.doctorId, form.date],
-    queryFn: () => fetchDoctorSlots(form.doctorId, form.date),
-    enabled: !!form.doctorId && !!form.date,
-  });
 
   const patientResults = useQuery({
     queryKey: ["booking-patients", patientQuery],
@@ -276,7 +236,7 @@ export function ReceptionistDashboardPage() {
     mutationFn: () => createAppointment({
       patientId: form.patient!.id,
       doctorId: form.doctorId,
-      date: `${form.date}T${form.slot || "09:00"}:00`,
+      date: `${form.date}T09:00:00`,
       type: form.type as AppointmentType,
       amount: form.amount,
       ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
@@ -284,7 +244,6 @@ export function ReceptionistDashboardPage() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-slots"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setSheetOpen(false);
       setForm(emptyForm());
@@ -299,7 +258,7 @@ export function ReceptionistDashboardPage() {
       const appointment = await createAppointment({
         patientId: form.patient!.id,
         doctorId: form.doctorId,
-        date: `${form.date}T${form.slot || "09:00"}:00`,
+        date: `${form.date}T09:00:00`,
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
@@ -316,7 +275,6 @@ export function ReceptionistDashboardPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-slots"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["billing"] });
       setPaymentSheetOpen(false);
@@ -344,7 +302,7 @@ export function ReceptionistDashboardPage() {
           <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>New Appointment</SheetTitle>
-              <SheetDescription>Patient details and doctor are required. Slot is optional.</SheetDescription>
+              <SheetDescription>Patient details and doctor are required.</SheetDescription>
             </SheetHeader>
             <div className="flex-1 space-y-5 px-4 pb-4">
               {/* ── Patient (REQUIRED) ── */}
@@ -492,7 +450,7 @@ export function ReceptionistDashboardPage() {
                     type="date"
                     className="w-auto"
                     value={form.date}
-                    onChange={(e) => setForm((p) => ({ ...p, date: e.target.value, department: "", doctorId: "", slot: null }))}
+                    onChange={(e) => setForm((p) => ({ ...p, date: e.target.value, doctorId: "" }))}
                   />
                   <div className="flex gap-1.5">
                     {[
@@ -503,7 +461,7 @@ export function ReceptionistDashboardPage() {
                     <button
                       key={value}
                       type="button"
-                      onClick={() => setForm((p) => ({ ...p, date: value, department: "", doctorId: "", slot: null }))}
+                      onClick={() => setForm((p) => ({ ...p, date: value, doctorId: "" }))}
                       className={cn(
                         "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
                         form.date === value
@@ -576,7 +534,7 @@ export function ReceptionistDashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon-sm" title="Clear doctor" onClick={() => setForm((p) => ({ ...p, doctorId: "", slot: null, amount: 0 }))}>
+                    <Button variant="ghost" size="icon-sm" title="Clear doctor" onClick={() => setForm((p) => ({ ...p, doctorId: "", amount: 0 }))}>
                       <X className="size-4" />
                     </Button>
                   </div>
@@ -599,33 +557,24 @@ export function ReceptionistDashboardPage() {
                             (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
                             (d.specialization ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase())
                           )
-                          .map((d) => {
-                            const schedule = doctorScheduleMap.get(d.id);
-                            return (
-                              <button
-                                key={d.id}
-                                type="button"
-                                className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                                onMouseDown={() => {
-                                  setForm((prev) => ({ ...prev, doctorId: d.id, slot: null, amount: d.consultationFee ?? prev.amount }));
-                                  setDoctorSearchQuery("");
-                                  setDoctorSearchOpen(false);
-                                }}
-                              >
-                                <span className="font-medium">{d.name ?? d.medicalRegistrationNo ?? "Doctor"}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {d.specialization}
-                                  {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ""}
-                                </span>
-                                {schedule && schedule.length > 0 && (
-                                  <span className="mt-1 inline-flex items-center gap-1 rounded-none border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[11px] font-semibold font-mono text-primary">
-                                    <Clock className="size-3" />
-                                    {schedule.map((s) => `${s.startTime}–${s.endTime}`).join(" · ")}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
+                          .map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                              onMouseDown={() => {
+                                setForm((prev) => ({ ...prev, doctorId: d.id, amount: d.consultationFee ?? prev.amount }));
+                                setDoctorSearchQuery("");
+                                setDoctorSearchOpen(false);
+                              }}
+                            >
+                              <span className="font-medium">{d.name ?? d.medicalRegistrationNo ?? "Doctor"}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {d.specialization}
+                                {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ""}
+                              </span>
+                            </button>
+                          ))}
                         {doctors.filter((d) =>
                           !doctorSearchQuery.trim() ||
                           (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
@@ -713,81 +662,6 @@ export function ReceptionistDashboardPage() {
                   <span className="font-semibold">{currency(form.amount + regFeeAmount)}</span>
                 </div>
               </div>
-
-              {/* ── Slot selection (shown when doctor selected) ── */}
-              {form.doctorId && (
-                <Field>
-                  <FieldLabel>Slot</FieldLabel>
-                  {slotsQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading slots...</p>
-                  ) : !slotsQuery.data?.available && slotsQuery.data ? (
-                    <p className="text-sm text-muted-foreground">
-                      {slotsQuery.data.dayOff ? "Not available — day off on this date." : "No slots available for this day."}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {slotsQuery.data && slotsQuery.data.slots.length > 0 && (() => {
-                        const sections = groupSlotsByWindow(slotsQuery.data!.slots, form.date);
-                        return (
-                          <div className="space-y-2.5">
-                            {sections.map((section) => (
-                              <div key={section.key} className="space-y-1">
-                                {(sections.length > 1 || section.isException) && (
-                                  <p className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                                    <Clock className="size-3" />
-                                    {section.label}
-                                  </p>
-                                )}
-                                <div className="flex flex-wrap gap-1.5">
-                                  {section.slots.map((slot) => (
-                                    <button
-                                      key={slot.time}
-                                      type="button"
-                                      disabled={!slot.available}
-                                      className={cn(
-                                        "rounded-none border px-3 py-2 text-xs font-medium transition-colors",
-                                        !slot.available && "cursor-not-allowed border-destructive/20 bg-destructive/5 text-destructive/60 line-through",
-                                        slot.available && form.slot === slot.time
-                                          ? "border-primary bg-primary text-primary-foreground"
-                                          : slot.available
-                                            ? "border-green-300 bg-green-50 text-green-700 hover:border-green-400 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
-                                            : ""
-                                      )}
-                                      onClick={() => setForm((p) => ({ ...p, slot: slot.time }))}
-                                    >
-                                      {slot.time}
-                                      {!slot.available && <span className="ml-0.5 text-[8px]">({slot.booked})</span>}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                      {(!slotsQuery.data || slotsQuery.data.slots.length === 0) && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Input
-                            type="time"
-                            className="w-auto"
-                            value={form.slot ?? ""}
-                            onChange={(e) => setForm((p) => ({ ...p, slot: e.target.value || null }))}
-                          />
-                          <span className="text-xs text-muted-foreground">Enter time manually</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Field>
-              )}
-
-              {/* ── Selected doctor summary ── */}
-              {form.doctorId && form.slot && (
-                <div className="rounded-none border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary flex items-center gap-2">
-                  <Clock className="size-3.5" />
-                  <span>{doctors.find((d) => d.id === form.doctorId)?.name} at {form.slot} · {currency(form.amount)}</span>
-                </div>
-              )}
 
               {/* ── Notes (optional) ── */}
               <Field>

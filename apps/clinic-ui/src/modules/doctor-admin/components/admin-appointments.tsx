@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
-  Clock,
   Search,
   Stethoscope,
   User,
@@ -11,15 +10,12 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { extractApiError } from "@/lib/axios-client";
-import { createAppointment, fetchAppointments, getPatientName, updateAppointmentStatus, type Appointment, type AppointmentStatus, type SlotWindow } from "@/lib/api";
-import { timesInWindow, windowSectionLabel } from "@/lib/appointment-slot-utils";
+import { createAppointment, fetchAppointments, getPatientName, updateAppointmentStatus, type Appointment, type AppointmentStatus } from "@/lib/api";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   usePatientSearch,
   usePatient,
   useDoctors,
-  useDoctorSlots,
-  useDoctorSchedules,
 } from "../data/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,8 +44,8 @@ const consultationTypes = [
 /**
  * Appointments page — book appointments for patients.
  *
- * SRP: Each sub-section (PatientSearch, SlotPicker, BookingForm)
- * is extracted into its own component. This file is the orchestrator.
+ * SRP: Each sub-section (PatientSearch, BookingForm) is extracted into
+ * its own component. This file is the orchestrator.
  */
 const APPT_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-amber-100 text-amber-700",
@@ -73,7 +69,6 @@ export function AdminAppointments() {
 
   const [patientId, setPatientId] = useState<string | null>(null);
   const [doctorId, setDoctorId] = useState("");
-  const [slot, setSlot] = useState<string | null>(null);
   const [date, setDate] = useState(todayStr());
   const [type, setType] = useState("WALK_IN");
 
@@ -115,53 +110,21 @@ export function AdminAppointments() {
   const { data: selectedPatient } = usePatient(patientId ?? undefined);
   const { data: doctorsResponse } = useDoctors();
   const doctors = useMemo(() => doctorsResponse?.data ?? [], [doctorsResponse]);
-  const { data: allSchedules = [] } = useDoctorSchedules();
-  const { data: slotsData, isLoading: slotsLoading } = useDoctorSlots(doctorId, date);
 
   const selectedDoctor = doctors.find((d) => d.id === doctorId);
 
-  // ── Resolved working windows for the selected doctor + date ──
-  // Prefers the backend-resolved windows (multi-shift rows AND one-off
-  // exceptions); falls back to the recurring weekly rows when the slots
-  // payload has no windows (older cache).
-  const resolvedWindows = useMemo<SlotWindow[]>(() => {
-    const apiWindows = slotsData?.windows;
-    if (apiWindows && apiWindows.length > 0) return apiWindows;
-    if (!doctorId || !date) return [];
-    const dateObj = new Date(date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    return allSchedules
-      .filter((s) => s.employeeSchedulableId === doctorId && s.dayOfWeek === dayOfWeek)
-      .sort((a, b) => a.startTime.localeCompare(b.startTime))
-      .map((s) => ({
-        windowStart: s.startTime,
-        windowEnd: s.endTime,
-        shiftId: s.shiftId ?? null,
-        shiftName: s.shift?.name ?? null,
-        isException: false,
-        exceptionType: null,
-        label: s.shift?.name ?? `${s.startTime}–${s.endTime}`,
-      }));
-  }, [slotsData, allSchedules, doctorId, date]);
-
-  const bookedSlots = useMemo(() => {
-    if (!slotsData?.slots) return [];
-    return slotsData.slots.filter((s) => s.booked > 0).map((s) => s.time);
-  }, [slotsData]);
-
   const createMutation = useMutation({
-    mutationFn: () =>        createAppointment({
-          patientId: patientId!,
-          doctorId: doctorId,
-          date: `${date}T${slot}:00`,
-          type: type as any,
-          amount: selectedDoctor?.consultationFee ?? 0,
-        }),
+    mutationFn: () => createAppointment({
+      patientId: patientId!,
+      doctorId: doctorId,
+      date: `${date}T09:00:00`,
+      type: type as any,
+      amount: selectedDoctor?.consultationFee ?? 0,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["doctor-admin"] });
       toast.success("Appointment booked successfully!");
       setPatientId(null);
-      setSlot(null);
       setType("WALK_IN");
     },
     onError: (err) => toast.error(extractApiError(err)),
@@ -187,7 +150,7 @@ export function AdminAppointments() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* ─── Left: Patient + Slots ─────────────────────── */}
+        {/* ─── Left: Patient + Booking ──────────────────── */}
         <div className="space-y-4">
           <PatientSearch patientId={patientId} onSelect={setPatientId} />
 
@@ -197,7 +160,7 @@ export function AdminAppointments() {
               <Stethoscope className="size-4" />
               Doctor
             </label>
-            <Select value={doctorId} onValueChange={(v) => { setDoctorId(v); setSlot(null); }}>
+            <Select value={doctorId} onValueChange={setDoctorId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select doctor" />
               </SelectTrigger>
@@ -212,85 +175,8 @@ export function AdminAppointments() {
             </Select>
           </div>
 
-          {/* Slot picker */}
-          {doctorId && date && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <span className="flex items-center gap-2">
-                    <Clock className="size-4" />
-                    Available Slots
-                  </span>
-                  {bookedSlots.length > 0 && (
-                    <Badge variant="outline" className="text-[10px]">
-                      {bookedSlots.length} booked
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {slotsLoading ? (
-                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                    {Array.from({ length: 12 }).map((_, i) => (
-                      <Skeleton key={i} className="h-9 rounded-lg" />
-                    ))}
-                  </div>
-                ) : slotsData && slotsData.dayOff ? (
-                  <p className="text-sm text-amber-600">Not available — the doctor has a day off on this date.</p>
-                ) : resolvedWindows.length === 0 ? (
-                  <p className="text-sm text-amber-600">No schedule for this doctor on this date.</p>
-                ) : slotsData && !slotsData.available ? (
-                  <p className="text-sm text-muted-foreground">No available slots for this date.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {resolvedWindows.map((w) => {
-                      const now = new Date();
-                      const isToday = date === todayStr();
-                      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-                      const all = timesInWindow(w.windowStart, w.windowEnd, 30);
-                      const available = all.filter(
-                        (t) => !bookedSlots.includes(t) && !(isToday && t < currentTime),
-                      );
-                      return (
-                        <div key={`${w.windowStart}-${w.windowEnd}-${w.shiftId ?? "custom"}`} className="space-y-1.5">
-                          {(resolvedWindows.length > 1 || w.isException) && (
-                            <p className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                              <Clock className="size-3" />
-                              {windowSectionLabel(w, date)}
-                            </p>
-                          )}
-                          {available.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">All times in this window are booked or have passed.</p>
-                          ) : (
-                            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                              {available.map((t) => (
-                                <button
-                                  key={t}
-                                  type="button"
-                                  onClick={() => setSlot(t)}
-                                  className={cn(
-                                    "rounded-lg border px-2 py-2 text-xs font-mono font-medium transition-all",
-                                    slot === t
-                                      ? "border-primary bg-primary text-primary-foreground"
-                                      : "border-muted text-foreground hover:border-primary/50 hover:bg-primary/5"
-                                  )}
-                                >
-                                  {t}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Booking summary */}
-          {patientId && slot && (
+          {patientId && doctorId && (
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
@@ -299,7 +185,7 @@ export function AdminAppointments() {
                       {selectedPatient ? getPatientName(selectedPatient) : "Loading..."}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {date} at {slot} · {consultationTypes.find((c) => c.value === type)?.label}
+                      {date} · {consultationTypes.find((c) => c.value === type)?.label}
                     </p>
                   </div>
                   <Button

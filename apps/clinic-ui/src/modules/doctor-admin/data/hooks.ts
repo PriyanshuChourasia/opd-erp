@@ -3,8 +3,6 @@ import {
   fetchPatients,
   fetchPatient,
   fetchDoctors,
-  fetchDoctorSlots,
-  fetchAllDoctorSchedules,
   fetchPrescriptions,
   fetchAppointments,
 } from "@/lib/api";
@@ -38,26 +36,6 @@ export function useDoctors() {
   return useQuery({
     queryKey: ["doctor-admin", "doctors"],
     queryFn: () => fetchDoctors({ limit: 100 }),
-  });
-}
-
-/** Available slots for a doctor on a given date. */
-export function useDoctorSlots(doctorId: string, date: string) {
-  return useQuery({
-    queryKey: ["doctor-admin", "slots", doctorId, date],
-    queryFn: () => fetchDoctorSlots(doctorId, date),
-    enabled: !!doctorId && !!date,
-  });
-}
-
-/** All doctor schedules. */
-export function useDoctorSchedules() {
-  return useQuery({
-    queryKey: ["doctor-admin", "schedules"],
-    queryFn: async () => {
-      const res = await fetchAllDoctorSchedules();
-      return res?.data ?? [];
-    },
   });
 }
 

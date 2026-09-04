@@ -94,7 +94,7 @@ export function DoctorsPage() {
 
   const createMutation = useMutation({
     mutationFn: createDoctorWithUser,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); queryClient.invalidateQueries({ queryKey: ["doctor-slots"] }); closeSheet(); toast.success("Doctor created successfully"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); closeSheet(); toast.success("Doctor created successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
   const updateMutation = useMutation({
@@ -162,7 +162,7 @@ export function DoctorsPage() {
     mutationFn: (input: CreateEmployeeScheduleExceptionInput) => createDoctorScheduleException(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employee-schedule-exceptions"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-slots"] });
+
       setExceptionForm({ type: "EXTRA_SHIFT", date: "", shiftId: "", startTime: "", endTime: "" });
       toast.success("One-time schedule change added");
     },
@@ -173,7 +173,7 @@ export function DoctorsPage() {
     mutationFn: (id: string) => deleteDoctorScheduleException(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employee-schedule-exceptions"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-slots"] });
+
       toast.success("One-time schedule change removed");
     },
     onError: (err) => { toast.error(extractApiError(err)); },
@@ -285,7 +285,7 @@ export function DoctorsPage() {
         }
       }
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); queryClient.invalidateQueries({ queryKey: ["doctor-slots"] }); queryClient.invalidateQueries({ queryKey: ["employee-schedule-exceptions"] }); setScheduleDoctorId(null); toast.success("Schedule saved successfully"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); queryClient.invalidateQueries({ queryKey: ["employee-schedule-exceptions"] }); setScheduleDoctorId(null); toast.success("Schedule saved successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 

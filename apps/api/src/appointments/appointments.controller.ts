@@ -7,6 +7,7 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { FindAppointmentsQueryDto } from './dto/find-appointments-query.dto';
+import { CheckSlotQueryDto } from './dto/check-slot-query.dto';
 import { CheckoutAppointmentDto } from './dto/checkout-appointment.dto';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { CreatePaymentDto } from '../billing/dto/create-payment.dto';
@@ -30,6 +31,12 @@ export class AppointmentsController {
       query.patientId = req.user.userableId;
     }
     return this.appointmentsService.findAll(query);
+  }
+
+  @Get('check-slot')
+  @Permissions('read:appointments')
+  checkSlot(@Query() query: CheckSlotQueryDto) {
+    return this.appointmentsService.checkSlotAvailability(query);
   }
 
   @Get(':id')

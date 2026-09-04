@@ -1,10 +1,10 @@
 /**
  * Shared prescription export helpers.
  *
- * PDF export was removed from the app — every print surface now uses the
- * browser print dialog (via printArea()), which also lets the user save as
- * PDF. The only remaining helper here is the browser-compatible blob
- * download used by the Word (.doc) export.
+ * The prescription document model (src/components/prescription-document)
+ * owns pagination + rendering for screen, print and PDF; this module only
+ * holds the browser-compatible blob download used by the Word (.doc)
+ * export and other file downloads.
  */
 
 /** Browser-compatible blob download (anchor appended to the DOM). */

@@ -169,7 +169,13 @@ export function PatientsPage() {
       }
       queryClient.invalidateQueries({ queryKey: ["patients"] });
       closeSheet();
-      toast.success("Patient created successfully");
+      if (saved?.portalLogin) {
+        toast.success(
+          `Patient created with portal login — Username: ${saved.portalLogin.username}, Password: ${saved.portalLogin.password}`,
+        );
+      } else {
+        toast.success("Patient created successfully");
+      }
     },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
@@ -269,7 +275,6 @@ export function PatientsPage() {
           await uploadPendingDocs(patient.id);
           queryClient.invalidateQueries({ queryKey: ["patients"] });
           closeSheet();
-          toast.success("Patient created successfully");
         },
       });
     }
@@ -427,11 +432,11 @@ export function PatientsPage() {
             {canUpdate && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-8 text-primary" onClick={() => portalLoginMutation.mutate(patient.id)} disabled={portalLoginMutation.isPending}>
-                    <LogIn className="size-3.5" />
+                  <Button variant="ghost" size="icon" className="size-8 text-primary" onClick={() => portalLoginMutation.mutate(patient.id)} disabled={patient.hasPortalLogin || portalLoginMutation.isPending}>
+                    <LogIn className={`size-3.5 ${patient.hasPortalLogin ? "opacity-40" : ""}`} />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Enable Portal Login</TooltipContent>
+                <TooltipContent>{patient.hasPortalLogin ? "Portal login already enabled" : "Enable Portal Login"}</TooltipContent>
               </Tooltip>
             )}
             {canDelete && (deleteConfirm === patient.id ? (

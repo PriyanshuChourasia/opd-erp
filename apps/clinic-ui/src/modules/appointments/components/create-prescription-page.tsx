@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Eye, History, Plus, Trash2, AlertTriangle, HeartPulse, Printer } from "lucide-react";
+import { Eye, History, Plus, Trash2, AlertTriangle, HeartPulse, Printer, FileDown } from "lucide-react";
 import {
   fetchAppointment,
   fetchPatientVitalsLatest,
@@ -12,7 +12,6 @@ import {
   getPatientName,
   type PrescriptionItem,
 } from "@/lib/api";
-import { cn, printArea } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { hasPermission } from "@/lib/roles";
@@ -24,7 +23,9 @@ import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
-import { A4Preview } from "@/components/a4-preview";
+import { RxDocPreview, printRxDocument } from "@/components/prescription-document/RxDoc";
+import { rxDocFromNewPrescription } from "@/components/prescription-document/rx-doc-data";
+import { generateRxPdf } from "@/components/prescription-document/rx-pdf";
 
 interface RxItem {
   medicineId: string;
@@ -150,6 +151,45 @@ export function CreatePrescriptionPage() {
   const previewItems = useMemo(() => items.filter((it) => it.medicineName.trim()), [items]);
   const previewDiagnosis = diagnosis.length > 0 ? diagnosis.join(", ") : undefined;
   const previewNotes = notes.trim() || undefined;
+
+  // Shared document model — the SAME one the saved prescription uses, so the
+  // pre-save preview, browser print and PDF export can never drift apart.
+  const previewDocData = useMemo(() => {
+    if (!appointment) return null;
+    return rxDocFromNewPrescription({
+      reference: appointmentId.slice(0, 8).toUpperCase(),
+      referenceTitle: "Ref",
+      regNo: appointment.doctor?.medicalRegistrationNo ?? undefined,
+      patient: appointment.patient,
+      doctor: appointment.doctor,
+      diagnosis: previewDiagnosis,
+      notes: previewNotes,
+      items: (previewItems.length > 0 ? previewItems : [emptyRxItem()]).map((it) => ({
+        medicineId: it.medicineId || undefined,
+        medicineName: it.medicineName || "Verbal Instructions",
+        dosage: it.dosage || "As per doctor's advice",
+        duration: [it.frequency, it.duration].filter(Boolean).join(" ") || undefined,
+        quantity: it.quantity || 1,
+        instructions: it.instructions || undefined,
+      })),
+      organisation,
+    });
+  }, [appointment, appointmentId, previewItems, previewDiagnosis, previewNotes, organisation]);
+
+  const [rxPdfGenerating, setRxPdfGenerating] = useState(false);
+  async function downloadRxPdf() {
+    if (!previewDocData) return;
+    setRxPdfGenerating(true);
+    try {
+      const { pageCount } = await generateRxPdf(previewDocData);
+      toast.success(pageCount > 1 ? `PDF downloaded (${pageCount} pages)` : "PDF downloaded successfully");
+    } catch (err) {
+      console.error("PDF generation failed", err);
+      toast.error("Failed to generate PDF");
+    } finally {
+      setRxPdfGenerating(false);
+    }
+  }
 
   function addItem() { setItems((prev) => [...prev, emptyRxItem()]); }
   function removeItem(idx: number) { setItems((prev) => prev.filter((_, i) => i !== idx)); }
@@ -391,114 +431,16 @@ export function CreatePrescriptionPage() {
           this prescription has ever been saved, and doesn't depend on a
           PrescriptionTemplate existing for the doctor. */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="flex max-h-[95vh] flex-col overflow-hidden sm:max-w-[850px]" showCloseButton>
+        <DialogContent className="flex h-[85vh] max-h-[95vh] flex-col overflow-hidden sm:max-w-[850px]" showCloseButton>
           <DialogHeader className="shrink-0"><DialogTitle>Prescription Preview</DialogTitle></DialogHeader>
-          <A4Preview>
-          {appointment && (
-            <div id="print-area" className="prescription-print-area flex min-h-[1123px] w-full flex-col overflow-hidden rounded border border-gray-200 bg-white text-black text-[13px] font-[Arial,Helvetica,sans-serif]">
-              {/* Header — full page width */}
-              <img src="/header.png" alt="" className="block w-full h-auto shrink-0" />
-
-              {/* Body — flex column so content fills and the signature row
-                  and footer anchor to the bottom */}
-              <div className="flex min-w-0 flex-1 flex-col px-6 py-5">
-                <div className="mb-3.5 flex items-center justify-between text-[11px] text-gray-500">
-                  <span>Ref: <span className="font-mono font-bold">{appointmentId.slice(0, 8).toUpperCase()}</span></span>
-                  <span>
-                    {[
-                      `Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}`,
-                      appointment.doctor?.medicalRegistrationNo ? `Reg. No: ${appointment.doctor.medicalRegistrationNo}` : "",
-                    ].filter(Boolean).join(" | ")}
-                  </span>
-                </div>
-
-                <table className="w-full border-collapse mb-4 text-[13px]">
-                  <tbody>
-                    <tr>
-                      <td className="w-1/2 align-top pr-3">
-                        <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PATIENT DETAILS</div>
-                        <div className="font-bold text-[13px] mb-0.5">{appointment.patient ? getPatientName(appointment.patient) : null}</div>
-                        <div className="text-xs text-gray-600 mb-0.5">Phone: {appointment.patient?.contactNo}</div>
-                        {appointment.patient?.email && <div className="text-xs text-gray-600">Email: {appointment.patient.email}</div>}
-                      </td>
-                      <td className="w-1/2 align-top pl-3">
-                        <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">PRESCRIBED BY</div>
-                        <div className="font-bold text-[13px] mb-0.5">Dr. {appointment.doctor?.name ?? appointment.doctor?.medicalRegistrationNo}</div>
-                        {appointment.doctor?.qualification && <div className="text-xs text-gray-600 mb-0.5">{appointment.doctor.qualification}</div>}
-                        {appointment.doctor?.specialization && <div className="text-xs text-gray-600">{appointment.doctor.specialization}</div>}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {previewDiagnosis && (
-                  <div className="mb-4">
-                    <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">DIAGNOSIS</div>
-                    <p className="m-0 text-[13px]">{previewDiagnosis}</p>
-                  </div>
-                )}
-
-                <table className="w-full border-collapse mb-4 text-xs">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px]">SL.No.</th>
-                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[30%]">MEDICINE</th>
-                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[15%]">DOSAGE</th>
-                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[15%]">DURATION</th>
-                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px] w-[10%]">QTY</th>
-                      <th className="border border-gray-300 p-1.5 text-left font-bold text-[#1e3a5f] text-[11px]">INSTRUCTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(previewItems.length > 0 ? previewItems : [{ medicineName: "Verbal Instructions", dosage: "As per doctor's advice", frequency: "", duration: "", quantity: 1, instructions: "", medicineId: "" }]).map((item, idx) => (
-                      <tr key={idx}>
-                        <td className="border border-gray-200 p-1.5 text-center text-[11px] text-gray-500">{idx + 1}</td>
-                        <td className="border border-gray-200 p-1.5 font-bold text-xs">{item.medicineName}</td>
-                        <td className="border border-gray-200 p-1.5 text-xs">{item.dosage || '—'}</td>
-                        <td className="border border-gray-200 p-1.5 text-xs">{[item.frequency, item.duration].filter(Boolean).join(" ") || '—'}</td>
-                        <td className="border border-gray-200 p-1.5 text-center text-xs">{item.quantity}</td>
-                        <td className="border border-gray-200 p-1.5 text-[11px] text-gray-600">{item.instructions || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {previewNotes && (
-                  <div className="mb-4">
-                    <div className="font-bold text-[#1e3a5f] border-b border-gray-200 mb-1.5 pb-1 text-[11px] tracking-wide">NOTES</div>
-                    <p className="m-0 text-xs">{previewNotes}</p>
-                  </div>
-                )}
-
-                <div className="mt-4 p-2 bg-gray-50 border border-gray-200 text-[9px] text-gray-500 leading-relaxed">
-                  This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
-                </div>
-
-                {/* Signature — anchored to the bottom of the content area */}
-                <div className="mt-auto flex items-end justify-between pt-6">
-                  <div className="w-44 text-center">
-                    <div className="border-t border-black pt-1.5 text-[11px] text-gray-700">Patient Signature</div>
-                  </div>
-                  <div className="w-44 text-center">
-                    <div className="border-t border-black pt-1.5 text-xs font-bold">Dr. {appointment.doctor?.name ?? appointment.doctor?.medicalRegistrationNo}</div>
-                    <div className="mt-0.5 text-[10px] text-gray-600">Doctor's Signature & Stamp</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer — pinned to the bottom of the A4 sheet */}
-              <div className="mt-auto shrink-0">
-                <div className="bg-gray-100 py-2 px-6 text-center text-[10px] text-gray-500 border-t border-gray-200">
-                  Computer-generated prescription preview | Generated on {new Date().toLocaleString('en-IN')} | {organisation?.phone ? `Phone: ${organisation.phone}` : ''} {organisation?.email ? `| Email: ${organisation.email}` : ''}
-                </div>
-                <img src="/footer.png" alt="" className="block w-full h-auto" />
-              </div>
-            </div>
-          )}
-          </A4Preview>
+          {previewDocData && <RxDocPreview data={previewDocData} />}
           <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
-            <Button variant="default" onClick={printArea} disabled={!appointment} className="gap-1.5">
+            <Button variant="default" onClick={downloadRxPdf} disabled={!previewDocData || rxPdfGenerating} className="gap-1.5">
+              <FileDown className="size-3.5" />
+              {rxPdfGenerating ? "Generating…" : "Download PDF"}
+            </Button>
+            <Button variant="default" onClick={printRxDocument} disabled={!previewDocData} className="gap-1.5">
               <Printer className="size-3.5" />Print
             </Button>
           </DialogFooter>

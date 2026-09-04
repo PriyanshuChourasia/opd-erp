@@ -349,39 +349,32 @@ input[type="number"] {
   }
 }
 
-/* Prescriptions print on A4 portrait with zero @page margin: a margin-free
-   named page makes the browser's printable area line up 1:1 with the Rx
-   sheet. The sheet's physical geometry is re-pinned to exactly 210mm x
-   297mm in the dedicated @media print block below, so the on-screen px
-   preview (794px x 1123px @96dpi = 210mm x 297.06mm incl. its 1px border)
-   can never spill a rounding sliver onto a second page. */
+/* Prescriptions print on A4 portrait with zero @page margin. The document
+   is already paginated into real `.rx-page` sheets by the shared
+   prescription-document model (the exact same DOM powers the screen
+   preview, browser print and PDF export), so printing is a straight 1:1
+   map: every `.rx-page` is one physical 210mm x 297mm sheet and the
+   browser is never asked to paginate content itself. Each sheet is a
+   fixed-height flex column — header (shrink-0, full bleed) → padded body
+   (flex: 1) → footer (shrink-0, full bleed) — so the footer image lands on
+   the physical bottom edge of every page and the signature row
+   (margin-top:auto inside the FINAL page's body) sits directly above it.
+   overflow:hidden only absorbs a rounding hair; genuine overflow was
+   already moved to the next .rx-page by the paginator. The template-based
+   prescription print (print-prescription-button) keeps its own natural
+   pagination via the .prescription-print-area mapping below. */
 @page prescription-a4 {
   size: 210mm 297mm;
   margin: 0;
 }
-.prescription-print-area {
+.prescription-print-area,
+.rx-page {
   page: prescription-a4;
 }
-
-/* .prescription-print-area (the A4 prescription) is the ENTIRE A4-portrait
-   page. Inside @media print the sheet is pinned to the physical 210mm x
-   297mm sheet with !important (same rationale as the .slip-print-area block
-   above): the flex-column layout from the preview markup is preserved —
-   header (shrink-0, full bleed) → content (flex: 1 1 auto, its own
-   20px/24px padding) → footer (shrink-0, full bleed) — so the footer image
-   sits at the physical bottom edge and the signature row, which carries
-   margin-top:auto inside the content column, stays immediately above it.
-   The screen-only border/rounding and the footer's screen-only mt-auto are
-   dropped, and overflow:hidden guarantees a stray hair of rounding can
-   never mint a second page. Screen preview is untouched — everything here
-   is scoped to @media print. Scoped with :has(> img:first-child) so only
-   the A4 prescription sheets are affected — the template-based prescription
-   print (print-prescription-button, whose #print-area wraps a
-   PrescriptionTemplatePreview root div) keeps its natural pagination. */
 @media print {
-  /* Screen-only A4-preview scaling (see A4Preview) must not leak into
-     print: collapse the scale wrappers so #print-area sits directly on the
-     physical sheet. Inline styles can't beat these !important resets. */
+  /* Screen-only preview scaling (RxDocPreview) must not leak into print:
+     collapse the scale wrappers so the real sheet DOM sits directly on the
+     physical page. Inline transform/width styles can't beat these resets. */
   .rx-preview-viewport,
   .rx-preview-scaler,
   .rx-preview-page {
@@ -397,14 +390,22 @@ input[type="number"] {
     overflow: visible !important;
     transform: none !important;
   }
-  html:has(#print-area.prescription-print-area:has(> img:first-child)),
-  html:has(#print-area.prescription-print-area:has(> img:first-child)) body {
-    width: 210mm !important;
-    height: 297mm !important;
+  /* The strip is just a stack of already-paginated sheets — no flex column,
+     no fixed screen width, no on-screen gap separators. */
+  #print-area.rx-print-doc {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: transparent !important;
   }
-  #print-area.prescription-print-area:has(> img:first-child) {
+  .rx-preview-sep {
+    display: none !important;
+  }
+  /* Each .rx-page IS one physical A4 sheet: fixed 210mm x 297mm, one page
+     per sheet (break-after:page), no automatic browser splitting. */
+  #print-area .rx-page {
     display: flex !important;
     flex-direction: column !important;
     width: 210mm !important;
@@ -421,16 +422,12 @@ input[type="number"] {
     color: black !important;
     border: none !important;
     border-radius: 0 !important;
+    break-after: page;
+    page-break-after: always;
   }
-  /* Footer wrapper is the last direct child: the content column above it is
-     flex:1, so the footer is already pinned to the bottom — drop its
-     screen-only mt-auto so no auto margin can create slack below content. */
-  #print-area.prescription-print-area:has(> img:first-child) > *:last-child {
-    margin-top: 0 !important;
-  }
-  /* Header/footer images stay full-bleed and unclipped. */
-  #print-area.prescription-print-area:has(> img:first-child) img {
-    max-width: none !important;
+  #print-area .rx-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 }
 

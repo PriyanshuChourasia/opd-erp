@@ -30,6 +30,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
+import { AppointmentTimeHint, useAppointmentTimeCheck } from "./appointment-time-field";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
@@ -74,6 +75,13 @@ function twoDaysLaterStr() {
   const offset = d.getTimezoneOffset();
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
+/** Local wall-clock HH:mm for the current moment — the appointment-time
+ *  default. Computed once per form mount (the initializer is lazy), so it
+ *  does not tick while the form stays open. */
+function currentTimeHM() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 interface BookingForm {
   patient: { id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null;
@@ -83,12 +91,13 @@ interface BookingForm {
   registrationFee: number | null;
   isNewPatient: boolean;
   date: string;
+  time: string;
   notes: string;
   allergies: string[];
 }
 
 function emptyBookingForm(): BookingForm {
-  return { patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: null, isNewPatient: false, date: todayStr(), notes: "", allergies: [] };
+  return { patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: null, isNewPatient: false, date: todayStr(), time: currentTimeHM(), notes: "", allergies: [] };
 }
 
 export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) {
@@ -101,7 +110,9 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
   const preselectedPatientId = searchParams.patientId;
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
-  const [form, setForm] = useState<BookingForm>(emptyBookingForm());
+  // Lazy initializer: the form (incl. its current-time default) is built
+  // once when the page mounts, not re-evaluated on every render.
+  const [form, setForm] = useState<BookingForm>(emptyBookingForm);
   const [patientQuery, setPatientQuery] = useState("");
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
   const [patientSheetOpen, setPatientSheetOpen] = useState(false);
@@ -264,7 +275,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       return createAppointment({
         patientId: form.patient!.id,
         doctorId: form.doctorId,
-        date: `${form.date}T09:00:00`,
+        date: `${form.date}T${form.time}:00`,
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
@@ -287,7 +298,7 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       const appointment = await createAppointment({
         patientId: form.patient!.id,
         doctorId: form.doctorId,
-        date: `${form.date}T09:00:00`,
+        date: `${form.date}T${form.time}:00`,
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
@@ -328,7 +339,10 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  const canBook = !!form.patient && !!form.doctorId && !!form.type;
+  const timeStatus = useAppointmentTimeCheck({ doctorId: form.doctorId, date: form.date, time: form.time });
+
+  // A time confirmed as already booked blocks submission until changed; out-of-schedule times only warn.
+  const canBook = !!form.patient && !!form.doctorId && !!form.type && !timeStatus.alreadyBooked;
 
   return (
     <div className="w-full space-y-6">
@@ -513,20 +527,34 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
                 />
               </Field>
 
-              {/* ── Consultation type ── */}
-              <Field><FieldLabel>Consultation type *</FieldLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  {CONSULTATION_TYPES.map((t) => {
-                    const Icon = t.icon;
-                    return (
-                      <button key={t.value} type="button" className={cn("flex items-center gap-2 rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
-                        <Icon className="size-4 shrink-0" />
-                        <p className="font-medium text-foreground">{t.label}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
+              {/* ── Consultation type + Time (same row) ── */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_11rem]">
+                <Field><FieldLabel>Consultation type *</FieldLabel>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CONSULTATION_TYPES.map((t) => {
+                      const Icon = t.icon;
+                      return (
+                        <button key={t.value} type="button" className={cn("flex items-center gap-2 rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
+                          <Icon className="size-4 shrink-0" />
+                          <p className="font-medium text-foreground">{t.label}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+
+                <Field><FieldLabel htmlFor="a-time">Time *</FieldLabel>
+                  <Input
+                    id="a-time"
+                    type="time"
+                    step={60}
+                    value={form.time}
+                    onChange={(e) => setForm((prev) => ({ ...prev, time: e.target.value }))}
+                    onBlur={timeStatus.commit}
+                  />
+                  <AppointmentTimeHint status={timeStatus} />
+                </Field>
+              </div>
 
               {/* ── Notes ── */}
               <Field><FieldLabel htmlFor="a-notes">Notes</FieldLabel>

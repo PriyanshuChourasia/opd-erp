@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
+import { AppointmentTimeHint, useAppointmentTimeCheck } from "@/modules/appointments/components/appointment-time-field";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useDashboardStats } from "@/modules/dashboard/data/hooks";
 import { STATUS_STYLES } from "../../queue/data/interface";
@@ -95,12 +96,13 @@ interface BookingForm {
   amount: number;
   registrationFee: number | null;
   date: string;
+  time: string;
   notes: string;
   allergies: string[];
 }
 
 function emptyForm(): BookingForm {
-  return { patient: null, type: "WALK_IN", doctorId: "", amount: 100, registrationFee: null, date: todayStr(), notes: "", allergies: [] };
+  return { patient: null, type: "WALK_IN", doctorId: "", amount: 100, registrationFee: null, date: todayStr(), time: "09:00", notes: "", allergies: [] };
 }
 
 export function ReceptionistDashboardPage() {
@@ -181,7 +183,13 @@ export function ReceptionistDashboardPage() {
       setRegisterEmail("");
       setPatientQuery("");
       queryClient.invalidateQueries({ queryKey: ["booking-patients"] });
-      toast.success("Patient registered successfully");
+      if (saved?.portalLogin) {
+        toast.success(
+          `Patient registered with portal login — Username: ${saved.portalLogin.username}, Password: ${saved.portalLogin.password}`,
+        );
+      } else {
+        toast.success("Patient registered successfully");
+      }
     },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
@@ -236,7 +244,7 @@ export function ReceptionistDashboardPage() {
     mutationFn: () => createAppointment({
       patientId: form.patient!.id,
       doctorId: form.doctorId,
-      date: `${form.date}T09:00:00`,
+      date: `${form.date}T${form.time}:00`,
       type: form.type as AppointmentType,
       amount: form.amount,
       ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
@@ -258,7 +266,7 @@ export function ReceptionistDashboardPage() {
       const appointment = await createAppointment({
         patientId: form.patient!.id,
         doctorId: form.doctorId,
-        date: `${form.date}T09:00:00`,
+        date: `${form.date}T${form.time}:00`,
         type: form.type as AppointmentType,
         amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
@@ -288,8 +296,10 @@ export function ReceptionistDashboardPage() {
 
   function openSheet() { setForm(emptyForm()); setPatientQuery(""); setSheetOpen(true); }
 
-  // Only patient name, phone & doctor are required
-  const canBook = !!form.patient?.firstName.trim() && !!form.patient?.lastName.trim() && !!form.patient?.contactNo.trim() && !!form.doctorId;
+  const timeStatus = useAppointmentTimeCheck({ doctorId: form.doctorId, date: form.date, time: form.time });
+
+  // Only patient name, phone & doctor are required; an already-booked time blocks until changed.
+  const canBook = !!form.patient?.firstName.trim() && !!form.patient?.lastName.trim() && !!form.patient?.contactNo.trim() && !!form.doctorId && !timeStatus.alreadyBooked;
 
   return (
     <div className="space-y-6">
@@ -598,24 +608,39 @@ export function ReceptionistDashboardPage() {
                 )}
               </Field>
 
-              {/* ── Consultation Type (REQUIRED — determines priority) ── */}
-              <Field>
-                <FieldLabel>Appointment Type *</FieldLabel>
-                <div className="grid grid-cols-3 gap-2">
-                  {CONSULTATION_TYPES.map((t) => (
-                    <button key={t.value} type="button"
-                      className={cn("rounded-none border px-2 py-2 text-left text-xs transition-colors", form.type === t.value ? t.color + " border-2" : "text-muted-foreground hover:bg-muted")}
-                      onClick={() => setForm((p) => ({ ...p, type: t.value }))}>
-                      <p className="font-medium">{t.label}</p>
-                    </button>
-                  ))}
-                </div>
-                {selectedType && (
-                  <p className="mt-1.5 text-[11px] text-muted-foreground">
-                    Priority: <span className="font-medium text-foreground">{selectedType.label}</span> — Standard appointment
-                  </p>
-                )}
-              </Field>
+              {/* ── Consultation Type + Time (same row) ── */}
+              <div className="flex gap-3">
+                <Field className="min-w-0 flex-1">
+                  <FieldLabel>Appointment Type *</FieldLabel>
+                  <div className="grid grid-cols-3 gap-2">
+                    {CONSULTATION_TYPES.map((t) => (
+                      <button key={t.value} type="button"
+                        className={cn("rounded-none border px-2 py-2 text-left text-xs transition-colors", form.type === t.value ? t.color + " border-2" : "text-muted-foreground hover:bg-muted")}
+                        onClick={() => setForm((p) => ({ ...p, type: t.value }))}>
+                        <p className="font-medium">{t.label}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedType && (
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      Priority: <span className="font-medium text-foreground">{selectedType.label}</span> — Standard appointment
+                    </p>
+                  )}
+                </Field>
+
+                <Field className="w-36 shrink-0">
+                  <FieldLabel htmlFor="r-time">Time *</FieldLabel>
+                  <Input
+                    id="r-time"
+                    type="time"
+                    step={60}
+                    value={form.time}
+                    onChange={(e) => setForm((p) => ({ ...p, time: e.target.value }))}
+                    onBlur={timeStatus.commit}
+                  />
+                  <AppointmentTimeHint status={timeStatus} />
+                </Field>
+              </div>
 
               {/* ── Fee + Registration Fee ── */}
               <div className="space-y-2 rounded-none border p-3">

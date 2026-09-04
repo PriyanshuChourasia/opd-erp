@@ -30,6 +30,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
+import { AppointmentTimeHint, useAppointmentTimeCheck } from "./appointment-time-field";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
@@ -78,6 +79,9 @@ function localDateStr(d: Date) {
   const offset = d.getTimezoneOffset();
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
+function localTimeHM(d: Date) {
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+}
 
 interface EditForm {
   patient: { id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null;
@@ -86,6 +90,7 @@ interface EditForm {
   amount: number;
   registrationFee: number;
   date: string;
+  time: string;
   notes: string;
   allergies: string[];
 }
@@ -96,7 +101,7 @@ export function EditAppointmentPage() {
   const { appointmentId } = useParams({ from: "/_dashboard/appointments/$appointmentId/edit" });
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canReadOrganisation = hasPermission(permissions, "read", "company");
-  const [form, setForm] = useState<EditForm>({ patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: 0, date: todayStr(), notes: "", allergies: [] });
+  const [form, setForm] = useState<EditForm>({ patient: null, doctorId: "", type: "WALK_IN", amount: 0, registrationFee: 0, date: todayStr(), time: "09:00", notes: "", allergies: [] });
   const [formReady, setFormReady] = useState(false);
   const [patientQuery, setPatientQuery] = useState("");
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
@@ -136,6 +141,7 @@ export function EditAppointmentPage() {
         amount: appointment.amount,
         registrationFee: appointment.registrationFee,
         date: localDateStr(d),
+        time: localTimeHM(d),
         notes: appointment.notes ?? "",
         allergies: appointment.patient.allergies ?? [],
       });
@@ -206,7 +212,7 @@ export function EditAppointmentPage() {
       }
       return updateAppointment(appointmentId, {
         doctorId: form.doctorId,
-        date: `${form.date}T09:00:00`,
+        date: `${form.date}T${form.time}:00`,
         type: form.type,
         amount: form.amount,
         registrationFee: form.registrationFee,
@@ -230,7 +236,7 @@ export function EditAppointmentPage() {
       }
       await updateAppointment(appointmentId, {
         doctorId: form.doctorId,
-        date: `${form.date}T09:00:00`,
+        date: `${form.date}T${form.time}:00`,
         type: form.type,
         amount: form.amount,
         registrationFee: form.registrationFee,
@@ -274,7 +280,16 @@ export function EditAppointmentPage() {
     },
   });
 
-  const canSave = !!form.patient && !!form.doctorId && !!form.type;
+  const timeStatus = useAppointmentTimeCheck({
+    doctorId: form.doctorId,
+    date: form.date,
+    time: form.time,
+    excludeAppointmentId: appointmentId,
+  });
+
+  // A time confirmed as already booked by another appointment blocks saving
+  // until it is changed; the appointment being edited is excluded from the check.
+  const canSave = !!form.patient && !!form.doctorId && !!form.type && !timeStatus.alreadyBooked;
 
   // True bill total and what's already been collected against it — kept
   // separate so PaymentSheet can show a real "Net Total" alongside "Amount
@@ -498,16 +513,30 @@ export function EditAppointmentPage() {
               </Field>
               </div>
 
-              {/* ── Consultation type ── */}
-              <Field><FieldLabel>Consultation type *</FieldLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  {CONSULTATION_TYPES.map((t) => (
-                    <button key={t.value} type="button" className={cn("rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
-                      <p className="font-medium text-foreground">{t.label}</p>
-                    </button>
-                  ))}
-                </div>
-              </Field>
+              {/* ── Consultation type + Time (same row) ── */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_11rem]">
+                <Field><FieldLabel>Consultation type *</FieldLabel>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CONSULTATION_TYPES.map((t) => (
+                      <button key={t.value} type="button" className={cn("rounded-none border px-3 py-2 text-left text-xs", form.type === t.value ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")} onClick={() => setForm((prev) => ({ ...prev, type: t.value }))}>
+                        <p className="font-medium text-foreground">{t.label}</p>
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <Field><FieldLabel htmlFor="e-time">Time *</FieldLabel>
+                  <Input
+                    id="e-time"
+                    type="time"
+                    step={60}
+                    value={form.time}
+                    onChange={(e) => setForm((prev) => ({ ...prev, time: e.target.value }))}
+                    onBlur={timeStatus.commit}
+                  />
+                  <AppointmentTimeHint status={timeStatus} />
+                </Field>
+              </div>
 
               {/* ── Notes ── */}
               <Field><FieldLabel htmlFor="a-notes">Notes</FieldLabel>

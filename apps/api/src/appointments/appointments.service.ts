@@ -9,6 +9,7 @@ import type { IBaseService, IPaginatable } from '../common/interfaces/base-servi
 import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Appointment } from '@prisma/client';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { CheckSlotQueryDto } from './dto/check-slot-query.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { FindAppointmentsQueryDto } from './dto/find-appointments-query.dto';
@@ -18,6 +19,12 @@ import { CreatePaymentDto } from '../billing/dto/create-payment.dto';
 
 interface WithDoctor {
   doctor: { id: string } & Record<string, unknown>;
+}
+
+/** "HH:mm" (24h) → minutes since midnight. */
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
 }
 
 /** Attaches the doctor's display name (resolved off `User`) onto one appointment. */
@@ -49,6 +56,99 @@ export class AppointmentsService
     private readonly prisma: PrismaService,
     private readonly tokenNumberService: TokenNumberService,
   ) {}
+
+  /**
+   * Single-point availability check for a manually-entered booking time.
+   *
+   * Resolves the windows that apply to the requested date using the same
+   * rules as slot generation (recurring weekly EmployeeSchedule rows, plus
+   * one-off EmployeeScheduleException rows: DAY_OFF suppresses the date,
+   * OVERRIDE replaces the weekly windows, EXTRA_SHIFT layers on top) and
+   * reports:
+   *  - `withinSchedule` — the time falls inside any resolved window;
+   *  - `alreadyBooked` — another non-cancelled appointment for this doctor
+   *    already occupies the exact same date + minute;
+   *  - `dayOff` — convenience flag for UI copy when a DAY_OFF exception exists.
+   *
+   * Deliberately independent of SlotGeneratorService: this validates an
+   * arbitrary time (not slot boundaries), and grid generation is untouched.
+   */
+  async checkSlotAvailability(dto: CheckSlotQueryDto) {
+    const { doctorId, date, time, excludeAppointmentId } = dto;
+
+    const dayStart = new Date(`${date}T00:00:00`);
+    if (Number.isNaN(dayStart.getTime())) {
+      throw new BadRequestException('Invalid date — expected YYYY-MM-DD.');
+    }
+    dayStart.setHours(0, 0, 0, 0);
+    const nextDay = new Date(dayStart);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    // Convert JS getDay() (0=Sunday) to DayOfWeek (0=Monday) — same convention
+    // as the slot generator.
+    const dayOfWeek = (dayStart.getDay() + 6) % 7;
+    const timeMinutes = timeToMinutes(time);
+
+    // 1. One-off exceptions for the exact date
+    const exceptions = await this.prisma.employeeScheduleException.findMany({
+      where: {
+        employeeSchedulableType: 'Doctor',
+        employeeSchedulableId: doctorId,
+        date: { gte: dayStart, lt: nextDay },
+        deletedAt: null,
+      },
+      select: { type: true, startTime: true, endTime: true },
+    });
+
+    const dayOff = exceptions.some((e) => e.type === 'DAY_OFF');
+    const overrideRows = exceptions.filter((e) => e.type === 'OVERRIDE');
+    const extraRows = exceptions.filter((e) => e.type === 'EXTRA_SHIFT');
+
+    // 2. Resolve the working windows for this date
+    let windows: { startTime: string; endTime: string }[];
+    if (dayOff) {
+      windows = [];
+    } else if (overrideRows.length > 0) {
+      windows = overrideRows;
+    } else {
+      const recurring = await this.prisma.employeeSchedule.findMany({
+        where: {
+          employeeSchedulableType: 'Doctor',
+          employeeSchedulableId: doctorId,
+          dayOfWeek,
+          deletedAt: null,
+        },
+        select: { startTime: true, endTime: true },
+      });
+      windows = [...recurring, ...extraRows];
+    }
+
+    const withinSchedule = windows.some((w) => {
+      const start = timeToMinutes(w.startTime);
+      const end = timeToMinutes(w.endTime);
+      return timeMinutes >= start && timeMinutes < end;
+    });
+
+    // 3. Already-booked check: any non-cancelled appointment for this doctor
+    // on that date at the exact same minute (excluding the appointment being
+    // edited, when supplied).
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        doctorId,
+        date: { gte: dayStart, lt: nextDay },
+        status: { not: 'CANCELLED' },
+        deletedAt: null,
+        ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
+      },
+      select: { date: true },
+    });
+    const alreadyBooked = appointments.some((a) => {
+      const mins = a.date.getHours() * 60 + a.date.getMinutes();
+      return mins === timeMinutes;
+    });
+
+    return { withinSchedule, alreadyBooked, dayOff };
+  }
 
   async create(dto: CreateAppointmentDto, createdById?: string) {
     const date = new Date(dto.date);

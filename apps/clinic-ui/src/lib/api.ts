@@ -118,6 +118,10 @@ export interface Patient {
   patientAllergies?: PatientAllergy[];
   isFollowUp: boolean;
   isActive: boolean;
+  /** True when the patient already has a portal login User (attached on list responses). */
+  hasPortalLogin?: boolean;
+  /** Present (once) when registration auto-created a portal login — raw password is only available here. */
+  portalLogin?: Pick<PortalLoginResult, "username" | "email" | "password"> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1567,6 +1571,30 @@ export function createAppointment(input: CreateAppointmentInput) {
     method: "POST",
     path: "/appointments",
     body: input,
+  });
+}
+
+export interface AppointmentSlotCheck {
+  withinSchedule: boolean;
+  alreadyBooked: boolean;
+  dayOff?: boolean;
+}
+
+/**
+ * Validate a single manually-entered booking time (not slot-boundary based):
+ * whether it falls inside the doctor's schedule for that date and whether the
+ * exact date+minute is already booked by another non-cancelled appointment.
+ */
+export function checkAppointmentSlot(params: { doctorId: string; date: string; time: string; excludeAppointmentId?: string }) {
+  return request<AppointmentSlotCheck>({
+    method: "GET",
+    path: "/appointments/check-slot",
+    params: {
+      doctorId: params.doctorId,
+      date: params.date,
+      time: params.time,
+      excludeAppointmentId: params.excludeAppointmentId,
+    },
   });
 }
 

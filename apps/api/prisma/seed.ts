@@ -676,6 +676,7 @@ async function seedPermissions(): Promise<Permission[]> {
 
 async function seedUsers(
   developerRoleId: string,
+  superAdminRoleId: string,
   adminRoleId: string,
   doctorRoleId: string,
   demoDoctorId: string,
@@ -691,6 +692,24 @@ async function seedUsers(
       email: 'developer@clinic.com',
       password: developerPassword,
       roleId: developerRoleId,
+    },
+  });
+
+  // Super Admin demo account — every permission except Developer-only
+  // tooling (see the Super Admin role definition in seedRoles). Several
+  // other seed functions look this account up by email for createdById
+  // attribution on seeded historical data.
+  const superAdminPassword = await bcrypt.hash('SuperAdmin@123', 10);
+  await prisma.user.upsert({
+    where: { email: 'superadmin@clinic.com' },
+    update: {},
+    create: {
+      username: 'superadmin',
+      firstName: 'Super',
+      lastName: 'Admin',
+      email: 'superadmin@clinic.com',
+      password: superAdminPassword,
+      roleId: superAdminRoleId,
     },
   });
 
@@ -729,9 +748,10 @@ async function seedUsers(
     },
   });
 
-  console.log('Seeded 3 login users (Developer, Admin, Doctor).');
+  console.log('Seeded 4 login users (Developer, Super Admin, Admin, Doctor).');
   console.log('Login credentials:');
-  console.log('  developer@clinic.com / Developer@123 (Developer)');
+  console.log('  developer@clinic.com / Developer@123 (Developer — every permission, including Developer tools)');
+  console.log('  superadmin@clinic.com / SuperAdmin@123 (Super Admin — every permission except Developer tools)');
   console.log('  admin@clinic.com / Admin@123 (Admin)');
   console.log('  rajesh.sharma@clinic.com / Doctor@123 (Doctor — Dr Rajesh Sharma)');
 }
@@ -1641,6 +1661,7 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
   let totalPatients = 0;
   let totalVitals = 0;
   let totalRx = 0;
+  let totalAppt = 0;
   // Look up superadmin user for createdById
   const superadmin = await prisma.user.findFirst({ where: { email: 'superadmin@clinic.com' } });
   const userId = superadmin?.id ?? null;
@@ -1709,9 +1730,14 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
   }
   console.log(`Seeded ${totalPatients} demo patients with ${totalVitals} vitals records.`);
 
-  // Seed demo prescriptions for those patients (only if none exist yet)
+  // Seed demo prescriptions + their appointments for those patients (each
+  // independently skipped once its own table already has rows, so a DB that
+  // e.g. already has prescriptions from elsewhere still gets appointments).
   const existingRxCount = await prisma.prescription.count();
-  if (existingRxCount === 0) {
+  const existingApptCount = await prisma.appointment.count();
+  const shouldSeedRx = existingRxCount === 0;
+  const shouldSeedAppt = existingApptCount === 0;
+  if (shouldSeedRx || shouldSeedAppt) {
     const medicines = await prisma.medicine.findMany({ take: 100 });
     const medicineByName = new Map(medicines.map((m) => [m.name, m]));
 
@@ -1724,35 +1750,60 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
       const doctor = doctorRows[rx.doctorIdx];
       if (!doctor) continue;
 
-      const createdAt = new Date(Date.now() - rx.daysAgo * 24 * 60 * 60 * 1000);
+      const visitDate = new Date(Date.now() - rx.daysAgo * 24 * 60 * 60 * 1000);
 
-      await prisma.prescription.create({
-        data: {
-          patientId: patient.id,
-          doctorId: doctor.id,
-          diagnosis: rx.diagnosis,
-          notes: rx.notes ?? null,
-          status: rx.status,
-          createdAt,
-          updatedAt: createdAt,
-          items: {
-            create: rx.items.map((item) => {
-              const medicine = medicineByName.get(item.medicineName);
-              return {
-                medicineId: medicine?.id ?? 'unknown',
-                medicineName: item.medicineName,
-                dosage: item.dosage,
-                duration: item.duration,
-                quantity: item.qty,
-              };
-            }),
+      // One completed appointment per demo visit — a prescription already
+      // exists for it, so the consultation it came from must have happened.
+      if (shouldSeedAppt) {
+        await prisma.appointment.create({
+          data: {
+            patientId: patient.id,
+            doctorId: doctor.id,
+            date: visitDate,
+            type: 'CONSULTATION',
+            status: 'COMPLETED',
+            amount: doctor.consultationFee,
+            amountPaid: doctor.consultationFee,
+            reasonForVisit: rx.diagnosis,
+            notes: rx.notes ?? null,
+            createdAt: visitDate,
+            updatedAt: visitDate,
+            createdById: userId,
           },
-        },
-      });
-      totalRx++;
+        });
+        totalAppt++;
+      }
+
+      if (shouldSeedRx) {
+        await prisma.prescription.create({
+          data: {
+            patientId: patient.id,
+            doctorId: doctor.id,
+            diagnosis: rx.diagnosis,
+            notes: rx.notes ?? null,
+            status: rx.status,
+            createdAt: visitDate,
+            updatedAt: visitDate,
+            createdById: userId,
+            items: {
+              create: rx.items.map((item) => {
+                const medicine = medicineByName.get(item.medicineName);
+                return {
+                  medicineId: medicine?.id ?? 'unknown',
+                  medicineName: item.medicineName,
+                  dosage: item.dosage,
+                  duration: item.duration,
+                  quantity: item.qty,
+                };
+              }),
+            },
+          },
+        });
+        totalRx++;
+      }
     }
   }
-  console.log(`Seeded ${totalRx} demo prescriptions with items.`);
+  console.log(`Seeded ${totalAppt} demo appointments and ${totalRx} demo prescriptions with items.`);
 }
 
 // ─── Main ───────────────────────────────────────────────────
@@ -2324,18 +2375,20 @@ async function main() {
   const roles = await seedRoles(permissions);
   // Demo doctor login links to Dr Rajesh Sharma (first doctorData entry, MCI-10001).
   const demoDoctor = doctors.find((d) => d.medicalRegistrationNo === 'MCI-10001') ?? doctors[0];
-  await seedUsers(roles.developer.id, roles.admin.id, roles.doctor.id, demoDoctor.id);
+  await seedUsers(roles.developer.id, roles.superAdmin.id, roles.admin.id, roles.doctor.id, demoDoctor.id);
 
   await seedBloodGroups();
 
   await seedStarterPatients();
+  // Demo appointments + prescriptions (each independently safe to rerun —
+  // see the shouldSeedAppt/shouldSeedRx guards inside seedPatientsWithHistory).
+  await seedPatientsWithHistory(doctors);
 
-  console.log('\n📊 Skipping demo transactional data (appointments, bills, prescriptions, accounting)...');
+  console.log('\n📊 Skipping remaining demo transactional data (bills, accounting)...');
   console.log('   Patients and medicines are kept from wipe-data.ts.');
   console.log('   Run seedAccounting() separately if you need chart-of-accounts.');
 
   // Uncomment below to re-seed specific data:
-  // await seedPatientsWithHistory(doctors);
   // await seedBills();
   // await seedOrders(doctors);
   // await seedDispensing();

@@ -46,11 +46,17 @@ if ! npx prisma migrate deploy; then
   npx prisma migrate reset --force
 fi
 
-echo "[entrypoint] Seeding database with demo data (--fresh)..."
+echo "[entrypoint] Seeding database (safe/additive — adds missing reference & demo rows, never deletes existing data)..."
 # Run seed directly via ts-node for reliability — bypasses prisma db seed
 # wrapper which can have issues forwarding args in some environments.
-if ! npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts --fresh; then
-  echo "[entrypoint] Seed failed — resetting database and re-seeding from scratch..."
+# Deliberately NOT --fresh here: this runs on every container start
+# (including crash-restarts), and this may be a database with real data in
+# it — --fresh wipes the whole database first. Each seed function already
+# skips itself once its table has rows, so this is safe to rerun any number
+# of times. Only the failure path below (schema drift severe enough that
+# seeding itself errors) escalates to a full destructive reset.
+if ! npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts; then
+  echo "[entrypoint] Seed failed — resetting database and re-seeding from scratch (--fresh)..."
   npx prisma migrate reset --force
   npx ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts --fresh
 fi

@@ -1,7 +1,7 @@
 services:
   postgres_db:
     image: postgres:16-alpine
-    container_name: opd_postgres
+    container_name: ${COMPOSE_PROJECT_NAME:-opd}_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-nest_user}
@@ -10,8 +10,11 @@ services:
     # Host port and container name are env-overridable (COMPOSE_PROJECT_NAME,
     # POSTGRES_HOST_PORT) so a second deployment of this same repo on the same
     # host can run side by side — set both differently in that deployment's .env.
+    # Also matters on a single deployment: the default 5432 collides with any
+    # locally-running (non-Docker) Postgres on the host — set POSTGRES_HOST_PORT
+    # to something else (e.g. 5433) if `docker compose up` fails to bind it.
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       # Read-only-ish convenience mount so an operator can pg_restore a
@@ -30,10 +33,13 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     image: ${COMPOSE_PROJECT_NAME:-opd}-api
-    container_name: opdapi
+    container_name: ${COMPOSE_PROJECT_NAME:-opd}_api
     restart: unless-stopped
+    # Same collision risk as postgres_db above: the default 4000 collides
+    # with a locally-running (non-Docker) copy of this API — override
+    # API_HOST_PORT if `docker compose up` fails to bind it.
     ports:
-      - "4000:4000"
+      - "${API_HOST_PORT:-4000}:4000"
     environment:
       NODE_ENV: production
       PORT: "4000"

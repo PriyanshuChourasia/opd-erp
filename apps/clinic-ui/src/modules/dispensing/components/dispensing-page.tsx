@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table/data-table";
 
 export function DispensingPage() {
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["dispensing", pagination.pageIndex, pagination.pageSize],

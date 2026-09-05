@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/user",
+    "description": "Users CRUD module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\User\\": "",
+            "Modules\\User\\Database\\Factories\\": "database/factories/",
+            "Modules\\User\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\User\\Tests\\": "tests/"
+        }
+    }
+}

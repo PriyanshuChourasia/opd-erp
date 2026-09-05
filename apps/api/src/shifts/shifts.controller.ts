@@ -38,7 +38,7 @@ export class ShiftsController {
 
   @Permissions('delete:shifts')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.shiftsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.shiftsService.remove(id, req.user.id);
   }
 }

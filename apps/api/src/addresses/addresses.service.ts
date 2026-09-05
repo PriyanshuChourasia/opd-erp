@@ -39,7 +39,7 @@ export class AddressesService
   }
 
   async findAll(query: FindAddressesQueryDto): Promise<PaginatedResult<Address>> {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (query.addressableType) where.addressableType = query.addressableType;
     if (query.addressableId) where.addressableId = query.addressableId;
     if (query.addressType) where.addressType = query.addressType;
@@ -61,7 +61,7 @@ export class AddressesService
   /** Find all addresses for a given polymorphic entity. */
   async findByEntity(addressableType: string, addressableId: string) {
     return this.prisma.address.findMany({
-      where: { addressableType, addressableId },
+      where: { addressableType, addressableId, deletedAt: null },
       orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
     });
   }
@@ -86,7 +86,7 @@ export class AddressesService
   }
 
   async findOne(id: string) {
-    const address = await this.prisma.address.findUnique({ where: { id } });
+    const address = await this.prisma.address.findUnique({ where: { id, deletedAt: null } });
     if (!address) throw new NotFoundException(`Address ${id} not found`);
     return address;
   }
@@ -113,8 +113,11 @@ export class AddressesService
     return this.prisma.address.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.address.delete({ where: { id } });
+    return this.prisma.address.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

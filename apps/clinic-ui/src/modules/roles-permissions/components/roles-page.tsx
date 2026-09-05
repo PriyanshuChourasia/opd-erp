@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Check, Pencil, Plus, ShieldCheck, Trash2, Users, X, ChevronRight } from "lucide-react";
+import { Check, Pencil, Plus, Search, ShieldCheck, Trash2, Users, X, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,9 @@ export function RolesPage() {
   const [deletePermConfirm, setDeletePermConfirm] = useState<string | null>(null);
   const [formName, setFormName] = useState(""); const [formDesc, setFormDesc] = useState(""); const [formPermissions, setFormPermissions] = useState<string[]>([]);
   const [permResource, setPermResource] = useState(""); const [permAction, setPermAction] = useState(""); const [permName, setPermName] = useState("");
+  const [permSearch, setPermSearch] = useState("");
+  const [permModuleFilter, setPermModuleFilter] = useState("");
+  const [permFeatureFilter, setPermFeatureFilter] = useState("");
 
   // User-role management state
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
@@ -53,8 +56,8 @@ export function RolesPage() {
   const user = useAppSelector((state) => state.auth.user);
   const canManage = isDeveloperRole(user?.roleName);
 
-  const [rolesPagination, setRolesPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
-  const [permsPagination, setPermsPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [rolesPagination, setRolesPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
+  const [permsPagination, setPermsPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
   // Paginated lists that back the two tables.
   const { data: rolesResponse, isLoading: rolesLoading } = useQuery({
@@ -70,8 +73,38 @@ export function RolesPage() {
 
   const roles = rolesResponse?.data ?? [];
   const rolesPageCount = rolesResponse?.meta?.totalPages ?? 0;
-  const permissionsList = permissionsResponse?.data ?? [];
+  const permissionsResponseData = permissionsResponse?.data;
+  const permissionsList = useMemo(() => permissionsResponseData ?? [], [permissionsResponseData]);
   const permissionsPageCount = permissionsResponse?.meta?.totalPages ?? 0;
+
+  const filteredPermissionsList = useMemo(() => {
+    let list = permissionsList;
+    if (permModuleFilter) {
+      list = list.filter((p) => p.resource === permModuleFilter);
+    }
+    if (permFeatureFilter) {
+      list = list.filter((p) => p.action === permFeatureFilter);
+    }
+    if (permSearch.trim()) {
+      const q = permSearch.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.resource.toLowerCase().includes(q) ||
+          p.action.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [permissionsList, permSearch, permModuleFilter, permFeatureFilter]);
+
+  const uniqueModules = useMemo(
+    () => [...new Set(permissionsList.map((p) => p.resource))].sort(),
+    [permissionsList],
+  );
+  const uniqueFeatures = useMemo(
+    () => [...new Set(permissionsList.map((p) => p.action))].sort(),
+    [permissionsList],
+  );
 
   // Unpaginated lists (few enough records to always fetch in full) for the
   // permission matrix and the permission-picker inside the role sheet.
@@ -526,19 +559,61 @@ export function RolesPage() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base">All Permissions</CardTitle><CardDescription>Available permission rules in the system</CardDescription></CardHeader>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">All Permissions</CardTitle>
+              <CardDescription>Available permission rules in the system</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                className="flex h-8 rounded-none border border-input bg-background px-2 text-xs"
+                value={permModuleFilter}
+                onChange={(e) => { setPermModuleFilter(e.target.value); setPermsPagination((p) => ({ ...p, pageIndex: 0 })); }}
+              >
+                <option value="">All Modules</option>
+                {uniqueModules.map((m) => (
+                  <option key={m} value={m}>{resourceLabels[m] ?? m}</option>
+                ))}
+              </select>
+              <select
+                className="flex h-8 rounded-none border border-input bg-background px-2 text-xs"
+                value={permFeatureFilter}
+                onChange={(e) => { setPermFeatureFilter(e.target.value); setPermsPagination((p) => ({ ...p, pageIndex: 0 })); }}
+              >
+                <option value="">All Features</option>
+                {uniqueFeatures.map((f) => (
+                  <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
+                ))}
+              </select>
+              <div className="relative w-52">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search permissions..."
+                  className="pl-9 h-8"
+                  value={permSearch}
+                  onChange={(e) => setPermSearch(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </CardHeader>
         <CardContent className="p-0">
           <DataTable
             columns={permissionColumns}
-            data={permissionsList}
-            pageCount={permissionsPageCount}
+            data={filteredPermissionsList}
+            pageCount={(permSearch.trim() || permModuleFilter || permFeatureFilter) ? 1 : permissionsPageCount}
             pagination={permsPagination}
             onPaginationChange={setPermsPagination}
             isLoading={permissionsLoading}
             emptyState={
               <div className="flex flex-col items-center gap-2 py-6 text-center">
                 <ShieldCheck className="size-8 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">No permissions yet — click "Seed Permissions" to create defaults</p>
+                <p className="text-sm text-muted-foreground">
+                  {(permSearch.trim() || permModuleFilter || permFeatureFilter)
+                    ? "No permissions match your filters"
+                    : 'No permissions yet — click "Seed Permissions" to create defaults'}
+                </p>
               </div>
             }
           />

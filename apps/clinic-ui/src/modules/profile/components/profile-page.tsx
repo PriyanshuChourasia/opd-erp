@@ -20,6 +20,7 @@ import { updateProfile, changePassword } from "@/lib/api";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -295,9 +296,8 @@ export function ProfilePage() {
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="current-pwd">Current Password</FieldLabel>
-                  <Input
+                  <PasswordInput
                     id="current-pwd"
-                    type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     disabled={changingPassword}
@@ -305,9 +305,8 @@ export function ProfilePage() {
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="new-pwd">New Password</FieldLabel>
-                  <Input
+                  <PasswordInput
                     id="new-pwd"
-                    type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     disabled={changingPassword}
@@ -315,9 +314,8 @@ export function ProfilePage() {
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="confirm-pwd">Confirm Password</FieldLabel>
-                  <Input
+                  <PasswordInput
                     id="confirm-pwd"
-                    type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     disabled={changingPassword}

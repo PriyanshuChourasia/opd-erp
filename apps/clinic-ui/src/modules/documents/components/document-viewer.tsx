@@ -60,7 +60,7 @@ export function DocumentGallery({ documentableType, documentableId }: DocumentGa
           <p className="text-xs font-medium text-muted-foreground mb-1">Profile Photo</p>
           <div className="relative group overflow-hidden rounded-lg border hover:ring-2 hover:ring-primary/50 transition-all">
             <button type="button" onClick={() => setViewingDoc(photo)} className="block w-full">
-              <img src={`/uploads/documents/${photo.fileName}`} alt={photo.originalName} className="w-full h-36 object-cover" />
+              <img src={`/api/documents/by-name/${photo.fileName}/image`} alt={photo.originalName} className="w-full h-36 object-cover" />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end">
                 <div className="w-full p-2 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-xs text-white font-medium">{photo.originalName}</p>
@@ -91,7 +91,7 @@ export function DocumentGallery({ documentableType, documentableId }: DocumentGa
                 onClick={() => setViewingDoc(doc)}
               >
                 {doc.mimeType.startsWith("image/") ? (
-                  <img src={`/uploads/documents/${doc.fileName}`} alt={doc.originalName} className="w-full h-24 object-cover" />
+                  <img src={`/api/documents/by-name/${doc.fileName}/image`} alt={doc.originalName} className="w-full h-24 object-cover" />
                 ) : (
                   <div className="flex h-24 items-center justify-center bg-muted">
                     {getFileIcon(doc.mimeType)}
@@ -161,13 +161,13 @@ export function DocumentGallery({ documentableType, documentableId }: DocumentGa
 
             {viewingDoc.mimeType.startsWith("image/") ? (
               <img
-                src={`/uploads/documents/${viewingDoc.fileName}`}
+                src={`/api/documents/by-name/${viewingDoc.fileName}/image`}
                 alt={viewingDoc.originalName}
                 className="max-h-[80vh] max-w-[85vw] rounded-lg object-contain shadow-2xl"
               />
             ) : viewingDoc.mimeType === "application/pdf" ? (
               <iframe
-                src={`/uploads/documents/${viewingDoc.fileName}`}
+                src={`/api/documents/by-name/${viewingDoc.fileName}/image`}
                 className="h-[80vh] w-[85vw] rounded-lg bg-white"
                 title={viewingDoc.originalName}
               />

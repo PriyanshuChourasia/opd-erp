@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/designation",
+    "description": "Designation module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Designation\\": "",
+            "Modules\\Designation\\Database\\Factories\\": "database/factories/",
+            "Modules\\Designation\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Designation\\Tests\\": "tests/"
+        }
+    }
+}

@@ -2,19 +2,19 @@ import { getPatientName } from "@/lib/api";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { CalendarClock, ClipboardList, Clock, History, ListOrdered, Pencil, Plus, Receipt, Search, Stethoscope, Users, X } from "lucide-react";
+import { CalendarClock, ClipboardList, History, ListOrdered, Pencil, Plus, Receipt, Search, Stethoscope, Users, X } from "lucide-react";
 import {
   fetchDoctors,
-  fetchDoctorSlots,
   fetchPatients,
   createPatient,
   createDoctorWithUser,
   checkoutAppointment,
+  addBillPayment,
   fetchAppointments,
   fetchOrganisation,
   createAppointment,
   fetchQueue,
-  fetchAllDoctorSchedules,
+  fetchBloodGroups,
   type Doctor,
   type Appointment,
   type AppointmentType,
@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
+import { AppointmentTimeHint, useAppointmentTimeCheck } from "@/modules/appointments/components/appointment-time-field";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useDashboardStats } from "@/modules/dashboard/data/hooks";
 import { STATUS_STYLES } from "../../queue/data/interface";
@@ -42,10 +44,6 @@ import { hasPermission } from "@/lib/roles";
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400" },
   { value: "CONSULTATION", label: "Consultation", color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400" },
-  { value: "SPECIALIST", label: "Specialist", color: "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400" },
-  { value: "EMERGENCY", label: "Emergency", color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400" },
-  { value: "FOLLOW_UP", label: "Follow-up", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400" },
-  { value: "TELECONSULTATION", label: "Teleconsult", color: "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-400" },
 ] as const;
 
 function todayStr() {
@@ -72,7 +70,7 @@ function twoDaysLaterStr() {
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
 
-function currency(value: number) { return `₹${value.toFixed(2)}`; }
+function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
 const APPT_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -96,16 +94,16 @@ interface BookingForm {
   patient: { id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null;
   type: string;
   doctorId: string;
-  fee: number;
+  amount: number;
   registrationFee: number | null;
   date: string;
-  slot: string | null;
+  time: string;
   notes: string;
   allergies: string[];
 }
 
 function emptyForm(): BookingForm {
-  return { patient: null, type: "WALK_IN", doctorId: "", fee: 100, registrationFee: null, date: todayStr(), slot: null, notes: "", allergies: [] };
+  return { patient: null, type: "WALK_IN", doctorId: "", amount: 100, registrationFee: null, date: todayStr(), time: "09:00", notes: "", allergies: [] };
 }
 
 export function ReceptionistDashboardPage() {
@@ -114,8 +112,7 @@ export function ReceptionistDashboardPage() {
   const statsQuery = useDashboardStats();
   const stats = statsQuery.data;
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
-  const canReadOrganisation = hasPermission(permissions, "read", "organisation");
-  const canReadEmployeeSchedules = hasPermission(permissions, "read", "employee-schedules");
+  const canReadOrganisation = hasPermission(permissions, "read", "company");
 
   const { data: todayAppointmentsData, isLoading: loadingAppts } = useQuery({
     queryKey: ["dashboard-today-appointments"],
@@ -124,7 +121,7 @@ export function ReceptionistDashboardPage() {
   });
   const todayAppointmentsList = useMemo(() => todayAppointmentsData?.data ?? [], [todayAppointmentsData]);
   const displayAppts = useMemo(() => todayAppointmentsList.slice(0, 8), [todayAppointmentsList]);
-  const apptsTotalFee = useMemo(() => displayAppts.reduce((sum, a) => sum + a.fee, 0), [displayAppts]);
+  const apptsTotalAmount = useMemo(() => displayAppts.reduce((sum, a) => sum + a.amount, 0), [displayAppts]);
   const apptsTotalReg = useMemo(() => displayAppts.reduce((sum, a) => sum + a.registrationFee, 0), [displayAppts]);
 
   const { data: todayQueueData, isLoading: loadingQueue } = useQuery({
@@ -168,9 +165,15 @@ export function ReceptionistDashboardPage() {
   const [newPatientLastName, setNewPatientLastName] = useState("");
   const [newPatientPhone, setNewPatientPhone] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
+  const [registerBloodGroup, setRegisterBloodGroup] = useState("");
+
+  const { data: bloodGroups = [] } = useQuery({
+    queryKey: ["blood-groups"],
+    queryFn: () => fetchBloodGroups(),
+  });
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const createPatientMutation = useMutation({
-    mutationFn: (data: { firstName: string; lastName: string; contactNo: string; email?: string }) => createPatient(data),
+    mutationFn: (data: { firstName: string; lastName: string; contactNo: string; email?: string; bloodGroup?: string }) => createPatient(data),
     onSuccess: (patient: any) => {
       const saved = patient?.data ?? patient;
       setForm((prev) => ({ ...prev, patient: { id: saved.id, firstName: saved.firstName, middleName: saved.middleName, lastName: saved.lastName, contactNo: saved.contactNo }, registrationFee: null }));
@@ -181,7 +184,13 @@ export function ReceptionistDashboardPage() {
       setRegisterEmail("");
       setPatientQuery("");
       queryClient.invalidateQueries({ queryKey: ["booking-patients"] });
-      toast.success("Patient registered successfully");
+      if (saved?.portalLogin) {
+        toast.success(
+          `Patient registered with portal login — Username: ${saved.portalLogin.username}, Password: ${saved.portalLogin.password}`,
+        );
+      } else {
+        toast.success("Patient registered successfully");
+      }
     },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
@@ -190,7 +199,7 @@ export function ReceptionistDashboardPage() {
     mutationFn: (input: CreateDoctorWithUserInput) => createDoctorWithUser(input),
     onSuccess: (result: any) => {
       const doctor = result?.data ?? result?.doctor ?? result;
-      setForm((prev) => ({ ...prev, doctorId: doctor.id, slot: null, fee: doctor.consultationFee ?? prev.fee }));
+      setForm((prev) => ({ ...prev, doctorId: doctor.id, amount: doctor.consultationFee ?? prev.amount }));
       setDoctorFormOpen(false);
       setNewDoctorForm({ firstName: "", lastName: "", email: "", username: "", password: "", medicalRegistrationNo: "", specialization: "", consultationFee: 0 });
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
@@ -205,39 +214,6 @@ export function ReceptionistDashboardPage() {
     queryFn: () => fetchDoctors({ limit: 100 }),
   });
   const doctors = doctorsResponse?.data ?? [];
-
-  // Fetch all doctor schedules in one call
-  const { data: allSchedules = [] } = useQuery({
-    queryKey: ["employee-schedules", "all-doctors"],
-    queryFn: async () => {
-      const res = await fetchAllDoctorSchedules();
-      return Array.isArray(res) ? res : (res as any)?.data ?? [];
-    },
-    enabled: canReadEmployeeSchedules,
-    refetchOnMount: true,
-    staleTime: 0,
-  });
-
-  // Build a schedule map for the selected date
-  const doctorScheduleMap = useMemo(() => {
-    if (!form.date) return new Map<string, { startTime: string; endTime: string }>();
-    const dateObj = new Date(form.date + "T00:00:00");
-    const dayOfWeek = (dateObj.getDay() + 6) % 7;
-    const map = new Map<string, { startTime: string; endTime: string }>();
-    for (const sched of allSchedules) {
-      if (sched.dayOfWeek === dayOfWeek) {
-        map.set(sched.employeeSchedulableId, { startTime: sched.startTime, endTime: sched.endTime });
-      }
-    }
-    return map;
-  }, [allSchedules, form.date]);
-
-  // Slots for the selected doctor + date
-  const slotsQuery = useQuery({
-    queryKey: ["doctor-slots", form.doctorId, form.date],
-    queryFn: () => fetchDoctorSlots(form.doctorId, form.date),
-    enabled: !!form.doctorId && !!form.date,
-  });
 
   const patientResults = useQuery({
     queryKey: ["booking-patients", patientQuery],
@@ -269,15 +245,14 @@ export function ReceptionistDashboardPage() {
     mutationFn: () => createAppointment({
       patientId: form.patient!.id,
       doctorId: form.doctorId,
-      date: `${form.date}T${form.slot || "09:00"}:00`,
+      date: `${form.date}T${form.time}:00`,
       type: form.type as AppointmentType,
-      fee: form.fee,
+      amount: form.amount,
       ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
       notes: form.notes || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-slots"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setSheetOpen(false);
       setForm(emptyForm());
@@ -292,23 +267,34 @@ export function ReceptionistDashboardPage() {
       const appointment = await createAppointment({
         patientId: form.patient!.id,
         doctorId: form.doctorId,
-        date: `${form.date}T${form.slot || "09:00"}:00`,
+        date: `${form.date}T${form.time}:00`,
         type: form.type as AppointmentType,
-        fee: form.fee,
+        amount: form.amount,
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
         notes: form.notes || undefined,
       });
-      await checkoutAppointment(appointment.id, {
+      const bill = await checkoutAppointment(appointment.id, {
         paymentMethod: payload.paymentMethod,
-        discount: payload.discount > 0 ? payload.discount : undefined,
+        ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
+        discountRuleId: payload.discountRuleId,
         tax: payload.tax > 0 ? payload.tax : undefined,
         notes: payload.notes || undefined,
       });
+      // checkout() only seeds paidAmount from pre-existing advance payments —
+      // the amount collected just now in the PaymentSheet still has to be
+      // recorded against the newly created bill, or it prints/records as PENDING.
+      if (payload.paidAmount && payload.paidAmount > 0) {
+        await addBillPayment(bill.id, {
+          amount: payload.paidAmount,
+          method: payload.paymentMethod,
+          ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
+          notes: payload.notes || undefined,
+        });
+      }
       return appointment;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-slots"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["billing"] });
       setPaymentSheetOpen(false);
@@ -317,13 +303,23 @@ export function ReceptionistDashboardPage() {
       setPatientQuery("");
       toast.success("Appointment booked and paid successfully");
     },
-    onError: (err) => toast.error(extractApiError(err)),
+    onError: (err) => {
+      // If createAppointment/checkout already succeeded and only the payment
+      // write failed, the appointment (with an unpaid bill) now exists —
+      // surface it in the list so it isn't invisible and doesn't get
+      // double-booked by a naive retry.
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.error(extractApiError(err));
+    },
   });
 
   function openSheet() { setForm(emptyForm()); setPatientQuery(""); setSheetOpen(true); }
 
-  // Only patient name, phone & doctor are required
-  const canBook = !!form.patient?.firstName.trim() && !!form.patient?.lastName.trim() && !!form.patient?.contactNo.trim() && !!form.doctorId;
+  const timeStatus = useAppointmentTimeCheck({ doctorId: form.doctorId, date: form.date, time: form.time });
+
+  // Only patient name, phone & doctor are required; an already-booked time blocks until changed.
+  const canBook = !!form.patient?.firstName.trim() && !!form.patient?.lastName.trim() && !!form.patient?.contactNo.trim() && !!form.doctorId && !timeStatus.alreadyBooked;
 
   return (
     <div className="space-y-6">
@@ -336,7 +332,7 @@ export function ReceptionistDashboardPage() {
           <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>New Appointment</SheetTitle>
-              <SheetDescription>Patient details and doctor are required. Slot is optional.</SheetDescription>
+              <SheetDescription>Patient details and doctor are required.</SheetDescription>
             </SheetHeader>
             <div className="flex-1 space-y-5 px-4 pb-4">
               {/* ── Patient (REQUIRED) ── */}
@@ -431,8 +427,7 @@ export function ReceptionistDashboardPage() {
                       value={newPatientPhone}
                       onChange={(e) => setNewPatientPhone(e.target.value)}
                     />
-                  </div>
-                  <div>
+                  </div>                    <div>
                     <label className="text-xs font-medium text-teal-700">Email</label>
                     <Input
                       className="border-teal-300 bg-white focus-visible:ring-teal-500"
@@ -441,6 +436,19 @@ export function ReceptionistDashboardPage() {
                       value={registerEmail}
                       onChange={(e) => setRegisterEmail(e.target.value)}
                     />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-teal-700">Blood Group</label>
+                    <select
+                      className="flex h-9 w-full rounded-none border border-teal-300 bg-white px-3 py-1 text-sm"
+                      value={registerBloodGroup}
+                      onChange={(e) => setRegisterBloodGroup(e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {bloodGroups.map((bg) => (
+                        <option key={bg.id} value={bg.name}>{bg.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex items-center justify-between border-t border-teal-200 pt-3">
                     <p className="text-[11px] text-teal-600">
@@ -454,7 +462,7 @@ export function ReceptionistDashboardPage() {
                         size="sm"
                         className="bg-teal-600 text-white hover:bg-teal-700"
                         disabled={!newPatientFirstName.trim() || !newPatientLastName.trim() || !newPatientPhone.trim() || createPatientMutation.isPending}
-                        onClick={() => createPatientMutation.mutate({ firstName: newPatientFirstName.trim(), lastName: newPatientLastName.trim(), contactNo: newPatientPhone.trim(), email: registerEmail.trim() || undefined })}
+                        onClick={() => createPatientMutation.mutate({ firstName: newPatientFirstName.trim(), lastName: newPatientLastName.trim(), contactNo: newPatientPhone.trim(), email: registerEmail.trim() || undefined, bloodGroup: registerBloodGroup || undefined })}
                       >
                         {createPatientMutation.isPending ? "Saving..." : "Save & Select"}
                       </Button>
@@ -472,7 +480,7 @@ export function ReceptionistDashboardPage() {
                     type="date"
                     className="w-auto"
                     value={form.date}
-                    onChange={(e) => setForm((p) => ({ ...p, date: e.target.value, department: "", doctorId: "", slot: null }))}
+                    onChange={(e) => setForm((p) => ({ ...p, date: e.target.value, doctorId: "" }))}
                   />
                   <div className="flex gap-1.5">
                     {[
@@ -483,7 +491,7 @@ export function ReceptionistDashboardPage() {
                     <button
                       key={value}
                       type="button"
-                      onClick={() => setForm((p) => ({ ...p, date: value, department: "", doctorId: "", slot: null }))}
+                      onClick={() => setForm((p) => ({ ...p, date: value, doctorId: "" }))}
                       className={cn(
                         "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
                         form.date === value
@@ -556,7 +564,7 @@ export function ReceptionistDashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon-sm" title="Clear doctor" onClick={() => setForm((p) => ({ ...p, doctorId: "", slot: null, fee: 0 }))}>
+                    <Button variant="ghost" size="icon-sm" title="Clear doctor" onClick={() => setForm((p) => ({ ...p, doctorId: "", amount: 0 }))}>
                       <X className="size-4" />
                     </Button>
                   </div>
@@ -579,33 +587,24 @@ export function ReceptionistDashboardPage() {
                             (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
                             (d.specialization ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase())
                           )
-                          .map((d) => {
-                            const schedule = doctorScheduleMap.get(d.id);
-                            return (
-                              <button
-                                key={d.id}
-                                type="button"
-                                className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                                onMouseDown={() => {
-                                  setForm((prev) => ({ ...prev, doctorId: d.id, slot: null, fee: d.consultationFee ?? prev.fee }));
-                                  setDoctorSearchQuery("");
-                                  setDoctorSearchOpen(false);
-                                }}
-                              >
-                                <span className="font-medium">{d.name ?? d.medicalRegistrationNo ?? "Doctor"}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {d.specialization}
-                                  {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ""}
-                                </span>
-                                {schedule && (
-                                  <span className="mt-1 inline-flex items-center gap-1 rounded-none border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[11px] font-semibold font-mono text-primary">
-                                    <Clock className="size-3" />
-                                    {schedule.startTime} – {schedule.endTime}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
+                          .map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                              onMouseDown={() => {
+                                setForm((prev) => ({ ...prev, doctorId: d.id, amount: d.consultationFee ?? prev.amount }));
+                                setDoctorSearchQuery("");
+                                setDoctorSearchOpen(false);
+                              }}
+                            >
+                              <span className="font-medium">{d.name ?? d.medicalRegistrationNo ?? "Doctor"}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {d.specialization}
+                                {d.consultationFee ? ` · ${currency(d.consultationFee)}` : ""}
+                              </span>
+                            </button>
+                          ))}
                         {doctors.filter((d) =>
                           !doctorSearchQuery.trim() ||
                           (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(doctorSearchQuery.trim().toLowerCase()) ||
@@ -629,31 +628,46 @@ export function ReceptionistDashboardPage() {
                 )}
               </Field>
 
-              {/* ── Consultation Type (REQUIRED — determines priority) ── */}
-              <Field>
-                <FieldLabel>Appointment Type *</FieldLabel>
-                <div className="grid grid-cols-3 gap-2">
-                  {CONSULTATION_TYPES.map((t) => (
-                    <button key={t.value} type="button"
-                      className={cn("rounded-none border px-2 py-2 text-left text-xs transition-colors", form.type === t.value ? t.color + " border-2" : "text-muted-foreground hover:bg-muted")}
-                      onClick={() => setForm((p) => ({ ...p, type: t.value }))}>
-                      <p className="font-medium">{t.label}</p>
-                    </button>
-                  ))}
-                </div>
-                {selectedType && (
-                  <p className="mt-1.5 text-[11px] text-muted-foreground">
-                    Priority: <span className="font-medium text-foreground">{selectedType.label}</span> — {selectedType.value === "EMERGENCY" ? "Immediate attention required" : selectedType.value === "FOLLOW_UP" ? "Continuation of previous visit" : "Standard appointment"}
-                  </p>
-                )}
-              </Field>
+              {/* ── Consultation Type + Time (same row) ── */}
+              <div className="flex gap-3">
+                <Field className="min-w-0 flex-1">
+                  <FieldLabel>Appointment Type *</FieldLabel>
+                  <div className="grid grid-cols-3 gap-2">
+                    {CONSULTATION_TYPES.map((t) => (
+                      <button key={t.value} type="button"
+                        className={cn("rounded-none border px-2 py-2 text-left text-xs transition-colors", form.type === t.value ? t.color + " border-2" : "text-muted-foreground hover:bg-muted")}
+                        onClick={() => setForm((p) => ({ ...p, type: t.value }))}>
+                        <p className="font-medium">{t.label}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedType && (
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      Priority: <span className="font-medium text-foreground">{selectedType.label}</span> — Standard appointment
+                    </p>
+                  )}
+                </Field>
+
+                <Field className="w-36 shrink-0">
+                  <FieldLabel htmlFor="r-time">Time *</FieldLabel>
+                  <Input
+                    id="r-time"
+                    type="time"
+                    step={60}
+                    value={form.time}
+                    onChange={(e) => setForm((p) => ({ ...p, time: e.target.value }))}
+                    onBlur={timeStatus.commit}
+                  />
+                  <AppointmentTimeHint status={timeStatus} />
+                </Field>
+              </div>
 
               {/* ── Fee + Registration Fee ── */}
               <div className="space-y-2 rounded-none border p-3">
                 <div className="flex gap-3">
                   <Field className="flex-1">
                     <FieldLabel htmlFor="r-fee">Fee</FieldLabel>
-                    <Input id="r-fee" type="number" min={0} value={form.fee} onChange={(e) => setForm((p) => ({ ...p, fee: Number(e.target.value) || 0 }))} />
+                    <Input id="r-fee" type="number" min={0} value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: Number(e.target.value) || 0 }))} />
                   </Field>
                   <Field className="flex-1">
                     <FieldLabel htmlFor="r-reg-fee">Registration Fee</FieldLabel>
@@ -665,7 +679,7 @@ export function ReceptionistDashboardPage() {
                       onChange={(e) => setForm((p) => ({ ...p, registrationFee: Number(e.target.value) || 0 }))}
                     />
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {[50, 100, 200, 400, 500].map((val) => (
+                      {[0, 50, 100, 200, 400, 500].map((val) => (
                         <button
                           key={val}
                           type="button"
@@ -690,67 +704,9 @@ export function ReceptionistDashboardPage() {
                 </p>
                 <div className="flex items-center justify-between border-t pt-2 text-sm">
                   <span className="font-medium">Total</span>
-                  <span className="font-semibold">{currency(form.fee + regFeeAmount)}</span>
+                  <span className="font-semibold">{currency(form.amount + regFeeAmount)}</span>
                 </div>
               </div>
-
-              {/* ── Slot selection (shown when doctor selected) ── */}
-              {form.doctorId && (
-                <Field>
-                  <FieldLabel>Slot</FieldLabel>
-                  {slotsQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading slots...</p>
-                  ) : !slotsQuery.data?.available && slotsQuery.data ? (
-                    <p className="text-sm text-muted-foreground">No slots available for this day.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {slotsQuery.data && slotsQuery.data.slots.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {slotsQuery.data.slots.map((slot) => (
-                            <button
-                              key={slot.time}
-                              type="button"
-                              disabled={!slot.available}
-                              className={cn(
-                                "rounded-none border px-3 py-2 text-xs font-medium transition-colors",
-                                !slot.available && "cursor-not-allowed border-destructive/20 bg-destructive/5 text-destructive/60 line-through",
-                                slot.available && form.slot === slot.time
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : slot.available
-                                    ? "border-green-300 bg-green-50 text-green-700 hover:border-green-400 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
-                                    : ""
-                              )}
-                              onClick={() => setForm((p) => ({ ...p, slot: slot.time }))}
-                            >
-                              {slot.time}
-                              {!slot.available && <span className="ml-0.5 text-[8px]">({slot.booked})</span>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {(!slotsQuery.data || slotsQuery.data.slots.length === 0) && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Input
-                            type="time"
-                            className="w-auto"
-                            value={form.slot ?? ""}
-                            onChange={(e) => setForm((p) => ({ ...p, slot: e.target.value || null }))}
-                          />
-                          <span className="text-xs text-muted-foreground">Enter time manually</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Field>
-              )}
-
-              {/* ── Selected doctor summary ── */}
-              {form.doctorId && form.slot && (
-                <div className="rounded-none border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary flex items-center gap-2">
-                  <Clock className="size-3.5" />
-                  <span>{doctors.find((d) => d.id === form.doctorId)?.name} at {form.slot} · {currency(form.fee)}</span>
-                </div>
-              )}
 
               {/* ── Notes (optional) ── */}
               <Field>
@@ -768,7 +724,7 @@ export function ReceptionistDashboardPage() {
               <Button variant="outline" onClick={() => setSheetOpen(false)}>Cancel</Button>
               <div className="flex items-center gap-2">
                 <Button onClick={() => createMutation.mutate()} disabled={!canBook || createMutation.isPending || bookAndPayMutation.isPending}>
-                  {createMutation.isPending ? "Booking..." : `Book · ${currency(form.fee + regFeeAmount)}`}
+                  {createMutation.isPending ? "Booking..." : `Book · ${currency(form.amount + regFeeAmount)}`}
                 </Button>
                 <Button
                   variant="default"
@@ -782,7 +738,7 @@ export function ReceptionistDashboardPage() {
                     <>
                       Book &amp; Pay
                       <span className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">
-                        {currency(form.fee + regFeeAmount)}
+                        {currency(form.amount + regFeeAmount)}
                       </span>
                     </>
                   )}
@@ -797,7 +753,7 @@ export function ReceptionistDashboardPage() {
       <PaymentSheet
         open={paymentSheetOpen}
         onOpenChange={setPaymentSheetOpen}
-        subtotal={form.fee + regFeeAmount}
+        subtotal={form.amount + regFeeAmount}
         isPending={bookAndPayMutation.isPending}
         onSubmit={(payload) => bookAndPayMutation.mutate(payload)}
         submitLabel="Confirm & Book"
@@ -832,7 +788,7 @@ export function ReceptionistDashboardPage() {
               </Field>
               <Field>
                 <FieldLabel>Password *</FieldLabel>
-                <Input type="password" placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
+                <PasswordInput placeholder="Min 8 chars" value={newDoctorForm.password} onChange={(e) => setNewDoctorForm((p) => ({ ...p, password: e.target.value }))} />
               </Field>
             </div>
             <Field>
@@ -955,9 +911,9 @@ export function ReceptionistDashboardPage() {
                         </Badge>
                       </div>
                       <span className="whitespace-nowrap text-xs font-medium text-primary">
-                        {appt.registrationFee > 0
-                          ? `${currency(appt.fee + appt.registrationFee)} (${currency(appt.fee)}+${currency(appt.registrationFee)})`
-                          : currency(appt.fee)}
+                        {appt.registrationFee > 0 || appt.amountPaid > 0
+                          ? `${currency(Math.max(0, appt.amount + appt.registrationFee - appt.amountPaid))} (${[currency(appt.amount), appt.registrationFee > 0 ? `+${currency(appt.registrationFee)}` : null, appt.amountPaid > 0 ? `-${currency(appt.amountPaid)}` : null].filter(Boolean).join("")})`
+                          : currency(appt.amount)}
                       </span>
                     </div>
                   </div>
@@ -966,10 +922,10 @@ export function ReceptionistDashboardPage() {
                 <div className="flex items-center justify-between border-t-2 border-primary/20 bg-primary/5 px-4 py-2.5 text-sm font-semibold">
                   <span>{displayAppts.length} appointment{displayAppts.length !== 1 ? "s" : ""}</span>
                   <span className="text-primary">
-                    Total: {currency(apptsTotalFee + apptsTotalReg)}
+                    Total: {currency(apptsTotalAmount + apptsTotalReg)}
                     {apptsTotalReg > 0 && (
                       <span className="ml-1 text-xs font-normal text-muted-foreground">
-                        ({currency(apptsTotalFee)} + {currency(apptsTotalReg)} reg)
+                        ({currency(apptsTotalAmount)} + {currency(apptsTotalReg)} reg)
                       </span>
                     )}
                   </span>

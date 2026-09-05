@@ -18,6 +18,7 @@ import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
+import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -121,7 +122,28 @@ export class DocumentsController {
   @Permissions('read:documents')
   async download(@Param('id') id: string, @Res() res: Response) {
     const doc = await this.documentsService.findOne(id);
-    res.download(doc.filePath, doc.originalName);
+    const absolutePath = doc.filePath.startsWith('/') ? doc.filePath : join(process.cwd(), doc.filePath.replace(/^\//, ''));
+    res.download(absolutePath, doc.originalName);
+  }
+
+  /** Serve image inline by ID — works through /api prefix even without /uploads proxy */
+  @Get(':id/image')
+  async serveImage(@Param('id') id: string, @Res() res: Response) {
+    const doc = await this.documentsService.findOne(id);
+    const absolutePath = doc.filePath.startsWith('/') ? doc.filePath : join(process.cwd(), doc.filePath.replace(/^\//, ''));
+    if (!existsSync(absolutePath)) throw new BadRequestException('File not found');
+    res.set({ 'Content-Type': doc.mimeType, 'Cache-Control': 'public, max-age=86400' });
+    res.sendFile(absolutePath);
+  }
+
+  /** Serve image inline by fileName — for components that only have the fileName */
+  @Get('by-name/:fileName/image')
+  async serveImageByName(@Param('fileName') fileName: string, @Res() res: Response) {
+    const doc = await this.documentsService.findByFileName(fileName);
+    const absolutePath = doc.filePath.startsWith('/') ? doc.filePath : join(process.cwd(), doc.filePath.replace(/^\//, ''));
+    if (!existsSync(absolutePath)) throw new BadRequestException('File not found');
+    res.set({ 'Content-Type': doc.mimeType, 'Cache-Control': 'public, max-age=86400' });
+    res.sendFile(absolutePath);
   }
 
   @Get(':id')
@@ -138,7 +160,7 @@ export class DocumentsController {
 
   @Delete(':id')
   @Permissions('delete:documents')
-  remove(@Param('id') id: string) {
-    return this.documentsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.documentsService.remove(id, req.user.id);
   }
 }

@@ -23,7 +23,7 @@ export class ProcedureOrdersService implements IBaseService<ProcedureOrder, Crea
   }
 
   async findAll(filters: { patientId?: string; status?: string }) {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (filters.patientId) where.patientId = filters.patientId;
     if (filters.status) where.status = filters.status;
     return this.prisma.procedureOrder.findMany({
@@ -35,7 +35,7 @@ export class ProcedureOrdersService implements IBaseService<ProcedureOrder, Crea
 
   async findOne(id: string) {
     const order = await this.prisma.procedureOrder.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { patient: true, doctor: true },
     });
     if (!order) throw new NotFoundException(`Procedure order ${id} not found`);
@@ -53,8 +53,11 @@ export class ProcedureOrdersService implements IBaseService<ProcedureOrder, Crea
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.procedureOrder.delete({ where: { id } });
+    return this.prisma.procedureOrder.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

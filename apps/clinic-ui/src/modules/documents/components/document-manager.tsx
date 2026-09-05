@@ -66,7 +66,7 @@ export function DocumentManager({ documentableType, documentableId, documentType
     e.target.value = "";
   }
 
-  const imageUrl = preview || (profilePhoto ? `/uploads/documents/${profilePhoto.fileName}` : null);
+  const imageUrl = preview || (profilePhoto ? `/api/documents/by-name/${profilePhoto.fileName}/image` : null);
 
   return (
     <div className="flex items-center gap-4">

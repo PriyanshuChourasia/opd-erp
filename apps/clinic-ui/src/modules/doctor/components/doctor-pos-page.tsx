@@ -5,7 +5,6 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   Activity,
   ArrowRight,
-  CalendarClock,
   CalendarDays,
   CalendarX,
   Check,
@@ -15,7 +14,6 @@ import {
   HeartPulse,
   History,
   Minus,
-  Pencil,
   Pill,
   Plus,
   Search,
@@ -33,9 +31,6 @@ import {
   deleteQueueEntry,
   createProcedureOrder,
   updateAppointmentStatus,
-  rescheduleAppointment,
-  fetchDoctorSlots,
-  fetchDoctors,
   createPatientVitals,
   type QueueEntry,
   type Medicine,
@@ -52,8 +47,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
 import { PatientHistorySheet } from "./patient-history-sheet";
-import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
-import { fetchAllergies, fetchPatientVitalsLatest } from "@/lib/api";
+import { fetchAllergies, fetchPatientVitalsLatest, fetchPatientVitalsHistory } from "@/lib/api";
 
 interface RxItem {
   tempId: string;
@@ -113,7 +107,6 @@ function totalTablets(dosage: string, duration: string, quantity: number): numbe
 
 const QUEUE_STATUS_STYLES: Record<string, string> = {
   WAITING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  SEND_IN: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
   IN_PROGRESS: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   SKIPPED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -163,16 +156,9 @@ export function DoctorPosPage() {
   const [newProcedureName, setNewProcedureName] = useState("");
   const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [editPatientOpen, setEditPatientOpen] = useState(false);
   // ── Cancel appointment ──
   const [cancelTarget, setCancelTarget] = useState<QueueEntry | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-
-  // ── Reschedule appointment ──
-  const [rescheduleTarget, setRescheduleTarget] = useState<QueueEntry | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState("");
-  const [rescheduleTime, setRescheduleTime] = useState("");
-  const [rescheduleDoctorId, setRescheduleDoctorId] = useState("");
 
   // ── Vitals entry ──
   const [vitalsOpen, setVitalsOpen] = useState(false);
@@ -198,9 +184,8 @@ export function DoctorPosPage() {
 
   const queue = response?.data ?? [];
   const waiting = queue.filter((e) => e.status === "WAITING");
-  const sendIn = queue.filter((e) => e.status === "SEND_IN");
   const inProgress = queue.filter((e) => e.status === "IN_PROGRESS");
-  const active = [...inProgress, ...sendIn, ...waiting];
+  const active = [...inProgress, ...waiting];
 
   const medicineResults = useQuery({
     queryKey: ["medicines", "search", medicineQuery],
@@ -230,24 +215,18 @@ export function DoctorPosPage() {
     mutationFn: ({ id, status }: { id: string; status: string }) => updateQueueStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["queue"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
       toast.success("Status updated");
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
-
-  // ── Doctors list (for reschedule) ──
-  const { data: doctorsResp } = useQuery({
-    queryKey: ["doctors", "reschedule"],
-    queryFn: () => fetchDoctors({ limit: 100 }),
-  });
-  const doctors = useMemo(() => doctorsResp?.data ?? [], [doctorsResp]);
 
   // ── Cancel appointment mutation ──
   const cancelMutation = useMutation({
     mutationFn: async () => {
       if (!cancelTarget?.appointment?.id) return;
       // Cancel the appointment
-      await updateAppointmentStatus(cancelTarget.appointment.id, "CANCELLED", cancelReason.trim());
+      await updateAppointmentStatus(cancelTarget.appointment.id, "CANCELLED", { cancellationReason: cancelReason.trim() });
       // Delete the queue entry
       await deleteQueueEntry(cancelTarget.id);
     },
@@ -262,47 +241,6 @@ export function DoctorPosPage() {
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
-
-  // ── Reschedule appointment mutation ──
-  const rescheduleMutation = useMutation({
-    mutationFn: async () => {
-      if (!rescheduleTarget?.appointment?.id) return;
-      await rescheduleAppointment(rescheduleTarget.appointment.id, {
-        date: `${rescheduleDate}T${rescheduleTime}:00`,
-        doctorId: rescheduleDoctorId || undefined,
-      });
-      // Delete the queue entry
-      await deleteQueueEntry(rescheduleTarget.id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["queue"] });
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      toast.success("Appointment rescheduled");
-      const rescheduledId = rescheduleTarget?.id;
-      setRescheduleTarget(null);
-      setRescheduleDate("");
-      setRescheduleTime("");
-      setRescheduleDoctorId("");
-      if (selectedEntry?.id === rescheduledId) clearForm();
-    },
-    onError: (err) => toast.error(extractApiError(err)),
-  });
-
-  const rescheduleSlotsQuery = useQuery({
-    queryKey: ["doctor-slots", "reschedule", rescheduleDoctorId, rescheduleDate],
-    queryFn: () => fetchDoctorSlots(rescheduleDoctorId, rescheduleDate),
-    enabled: !!rescheduleDoctorId && !!rescheduleDate,
-  });
-
-  function openReschedule(entry: QueueEntry) {
-    const d = new Date();
-    const offset = d.getTimezoneOffset();
-    const today = new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
-    setRescheduleTarget(entry);
-    setRescheduleDate(today);
-    setRescheduleTime("");
-    setRescheduleDoctorId(entry.doctorId);
-  }
 
   const emptyVitals = { heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" };
 
@@ -354,6 +292,16 @@ export function DoctorPosPage() {
     });
   }
 
+  // Full vitals history for whichever patient the Vitals sheet is open for —
+  // fetched only while the sheet is open, so it's not extra work on every
+  // consultation load.
+  const { data: vitalsHistoryResponse } = useQuery({
+    queryKey: ["patientVitals", "history", vitalsTarget?.patientId],
+    queryFn: () => fetchPatientVitalsHistory(vitalsTarget!.patientId),
+    enabled: vitalsOpen && !!vitalsTarget?.patientId,
+  });
+  const vitalsHistory = vitalsHistoryResponse?.data ?? [];
+
   const completeMutation = useMutation({
     mutationFn: async () => {
       // Always create a prescription — even without medicines the
@@ -391,8 +339,8 @@ export function DoctorPosPage() {
       if (appointmentId) {
         await updateAppointmentStatus(appointmentId, "COMPLETED");
       }
-      // Delete the queue entry (remove from queue)
-      await deleteQueueEntry(selectedEntry!.id);
+      // Mark queue entry as completed (no delete:queue permission needed)
+      await updateQueueStatus(selectedEntry!.id, 'COMPLETED');
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["queue"] });
@@ -483,7 +431,7 @@ export function DoctorPosPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Appointments</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {waiting.length} waiting &middot; {sendIn.length} to see &middot; {inProgress.length} in progress
+            {waiting.length} waiting &middot; {inProgress.length} in progress
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -579,25 +527,6 @@ export function DoctorPosPage() {
                               size="sm"
                               className="h-7 text-xs gap-1.5"
                               disabled={inProgress.length > 0}
-                              title={inProgress.length > 0 ? "Complete the current consultation first" : "Send patient in"}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                statusMutation.mutate({ id: entry.id, status: "SEND_IN" });
-                                if (!selectedEntry || selectedEntry.id === entry.id) {
-                                  setSelectedEntry({ ...entry, status: "SEND_IN" });
-                                }
-                              }}
-                            >
-                              <ArrowRight className="size-4 text-violet-600" />
-                              Send In
-                            </Button>
-                          )}
-                          {entry.status === "SEND_IN" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs gap-1.5"
-                              disabled={inProgress.length > 0}
                               title={inProgress.length > 0 ? "Complete the current consultation first" : "Start consultation"}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -611,20 +540,8 @@ export function DoctorPosPage() {
                               Start Consultation
                             </Button>
                           )}
-                          {(entry.status === "WAITING" || entry.status === "SEND_IN") && entry.appointment && (
+                          {entry.status === "WAITING" && entry.appointment && (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-9 shrink-0"
-                                title="Reschedule appointment"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openReschedule(entry);
-                                }}
-                              >
-                                <CalendarClock className="size-4.5 text-amber-600" />
-                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -685,20 +602,20 @@ export function DoctorPosPage() {
                           variant="outline"
                           size="sm"
                           className="h-7 gap-1.5 px-2 text-xs"
-                          onClick={() => setEditPatientOpen(true)}
+                          onClick={() => setHistoryOpen(true)}
                         >
-                          <Pencil className="size-3.5" />
-                          Edit
+                          <History className="size-3.5" />
+                          All Prescriptions
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="h-7 gap-1.5 px-2 text-xs"
-                          onClick={() => setHistoryOpen(true)}
+                          onClick={() => openVitals(selectedEntry)}
                         >
-                          <History className="size-3.5" />
-                          All Prescriptions
+                          <HeartPulse className="size-3.5" />
+                          Vitals
                         </Button>
                       </div>
                       <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground/70">{selectedEntry.patient?.contactNo}</p>
@@ -1101,25 +1018,14 @@ export function DoctorPosPage() {
         onOpenChange={setHistoryOpen}
       />
 
-      <PatientFormSheet
-        open={editPatientOpen}
-        onOpenChange={setEditPatientOpen}
-        editingPatient={selectedEntry?.patient ?? null}
-        onSaved={() => {
-          queryClient.invalidateQueries({ queryKey: ["queue"] });
-          queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
-          setEditPatientOpen(false);
-          toast.success("Patient updated successfully");
-        }}
-      />
-
-      {/* ── Record Vitals Sheet ── */}
+      {/* ── Patient Vitals Sheet: history (read-only, no delete for doctors)
+          plus a form to record a new reading ── */}
       <Sheet open={vitalsOpen} onOpenChange={(open) => { if (!open) { setVitalsOpen(false); setVitalsTarget(null); } }}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <HeartPulse className="size-5 text-rose-500" />
-              Record Vitals
+              Patient Vitals
             </SheetTitle>
           </SheetHeader>
           <div className="space-y-4 px-4 py-4">
@@ -1130,6 +1036,41 @@ export function DoctorPosPage() {
                 <p className="text-xs text-muted-foreground">{vitalsTarget.patient?.contactNo}</p>
               </div>
             )}
+
+            {/* History — read-only. No delete action here: doctors record and
+                view vitals but never remove past readings (server-enforced —
+                the Doctor role has no delete:patient-vitals permission). */}
+            <div className="space-y-2">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">History</span>
+              {vitalsHistory.length === 0 ? (
+                <p className="rounded-none border border-dashed p-3 text-center text-xs text-muted-foreground">
+                  No past vitals recorded yet.
+                </p>
+              ) : (
+                <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                  {vitalsHistory.map((v) => (
+                    <div key={v.id} className="rounded-none border p-2.5 text-xs">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-medium">{new Date(v.recordedAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                        {v.medicalStatus && <span className="text-[10px] text-muted-foreground">{v.medicalStatus}</span>}
+                      </div>
+                      <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-muted-foreground">
+                        {v.heightCm != null && <span>Ht <span className="font-medium text-foreground">{v.heightCm}cm</span></span>}
+                        {v.weightKg != null && <span>Wt <span className="font-medium text-foreground">{v.weightKg}kg</span></span>}
+                        {v.bmi != null && <span>BMI <span className="font-medium text-foreground">{v.bmi}</span></span>}
+                        {v.temperatureC != null && <span>Temp <span className="font-medium text-foreground">{v.temperatureC}°F</span></span>}
+                        {v.pulseBpm != null && <span>Pulse <span className="font-medium text-foreground">{v.pulseBpm}</span></span>}
+                        {v.systolicBp != null && v.diastolicBp != null && <span>BP <span className="font-medium text-foreground">{v.systolicBp}/{v.diastolicBp}</span></span>}
+                        {v.spo2Percent != null && <span>SpO₂ <span className="font-medium text-foreground">{v.spo2Percent}%</span></span>}
+                        {v.respiratoryRate != null && <span>RR <span className="font-medium text-foreground">{v.respiratoryRate}</span></span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <span className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Record New Vitals</span>
             <div className="grid grid-cols-2 gap-3">
               <Field>
                 <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
@@ -1233,76 +1174,6 @@ export function DoctorPosPage() {
         </div>
       )}
 
-      {/* ── Reschedule Appointment Sheet ── */}
-      <Sheet open={!!rescheduleTarget} onOpenChange={(open) => { if (!open) setRescheduleTarget(null); }}>
-        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Reschedule Appointment</SheetTitle>
-            <SheetDescription>
-              {rescheduleTarget?.patient ? getPatientName(rescheduleTarget.patient) : ""} — pick a new date, doctor, and slot.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 space-y-4 px-4 pb-4">
-            <Field>
-              <FieldLabel className="text-xs">Date</FieldLabel>
-              <Input
-                type="date"
-                value={rescheduleDate}
-                onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleTime(""); }}
-              />
-            </Field>
-            <Field>
-              <FieldLabel className="text-xs">Doctor</FieldLabel>
-              <select
-                className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
-                value={rescheduleDoctorId}
-                onChange={(e) => { setRescheduleDoctorId(e.target.value); setRescheduleTime(""); }}
-              >
-                <option value="">Select a doctor...</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name ?? d.medicalRegistrationNo ?? "Doctor"}</option>
-                ))}
-              </select>
-            </Field>
-            {rescheduleDoctorId && rescheduleDate && (
-              <Field>
-                <FieldLabel className="text-xs">Slot</FieldLabel>
-                {rescheduleSlotsQuery.isLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading slots...</p>
-                ) : !rescheduleSlotsQuery.data?.available ? (
-                  <p className="text-sm text-muted-foreground">No slots available for this day.</p>
-                ) : (
-                  <div className="grid grid-cols-4 gap-2">
-                    {rescheduleSlotsQuery.data.slots.map((s) => (
-                      <button
-                        key={s.time}
-                        type="button"
-                        disabled={!s.available}
-                        className={cn(
-                          "rounded-none border px-2 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40",
-                          rescheduleTime === s.time ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"
-                        )}
-                        onClick={() => setRescheduleTime(s.time)}
-                      >
-                        {s.time}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Field>
-            )}
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setRescheduleTarget(null)}>Cancel</Button>
-            <Button
-              onClick={() => rescheduleMutation.mutate()}
-              disabled={!rescheduleDate || !rescheduleDoctorId || !rescheduleTime || rescheduleMutation.isPending}
-            >
-              {rescheduleMutation.isPending ? "Rescheduling..." : "Reschedule"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

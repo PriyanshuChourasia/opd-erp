@@ -10,18 +10,23 @@ export class UpdateAppointmentDto {
   doctorId?: string;
 
   @IsOptional()
-  @IsIn(['WALK_IN', 'CONSULTATION', 'SPECIALIST', 'EMERGENCY', 'FOLLOW_UP', 'TELECONSULTATION'])
+  @IsIn(['WALK_IN', 'CONSULTATION'])
   type?: string;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  fee?: number;
+  amount?: number;
 
   @IsOptional()
   @IsInt()
   @Min(0)
   registrationFee?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  amountPaid?: number;
 
   @IsOptional()
   @IsString()

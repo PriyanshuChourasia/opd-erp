@@ -1,16 +1,19 @@
 import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import {
+  CalendarClock,
   ClipboardList,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
   Pill,
+  ShieldCheck,
   User,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
 import { useAppSelector } from "@/store/hooks";
 import { cn } from "@/lib/utils";
+import { isAdminRole } from "@/lib/roles";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -25,11 +28,19 @@ import { HelpLink } from "@/modules/help/components/help-link";
 import { HelpTip } from "@/modules/help/components/help-tip";
 import { BrandMark } from "@/components/brand-mark";
 
-const doctorNav = [
-  { to: "/doctor", label: "My Appointments", icon: LayoutDashboard },
-  { to: "/doctor/prescriptions", label: "Prescriptions", icon: ClipboardList },
-  { to: "/help", label: "Help", icon: LifeBuoy },
-];
+function getDoctorNav(roleName: string | undefined) {
+  const nav = [
+    { to: "/doctor", label: "My Appointments", icon: LayoutDashboard },
+    { to: "/doctor/prescriptions", label: "Prescriptions", icon: ClipboardList },
+  ];
+  if (isAdminRole(roleName)) {
+    nav.push({ to: "/doctor/admin", label: "Admin Dashboard", icon: ShieldCheck });
+    nav.push({ to: "/doctor/admin/appointments", label: "Appointments", icon: CalendarClock });
+    nav.push({ to: "/doctor/admin/prescriptions", label: "All Prescriptions", icon: Pill });
+  }
+  nav.push({ to: "/help", label: "Help", icon: LifeBuoy });
+  return nav;
+}
 
 function initials(name: string) {
   return name
@@ -63,7 +74,7 @@ export function DoctorLayout() {
           <HelpTip className="ml-auto" />
         </div>
         <nav className="flex-1 space-y-1 p-2">
-          {doctorNav.map((item) => {
+          {getDoctorNav(user?.roleName).map((item) => {
             const active = item.to === "/doctor"
               ? !!matchRoute({ to: item.to, fuzzy: false })
               : !!matchRoute({ to: item.to });
@@ -103,6 +114,11 @@ export function DoctorLayout() {
               <DropdownMenuItem asChild>
                 <Link to="/doctor/profile"><User />Profile</Link>
               </DropdownMenuItem>
+              {isAdminRole(user?.roleName) && (
+                <DropdownMenuItem asChild>
+                  <Link to="/doctor/admin"><ShieldCheck />Admin Dashboard</Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleLogout}><LogOut />Log out</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -129,6 +145,11 @@ export function DoctorLayout() {
               <DropdownMenuItem asChild>
                 <Link to="/doctor/profile"><User />Profile</Link>
               </DropdownMenuItem>
+              {isAdminRole(user?.roleName) && (
+                <DropdownMenuItem asChild>
+                  <Link to="/doctor/admin"><ShieldCheck />Admin Dashboard</Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleLogout}><LogOut />Log out</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

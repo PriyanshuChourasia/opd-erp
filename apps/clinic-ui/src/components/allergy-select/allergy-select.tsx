@@ -11,7 +11,6 @@ import {
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
@@ -40,6 +39,7 @@ interface AllergySelectProps {
 export function AllergySelect({ value, onChange, hideSelected }: AllergySelectProps) {
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -106,47 +106,55 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
   }
 
   return (
-    <div className="space-y-2">
-      {/* Selected allergies (hidden when hideSelected is true) */}
-      {!hideSelected && value.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {value.map((name) => (
-            <Badge
-              key={name}
-              variant="outline"
-              className="bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400 pr-1"
+    <div className="relative">
+      {/* Tag-input container: chips + search input inside one box */}
+      <div
+        ref={containerRef}
+        className="flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-none border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring"
+        onClick={() => searchRef.current?.focus()}
+      >
+        {/* Selected allergy chips */}
+        {!hideSelected && value.map((name) => (
+          <Badge
+            key={name}
+            variant="outline"
+            className="bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400 pr-1 shrink-0"
+          >
+            <AlertTriangle className="mr-1 size-2.5" />
+            {name}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeAllergy(name);
+              }}
+              className="ml-1 rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-900"
             >
-              <AlertTriangle className="mr-1 size-2.5" />
-              {name}
-              <button
-                type="button"
-                onClick={() => removeAllergy(name)}
-                className="ml-1 rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-900"
-              >
-                <X className="size-2.5" />
-              </button>
-            </Badge>
-          ))}
+              <X className="size-2.5" />
+            </button>
+          </Badge>
+        ))}
+
+        {/* Search input — inline with chips */}
+        <div className="relative flex-1 min-w-[120px]">
+          <Search className="pointer-events-none absolute top-1/2 left-0 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder={catalog.length === 0 ? "No allergies in catalog yet" : value.length === 0 ? "Search allergies..." : "Add more..."}
+            className="w-full border-0 bg-transparent pl-5 py-0.5 text-sm placeholder:text-muted-foreground focus:outline-none"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setShowResults(true);
+            }}
+            onFocus={() => setShowResults(true)}
+            onBlur={() => setTimeout(() => setShowResults(false), 200)}
+          />
         </div>
-      )}
+      </div>
 
-      {/* Search input */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          ref={searchRef}
-          placeholder={catalog.length === 0 ? "No allergies in catalog yet" : "Search allergies..."}
-          className="pl-9"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setShowResults(true);
-          }}
-          onFocus={() => setShowResults(true)}
-          onBlur={() => setTimeout(() => setShowResults(false), 200)}
-        />
-
-      {/* Search results dropdown — absolutely positioned to overlay below */}
+      {/* Search results dropdown — absolutely positioned below the container */}
       {showResults && (
         <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-none border bg-popover shadow-md">
           {search.trim().length >= 1 && filtered.length === 0 ? (
@@ -188,19 +196,19 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
                 <button
                   key={allergy.id}
                   type="button"
-                className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-muted transition-colors"
-                onMouseDown={() => addAllergy(allergy.name)}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-medium truncate">{allergy.name}</span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
-                    {allergy.category}
+                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-muted transition-colors"
+                  onMouseDown={() => addAllergy(allergy.name)}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-medium truncate">{allergy.name}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      {allergy.category}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                    {allergy.severity}
                   </span>
-                </div>
-                <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
-                  {allergy.severity}
-                </span>
-              </button>
+                </button>
               ))}
               <button
                 type="button"
@@ -214,7 +222,6 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
           )}
         </div>
       )}
-      </div>
 
       {/* Create new allergy sheet */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
@@ -229,9 +236,10 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="new-allergy-name">Name *</FieldLabel>
-                <Input
+                <input
                   id="new-allergy-name"
                   placeholder="e.g. Penicillin, Peanuts"
+                  className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                 />

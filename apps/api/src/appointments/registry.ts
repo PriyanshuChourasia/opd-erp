@@ -40,6 +40,7 @@ export const registry: IModuleRegistry = {
           actions: [
             { id: 'generate-slots', name: 'Generate Slots', description: 'Generate available slots for a doctor on a given date', method: 'POST', path: '/appointments/slots/generate' },
             { id: 'get-slots', name: 'Get Slots', description: 'Get available slots for a doctor', method: 'GET', path: '/appointments/slots' },
+            { id: 'check-slot', name: 'Check Slot', description: 'Validate a single doctor/date/time against schedule and existing bookings', method: 'GET', path: '/appointments/check-slot' },
           ],
         },
       ],

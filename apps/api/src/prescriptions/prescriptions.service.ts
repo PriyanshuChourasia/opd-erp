@@ -7,6 +7,7 @@ import type { Prescription } from '@prisma/client';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
 import { FindPrescriptionsQueryDto } from './dto/find-prescriptions-query.dto';
+import { applyCreatedAtRange } from '../common/dto/date-range-query.dto';
 
 /**
  * E-prescriptions with medicine selection, dosage tracking, and item management.
@@ -76,7 +77,7 @@ export class PrescriptionsService
   }
 
   async findAll(query: FindPrescriptionsQueryDto, requestingDoctorId?: string): Promise<PaginatedResult<Prescription>> {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (query.patientId) where.patientId = query.patientId;
     // A doctor is always scoped to their own prescriptions — the query param
     // is ignored in that case rather than trusted, so a doctor can't page
@@ -84,11 +85,17 @@ export class PrescriptionsService
     if (requestingDoctorId) where.doctorId = requestingDoctorId;
     else if (query.doctorId) where.doctorId = query.doctorId;
     if (query.status) where.status = query.status;
-    if (query.date) {
-      const dayStart = new Date(query.date);
-      dayStart.setHours(0, 0, 0, 0);
+    // Date range: from/to takes priority; fallback to single-day `date`
+    if (query.from || query.to) {
+      applyCreatedAtRange(where, query);
+    } else if (query.date) {
+      const dayStart = new Date(Date.UTC(
+        new Date(query.date).getUTCFullYear(),
+        new Date(query.date).getUTCMonth(),
+        new Date(query.date).getUTCDate(),
+      ));
       const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
       where.createdAt = { gte: dayStart, lt: dayEnd };
     }
     if (query.search) {
@@ -116,7 +123,7 @@ export class PrescriptionsService
 
   async findOne(id: string) {
     const prescription = await this.prisma.prescription.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { items: true, patient: true, doctor: true },
     });
     if (!prescription) throw new NotFoundException(`Prescription ${id} not found`);
@@ -193,8 +200,11 @@ export class PrescriptionsService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.prescription.delete({ where: { id } });
+    return this.prisma.prescription.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

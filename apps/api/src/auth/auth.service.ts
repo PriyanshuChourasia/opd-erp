@@ -15,6 +15,7 @@ import { LoginDto } from './dto/login.dto';
 import type { AuthResponseDto, UserableType } from './dto/auth-response.dto';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
 import type { ChangePasswordDto } from './dto/change-password.dto';
+import { AccountingService } from '../accounting/accounting.service';
 
 function asUserableType(val: string | null): UserableType | null {
   const allowed: UserableType[] = ['Doctor', 'Patient', 'Nurse', 'Receptionist', 'Pharmacist', 'LabStaff'];
@@ -27,12 +28,18 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
+    // Trim identifiers so copy-pasted whitespace can't create near-duplicate
+    // accounts (spaces around an email/username are never intentional).
+    const email = dto.email.trim();
+    const username = dto.username.trim();
+
     // Check if email already exists
     const existingEmail = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email },
     });
     if (existingEmail) {
       throw new ConflictException('A user with this email already exists');
@@ -40,7 +47,7 @@ export class AuthService {
 
     // Check if username already exists
     const existingUsername = await this.prisma.user.findUnique({
-      where: { username: dto.username },
+      where: { username },
     });
     if (existingUsername) {
       throw new ConflictException('A user with this username already exists');
@@ -59,32 +66,43 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        username: dto.username,
-        firstName: dto.firstName,
-        middleName: dto.middleName,
-        lastName: dto.lastName,
-        email: dto.email,
-        mobileNumber: dto.mobileNumber,
-        countryCode: dto.countryCode ?? '+91',
-        gender: dto.gender,
-        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-        profilePhotoUrl: dto.profilePhotoUrl,
-        qualification: dto.qualification,
-        password: hashedPassword,
-        roleId: role.id,
-      },
-      include: {
-        role: {
-          include: {
-            rolePermissions: {
-              include: { permission: true },
+    // Create user (+ its Staff Accounts ledger, atomically)
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          username,
+          firstName: dto.firstName,
+          middleName: dto.middleName,
+          lastName: dto.lastName,
+          email,
+          mobileNumber: dto.mobileNumber,
+          countryCode: dto.countryCode ?? '+91',
+          gender: dto.gender,
+          dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+          profilePhotoUrl: dto.profilePhotoUrl,
+          qualification: dto.qualification,
+          password: hashedPassword,
+          roleId: role.id,
+        },
+        include: {
+          role: {
+            include: {
+              rolePermissions: {
+                include: { permission: true },
+              },
             },
           },
         },
-      },
+      });
+
+      // Every user always gets a Staff Accounts ledger, even before their first advance/reimbursement.
+      await this.accountingService.resolveOrCreateUserLedger(
+        tx,
+        created.id,
+        `${created.firstName} ${created.lastName}`.trim(),
+      );
+
+      return created;
     });
 
     // Generate tokens
@@ -110,12 +128,18 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
+    // Trim the identifier so copy-pasted whitespace can't make a valid
+    // login fail (spaces around an email/username are never intentional).
+    // Password is deliberately NOT trimmed — whitespace can be part of one.
+    const email = dto.email?.trim();
+    const username = dto.username?.trim();
+
     // Find user by email or username
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
-          dto.email ? { email: dto.email } : {},
-          dto.username ? { username: dto.username } : {},
+          email ? { email } : {},
+          username ? { username } : {},
         ].filter((cond) => Object.keys(cond).length > 0),
       },
       include: {
@@ -221,8 +245,10 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
-    // If email is being changed, check it's not taken
+    // If email is being changed, trim it (copy-pasted whitespace is never
+    // intentional) and check it's not taken
     if (dto.email) {
+      dto.email = dto.email.trim();
       const existing = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });

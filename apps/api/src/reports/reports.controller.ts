@@ -68,4 +68,54 @@ export class ReportsController {
   getAppointmentMix(@Query() query: ReportDateRangeDto) {
     return this.service.getAppointmentMix(query.from, query.to);
   }
+
+  // ─── 10. Daily OPD Summary ───
+  @Get('daily-opd-summary')
+  getDailyOpdSummary(@Query() query: ReportDateRangeDto) {
+    return this.service.getDailyOpdSummary(query.from, query.to, query.doctorId);
+  }
+
+  // ─── 11. Doctor-wise OPD Report ───
+  @Get('doctor-wise-opd')
+  getDoctorWiseOpdReport(@Query() query: ReportDateRangeDto) {
+    return this.service.getDoctorWiseOpdReport(query.from, query.to);
+  }
+
+  // ─── 12. Revenue / Collection Report ───
+  @Get('revenue-collection')
+  getRevenueCollectionReport(
+    @Query() query: ReportPaginationDto & {
+      paymentStatus?: string;
+      paymentMethod?: string;
+    },
+  ) {
+    return this.service.getRevenueCollectionReport(
+      query.from,
+      query.to,
+      query.doctorId,
+      query.paymentStatus,
+      query.paymentMethod,
+      query.page ?? 1,
+      query.limit ?? 50,
+    );
+  }
+
+  // ─── 13. Outstanding / Pending Payment Report ───
+  @Get('outstanding-payments')
+  getOutstandingPayments(
+    @Query() query: ReportPaginationDto & {
+      patientId?: string;
+      paymentStatus?: string;
+    },
+  ) {
+    return this.service.getOutstandingPayments(
+      query.from,
+      query.to,
+      query.doctorId,
+      query.patientId,
+      query.paymentStatus,
+      query.page ?? 1,
+      query.limit ?? 50,
+    );
+  }
 }

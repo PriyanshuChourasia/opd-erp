@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/applicationmodule",
+    "description": "ApplicationModule module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\ApplicationModule\\": "",
+            "Modules\\ApplicationModule\\Database\\Factories\\": "database/factories/",
+            "Modules\\ApplicationModule\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\ApplicationModule\\Tests\\": "tests/"
+        }
+    }
+}

@@ -2,6 +2,7 @@ import { getPatientName } from "@/lib/api";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { useDateRangeSync } from "@/lib/date-range-search";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { FileText, HeartPulse, ListOrdered, Pencil, Receipt, Search, Trash2, X } from "lucide-react";
 import { fetchQueue, updateQueueStatus, deleteQueueEntry, checkoutAppointment, createPatientVitals, fetchPatientVitalsLatest, type QueueEntry } from "@/lib/api";
@@ -20,26 +21,19 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { STATUS_STYLES } from "../data/interface";
 
-const QUEUE_STATUSES = ["WAITING", "SEND_IN", "IN_PROGRESS", "COMPLETED", "SKIPPED", "NO_SHOW"];
-const ACTIVE_STATUSES = ["WAITING", "SEND_IN", "IN_PROGRESS"];
+const QUEUE_STATUSES = ["WAITING", "IN_PROGRESS", "COMPLETED", "SKIPPED", "NO_SHOW"];
+const ACTIVE_STATUSES = ["WAITING", "IN_PROGRESS"];
 const HISTORY_STATUSES = ["COMPLETED", "SKIPPED", "NO_SHOW"];
 
 type QueueTab = "ACTIVE" | "HISTORY";
-
-function todayStr() {
-  const d = new Date();
-  const offset = d.getTimezoneOffset();
-  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
 
 export function QueuePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [filterDoctor, setFilterDoctor] = useState("");
   const [doctorFilterQuery, setDoctorFilterQuery] = useState("");
-  const [filterDate, setFilterDate] = useState("");
   const [tab, setTab] = useState<QueueTab>("ACTIVE");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [editPatientId, setEditPatientId] = useState<string | null>(null);
   // ── Vitals entry ──
@@ -50,18 +44,14 @@ export function QueuePage() {
     systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
   });
 
-  // Fetch the whole day's queue (a single day's volume is always small) and
-  // split/paginate it client-side into the Active / History tabs below.
-  function setFilterDateAndResetPage(date: string) {
-    setFilterDate(date);
-    setPagination((p) => ({ ...p, pageIndex: 0 }));
-  }
+  const { dateRange } = useDateRangeSync();
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ["queue", filterDoctor, filterDate],
+    queryKey: ["queue", filterDoctor, dateRange.from, dateRange.to],
     queryFn: () => fetchQueue({
       doctorId: filterDoctor || undefined,
-      date: filterDate || undefined,
+      from: dateRange.from ?? undefined,
+      to: dateRange.to ?? undefined,
       page: 1,
       limit: 100,
     }),
@@ -70,7 +60,16 @@ export function QueuePage() {
   });
 
   const allQueue = response?.data ?? [];
-  const activeQueue = useMemo(() => allQueue.filter((e) => ACTIVE_STATUSES.includes(e.status)), [allQueue]);
+  const activeQueue = useMemo(() => allQueue
+    .filter((e) => ACTIVE_STATUSES.includes(e.status))
+    .sort((a, b) => {
+      // IN_PROGRESS entries appear first, then WAITING by token number
+      if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
+      if (a.status !== 'IN_PROGRESS' && b.status === 'IN_PROGRESS') return 1;
+      const aNum = parseInt(a.tokenNumber ?? '0', 10) || 0;
+      const bNum = parseInt(b.tokenNumber ?? '0', 10) || 0;
+      return aNum - bNum;
+    }), [allQueue]);
   const historyQueue = useMemo(() => allQueue.filter((e) => HISTORY_STATUSES.includes(e.status)), [allQueue]);
   const tabQueue = tab === "ACTIVE" ? activeQueue : historyQueue;
 
@@ -276,32 +275,14 @@ export function QueuePage() {
                 </Tooltip>
               </div>
             ) : (
-              <>
-                <Select
-                  value={entry.status}
-                  onValueChange={(value) => {
-                    if (value === entry.status) return;
-                    statusMutation.mutate({ id: entry.id, status: value });
-                  }}
-                >
-                  <SelectTrigger size="sm" className="h-8 text-xs" aria-label="Change queue status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {QUEUE_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>{status.replace("_", " ")}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive" aria-label="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}>
-                      <Trash2 className="size-4.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Remove from Queue</TooltipContent>
-                </Tooltip>
-              </>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive" aria-label="Remove from queue" onClick={() => setDeleteConfirm(entry.id)}>
+                    <Trash2 className="size-4.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Remove from Queue</TooltipContent>
+              </Tooltip>
             )}
           </div>
           </TooltipProvider>
@@ -358,14 +339,6 @@ export function QueuePage() {
               )}
             </>
           )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant={!filterDate ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage("")}>All</Button>
-          <Button variant={filterDate === todayStr() ? "default" : "outline"} size="sm" onClick={() => setFilterDateAndResetPage(todayStr())}>Today</Button>
-          <Input type="date" className="w-auto" value={filterDate} onChange={(e) => setFilterDateAndResetPage(e.target.value)} />
         </div>
       </div>
 

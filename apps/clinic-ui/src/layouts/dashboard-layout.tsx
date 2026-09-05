@@ -1,18 +1,15 @@
 import { useEffect } from "react";
-import { Outlet, useMatches, useNavigate, Link } from "@tanstack/react-router";
+import { Outlet, useNavigate, Link, useMatchRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { AppSidebar } from "./app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { clearCredentials } from "@/store/auth-slice";
-import { fetchProfile } from "@/lib/api";
+import { setDateRange, selectDateRange } from "@/store/date-range-filter-slice";
+import { fetchProfile, fetchFinancialYears } from "@/lib/api";
 import { HelpTip } from "@/modules/help/components/help-tip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,17 +21,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
+import { CalendarClock, LogOut, User, ClipboardList, Plus } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { FinancialYearSelect } from "@/components/ui/financial-year-select";
+import { getHomeRoute } from "@/lib/roles";
+import { cn } from "@/lib/utils";
 
 function initials(firstName?: string, lastName?: string) {
   return `${(firstName ?? "?").charAt(0)}${(lastName ?? "").charAt(0)}`.toUpperCase();
 }
 
 export function DashboardLayout() {
-  const matches = useMatches();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
+  const dateRange = useAppSelector(selectDateRange);
 
   const handleLogout = () => {
     dispatch(clearCredentials());
@@ -60,11 +61,14 @@ export function DashboardLayout() {
       cancelled = true;
     };
   }, [dispatch, navigate]);
-  const title =
-    [...matches]
-      .reverse()
-      .map((match) => (match.staticData as { title?: string } | undefined)?.title)
-      .find(Boolean) ?? "Dashboard";
+
+
+  // Fetch current financial year
+  const { data: fyResponse } = useQuery({
+    queryKey: ["financial-years", "current"],
+    queryFn: () => fetchFinancialYears({ limit: 100 }),
+  });
+  const financialYears = fyResponse?.data ?? [];
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -74,14 +78,30 @@ export function DashboardLayout() {
           <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{title}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-            <HelpTip className="ml-auto" />
+            {(() => { const matchRoute = useMatchRoute(); return (
+              <nav className="flex items-center gap-1">
+                {[{ to: "/appointments/new" as const, label: "Quick Appointment", icon: Plus }, { to: "/appointments" as const, label: "Appointments", icon: CalendarClock }, { to: "/queue" as const, label: "Queue", icon: ClipboardList }].map((item) => {
+                  const isActive = !!matchRoute({ to: item.to });
+                  return (
+                    <Link key={item.to} to={item.to} className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors", isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                      <item.icon className="size-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            ); })()}
+            <div className="ml-auto" />
+            <FinancialYearSelect
+              years={financialYears}
+              value={dateRange.from || dateRange.to ? { from: dateRange.from ?? undefined, to: dateRange.to ?? undefined } : undefined}
+              onChange={(range) => dispatch(setDateRange({ from: range.from, to: range.to }))}
+            />
+            <DateRangePicker
+              value={dateRange.from || dateRange.to ? { from: dateRange.from ?? undefined, to: dateRange.to ?? undefined } : undefined}
+              onChange={(range) => dispatch(setDateRange({ from: range.from ?? null, to: range.to ?? null }))}
+            />
+            <HelpTip />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2">

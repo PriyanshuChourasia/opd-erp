@@ -38,7 +38,7 @@ export class AllergiesController {
 
   @Delete(':id')
   @Permissions('delete:allergies')
-  remove(@Param('id') id: string) {
-    return this.allergiesService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.allergiesService.remove(id, req.user.id);
   }
 }

@@ -1,8 +1,11 @@
 import { useMemo } from "react";
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { fetchCompany } from "@/lib/api";
 import {
+  Activity,
   AlertCircle,
+  BadgePercent,
   BarChart3,
   Box,
   Building2,
@@ -24,6 +27,7 @@ import {
   User,
   UserCog,
   Users,
+  Wallet,
   Zap,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -57,9 +61,9 @@ import { fetchMySidebarConfig } from "@/lib/api";
 
 /** Map of icon name strings → Lucide components. */
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  AlertCircle, BarChart3, Box, Building2, CalendarClock, ClipboardList,
+  Activity, AlertCircle, BadgePercent, BarChart3, Box, Building2, CalendarClock, ClipboardList,
   Clock, Cpu, FileText, LayoutDashboard, LifeBuoy, MapPin, Package,
-  Pill, Receipt, Settings, ShieldCheck, Stethoscope, User, UserCog, Users, Zap,
+  Pill, Receipt, Settings, ShieldCheck, Stethoscope, User, UserCog, Users, Wallet, Zap,
 };
 
 /** Hardcoded fallback menu (used when sidebar config is empty / not seeded yet). */
@@ -72,11 +76,11 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
     { to: "/prescriptions", label: "Prescriptions", icon: "ClipboardList" },
     { to: "/diagnoses", label: "Diagnoses", icon: "Stethoscope" },
   ],
-  Reports: [
-    { to: "/reports/revenue-by-category", label: "Revenue by Category", icon: "BarChart3" },
-    { to: "/reports/outstanding-bills", label: "Outstanding Bills", icon: "AlertCircle" },
-    { to: "/reports/doctor-performance", label: "Doctor Performance", icon: "UserCog" },
-    { to: "/reports/top-medicines", label: "Top Medicines", icon: "Pill" },
+  "OPD Reports": [
+    { to: "/reports/daily-opd-summary", label: "Daily OPD Summary", icon: "Activity" },
+    { to: "/reports/doctor-wise-opd", label: "Doctor-wise OPD", icon: "Stethoscope" },
+    { to: "/reports/revenue-collection", label: "Revenue / Collection", icon: "Wallet" },
+    { to: "/reports/outstanding-payments", label: "Outstanding Payments", icon: "AlertCircle" },
   ],
   "Pharmacy & Billing": [
     { to: "/medicine-catalog", label: "Medicine Catalog", icon: "Pill" },
@@ -88,6 +92,10 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
     { to: "/organisation/prescription-templates", label: "Rx Templates", icon: "FileText" },
     { to: "/shifts", label: "Shifts", icon: "Clock" },
     { to: "/addresses", label: "Addresses", icon: "MapPin" },
+    { to: "/organisation/departments", label: "Departments", icon: "Building2" },
+    { to: "/organisation/designations", label: "Designations", icon: "UserCog" },
+    { to: "/organisation/financial-years", label: "Financial Years", icon: "CalendarClock" },
+    { to: "/organisation/discounts", label: "Discounts", icon: "BadgePercent" },
     { to: "/organisation/users", label: "Users", icon: "UserCog" },
     { to: "/organisation/sidebar-config", label: "Sidebar Config", icon: "Settings" },
   ],
@@ -101,13 +109,14 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
   ],
   Account: [
     { to: "/profile", label: "Profile", icon: "User" },
+    { to: "/settings", label: "Settings", icon: "Settings" },
     { to: "/help", label: "Help", icon: "LifeBuoy" },
   ],
 };
 
 /** Group order for deterministic sidebar rendering. */
 const GROUP_ORDER = [
-  "Clinic", "Reports", "Pharmacy & Billing", "Organisation",
+  "Clinic", "OPD Reports", "Pharmacy & Billing", "Organisation",
   "Access Control", "Developer", "Account",
 ];
 
@@ -122,6 +131,14 @@ export function AppSidebar() {
     queryKey: ["sidebar-config", "my"],
     queryFn: fetchMySidebarConfig,
     staleTime: 5 * 60 * 1000, // cache for 5 min
+    enabled: !!user,
+  });
+
+  // Fetch organisation/company name for sidebar header
+  const { data: organisation } = useQuery({
+    queryKey: ["company"],
+    queryFn: fetchCompany,
+    staleTime: 5 * 60 * 1000,
     enabled: !!user,
   });
 
@@ -175,7 +192,9 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <Link to="/dashboard">
                 <BrandMark />
-                <span className="min-w-0 truncate text-sm font-semibold">MyClinic</span>
+                <span className="min-w-0 truncate text-sm font-semibold">
+                  {organisation?.name || "MyClinic"}
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

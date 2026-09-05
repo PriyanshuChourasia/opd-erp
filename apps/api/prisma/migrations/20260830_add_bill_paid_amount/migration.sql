@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Bill" ADD COLUMN "paidAmount" INTEGER NOT NULL DEFAULT 0;

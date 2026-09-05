@@ -9,6 +9,8 @@ import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
 import { FindMedicinesQueryDto } from './dto/find-medicines-query.dto';
 
+const MEDICINE_INCLUDE = { group: true, unitMaster: true } as const;
+
 /**
  * Medicine/drug master database management.
  *
@@ -23,31 +25,59 @@ export class MedicineCatalogService
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateMedicineDto, userId?: string) {
-    return this.prisma.medicine.create({ data: { ...dto, createdById: userId ?? null } });
+    const { openingStock, currentStock, ...rest } = dto;
+    return this.prisma.medicine.create({
+      data: {
+        ...rest,
+        createdById: userId ?? null,
+        openingStock: openingStock ?? undefined,
+        currentStock: currentStock ?? openingStock ?? 0,
+      },
+      include: MEDICINE_INCLUDE,
+    });
   }
 
   async findAll(query: FindMedicinesQueryDto): Promise<PaginatedResult<Medicine>> {
-    const where = SearchQueryBuilder.search(query.search, ['name', 'genericName', 'brandName']);
+    const searchWhere = SearchQueryBuilder.search(query.search, ['name', 'alias', 'genericName', 'brandName']);
+    const where: Record<string, unknown> = {
+      ...(searchWhere ?? {}),
+      deletedAt: null,
+      ...(query.groupId ? { groupId: query.groupId } : {}),
+    };
     return paginate(
       () => this.prisma.medicine.count({ where }),
-      ({ skip, take }) => this.prisma.medicine.findMany({ where, orderBy: [{ name: 'asc' }, { id: 'asc' }], skip, take }),
+      ({ skip, take }) =>
+        this.prisma.medicine.findMany({
+          where,
+          include: MEDICINE_INCLUDE,
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          skip,
+          take,
+        }),
       query,
     );
   }
 
   async findOne(id: string) {
-    const medicine = await this.prisma.medicine.findUnique({ where: { id } });
+    const medicine = await this.prisma.medicine.findUnique({ where: { id, deletedAt: null }, include: MEDICINE_INCLUDE });
     if (!medicine) throw new NotFoundException(`Medicine ${id} not found`);
     return medicine;
   }
 
   async update(id: string, dto: UpdateMedicineDto, userId?: string) {
     await this.findOne(id);
-    return this.prisma.medicine.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
+    return this.prisma.medicine.update({
+      where: { id },
+      data: { ...dto, updatedById: userId ?? null },
+      include: MEDICINE_INCLUDE,
+    });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.medicine.delete({ where: { id } });
+    return this.prisma.medicine.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

@@ -11,12 +11,8 @@ export type DiscountMode = "percent" | "flat";
 export type PaymentMethod = "CASH" | "CARD" | "UPI";
 
 export const CONSULTATION_TYPES = [
-  { value: "WALK_IN", label: "Walk-in Registration", fee: 100 },
-  { value: "CONSULTATION", label: "Consultation", fee: 300 },
-  { value: "SPECIALIST", label: "Specialist Consultation", fee: 500 },
-  { value: "EMERGENCY", label: "Emergency Consultation", fee: 800 },
-  { value: "FOLLOW_UP", label: "Follow-up Consultation", fee: 150 },
-  { value: "TELECONSULTATION", label: "Teleconsultation", fee: 250 },
+  { value: "WALK_IN", label: "Walk-in Registration", amount: 100 },
+  { value: "CONSULTATION", label: "Consultation", amount: 300 },
 ] as const;
 
 export const paymentMethods = [
@@ -47,7 +43,7 @@ export const BILL_STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
-export function currency(value: number) { return `₹${value.toFixed(2)}`; }
+export function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 export function todayStr() {
   const d = new Date();
   const offset = d.getTimezoneOffset();

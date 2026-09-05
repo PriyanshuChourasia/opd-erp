@@ -1,20 +1,35 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { Pill, Search } from "lucide-react";
-import { fetchMedicines, type Medicine } from "@/lib/api";
+import { Pencil, Pill, Plus, Search } from "lucide-react";
+import { fetchMedicines, fetchMedicineGroups, fetchUnits, createMedicine, updateMedicine, type Medicine, type CreateMedicineInput } from "@/lib/api";
+import { toast } from "sonner";
+import { extractApiError } from "@/lib/axios-client";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DataTable } from "@/components/data-table/data-table";
 
 function currency(value: number) {
   return `₹${value.toFixed(2)}`;
 }
 
+function emptyForm(): CreateMedicineInput {
+  return { name: "", price: 0, category: "", alias: "", openingStock: 0 };
+}
+
 export function MedicineCatalogPage() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [form, setForm] = useState<CreateMedicineInput>(emptyForm());
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["medicines", search, pagination.pageIndex, pagination.pageSize],
@@ -27,8 +42,72 @@ export function MedicineCatalogPage() {
     placeholderData: (previous) => previous,
   });
 
+  const { data: groupsResponse } = useQuery({
+    queryKey: ["medicine-groups"],
+    queryFn: () => fetchMedicineGroups({ limit: 500 }),
+  });
+
+  const { data: unitsResponse } = useQuery({
+    queryKey: ["units"],
+    queryFn: () => fetchUnits({ limit: 500 }),
+  });
+
+  const groups = groupsResponse?.data ?? [];
+  const units = unitsResponse?.data ?? [];
+
   const medicines = response?.data ?? [];
   const pageCount = response?.meta?.totalPages ?? 0;
+
+  const createMutation = useMutation({
+    mutationFn: createMedicine,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      closeSheet();
+      toast.success("Medicine created successfully");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<CreateMedicineInput> }) => updateMedicine(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      closeSheet();
+      toast.success("Medicine updated successfully");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  function openAdd() { setForm(emptyForm()); setEditingId(null); setSheetOpen(true); }
+  function openEdit(medicine: Medicine) {
+    setForm({
+      name: medicine.name,
+      alias: medicine.alias ?? "",
+      genericName: medicine.genericName ?? "",
+      brandName: medicine.brandName ?? "",
+      category: medicine.category ?? "",
+      strength: medicine.strength ?? "",
+      unit: medicine.unit,
+      price: medicine.price,
+      groupId: medicine.groupId ?? undefined,
+      unitId: medicine.unitId ?? undefined,
+      openingStock: medicine.openingStock != null ? Number(medicine.openingStock) : 0,
+    });
+    setEditingId(medicine.id);
+    setSheetOpen(true);
+  }
+  function closeSheet() { setSheetOpen(false); setEditingId(null); }
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  function handleSave() {
+    if (!form.name.trim()) return;
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, input: form });
+    } else {
+      createMutation.mutate(form);
+    }
+  }
 
   const columns = useMemo<ColumnDef<Medicine>[]>(() => [
     {
@@ -43,11 +122,22 @@ export function MedicineCatalogPage() {
             </span>
             <div className="min-w-0">
               <p className="truncate font-medium">{medicine.name}</p>
+              {medicine.alias && <p className="text-xs text-muted-foreground">{medicine.alias}</p>}
               {medicine.brandName && <p className="text-xs text-muted-foreground">{medicine.brandName}</p>}
             </div>
           </div>
         );
       },
+    },
+    {
+      accessorKey: "group",
+      header: "Group",
+      cell: ({ row }) => row.original.group?.name ?? <span className="text-muted-foreground">—</span>,
+    },
+    {
+      accessorKey: "unitMaster",
+      header: "Unit",
+      cell: ({ row }) => row.original.unitMaster?.name ?? <span className="text-muted-foreground">—</span>,
     },
     {
       accessorKey: "genericName",
@@ -78,6 +168,16 @@ export function MedicineCatalogPage() {
       cell: ({ row }) => <span className="font-medium">{currency(row.original.price)}</span>,
     },
     {
+      accessorKey: "currentStock",
+      header: "Stock",
+      cell: ({ row }) => {
+        const stock = row.original.currentStock;
+        if (stock == null) return <span className="text-muted-foreground">—</span>;
+        const value = Number(stock);
+        return <span className={cn("text-sm", value < 0 && "font-medium text-red-600 dark:text-red-400")}>{value}</span>;
+      },
+    },
+    {
       accessorKey: "isActive",
       header: "Status",
       cell: ({ row }) =>
@@ -87,13 +187,89 @@ export function MedicineCatalogPage() {
           <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" variant="outline">Inactive</Badge>
         ),
     },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <Button variant="ghost" size="icon-sm" title="Edit medicine" aria-label="Edit medicine" onClick={() => openEdit(row.original)}>
+          <Pencil className="size-3.5" />
+        </Button>
+      ),
+    },
   ], []);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Medicine Catalog</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Browse the drug master database</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Medicine Catalog</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Browse the drug master database</p>
+        </div>
+        <Sheet open={sheetOpen} onOpenChange={(open) => { if (!open) closeSheet(); else setSheetOpen(true); }}>
+          <SheetTrigger asChild>
+            <Button onClick={openAdd}><Plus className="mr-2 size-4" />Add Medicine</Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>{editingId ? "Edit Medicine" : "Add Medicine"}</SheetTitle>
+              <SheetDescription>{editingId ? "Update this medicine's details." : "Add a new medicine to the catalog."}</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 space-y-4 px-4 pb-4">
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="m-name">Name *</FieldLabel>
+                  <Input id="m-name" placeholder="e.g. AZOLID 500" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="m-alias">Alias</FieldLabel>
+                  <Input id="m-alias" placeholder="e.g. Azithromycin 500" value={form.alias ?? ""} onChange={(e) => setForm({ ...form, alias: e.target.value })} />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel htmlFor="m-price">Price (₹)</FieldLabel>
+                    <Input id="m-price" type="number" min={0} value={form.price ?? 0} onChange={(e) => setForm({ ...form, price: Number(e.target.value) || 0 })} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="m-category">Category</FieldLabel>
+                    <Input id="m-category" placeholder="e.g. TABLET" value={form.category ?? ""} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                  </Field>
+                </div>
+                <Field>
+                  <FieldLabel>Group</FieldLabel>
+                  <Select value={form.groupId ?? ""} onValueChange={(v) => setForm({ ...form, groupId: v || undefined })}>
+                    <SelectTrigger><SelectValue placeholder="Select group..." /></SelectTrigger>
+                    <SelectContent>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel>Unit</FieldLabel>
+                  <Select value={form.unitId ?? ""} onValueChange={(v) => setForm({ ...form, unitId: v || undefined })}>
+                    <SelectTrigger><SelectValue placeholder="Select unit..." /></SelectTrigger>
+                    <SelectContent>
+                      {units.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="m-stock">Opening Stock</FieldLabel>
+                  <Input id="m-stock" type="number" min={0} value={form.openingStock ?? 0} onChange={(e) => setForm({ ...form, openingStock: Number(e.target.value) || 0 })} />
+                </Field>
+              </FieldGroup>
+            </div>
+            <SheetFooter>
+              <Button variant="outline" onClick={closeSheet}>Cancel</Button>
+              <Button onClick={handleSave} disabled={!form.name.trim() || isSaving}>
+                {isSaving ? (editingId ? "Updating..." : "Creating...") : editingId ? "Update Medicine" : "Create Medicine"}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <Card>

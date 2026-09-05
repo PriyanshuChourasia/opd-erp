@@ -3,6 +3,7 @@ import { ModuleRegistryService } from './services/module-registry.service';
 import { ModuleRegistryController } from './module-registry.controller';
 import { SlotGeneratorService } from './services/slot-generator.service';
 import { CustomModulesService } from './services/custom-module.service';
+import { TokenNumberService } from './services/token-number.service';
 
 /**
  * Shared infrastructure module.
@@ -17,7 +18,7 @@ import { CustomModulesService } from './services/custom-module.service';
 @Global()
 @Module({
   controllers: [ModuleRegistryController],
-  providers: [ModuleRegistryService, SlotGeneratorService, CustomModulesService],
-  exports: [ModuleRegistryService, SlotGeneratorService, CustomModulesService],
+  providers: [ModuleRegistryService, SlotGeneratorService, CustomModulesService, TokenNumberService],
+  exports: [ModuleRegistryService, SlotGeneratorService, CustomModulesService, TokenNumberService],
 })
 export class CommonModule {}

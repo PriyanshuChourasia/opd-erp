@@ -64,7 +64,7 @@ export class PatientVitalsService {
    * Get vitals for a specific patient, ordered by most recent first.
    */
   async findByPatient(patientId: string, page = 1, limit = 20): Promise<PaginatedResult<PatientVitals>> {
-    const where = { patientId };
+    const where = { patientId, deletedAt: null };
     return paginate(
       () => this.prisma.patientVitals.count({ where }),
       ({ skip, take }) =>
@@ -96,7 +96,7 @@ export class PatientVitalsService {
    */
   async findLatest(patientId: string) {
     const vitals = await this.prisma.patientVitals.findFirst({
-      where: { patientId },
+      where: { patientId, deletedAt: null },
       orderBy: { recordedAt: 'desc' },
       include: { patient: { select: { id: true, firstName: true, lastName: true, patientCode: true } } },
     });
@@ -110,6 +110,7 @@ export class PatientVitalsService {
     return this.prisma.patientVitals.findMany({
       where: {
         patientId,
+        deletedAt: null,
         recordedAt: { gte: from, lt: to },
       },
       orderBy: { recordedAt: 'desc' },
@@ -117,5 +118,15 @@ export class PatientVitalsService {
     });
   }
 
-  // Intentionally no update() or remove() — vitals are immutable historical records.
+  /**
+   * Soft-delete a vitals record.
+   */
+  async remove(id: string, deletedById?: string) {
+    const existing = await this.prisma.patientVitals.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`PatientVitals ${id} not found`);
+    return this.prisma.patientVitals.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
+  }
 }

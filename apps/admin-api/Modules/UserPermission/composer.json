@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/userpermission",
+    "description": "UserPermission module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\UserPermission\\": "",
+            "Modules\\UserPermission\\Database\\Factories\\": "database/factories/",
+            "Modules\\UserPermission\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\UserPermission\\Tests\\": "tests/"
+        }
+    }
+}

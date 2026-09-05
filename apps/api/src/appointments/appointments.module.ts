@@ -7,6 +7,7 @@ import { registry } from './registry';
 @Module({
   controllers: [AppointmentsController],
   providers: [AppointmentsService],
+  exports: [AppointmentsService],
 })
 export class AppointmentsModule implements OnModuleInit {
   constructor(private readonly registryService: ModuleRegistryService) {}

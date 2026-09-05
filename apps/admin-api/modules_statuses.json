@@ -1,0 +1,20 @@
+{
+    "Auth": true,
+    "User": true,
+    "Department": true,
+    "Designation": true,
+    "Employee": true,
+    "Role": true,
+    "Permission": true,
+    "ApplicationModule": true,
+    "ApplicationFeature": true,
+    "UserRole": true,
+    "UserPermission": true,
+    "Customer": true,
+    "Document": true,
+    "Country": true,
+    "State": true,
+    "Organization": true,
+    "License": true,
+    "FinancialYear": true
+}

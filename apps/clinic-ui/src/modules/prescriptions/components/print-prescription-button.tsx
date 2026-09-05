@@ -4,6 +4,7 @@ import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { fetchPrescriptionTemplateForDoctor, type Prescription } from "@/lib/api";
+import { printArea } from "@/lib/utils";
 import { PrescriptionTemplatePreview, type PrescriptionPrintData } from "@/modules/prescription-templates/components/prescription-template-preview";
 
 interface Props {
@@ -66,13 +67,13 @@ export function PrintPrescriptionButton({ prescription, variant = "button" }: Pr
               No prescription template is configured. Create a default template under Organisation → Rx Templates first.
             </p>
           ) : (
-            <div id="print-area">
+            <div id="print-area" className="prescription-print-area">
               <PrescriptionTemplatePreview template={template} onOpenChange={() => {}} inline data={printData} />
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-            <Button onClick={() => window.print()} disabled={!template}>
+            <Button onClick={printArea} disabled={!template}>
               <Printer className="mr-2 size-3.5" />Print
             </Button>
           </DialogFooter>

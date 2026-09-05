@@ -1,0 +1,12 @@
+{
+    "name": "UserRole",
+    "alias": "userrole",
+    "description": "UserRole module for the admin-api",
+    "keywords": [
+        "userrole"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\UserRole\\Providers\\UserRoleServiceProvider"
+    ]
+}

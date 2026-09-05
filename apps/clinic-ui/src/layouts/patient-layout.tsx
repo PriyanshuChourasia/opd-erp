@@ -1,8 +1,8 @@
+import { useEffect } from "react";
 import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import {
   CalendarClock,
   ClipboardList,
-  FileText,
   FlaskConical,
   LayoutDashboard,
   LogOut,
@@ -12,11 +12,13 @@ import {
 import { useDispatch } from "react-redux";
 import { clearCredentials } from "@/store/auth-slice";
 import { useAppSelector } from "@/store/hooks";
-import { cn, initials } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { fetchProfile } from "@/lib/api";
+import { initials } from "@/lib/utils";
+import { AppSidebar } from "./app-sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { HelpTip } from "@/modules/help/components/help-tip";
-import { BrandMark } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,13 +27,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { BrandMark } from "@/components/brand-mark";
 
-const patientNav = [
-  { to: "/patient", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/patient/appointments", label: "Appointments", icon: CalendarClock },
-  { to: "/patient/prescriptions", label: "Prescriptions", icon: ClipboardList },
-  { to: "/patient/lab-orders", label: "Lab Reports", icon: FlaskConical },
-  { to: "/patient/bills", label: "Bills", icon: Receipt },
+/** Patient nav items — used as fallback if sidebar config is empty */
+const PATIENT_NAV = [
+  { to: "/patient", label: "Dashboard", icon: "LayoutDashboard" },
+  { to: "/patient/appointments", label: "Appointments", icon: "CalendarClock" },
+  { to: "/patient/prescriptions", label: "Prescriptions", icon: "ClipboardList" },
+  { to: "/patient/lab-orders", label: "Lab Reports", icon: "FlaskConical" },
+  { to: "/patient/bills", label: "Bills", icon: "Receipt" },
 ] as const;
 
 export function PatientLayout() {
@@ -45,31 +49,27 @@ export function PatientLayout() {
     navigate({ to: "/login" });
   };
 
+  // Verify the JWT token is still valid
+  useEffect(() => {
+    let cancelled = false;
+    fetchProfile()
+      .catch(() => {
+        if (cancelled) return;
+        dispatch(clearCredentials());
+        navigate({ to: "/login", replace: true });
+      });
+    return () => { cancelled = true; };
+  }, [dispatch, navigate]);
+
   return (
     <div className="flex h-screen flex-col bg-muted/30">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-background px-4">
+      {/* Mobile-style header with sidebar trigger */}
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
         <Link to="/patient" className="flex shrink-0 items-center gap-2">
           <BrandMark />
           <span className="text-sm font-semibold">Patient Portal</span>
         </Link>
-        <nav className="flex items-center gap-1">
-          {patientNav.map((item) => (
-            <Button
-              key={item.to}
-              variant="ghost"
-              size="sm"
-              className={cn(!!matchRoute({ to: item.to }) && "bg-muted text-foreground")}
-              asChild
-            >
-              <Link to={item.to}>
-                <item.icon />
-                {item.label}
-              </Link>
-            </Button>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          <HelpTip />
+        <div className="ml-auto flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2">
@@ -96,9 +96,33 @@ export function PatientLayout() {
           </DropdownMenu>
         </div>
       </header>
-      <main className="flex flex-1 flex-col overflow-y-auto p-4 md:p-6">
-        <Outlet />
-      </main>
+      {/* Patient sidebar nav */}
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="flex w-56 flex-col border-r bg-background">
+          <nav className="flex flex-col gap-1 p-2">
+            {PATIENT_NAV.map((item) => {
+              const iconMap: Record<string, typeof LayoutDashboard> = { LayoutDashboard, CalendarClock, ClipboardList, FlaskConical, Receipt };
+              const Icon = iconMap[item.icon] ?? LayoutDashboard;
+              const isActive = !!matchRoute({ to: item.to });
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="size-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </aside>
+        <main className="flex flex-1 flex-col overflow-y-auto p-4 md:p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

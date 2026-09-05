@@ -1,4 +1,4 @@
-import { apiFetch, type Doctor, type CreateDoctorInput, type EmployeeSchedule } from "@/lib/api";
+import { apiFetch, fetchEmployeeScheduleExceptions, createEmployeeScheduleException, deleteEmployeeScheduleException, type Doctor, type CreateDoctorInput, type EmployeeSchedule, type CreateEmployeeScheduleExceptionInput, type EmployeeScheduleException } from "@/lib/api";
 import type { EmployeeScheduleDay } from "./interface";
 
 export async function fetchDoctors(search?: string) {
@@ -60,4 +60,31 @@ export async function updateEmployeeSchedule(id: string, data: {
 
 export async function deleteEmployeeSchedule(id: string): Promise<void> {
   return apiFetch<void>(`/employee-schedules/${id}`, { method: "DELETE" });
+}
+
+/** Upcoming one-off schedule exceptions for a doctor (inclusive date range). */
+export async function fetchDoctorScheduleExceptions(
+  doctorId: string,
+  from: string,
+  to: string,
+): Promise<EmployeeScheduleException[]> {
+  const res = await fetchEmployeeScheduleExceptions({
+    employeeSchedulableType: "Doctor",
+    employeeSchedulableId: doctorId,
+    from,
+    to,
+    limit: 200,
+  });
+  return res.data ?? [];
+}
+
+export async function createDoctorScheduleException(
+  data: CreateEmployeeScheduleExceptionInput,
+): Promise<EmployeeScheduleException> {
+  const res = await createEmployeeScheduleException(data);
+  return res;
+}
+
+export async function deleteDoctorScheduleException(id: string): Promise<void> {
+  await deleteEmployeeScheduleException(id);
 }

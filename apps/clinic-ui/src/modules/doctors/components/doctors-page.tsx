@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { CalendarClock, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, BadgeCheck, DollarSign, ShieldCheck, GraduationCap, User, UserX, UserCheck, Repeat, FileUp, FileText, Camera } from "lucide-react";
+import { CalendarClock, CalendarPlus, MapPin, Pencil, Plus, Search, Stethoscope, X, Award, BadgeCheck, DollarSign, ShieldCheck, GraduationCap, User, UserX, UserCheck, Repeat, FileUp, FileText, Camera } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
 import { DocumentManager } from "@/modules/documents/components/document-manager";
 import { DocumentGallery } from "@/modules/documents/components/document-viewer";
 import { fetchDoctors, fetchDoctor, createDoctorWithUser, updateDoctor, fetchDoctorUser, updateDoctorWithUser, fetchDocumentsByEntity, uploadDocument, deleteDocument, deleteDoctor, restoreDoctor, type Doctor, type CreateDoctorInput, type CreateDoctorWithUserInput, type AddressEntry, INDIAN_STATES } from "@/lib/api";
-import { fetchDoctorSchedules, createEmployeeSchedule, updateEmployeeSchedule, deleteEmployeeSchedule } from "../data/api";
+import { fetchDoctorSchedules, createEmployeeSchedule, updateEmployeeSchedule, deleteEmployeeSchedule, fetchDoctorScheduleExceptions, createDoctorScheduleException, deleteDoctorScheduleException } from "../data/api";
 import { fetchShifts, type Shift } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -23,22 +25,44 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table/data-table";
-import { DAYS, SCHEDULE_TEMPLATES, type DayForm, type ScheduleTemplate } from "../data/interface";
+import { DAYS, SCHEDULE_TEMPLATES, type DayBlock, type DayForm, type ScheduleTemplate } from "../data/interface";
+import { type CreateEmployeeScheduleExceptionInput, type EmployeeScheduleExceptionType } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
 
 function emptyScheduleForm(): DayForm[] {
-  return DAYS.map((day) => ({ enabled: day.value < 5, startTime: "09:00", endTime: "17:00" }));
+  return DAYS.map((day) => ({
+    enabled: day.value < 5,
+    // Deliberately empty — the load effect below pushes the doctor's real
+    // saved blocks onto this array. A pre-filled default here would sit
+    // alongside the real block after loading (same day, same time range),
+    // and the client-side overlap check would then reject it as a fake
+    // self-overlap the instant the user tries to add a genuine second shift.
+    blocks: [],
+  }));
 }
+
+/** Today / offset date as a local YYYY-MM-DD string. */
+function toDateStr(d: Date): string {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+const EXCEPTION_TYPE_LABEL: Record<EmployeeScheduleExceptionType, string> = {
+  EXTRA_SHIFT: "Extra shift",
+  OVERRIDE: "Override",
+  DAY_OFF: "Day off",
+};
 
 export function DoctorsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canCreate = hasPermission(permissions, "create", "doctors");
   const canUpdate = hasPermission(permissions, "update", "doctors");
   const canDelete = hasPermission(permissions, "delete", "doctors");
   const [search, setSearch] = useState("");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -70,7 +94,7 @@ export function DoctorsPage() {
 
   const createMutation = useMutation({
     mutationFn: createDoctorWithUser,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); queryClient.invalidateQueries({ queryKey: ["doctor-slots"] }); closeSheet(); toast.success("Doctor created successfully"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["doctors"] }); queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); closeSheet(); toast.success("Doctor created successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
   const updateMutation = useMutation({
@@ -112,11 +136,82 @@ export function DoctorsPage() {
 
   const shifts = useMemo(() => shiftsQuery.data?.data ?? [], [shiftsQuery.data]);
 
+  // ── One-off schedule exceptions (date-specific changes) ──
+  const exceptionsFrom = useMemo(() => toDateStr(new Date()), []);
+  const exceptionsTo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return toDateStr(d);
+  }, []);
+  const scheduleExceptionsQuery = useQuery({
+    queryKey: ["employee-schedule-exceptions", scheduleDoctorId, exceptionsFrom, exceptionsTo],
+    queryFn: () => fetchDoctorScheduleExceptions(scheduleDoctorId!, exceptionsFrom, exceptionsTo),
+    enabled: !!scheduleDoctorId,
+  });
+  const upcomingExceptions = scheduleExceptionsQuery.data ?? [];
+
+  const [exceptionForm, setExceptionForm] = useState<{
+    type: EmployeeScheduleExceptionType;
+    date: string;
+    shiftId: string;
+    startTime: string;
+    endTime: string;
+  }>({ type: "EXTRA_SHIFT", date: "", shiftId: "", startTime: "", endTime: "" });
+
+  const addExceptionMutation = useMutation({
+    mutationFn: (input: CreateEmployeeScheduleExceptionInput) => createDoctorScheduleException(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-schedule-exceptions"] });
+
+      setExceptionForm({ type: "EXTRA_SHIFT", date: "", shiftId: "", startTime: "", endTime: "" });
+      toast.success("One-time schedule change added");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  const deleteExceptionMutation = useMutation({
+    mutationFn: (id: string) => deleteDoctorScheduleException(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-schedule-exceptions"] });
+
+      toast.success("One-time schedule change removed");
+    },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  function handleAddException() {
+    if (!scheduleDoctorId) return;
+    const { type, date, shiftId, startTime, endTime } = exceptionForm;
+    if (!date) { toast.error("Pick a date for the one-time change"); return; }
+    // A DAY_OFF covers the whole day — time inputs are hidden and not required.
+    const effectiveStart = type === "DAY_OFF" ? "00:00" : startTime;
+    const effectiveEnd = type === "DAY_OFF" ? "23:59" : endTime;
+    if (!effectiveStart || !effectiveEnd) { toast.error("Enter the start and end time"); return; }
+    if (effectiveStart >= effectiveEnd) { toast.error("Start time must be before end time"); return; }
+    addExceptionMutation.mutate({
+      date,
+      type,
+      startTime: effectiveStart,
+      endTime: effectiveEnd,
+      shiftId: shiftId || undefined,
+      employeeSchedulableType: "Doctor",
+      employeeSchedulableId: scheduleDoctorId,
+    });
+  }
+
   useEffect(() => {
     if (!scheduleDoctorId) return;
     const next = emptyScheduleForm();
     for (const s of scheduleQuery.data ?? []) {
-      next[s.dayOfWeek] = { enabled: true, id: s.id, startTime: s.startTime, endTime: s.endTime, shiftId: s.shiftId ?? undefined };
+      const dayEntry = next[s.dayOfWeek];
+      if (!dayEntry) continue;
+      dayEntry.blocks.push({
+        id: s.id,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        shiftId: s.shiftId ?? undefined,
+      });
+      dayEntry.enabled = true;
     }
     setScheduleForm(next);
   }, [scheduleDoctorId, scheduleQuery.data]);
@@ -126,69 +221,135 @@ export function DoctorsPage() {
       const currentDoctorId = scheduleDoctorId;
       if (!currentDoctorId) return;
 
+      // Client-side guard mirroring the backend overlap rule: the blocks of an
+      // enabled day must not overlap each other.
+      for (const day of scheduleForm) {
+        if (!day.enabled) continue;
+        const blocks = day.blocks.filter((b) => b.startTime && b.endTime);
+        for (let i = 0; i < blocks.length; i++) {
+          const a = blocks[i];
+          if (!a) continue;
+          if (a.startTime >= a.endTime) {
+            throw new Error("A shift has an invalid time range (start must be before end).");
+          }
+          for (let j = i + 1; j < blocks.length; j++) {
+            const b = blocks[j];
+            if (!b) continue;
+            if (a.startTime < b.endTime && b.startTime < a.endTime) {
+              throw new Error("Two shifts on the same day overlap — adjust the times before saving.");
+            }
+          }
+        }
+      }
+
+      // Diff per BLOCK (not per day): a day may hold several shift rows.
       // Run operations SEQUENTIALLY (not in parallel) to avoid race conditions
       // with the overlap validation on the backend.
-      const existingSchedules = scheduleQuery.data ?? [];
+      const serverRows = scheduleQuery.data ?? [];
 
       for (const [dayOfWeek, day] of scheduleForm.entries()) {
-        const base = {
-          employeeSchedulableType: 'Doctor' as const,
-          employeeSchedulableId: currentDoctorId,
-          dayOfWeek,
-          startTime: day.startTime,
-          endTime: day.endTime,
-          shiftId: day.shiftId || undefined,
-        };
+        const desired = day.enabled ? day.blocks.filter((b) => b.startTime && b.endTime) : [];
+        const dayRows = serverRows.filter((s) => s.dayOfWeek === dayOfWeek);
 
-        try {
-          if (day.enabled && day.id) {
-            await updateEmployeeSchedule(day.id!, base);
-          } else if (day.enabled && !day.id) {
-            await createEmployeeSchedule(base);
-          } else if (!day.enabled && day.id) {
-            await deleteEmployeeSchedule(day.id!);
-          }
-        } catch (err: unknown) {
-          // If CREATE failed with 400 (overlap), fall back to UPDATE
-          const apiErr = err as { status?: number };
-          if (day.enabled && !day.id && apiErr.status === 400) {
-            const existing = existingSchedules.find((s) => s.dayOfWeek === dayOfWeek);
-            if (existing) {
-              await updateEmployeeSchedule(existing.id!, base);
-            } else {
-              throw err;
-            }
+        for (const block of desired) {
+          const base = {
+            employeeSchedulableType: 'Doctor' as const,
+            employeeSchedulableId: currentDoctorId,
+            dayOfWeek,
+            startTime: block.startTime,
+            endTime: block.endTime,
+            shiftId: block.shiftId || undefined,
+          };
+          const matched = block.id
+            ? dayRows.find((s) => s.id === block.id)
+            : dayRows.find((s) =>
+                block.shiftId ? s.shiftId === block.shiftId : s.startTime === block.startTime && s.endTime === block.endTime,
+              );
+          if (matched && matched.id) {
+            await updateEmployeeSchedule(matched.id, base);
           } else {
-            throw err;
+            // Backend create() auto-upserts when the range overlaps an existing
+            // row, so a duplicate resubmit is safe.
+            await createEmployeeSchedule(base);
+          }
+        }
+
+        for (const row of dayRows) {
+          const stillWanted = desired.some((b) =>
+            b.id === row.id ||
+            (b.shiftId ? b.shiftId === row.shiftId : b.startTime === row.startTime && b.endTime === row.endTime),
+          );
+          if (!stillWanted && row.id) {
+            await deleteEmployeeSchedule(row.id);
           }
         }
       }
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); queryClient.invalidateQueries({ queryKey: ["doctor-slots"] }); setScheduleDoctorId(null); toast.success("Schedule saved successfully"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-schedules"] }); queryClient.invalidateQueries({ queryKey: ["employee-schedule-exceptions"] }); setScheduleDoctorId(null); toast.success("Schedule saved successfully"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
-  function updateDay(dayOfWeek: number, patch: Partial<DayForm>) {
-    setScheduleForm((prev) => prev.map((day, i) => (i === dayOfWeek ? { ...day, ...patch } : day)));
-  }
-
-  /** Apply a shift's times to all enabled days */
-  function applyShiftToAll(shift: Shift) {
+  function updateDayBlock(dayOfWeek: number, blockIdx: number, patch: Partial<DayBlock>) {
     setScheduleForm((prev) =>
-      prev.map((day) =>
-        day.enabled
-          ? { ...day, startTime: shift.startTime, endTime: shift.endTime, shiftId: shift.id }
+      prev.map((day, i) =>
+        i === dayOfWeek
+          ? { ...day, blocks: day.blocks.map((b, bi) => (bi === blockIdx ? { ...b, ...patch } : b)) }
           : day,
       ),
     );
   }
 
-  /** Apply a weekly schedule template to the entire form — preserves existing schedule IDs */
+  function addDayBlock(dayOfWeek: number) {
+    setScheduleForm((prev) =>
+      prev.map((day, i) =>
+        i === dayOfWeek ? { ...day, enabled: true, blocks: [...day.blocks, { startTime: "", endTime: "" }] } : day,
+      ),
+    );
+  }
+
+  function removeDayBlock(dayOfWeek: number, blockIdx: number) {
+    setScheduleForm((prev) =>
+      prev.map((day, i) => {
+        if (i !== dayOfWeek) return day;
+        const blocks = day.blocks.filter((_, bi) => bi !== blockIdx);
+        return { enabled: blocks.length > 0, blocks };
+      }),
+    );
+  }
+
+  function setDayEnabled(dayOfWeek: number, enabled: boolean) {
+    setScheduleForm((prev) =>
+      prev.map((day, i) => {
+        if (i !== dayOfWeek) return day;
+        if (enabled && day.blocks.length === 0) {
+          return { enabled: true, blocks: [{ startTime: "09:00", endTime: "17:00" }] };
+        }
+        return { ...day, enabled };
+      }),
+    );
+  }
+
+  /** Apply a shift's times to the FIRST block of every enabled day — other blocks are preserved. */
+  function applyShiftToAll(shift: Shift) {
+    setScheduleForm((prev) =>
+      prev.map((day) => {
+        if (!day.enabled) return day;
+        const blocks = day.blocks.length > 0 ? [...day.blocks] : [{ startTime: "", endTime: "" }];
+        blocks[0] = { ...blocks[0], startTime: shift.startTime, endTime: shift.endTime, shiftId: shift.id };
+        return { ...day, enabled: true, blocks };
+      }),
+    );
+  }
+
+  /** Apply a weekly schedule template to the entire form — writes into the first block per day, preserving other blocks. */
   function applyTemplate(template: ScheduleTemplate) {
     setScheduleForm((prev) => {
-      const next = [...prev];
+      const next = prev.map((day) => ({ ...day, blocks: [...day.blocks] }));
       for (const td of template.days) {
-        next[td.dayOfWeek] = { ...next[td.dayOfWeek], enabled: true, startTime: td.startTime, endTime: td.endTime };
+        const day = next[td.dayOfWeek] ?? { enabled: false, blocks: [] };
+        const blocks = day.blocks.length > 0 ? [...day.blocks] : [{ startTime: "", endTime: "" }];
+        blocks[0] = { ...blocks[0], startTime: td.startTime, endTime: td.endTime };
+        next[td.dayOfWeek] = { enabled: true, blocks };
       }
       return next;
     });
@@ -424,6 +585,14 @@ export function DoctorsPage() {
                     </TooltipTrigger>
                     <TooltipContent>Addresses</TooltipContent>
                   </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-9 text-primary" onClick={() => navigate({ to: "/appointments/new", search: { doctorId: doctor.id } })}>
+                        <CalendarPlus className="size-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Book Appointment</TooltipContent>
+                  </Tooltip>
                   {canUpdate && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -520,7 +689,7 @@ export function DoctorsPage() {
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="du-password">{editingId ? 'New Password (leave blank to keep)' : 'Password *'}</FieldLabel>
-                    <Input id="du-password" type="password" placeholder={editingId ? "Unchanged" : "Min 8 chars"} value={form.password ?? ""} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                    <PasswordInput id="du-password" placeholder={editingId ? "Unchanged" : "Min 8 chars"} value={form.password ?? ""} onChange={(e) => setForm({ ...form, password: e.target.value })} />
                   </Field>
                 </div>
                 <Field>
@@ -873,7 +1042,7 @@ export function DoctorsPage() {
               </div>
             )}
 
-            {/* ─── Day-by-day editor ─── */}
+            {/* ─── Day-by-day editor (multiple shift blocks per day) ─── */}
             {scheduleQuery.isLoading ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
             ) : (
@@ -883,51 +1052,187 @@ export function DoctorsPage() {
                 return (
                   <div key={value} className="rounded-none border p-3">
                     <label className="flex items-center gap-2 text-sm font-medium">
-                      <input type="checkbox" className="size-4 accent-primary" checked={day.enabled} onChange={(e) => updateDay(value, { enabled: e.target.checked })} />
+                      <input type="checkbox" className="size-4 accent-primary" checked={day.enabled} onChange={(e) => setDayEnabled(value, e.target.checked)} />
                       {label}
                     </label>
                     {day.enabled && (
                       <div className="mt-3 space-y-3">
-                        {/* Shift picker for this day */}
-                        {shifts.length > 0 && (
-                          <Field>
-                            <FieldLabel>Shift</FieldLabel>
-                            <Select
-                              value={day.shiftId ?? ""}
-                              onValueChange={(shiftId) => {
-                                const selected = shifts.find((s) => s.id === shiftId);
-                                if (selected) {
-                                  updateDay(value, {
-                                    shiftId,
-                                    startTime: selected.startTime,
-                                    endTime: selected.endTime,
-                                  });
-                                }
-                              }}
-                            >
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue placeholder="Custom times" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {shifts.map((s) => (
-                                  <SelectItem key={s.id} value={s.id} className="text-xs">
-                                    {s.name} ({s.startTime}–{s.endTime})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </Field>
-                        )}
-                        <div className="grid grid-cols-2 gap-3">
-                          <Field><FieldLabel htmlFor={`start-${value}`}>Start</FieldLabel><Input id={`start-${value}`} type="time" value={day.startTime} onChange={(e) => updateDay(value, { startTime: e.target.value, shiftId: undefined })} /></Field>
-                          <Field><FieldLabel htmlFor={`end-${value}`}>End</FieldLabel><Input id={`end-${value}`} type="time" value={day.endTime} onChange={(e) => updateDay(value, { endTime: e.target.value, shiftId: undefined })} /></Field>
-                        </div>
+                        {day.blocks.map((block, blockIdx) => (
+                          <div key={blockIdx} className="rounded-md border border-dashed p-2.5 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-semibold text-muted-foreground">Shift {blockIdx + 1}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-6"
+                                aria-label={`Remove shift ${blockIdx + 1} on ${label}`}
+                                onClick={() => removeDayBlock(value, blockIdx)}
+                              >
+                                <X className="size-3" />
+                              </Button>
+                            </div>
+                            {/* Shift picker for this block */}
+                            {shifts.length > 0 && (
+                              <Field>
+                                <FieldLabel>Shift</FieldLabel>
+                                <Select
+                                  value={block.shiftId ?? "__custom__"}
+                                  onValueChange={(shiftId) => {
+                                    const selected = shiftId !== "__custom__" ? shifts.find((s) => s.id === shiftId) : undefined;
+                                    updateDayBlock(value, blockIdx, selected
+                                      ? { shiftId: selected.id, startTime: selected.startTime, endTime: selected.endTime }
+                                      : { shiftId: undefined });
+                                  }}
+                                >
+                                  <SelectTrigger className="h-9 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__custom__" className="text-xs">Custom times (no shift)</SelectItem>
+                                    {shifts.map((s) => (
+                                      <SelectItem key={s.id} value={s.id} className="text-xs">
+                                        {s.name} ({s.startTime}–{s.endTime})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </Field>
+                            )}
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field><FieldLabel htmlFor={`start-${value}-${blockIdx}`}>Start</FieldLabel><Input id={`start-${value}-${blockIdx}`} type="time" value={block.startTime} onChange={(e) => updateDayBlock(value, blockIdx, { startTime: e.target.value, shiftId: undefined })} /></Field>
+                              <Field><FieldLabel htmlFor={`end-${value}-${blockIdx}`}>End</FieldLabel><Input id={`end-${value}-${blockIdx}`} type="time" value={block.endTime} onChange={(e) => updateDayBlock(value, blockIdx, { endTime: e.target.value, shiftId: undefined })} /></Field>
+                            </div>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => addDayBlock(value)}
+                        >
+                          <Plus className="mr-1 size-3" /> Add another shift
+                        </Button>
                       </div>
                     )}
                   </div>
                 );
               })
             )}
+
+            {/* ─── One-time schedule changes (date-specific) ─── */}
+            <div className="rounded-lg border border-dashed border-amber-300/70 bg-amber-50/40 p-3">
+              <p className="mb-1 text-xs font-semibold text-amber-800">One-time schedule changes</p>
+              <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+                Apply to a single calendar date only — recurring weekly shifts above are never touched.
+              </p>
+
+              {scheduleExceptionsQuery.isLoading ? (
+                <p className="text-xs text-muted-foreground">Loading…</p>
+              ) : upcomingExceptions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No upcoming one-time changes.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {upcomingExceptions.map((ex) => (
+                    <li key={ex.id} className="flex items-center justify-between gap-2 rounded-md border bg-background px-2 py-1.5">
+                      <div className="min-w-0 text-xs">
+                        <span className="font-semibold">{EXCEPTION_TYPE_LABEL[ex.type]}</span>
+                        <span className="text-muted-foreground"> · {new Date(ex.date + (ex.date.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                        {ex.type !== "DAY_OFF" && (
+                          <span className="text-muted-foreground"> · {ex.startTime}–{ex.endTime}{ex.shift?.name ? ` · ${ex.shift.name}` : ""}</span>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 shrink-0"
+                        aria-label="Delete one-time change"
+                        disabled={deleteExceptionMutation.isPending}
+                        onClick={() => deleteExceptionMutation.mutate(ex.id)}
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="mt-3 space-y-2 border-t border-amber-200/70 pt-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Field>
+                    <FieldLabel htmlFor="exc-type">Type</FieldLabel>
+                    <Select
+                      value={exceptionForm.type}
+                      onValueChange={(v) => setExceptionForm((f) => ({ ...f, type: v as EmployeeScheduleExceptionType }))}
+                    >
+                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EXTRA_SHIFT" className="text-xs">Extra shift</SelectItem>
+                        <SelectItem value="OVERRIDE" className="text-xs">Override the day</SelectItem>
+                        <SelectItem value="DAY_OFF" className="text-xs">Day off</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="exc-date">Date *</FieldLabel>
+                    <Input
+                      id="exc-date"
+                      type="date"
+                      className="h-9 text-xs"
+                      min={toDateStr(new Date())}
+                      value={exceptionForm.date}
+                      onChange={(e) => setExceptionForm((f) => ({ ...f, date: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+                {exceptionForm.type !== "DAY_OFF" && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <Field>
+                      <FieldLabel>Shift preset</FieldLabel>
+                      <Select
+                        value={exceptionForm.shiftId}
+                        onValueChange={(shiftId) => {
+                          const selected = shiftId ? shifts.find((s) => s.id === shiftId) : undefined;
+                          setExceptionForm((f) => ({
+                            ...f,
+                            shiftId,
+                            ...(selected ? { startTime: selected.startTime, endTime: selected.endTime } : {}),
+                          }));
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Custom" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="" className="text-xs">Custom</SelectItem>
+                          {shifts.map((s) => (
+                            <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field>
+                      <FieldLabel>Start</FieldLabel>
+                      <Input type="time" className="h-9 text-xs" value={exceptionForm.startTime} onChange={(e) => setExceptionForm((f) => ({ ...f, startTime: e.target.value }))} />
+                    </Field>
+                    <Field>
+                      <FieldLabel>End</FieldLabel>
+                      <Input type="time" className="h-9 text-xs" value={exceptionForm.endTime} onChange={(e) => setExceptionForm((f) => ({ ...f, endTime: e.target.value }))} />
+                    </Field>
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="w-full text-xs"
+                  disabled={addExceptionMutation.isPending || scheduleExceptionsQuery.isLoading}
+                  onClick={handleAddException}
+                >
+                  <Plus className="mr-1 size-3" /> Add one-time change
+                </Button>
+              </div>
+            </div>
           </div>
           <SheetFooter>
             <Button variant="outline" onClick={() => { setScheduleDoctorId(null); setScheduleDoctorSpecialization(null); }}>Cancel</Button>
@@ -1051,7 +1356,7 @@ function DoctorDocUploader({ doctorId }: { doctorId: string }) {
       {nonPhotoDocs.map((doc) => (
         <div key={doc.id} className="flex items-center gap-2 rounded-none border p-2">
           {doc.mimeType.startsWith("image/") ? (
-            <img src={`/uploads/documents/${doc.fileName}`} alt="" className="size-10 shrink-0 rounded object-cover" />
+            <img src={`/api/documents/by-name/${doc.fileName}/image`} alt="" className="size-10 shrink-0 rounded object-cover" />
           ) : (
             <span className="flex size-10 shrink-0 items-center justify-center rounded bg-muted">
               <FileText className="size-5 text-muted-foreground" />

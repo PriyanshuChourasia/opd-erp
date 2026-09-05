@@ -2,7 +2,10 @@ import { getPatientName, createPatientVitals } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
+import { useNavigate } from "@tanstack/react-router";
 import {
+  CalendarPlus,
+  HeartPulse,
   Pencil,
   Plus,
   Search,
@@ -14,7 +17,7 @@ import {
   FileUp,
   FileText,
 } from "lucide-react";
-import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient, fetchDocumentsByEntity, fetchBatchProfilePhotos, uploadDocument, deleteDocument, type Patient, type CreatePatientInput, type DocumentRecord } from "@/lib/api";
+import { fetchPatients, fetchPatient, createPatient, updatePatient, deletePatient, fetchDocumentsByEntity, fetchBatchProfilePhotos, uploadDocument, deleteDocument, fetchBloodGroups, type Patient, type CreatePatientInput, type DocumentRecord } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
@@ -49,7 +52,7 @@ function PatientAvatar({ photoUrl, name }: { photoUrl?: string; name: string }) 
   if (photoUrl) {
     return (
       <img
-        src={`/uploads/documents/${photoUrl}`}
+        src={`/api/documents/by-name/${photoUrl}/image`}
         alt={name}
         className="size-8 shrink-0 rounded-full object-cover"
       />
@@ -64,13 +67,14 @@ function PatientAvatar({ photoUrl, name }: { photoUrl?: string; name: string }) 
 }
 
 export function PatientsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const permissions = useAppSelector((state) => state.auth.user?.permissions);
   const canCreate = hasPermission(permissions, "create", "patients");
   const canUpdate = hasPermission(permissions, "update", "patients");
   const canDelete = hasPermission(permissions, "delete", "patients");
   const [search, setSearch] = useState("");
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -79,6 +83,14 @@ export function PatientsPage() {
   const [docSheetOpen, setDocSheetOpen] = useState(false);
   const [docSheetPatient, setDocSheetPatient] = useState<Patient | null>(null);
 
+  // Vitals sheet state
+  const [vitalsSheetOpen, setVitalsSheetOpen] = useState(false);
+  const [vitalsPatient, setVitalsPatient] = useState<Patient | null>(null);
+  const [vitalsForm, setVitalsForm] = useState<Record<string, string>>({
+    heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "",
+    systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "",
+  });
+
   // Pending files for add mode
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +98,11 @@ export function PatientsPage() {
 
   const [form, setForm] = useState<CreatePatientInput>({
     firstName: "", middleName: "", lastName: "", contactNo: "", altContactNo: "", email: "", dateOfBirth: "", gender: "", bloodGroup: "", address: "", emergencyContact: "", allergies: [],
+  });
+
+  const { data: bloodGroups = [] } = useQuery({
+    queryKey: ["blood-groups"],
+    queryFn: () => fetchBloodGroups(),
   });
   const [vitals, setVitals] = useState({
     heightCm: "",
@@ -151,7 +168,13 @@ export function PatientsPage() {
       }
       queryClient.invalidateQueries({ queryKey: ["patients"] });
       closeSheet();
-      toast.success("Patient created successfully");
+      if (saved?.portalLogin) {
+        toast.success(
+          `Patient created with portal login — Username: ${saved.portalLogin.username}, Password: ${saved.portalLogin.password}`,
+        );
+      } else {
+        toast.success("Patient created successfully");
+      }
     },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
@@ -165,6 +188,31 @@ export function PatientsPage() {
   const deleteMutation = useMutation({
     mutationFn: deletePatient,
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setDeleteConfirm(null); toast.success("Patient deactivated successfully"); },
+    onError: (err) => { toast.error(extractApiError(err)); },
+  });
+
+  const vitalsMutation = useMutation({
+    mutationFn: async () => {
+      if (!vitalsPatient) return;
+      const payload: Record<string, unknown> = { patientId: vitalsPatient.id };
+      const f = vitalsForm;
+      if (f.heightCm) payload.heightCm = parseFloat(f.heightCm);
+      if (f.weightCm) payload.weightKg = parseFloat(f.weightCm);
+      if (f.temperatureC) payload.temperatureC = parseFloat(f.temperatureC);
+      if (f.pulseBpm) payload.pulseBpm = parseInt(f.pulseBpm, 10);
+      if (f.systolicBp) payload.systolicBp = parseInt(f.systolicBp, 10);
+      if (f.diastolicBp) payload.diastolicBp = parseInt(f.diastolicBp, 10);
+      if (f.spo2Percent) payload.spo2Percent = parseFloat(f.spo2Percent);
+      if (f.respiratoryRate) payload.respiratoryRate = parseInt(f.respiratoryRate, 10);
+      if (f.medicalStatus) payload.medicalStatus = f.medicalStatus;
+      return createPatientVitals(payload as any);
+    },
+    onSuccess: () => {
+      toast.success("Patient vitals recorded");
+      setVitalsSheetOpen(false);
+      setVitalsPatient(null);
+      setVitalsForm({ heightCm: "", weightCm: "", temperatureC: "", pulseBpm: "", systolicBp: "", diastolicBp: "", spo2Percent: "", respiratoryRate: "", medicalStatus: "" });
+    },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
@@ -218,7 +266,6 @@ export function PatientsPage() {
           await uploadPendingDocs(patient.id);
           queryClient.invalidateQueries({ queryKey: ["patients"] });
           closeSheet();
-          toast.success("Patient created successfully");
         },
       });
     }
@@ -340,11 +387,28 @@ export function PatientsPage() {
           <div className="flex justify-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => openDocs(patient)}>
-                  <FileText className="size-3.5" />
+                <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => openDocs(patient)}>
+                  <FileText className="size-4" />
+                  Doc.
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Documents</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => { setVitalsPatient(patient); setVitalsSheetOpen(true); }}>
+                  <HeartPulse className="size-3.5 text-rose-600" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Patient Vitals</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8 text-primary" onClick={() => navigate({ to: "/appointments/new", search: { patientId: patient.id } })}>
+                  <CalendarPlus className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Book Appointment</TooltipContent>
             </Tooltip>
             {canUpdate && (
               <Tooltip>
@@ -486,7 +550,7 @@ export function PatientsPage() {
                   <Field><FieldLabel htmlFor="p-email">Email</FieldLabel><Input id="p-email" type="email" placeholder="john@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
                   <Field><FieldLabel htmlFor="p-emergency">Emergency Contact</FieldLabel><Input id="p-emergency" placeholder="+1 555-000-0001" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} /></Field>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <Field><FieldLabel htmlFor="p-dob">Date of Birth</FieldLabel><Input id="p-dob" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} /></Field>
                   <Field><FieldLabel htmlFor="p-gender">Gender</FieldLabel>
                     <select id="p-gender" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
@@ -496,9 +560,10 @@ export function PatientsPage() {
                   <Field><FieldLabel htmlFor="p-blood">Blood Group</FieldLabel>
                     <select id="p-blood" className="flex h-9 w-full rounded-none border border-input bg-background px-3 py-1 text-sm" value={form.bloodGroup} onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}>
                       <option value="">Select</option>
-                      {Object.keys(bloodGroupColors).map((bg) => (<option key={bg} value={bg}>{bg}</option>))}
+                      {bloodGroups.map((bg) => (<option key={bg.id} value={bg.name}>{bg.name}</option>))}
                     </select>
                   </Field>
+                  <Field><FieldLabel htmlFor="p-allergies">Allergies</FieldLabel><AllergySelect value={form.allergies ?? []} onChange={(allergies) => setForm({ ...form, allergies })} /></Field>
                 </div>
                 {editingId ? (
                   <div className="border-t pt-3 mt-2">
@@ -509,7 +574,6 @@ export function PatientsPage() {
                     <p className="text-xs text-muted-foreground">Save the patient first to add addresses.</p>
                   </div>
                 )}
-                <Field><FieldLabel htmlFor="p-allergies">Allergies</FieldLabel><AllergySelect value={form.allergies ?? []} onChange={(allergies) => setForm({ ...form, allergies })} /></Field>
                 {/* ── Patient Vitals (create only — immutable once created) ── */}
                 {!editingId && (
                 <div className="border-t pt-3 mt-2">
@@ -530,7 +594,7 @@ export function PatientsPage() {
             <SheetFooter>
               <Button variant="outline" onClick={closeSheet}>Cancel</Button>
               <Button onClick={handleSave} disabled={!form.firstName.trim() || !form.lastName.trim() || !form.contactNo.trim() || createMutation.isPending || updateMutation.isPending}>
-                {editingId ? "Save Changes" : "Create Patient"}
+                {editingId ? "Save Changes" : "Register Patient"}
               </Button>
             </SheetFooter>
           </SheetContent>
@@ -592,6 +656,49 @@ export function PatientsPage() {
               </>
             )}
           </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Patient Vitals Sheet ── */}
+      <Sheet open={vitalsSheetOpen} onOpenChange={(open) => { if (!open) { setVitalsSheetOpen(false); setVitalsPatient(null); } }}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Record Patient Vitals</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 pb-4">
+            <p className="text-sm text-muted-foreground">Patient: <span className="font-medium text-foreground">{vitalsPatient ? getPatientName(vitalsPatient) : ""}</span></p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field><FieldLabel>Height (cm)</FieldLabel><Input type="number" min={0} value={vitalsForm.heightCm} onChange={(e) => setVitalsForm((p) => ({ ...p, heightCm: e.target.value }))} /></Field>
+              <Field><FieldLabel>Weight (kg)</FieldLabel><Input type="number" min={0} value={vitalsForm.weightCm} onChange={(e) => setVitalsForm((p) => ({ ...p, weightCm: e.target.value }))} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field><FieldLabel>Temperature (°F)</FieldLabel><Input type="number" min={0} value={vitalsForm.temperatureC} onChange={(e) => setVitalsForm((p) => ({ ...p, temperatureC: e.target.value }))} /></Field>
+              <Field><FieldLabel>Pulse (bpm)</FieldLabel><Input type="number" min={0} value={vitalsForm.pulseBpm} onChange={(e) => setVitalsForm((p) => ({ ...p, pulseBpm: e.target.value }))} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field><FieldLabel>Systolic BP</FieldLabel><Input type="number" min={0} value={vitalsForm.systolicBp} onChange={(e) => setVitalsForm((p) => ({ ...p, systolicBp: e.target.value }))} /></Field>
+              <Field><FieldLabel>Diastolic BP</FieldLabel><Input type="number" min={0} value={vitalsForm.diastolicBp} onChange={(e) => setVitalsForm((p) => ({ ...p, diastolicBp: e.target.value }))} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field><FieldLabel>SpO₂ (%)</FieldLabel><Input type="number" min={0} max={100} value={vitalsForm.spo2Percent} onChange={(e) => setVitalsForm((p) => ({ ...p, spo2Percent: e.target.value }))} /></Field>
+              <Field><FieldLabel>Resp Rate (/min)</FieldLabel><Input type="number" min={0} value={vitalsForm.respiratoryRate} onChange={(e) => setVitalsForm((p) => ({ ...p, respiratoryRate: e.target.value }))} /></Field>
+            </div>
+            <Field><FieldLabel>Medical Status</FieldLabel>
+              <select className="flex h-9 w-full rounded-none border border-input bg-background px-3 text-sm" value={vitalsForm.medicalStatus} onChange={(e) => setVitalsForm((p) => ({ ...p, medicalStatus: e.target.value }))}>
+                <option value="">Select status</option>
+                <option value="BEFORE_FASTING">Before Fasting</option>
+                <option value="AFTER_MEALS">After Meals</option>
+                <option value="AT_REST">At Rest</option>
+                <option value="DURING_EXERCISE">During Exercise</option>
+              </select>
+            </Field>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => { setVitalsSheetOpen(false); setVitalsPatient(null); }}>Cancel</Button>
+            <Button onClick={() => vitalsMutation.mutate()} disabled={vitalsMutation.isPending}>
+              {vitalsMutation.isPending ? "Saving..." : "Record Vitals"}
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
     </div>
@@ -666,7 +773,7 @@ function DocumentUploaderInline({ patientId }: { patientId: string }) {
       {nonPhotoDocs.map((doc) => (
         <div key={doc.id} className="flex items-center gap-2 rounded-none border p-2">
           {doc.mimeType.startsWith("image/") ? (
-            <img src={`/uploads/documents/${doc.fileName}`} alt="" className="size-10 shrink-0 rounded object-cover" />
+            <img src={`/api/documents/by-name/${doc.fileName}/image`} alt="" className="size-10 shrink-0 rounded object-cover" />
           ) : (
             <span className="flex size-10 shrink-0 items-center justify-center rounded bg-muted">
               <FileText className="size-5 text-muted-foreground" />

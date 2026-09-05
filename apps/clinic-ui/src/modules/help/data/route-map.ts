@@ -37,28 +37,42 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/billing": { module: "billing" },
   "/diagnoses": { module: "diagnoses" },
   "/dispensing": { module: "dispensing" },
+  "/stock-inquiry": { module: "stock" },
+  "/stock-purchase": { module: "stock" },
+  "/accounting/ledgers": { module: "billing" },
+  "/accounting/vouchers": { module: "billing" },
+  "/accounting/ledger/$ledgerId": { module: "billing" },
   "/doctors": { module: "doctors" },
   "/medicine-catalog": { module: "medicine-catalog" },
-  "/organisation": { module: "organisation" },
-  "/organisation/prescription-templates": { module: "prescription-templates" },
+  "/organisation": { module: "company" },
+  "/organisation/prescription-templates": { module: "company" },
+  "/organisation/prescription-templates/new": { module: "company" },
+  "/organisation/prescription-templates/$templateId/edit": { module: "company" },
   "/organisation/roles": { module: "roles-permissions" },
-  "/organisation/sidebar-config": { module: "sidebar-config" },
+  "/organisation/sidebar-config": { module: "roles-permissions" },
+  "/organisation/departments": { module: "company" },
+  "/organisation/designations": { module: "company" },
+  "/organisation/discounts": { module: "company" },
+  "/organisation/financial-years": { module: "company" },
   "/organisation/users": { module: "users" },
   "/patients": { module: "patients" },
   "/prescriptions": { module: "prescriptions" },
   "/profile": { module: "profile" },
+  "/settings": { module: "company" },
   "/shifts": { module: "shifts" },
 
   // Reports
-  "/reports/doctor-performance": { module: "reports", page: "doctor-performance-page" },
-  "/reports/outstanding-bills": { module: "reports", page: "outstanding-bills-page" },
-  "/reports/revenue-by-category": { module: "reports", page: "revenue-by-category-page" },
-  "/reports/top-medicines": { module: "reports", page: "top-medicines-page" },
+  "/reports/daily-opd-summary": { module: "reports" },
+  "/reports/doctor-wise-opd": { module: "reports" },
+  "/reports/revenue-collection": { module: "reports" },
+  "/reports/outstanding-payments": { module: "reports" },
 
   // Appointments workspace
   "/appointments": { module: "appointments", page: "appointments-page" },
   "/appointments/new": { module: "appointments", page: "new-appointment-page" },
   "/appointments/$appointmentId/edit": { module: "appointments", page: "edit-appointment-page" },
+  "/appointments/$appointmentId/prescription": { module: "appointments", page: "create-prescription-page" },
+  "/queue": { module: "queue" },
 
   // Receptionist workspace
   "/receptionist": { module: "receptionist" },
@@ -80,6 +94,9 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/doctor": { module: "doctor" },
   "/doctor/prescriptions": { module: "prescriptions" },
   "/doctor/profile": { module: "profile" },
+  "/doctor/admin": { module: "doctor" },
+  "/doctor/admin/appointments": { module: "doctor" },
+  "/doctor/admin/prescriptions": { module: "doctor" },
 
   // Patient portal
   "/patient": { module: "patient", page: "patient-dashboard-page" },
@@ -88,10 +105,13 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/patient/prescriptions": { module: "patient", page: "patient-prescriptions-page" },
   "/patient/lab-orders": { module: "patient", page: "patient-lab-orders-page" },
 
+
+
   // Developer workspace
   "/developer": { module: "development-overview" },
   "/developer/modules": { module: "development-modules" },
   "/developer/features": { module: "development-features" },
-  "/developer/schema": { module: "development-schema" },
-  "/developer/schema/$model": { module: "development-schema" },
+  "/developer/apis": { module: "development-apis" },
+  "/developer/schema": { module: "development-modules" },
+  "/developer/schema/$model": { module: "development-modules" },
 };

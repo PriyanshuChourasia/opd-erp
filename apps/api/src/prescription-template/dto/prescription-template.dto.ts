@@ -7,7 +7,7 @@ export class CreatePrescriptionTemplateDto {
 
   @IsString()
   @IsOptional()
-  type?: string; // prescription | diagnosis | test
+  type?: string; // prescription | diagnosis | test | appointment_slip
 
   @IsString()
   @IsOptional()
@@ -78,7 +78,7 @@ export class UpdatePrescriptionTemplateDto {
 
   @IsString()
   @IsOptional()
-  type?: string; // prescription | diagnosis | test
+  type?: string; // prescription | diagnosis | test | appointment_slip
 
   @IsString()
   @IsOptional()

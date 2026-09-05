@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/license",
+    "description": "License module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\License\\": "",
+            "Modules\\License\\Database\\Factories\\": "database/factories/",
+            "Modules\\License\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\License\\Tests\\": "tests/"
+        }
+    }
+}

@@ -23,7 +23,7 @@ export class RadiologyOrdersService implements IBaseService<RadiologyOrder, Crea
   }
 
   async findAll(filters: { patientId?: string; status?: string }) {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (filters.patientId) where.patientId = filters.patientId;
     if (filters.status) where.status = filters.status;
     return this.prisma.radiologyOrder.findMany({
@@ -35,7 +35,7 @@ export class RadiologyOrdersService implements IBaseService<RadiologyOrder, Crea
 
   async findOne(id: string) {
     const order = await this.prisma.radiologyOrder.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { patient: true, doctor: true },
     });
     if (!order) throw new NotFoundException(`Radiology order ${id} not found`);
@@ -53,8 +53,11 @@ export class RadiologyOrdersService implements IBaseService<RadiologyOrder, Crea
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.radiologyOrder.delete({ where: { id } });
+    return this.prisma.radiologyOrder.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

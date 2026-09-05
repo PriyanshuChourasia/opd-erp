@@ -19,11 +19,26 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": {
-        target: "http://localhost:4003",
+        target: "http://localhost:4000",
         changeOrigin: true,
       },
       "/uploads": {
-        target: "http://localhost:4003",
+        target: "http://localhost:4000",
+        changeOrigin: true,
+      },
+    },
+  },
+  // `vite preview` (serves the production build) doesn't reuse `server.proxy`
+  // — needed to test a real prod bundle against the local API.
+  preview: {
+    port: 3000,
+    proxy: {
+      "/api": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+      },
+      "/uploads": {
+        target: "http://localhost:4000",
         changeOrigin: true,
       },
     },

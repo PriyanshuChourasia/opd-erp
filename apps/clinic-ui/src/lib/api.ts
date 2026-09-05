@@ -118,6 +118,10 @@ export interface Patient {
   patientAllergies?: PatientAllergy[];
   isFollowUp: boolean;
   isActive: boolean;
+  /** True when the patient already has a portal login User (attached on list responses). */
+  hasPortalLogin?: boolean;
+  /** Present (once) when registration auto-created a portal login — raw password is only available here. */
+  portalLogin?: Pick<PortalLoginResult, "username" | "email" | "password"> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -262,7 +266,7 @@ export interface QueueEntry {
   createdAt: string;
   patient: Patient;
   doctor: Doctor;
-  appointment?: { id: string; fee: number; date: string; bill: { id: string; invoiceNo: string; status: string } | null } | null;
+  appointment?: { id: string; amount: number; date: string; bill: { id: string; invoiceNo: string; status: string } | null } | null;
 }
 
 export interface CreateQueueEntryInput {
@@ -307,25 +311,74 @@ export interface Shift {
   updatedAt: string;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export type CreateDepartmentInput = { name: string; description?: string; isActive?: boolean };
+
+export interface Designation {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export type CreateDesignationInput = { name: string; description?: string; isActive?: boolean };
+
+export interface FinancialYear {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export type CreateFinancialYearInput = { name: string; startDate: string; endDate: string; isCurrent?: boolean; isActive?: boolean };
+
 export interface DoctorSlot {
   time: string;
   capacity: number;
   booked: number;
   available: boolean;
+  /** Which shift/window produced this slot (recurring schedule or one-off exception). */
+  shiftId?: string | null;
+  shiftName?: string | null;
+  windowStart?: string;
+  windowEnd?: string;
+  /** True when the slot comes from a one-off EmployeeScheduleException. */
+  isException?: boolean;
+  exceptionType?: "EXTRA_SHIFT" | "OVERRIDE" | "DAY_OFF" | null;
+}
+
+export interface SlotWindow {
+  windowStart: string;
+  windowEnd: string;
+  shiftId?: string | null;
+  shiftName?: string | null;
+  isException?: boolean;
+  exceptionType?: "EXTRA_SHIFT" | "OVERRIDE" | "DAY_OFF" | null;
+  label: string;
 }
 
 export interface DoctorSlots {
   available: boolean;
   slots: DoctorSlot[];
+  windows?: SlotWindow[];
+  /** True when a DAY_OFF exception suppresses this date entirely. */
+  dayOff?: boolean;
 }
 
 export type AppointmentType =
   | "WALK_IN"
-  | "CONSULTATION"
-  | "SPECIALIST"
-  | "EMERGENCY"
-  | "FOLLOW_UP"
-  | "TELECONSULTATION";
+  | "CONSULTATION";
 
 export type AppointmentStatus =
   | "SCHEDULED"
@@ -341,6 +394,8 @@ export interface AppointmentBillSummary {
   id: string;
   invoiceNo: string;
   status: string;
+  total: number;
+  paidAmount: number;
 }
 
 export interface Appointment {
@@ -352,8 +407,9 @@ export interface Appointment {
   type: string;
   status: string;
   tokenNumber: string | null;
-  fee: number;
+  amount: number;
   registrationFee: number;
+  amountPaid: number;
   reasonForVisit: string | null;
   notes: string | null;
   cancellationReason: string | null;
@@ -373,8 +429,9 @@ export interface CreateAppointmentInput {
   doctorId: string;
   date: string;
   type: AppointmentType;
-  fee: number;
+  amount: number;
   registrationFee?: number;
+  amountPaid?: number;
   reasonForVisit?: string;
   notes?: string;
 }
@@ -387,19 +444,84 @@ export interface MedicineCatalogItem {
   form?: string | null;
 }
 
+export interface MedicineGroup {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface Unit {
+  id: string;
+  name: string;
+  symbol?: string | null;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface BloodGroup {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+export interface DiscountRule {
+  id: string;
+  name: string;
+  type: "PERCENTAGE" | "FLAT";
+  value: number;
+  validFrom?: string | null;
+  validTo?: string | null;
+  isActive: boolean;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateDiscountRuleInput = {
+  name: string;
+  type: "PERCENTAGE" | "FLAT";
+  value: number;
+  validFrom?: string;
+  validTo?: string;
+  isActive?: boolean;
+  description?: string;
+};
+
 export interface Medicine {
   id: string;
   name: string;
+  alias?: string | null;
   genericName?: string | null;
   brandName?: string | null;
   category?: string | null;
   strength?: string | null;
   unit: string;
   price: number;
+  groupId?: string | null;
+  unitId?: string | null;
+  openingStock?: string | null;
+  currentStock?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  group?: MedicineGroup | null;
+  unitMaster?: Unit | null;
 }
+
+export type CreateMedicineInput = {
+  name: string;
+  alias?: string;
+  genericName?: string;
+  brandName?: string;
+  category?: string;
+  strength?: string;
+  unit?: string;
+  price?: number;
+  groupId?: string;
+  unitId?: string;
+  openingStock?: number;
+};
 
 export interface PrescriptionItem {
   id: string;
@@ -497,10 +619,16 @@ export interface BillItem {
   quantity: number;
   unitPrice: number;
   amount: number;
+  /** Read-only invoice enrichment: batch(es) actually sold for MEDICINE lines (stock ledger). */
+  batchNo?: string | null;
+  /** Read-only invoice enrichment: expiry date(s) (ISO, possibly comma-joined) for MEDICINE lines. */
+  expiryDate?: string | null;
+  /** Read-only invoice enrichment: HSN code from the medicine's StockItem. */
+  hsnCode?: string | null;
   createdAt: string;
 }
 
-export type BillStatus = "PENDING" | "PAID" | "PARTIAL" | "REFUNDED" | "CANCELLED";
+export type BillStatus = "PENDING" | "PAID" | "PARTIAL" | "PARTIALLY_PAID" | "REFUNDED" | "CANCELLED";
 
 export interface Bill {
   id: string;
@@ -511,9 +639,11 @@ export interface Bill {
   discount: number;
   tax: number;
   total: number;
+  paidAmount: number;
   paymentMethod: string;
   status: string;
   notes: string | null;
+  financialYearId?: string | null;
   createdAt: string;
   updatedAt: string;
   patient: Patient | null;
@@ -585,6 +715,13 @@ export interface Organisation {
   discountEnabled: boolean;
   maxDiscountPercent: number;
   defaultDiscountType: string;
+  gstNumber?: string | null;
+  panNumber?: string | null;
+  cinNumber?: string | null;
+  drugLicenseNumber?: string | null;
+  drugLicenseExpiry?: string | null;
+  taxRegistrationNumber?: string | null;
+  logoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -600,7 +737,17 @@ export interface UpdateOrganisationInput {
   discountEnabled?: boolean;
   maxDiscountPercent?: number;
   defaultDiscountType?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  cinNumber?: string;
+  drugLicenseNumber?: string;
+  drugLicenseExpiry?: string;
+  taxRegistrationNumber?: string;
+  logoUrl?: string;
 }
+
+export type Company = Organisation;
+export type UpdateCompanyInput = UpdateOrganisationInput;
 
 // ─── Address Types ────────────────────────────────────────────
 
@@ -961,8 +1108,20 @@ export function createPatientVitals(input: CreatePatientVitalsInput) {
   return request<PatientVitals>({ method: "POST", path: "/patient-vitals", body: input });
 }
 
+export function deletePatientVitals(id: string) {
+  return request<PatientVitals>({ method: "DELETE", path: `/patient-vitals/${id}` });
+}
+
 export function fetchPatientVitalsLatest(patientId: string) {
   return request<PatientVitals | null>({ method: "GET", path: `/patient-vitals/latest/${patientId}` });
+}
+
+export function fetchPatientVitalsHistory(patientId: string, limit = 20) {
+  return request<PaginatedResult<PatientVitals>>({
+    method: "GET",
+    path: "/patient-vitals",
+    params: { patientId, limit: String(limit), page: "1" },
+  });
 }
 
 // ─── Patient API ──────────────────────────────────────────────
@@ -1001,6 +1160,21 @@ export function updatePatient(id: string, input: Partial<CreatePatientInput>) {
 
 export function deletePatient(id: string) {
   return request<void>({ method: "DELETE", path: `/patients/${id}` });
+}
+
+export interface PortalLoginResult {
+  userId: string;
+  username: string;
+  email: string;
+  password: string;
+}
+
+export function createPortalLogin(patientId: string, password?: string) {
+  return request<PortalLoginResult>({
+    method: "POST",
+    path: `/patients/${patientId}/portal-login`,
+    body: { password },
+  });
 }
 
 // ─── Doctor API ───────────────────────────────────────────────
@@ -1085,13 +1259,15 @@ export function restoreDoctor(id: string) {
 
 // ─── Queue API ────────────────────────────────────────────────
 
-export function fetchQueue(params: { doctorId?: string; date?: string } & PaginationParams = {}) {
+export function fetchQueue(params: { doctorId?: string; date?: string; from?: string; to?: string } & PaginationParams = {}) {
   return request<PaginatedResult<QueueEntry>>({
     method: "GET",
     path: "/queue",
     params: {
       doctorId: params.doctorId,
       date: params.date,
+      from: params.from,
+      to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -1172,6 +1348,70 @@ export function fetchDoctorSlots(doctorId: string, date: string) {
   });
 }
 
+// ─── One-off schedule exceptions API ────────────────────────
+
+export type EmployeeScheduleExceptionType = "EXTRA_SHIFT" | "OVERRIDE" | "DAY_OFF";
+
+export interface EmployeeScheduleException {
+  id: string;
+  date: string;
+  type: EmployeeScheduleExceptionType;
+  startTime: string;
+  endTime: string;
+  shiftId?: string | null;
+  shift?: Shift | null;
+  employeeSchedulableType: string;
+  employeeSchedulableId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEmployeeScheduleExceptionInput {
+  date: string; // YYYY-MM-DD
+  type: EmployeeScheduleExceptionType;
+  startTime: string;
+  endTime: string;
+  shiftId?: string;
+  employeeSchedulableType: string;
+  employeeSchedulableId: string;
+}
+
+export function fetchEmployeeScheduleExceptions(params: {
+  employeeSchedulableType?: string;
+  employeeSchedulableId?: string;
+  type?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+} = {}) {
+  return request<PaginatedResult<EmployeeScheduleException>>({
+    method: "GET",
+    path: "/employee-schedule-exceptions",
+    params: {
+      employeeSchedulableType: params.employeeSchedulableType,
+      employeeSchedulableId: params.employeeSchedulableId,
+      type: params.type,
+      from: params.from,
+      to: params.to,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function createEmployeeScheduleException(input: CreateEmployeeScheduleExceptionInput) {
+  return request<EmployeeScheduleException>({
+    method: "POST",
+    path: "/employee-schedule-exceptions",
+    body: input,
+  });
+}
+
+export function deleteEmployeeScheduleException(id: string) {
+  return request<void>({ method: "DELETE", path: `/employee-schedule-exceptions/${id}` });
+}
+
 // ─── Shift API ────────────────────────────────────────────────
 
 export interface CreateShiftInput {
@@ -1222,6 +1462,84 @@ export function deleteShift(id: string) {
   return request<void>({ method: "DELETE", path: `/shifts/${id}` });
 }
 
+// ─── Department API ──────────────────────────────────────────
+
+export function fetchDepartments(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Department>>({
+    method: "GET",
+    path: "/departments",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+export function fetchDepartment(id: string) {
+  return request<Department>({ method: "GET", path: `/departments/${id}` });
+}
+export function createDepartment(input: CreateDepartmentInput) {
+  return request<Department>({ method: "POST", path: "/departments", body: input });
+}
+export function updateDepartment(id: string, input: Partial<CreateDepartmentInput>) {
+  return request<Department>({ method: "PATCH", path: `/departments/${id}`, body: input });
+}
+export function deleteDepartment(id: string) {
+  return request<void>({ method: "DELETE", path: `/departments/${id}` });
+}
+
+// ─── Designation API ─────────────────────────────────────────
+
+export function fetchDesignations(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Designation>>({
+    method: "GET",
+    path: "/designations",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+export function fetchDesignation(id: string) {
+  return request<Designation>({ method: "GET", path: `/designations/${id}` });
+}
+export function createDesignation(input: CreateDesignationInput) {
+  return request<Designation>({ method: "POST", path: "/designations", body: input });
+}
+export function updateDesignation(id: string, input: Partial<CreateDesignationInput>) {
+  return request<Designation>({ method: "PATCH", path: `/designations/${id}`, body: input });
+}
+export function deleteDesignation(id: string) {
+  return request<void>({ method: "DELETE", path: `/designations/${id}` });
+}
+
+// ─── Financial Year API ──────────────────────────────────────
+
+export function fetchFinancialYears(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<FinancialYear>>({
+    method: "GET",
+    path: "/financial-years",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+export function fetchFinancialYear(id: string) {
+  return request<FinancialYear>({ method: "GET", path: `/financial-years/${id}` });
+}
+export function createFinancialYear(input: CreateFinancialYearInput) {
+  return request<FinancialYear>({ method: "POST", path: "/financial-years", body: input });
+}
+export function updateFinancialYear(id: string, input: Partial<CreateFinancialYearInput>) {
+  return request<FinancialYear>({ method: "PATCH", path: `/financial-years/${id}`, body: input });
+}
+export function deleteFinancialYear(id: string) {
+  return request<void>({ method: "DELETE", path: `/financial-years/${id}` });
+}
+
 // ─── Appointment API ──────────────────────────────────────────
 
 export function fetchAppointments(
@@ -1232,6 +1550,8 @@ export function fetchAppointments(
     patientId?: string;
     createdById?: string;
     search?: string;
+    from?: string;
+    to?: string;
   } & PaginationParams = {},
 ) {
   return request<PaginatedResult<Appointment>>({
@@ -1244,6 +1564,8 @@ export function fetchAppointments(
       patientId: params.patientId,
       createdById: params.createdById,
       search: params.search,
+      from: params.from,
+      to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -1258,11 +1580,44 @@ export function createAppointment(input: CreateAppointmentInput) {
   });
 }
 
-export function updateAppointmentStatus(id: string, status: AppointmentStatus, cancellationReason?: string) {
+export interface AppointmentSlotCheck {
+  withinSchedule: boolean;
+  alreadyBooked: boolean;
+  dayOff?: boolean;
+}
+
+/**
+ * Validate a single manually-entered booking time (not slot-boundary based):
+ * whether it falls inside the doctor's schedule for that date and whether the
+ * exact date+minute is already booked by another non-cancelled appointment.
+ */
+export function checkAppointmentSlot(params: { doctorId: string; date: string; time: string; excludeAppointmentId?: string }) {
+  return request<AppointmentSlotCheck>({
+    method: "GET",
+    path: "/appointments/check-slot",
+    params: {
+      doctorId: params.doctorId,
+      date: params.date,
+      time: params.time,
+      excludeAppointmentId: params.excludeAppointmentId,
+    },
+  });
+}
+
+export function updateAppointmentStatus(
+  id: string,
+  status: AppointmentStatus,
+  payload?: {
+    cancellationReason?: string;
+    refundDecision?: 'REFUND' | 'FORFEIT';
+    refundAmount?: number;
+    refundReason?: string;
+  },
+) {
   return request<Appointment>({
     method: "PATCH",
     path: `/appointments/${id}/status`,
-    body: { status, cancellationReason },
+    body: { status, ...payload },
   });
 }
 
@@ -1292,8 +1647,9 @@ export interface UpdateAppointmentInput {
   date?: string;
   doctorId?: string;
   type?: string;
-  fee?: number;
+  amount?: number;
   registrationFee?: number;
+  amountPaid?: number;
   reasonForVisit?: string;
   notes?: string;
   status?: string;
@@ -1308,6 +1664,35 @@ export function updateAppointment(id: string, input: UpdateAppointmentInput) {
   });
 }
 
+export interface AppointmentHistoryEntry {
+  id: string;
+  appointmentId: string;
+  version: number;
+  previousData: {
+    patientId: string;
+    doctorId: string;
+    date: string;
+    type: string;
+    status: string;
+    amount: number;
+    registrationFee: number;
+    amountPaid?: number;
+    reasonForVisit?: string | null;
+    notes?: string | null;
+  };
+  changeType: string;
+  changeReason?: string | null;
+  createdAt: string;
+  createdBy?: { id: string; firstName: string; lastName: string } | null;
+}
+
+export function fetchAppointmentHistory(appointmentId: string) {
+  return request<AppointmentHistoryEntry[]>({
+    method: "GET",
+    path: `/appointments/${appointmentId}/history`,
+  });
+}
+
 export function fetchAppointmentInvoicePreview(id: string) {
   return request<AppointmentInvoicePreview>({
     method: "GET",
@@ -1315,11 +1700,120 @@ export function fetchAppointmentInvoicePreview(id: string) {
   });
 }
 
-export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; discount?: number; tax?: number; notes?: string }) {
+export function checkoutAppointment(id: string, payload?: { paymentMethod?: string; referenceNumber?: string; discountRuleId?: string; tax?: number; notes?: string }) {
   return request<Bill>({
     method: "POST",
     path: `/appointments/${id}/checkout`,
     body: payload ?? {},
+  });
+}
+
+// ─── Payment Ledger API ──────────────────────────────────────
+
+export interface Payment {
+  id: string;
+  appointmentId: string | null;
+  billId: string | null;
+  patientId: string;
+  amount: number;
+  method: string;
+  direction: string;
+  referenceNumber: string | null;
+  notes: string | null;
+  createdAt: string;
+  collectedBy: { id: string; firstName: string; lastName: string } | null;
+}
+
+export function addAppointmentPayment(appointmentId: string, payload: { amount: number; method: string; referenceNumber?: string; notes?: string }) {
+  return request<Payment>({
+    method: "POST",
+    path: `/appointments/${appointmentId}/payments`,
+    body: payload,
+  });
+}
+
+export function fetchAppointmentPayments(appointmentId: string) {
+  return request<Payment[]>({
+    method: "GET",
+    path: `/appointments/${appointmentId}/payments`,
+  });
+}
+
+export function addBillPayment(billId: string, payload: { amount: number; method: string; referenceNumber?: string; notes?: string }) {
+  return request<Payment>({
+    method: "POST",
+    path: `/billing/${billId}/payments`,
+    body: payload,
+  });
+}
+
+export function fetchBillPayments(billId: string) {
+  return request<Payment[]>({
+    method: "GET",
+    path: `/billing/${billId}/payments`,
+  });
+}
+
+export function refundBill(billId: string, payload: { amount: number; reason: string; method?: string; referenceNumber?: string; notes?: string }) {
+  return request<Payment>({
+    method: "POST",
+    path: `/billing/${billId}/refund`,
+    body: payload,
+  });
+}
+
+// ─── Receipt API ──────────────────────────────────────────────
+
+export interface ReceiptData {
+  receipt: {
+    voucherNumber: string | null;
+    voucherDate: string;
+    amount: number;
+    method: string;
+    referenceNumber: string | null;
+  };
+  bill: {
+    invoiceNo: string;
+    subtotal: number;
+    discount: number;
+    tax: number;
+    total: number;
+    items: BillItem[];
+    appointmentId: string | null;
+  };
+  patient: {
+    name: string;
+    patientCode: string;
+    contactNo: string;
+    email: string | null;
+  } | null;
+  address: {
+    line1: string;
+    line2: string | null;
+    city: string | null;
+    state: string | null;
+    postalCode: string | null;
+  } | null;
+  doctor: {
+    name: string;
+    specialization: string | null;
+  } | null;
+  company: {
+    name: string;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+    gstNumber: string | null;
+    panNumber: string | null;
+    cinNumber: string | null;
+  } | null;
+}
+
+export function fetchReceipt(billId: string, paymentId: string) {
+  return request<ReceiptData>({
+    method: "GET",
+    path: `/billing/${billId}/payments/${paymentId}/receipt`,
   });
 }
 
@@ -1400,12 +1894,15 @@ export function deletePermission(id: string) {
 
 // ─── Billing API ──────────────────────────────────────────────
 
-export function fetchBills(params: { patientId?: string } & PaginationParams = {}) {
+export function fetchBills(params: { patientId?: string; financialYearId?: string; from?: string; to?: string } & PaginationParams = {}) {
   return request<PaginatedResult<Bill>>({
     method: "GET",
     path: "/billing",
     params: {
       patientId: params.patientId,
+      financialYearId: params.financialYearId,
+      from: params.from,
+      to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -1426,10 +1923,82 @@ export function updateBillStatus(id: string, status: BillStatus) {
 
 // ─── Medicine Catalog API ─────────────────────────────────────
 
-export function fetchMedicines(params: { search?: string } & PaginationParams = {}) {
+export function fetchMedicines(params: { search?: string; groupId?: string } & PaginationParams = {}) {
   return request<PaginatedResult<Medicine>>({
     method: "GET",
     path: "/medicine-catalog",
+    params: {
+      search: params.search,
+      groupId: params.groupId,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function createMedicine(input: CreateMedicineInput) {
+  return request<Medicine>({ method: "POST", path: "/medicine-catalog", body: input });
+}
+
+export function updateMedicine(id: string, input: Partial<CreateMedicineInput>) {
+  return request<Medicine>({ method: "PATCH", path: `/medicine-catalog/${id}`, body: input });
+}
+
+// ─── Discount Rules API ───────────────────────────────────────
+
+export function fetchDiscountRules(params: { search?: string; activeOnly?: boolean } & PaginationParams = {}) {
+  return request<PaginatedResult<DiscountRule>>({
+    method: "GET",
+    path: "/discounts",
+    params: {
+      search: params.search,
+      activeOnly: params.activeOnly ? "true" : undefined,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function createDiscountRule(input: CreateDiscountRuleInput) {
+  return request<DiscountRule>({ method: "POST", path: "/discounts", body: input });
+}
+
+export function updateDiscountRule(id: string, input: Partial<CreateDiscountRuleInput>) {
+  return request<DiscountRule>({ method: "PATCH", path: `/discounts/${id}`, body: input });
+}
+
+export function deleteDiscountRule(id: string) {
+  return request<void>({ method: "DELETE", path: `/discounts/${id}` });
+}
+
+// ─── Medicine Groups API ─────────────────────────────────────
+
+export function fetchMedicineGroups(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<MedicineGroup>>({
+    method: "GET",
+    path: "/medicine-groups",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+// ─── Units API ───────────────────────────────────────────────
+
+export function fetchBloodGroups(params: { search?: string } = {}) {
+  return request<BloodGroup[]>({
+    method: "GET",
+    path: "/blood-groups",
+    params: { search: params.search },
+  });
+}
+
+export function fetchUnits(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Unit>>({
+    method: "GET",
+    path: "/units",
     params: {
       search: params.search,
       page: params.page !== undefined ? String(params.page) : undefined,
@@ -1441,7 +2010,7 @@ export function fetchMedicines(params: { search?: string } & PaginationParams = 
 // ─── Prescriptions API ────────────────────────────────────────
 
 export function fetchPrescriptions(
-  params: { patientId?: string; doctorId?: string; status?: string; search?: string; date?: string } & PaginationParams = {},
+  params: { patientId?: string; doctorId?: string; status?: string; search?: string; date?: string; from?: string; to?: string } & PaginationParams = {},
 ) {
   return request<PaginatedResult<Prescription>>({
     method: "GET",
@@ -1452,6 +2021,8 @@ export function fetchPrescriptions(
       status: params.status,
       search: params.search,
       date: params.date,
+      from: params.from,
+      to: params.to,
       page: params.page !== undefined ? String(params.page) : undefined,
       limit: params.limit !== undefined ? String(params.limit) : undefined,
     },
@@ -1556,23 +2127,35 @@ export function restoreUser(id: string) {
   return request<User>({ method: "PATCH", path: `/users/${id}/restore` });
 }
 
-// ─── Organisation API ─────────────────────────────────────────
+// ─── Organisation / Company API ──────────────────────────────
 
 export function fetchOrganisation() {
-  return request<Organisation | null>({ method: "GET", path: "/organisation" });
+  return request<Organisation | null>({ method: "GET", path: "/company" });
 }
 
 export function updateOrganisation(data: UpdateOrganisationInput) {
   return request<Organisation>({
     method: "PATCH",
-    path: "/organisation",
+    path: "/company",
+    body: data,
+  });
+}
+
+export function fetchCompany() {
+  return request<Company | null>({ method: "GET", path: "/company" });
+}
+
+export function updateCompany(data: UpdateCompanyInput) {
+  return request<Company>({
+    method: "PATCH",
+    path: "/company",
     body: data,
   });
 }
 
 // ─── Prescription Template API ───────────────────────────────
 
-export type TemplateType = "prescription" | "diagnosis" | "test";
+export type TemplateType = "prescription" | "diagnosis" | "test" | "appointment_slip";
 
 export interface PrescriptionTemplate {
   id: string;
@@ -2097,4 +2680,273 @@ export async function downloadDocument(id: string, originalName: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+// ─── Stock API ───────────────────────────────────────────────
+
+export interface PurchaseItemInput {
+  medicineId: string;
+  quantity: number;
+  purchaseRate: number; // paise
+  mrp?: number;        // paise
+  batchNo?: string;
+  expiryDate?: string;
+}
+
+export interface CreatePurchaseInput {
+  supplierName?: string;
+  supplierLedgerId?: string;
+  items: PurchaseItemInput[];
+  tax?: number;     // paise
+  notes?: string;
+  purchaseDate?: string;
+}
+
+export interface PurchaseResult {
+  voucherId: string;
+  voucherNumber: string;
+  totalAmount: number;
+  itemCount: number;
+}
+
+export function createPurchase(input: CreatePurchaseInput) {
+  return request<PurchaseResult>({ method: "POST", path: "/stock/purchase", body: input });
+}
+
+export interface StockBatchSummary {
+  batchId: string;
+  batchNo: string | null;
+  expiryDate: string | null;
+  purchaseRate: number;
+  mrp: number;
+  currentQty: number;
+}
+
+export interface StockSummary {
+  stockItemId: string;
+  medicineId: string;
+  valuationMethod: string;
+  totalQty: number;
+  totalValue: number;
+  batches: StockBatchSummary[];
+}
+
+export function fetchStockSummary(medicineId: string) {
+  return request<StockSummary | null>({ method: "GET", path: `/stock/summary/${medicineId}` });
+}
+
+export interface StockLedgerEntry {
+  id: string;
+  stockItemId: string;
+  batchId: string;
+  quantity: number;
+  rate: number;
+  value: number;
+  runningBalanceQty: number;
+  runningBalanceValue: number;
+  movementType: string;
+  voucherId: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface StockItem {
+  id: string;
+  medicineId: string;
+  valuationMethod: string;
+  reorderLevel: number;
+  medicine: Medicine;
+  batches: StockBatchSummary[];
+}
+
+export function fetchStockItems(params: { search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<StockItem>>({
+    method: "GET",
+    path: "/stock/items",
+    params: {
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchStockLedgerEntries(stockItemId: string) {
+  return request<StockLedgerEntry[]>({
+    method: "GET",
+    path: `/stock/items/${stockItemId}/ledger`,
+  });
+}
+
+// ─── Accounting API ───────────────────────────────────────────
+
+export interface AccountNature {
+  id: string;
+  code: string;
+  name: string;
+  normalBalance: string;
+}
+
+export interface AccountGroup {
+  id: string;
+  name: string;
+  natureId: string;
+  parentGroupId: string | null;
+  isReserved: boolean;
+  affectsGrossProfit: boolean;
+  nature: AccountNature;
+  parentGroup?: AccountGroup | null;
+  childGroups?: AccountGroup[];
+  ledgers?: Ledger[];
+}
+
+export interface Ledger {
+  id: string;
+  name: string;
+  code: string | null;
+  accountGroupId: string;
+  openingBalance: number;
+  openingBalanceType: string | null;
+  currentBalance: number;
+  isBillWiseTracking: boolean;
+  isCashAccount: boolean;
+  isBankAccount: boolean;
+  linkedPaymentMethod: string | null;
+  patientId: string | null;
+  doctorId: string | null;
+  userId: string | null;
+  isActive: boolean;
+  accountGroup: AccountGroup;
+  patient?: { id: string; firstName: string; lastName: string; patientCode: string } | null;
+}
+
+export interface LedgerWithJournalLines extends Ledger {
+  journalLines: {
+    id: string;
+    debitAmount: number;
+    creditAmount: number;
+    journal: {
+      id: string;
+      totalDebit: number;
+      totalCredit: number;
+      notes: string | null;
+      createdAt: string;
+      journalType: { code: string; name: string };
+      voucher: { voucherNumber: string; voucherType: { name: string } } | null;
+    };
+  }[];
+}
+
+export interface VoucherType {
+  id: string;
+  name: string;
+  code: string;
+  numberingPrefix: string;
+}
+
+export interface Voucher {
+  id: string;
+  voucherNumber: string;
+  voucherDate: string;
+  totalAmount: number;
+  status: string;
+  sourceModule: string | null;
+  sourceId: string | null;
+  notes: string | null;
+  voucherType: VoucherType;
+  financialYear: { id: string; name: string };
+  partyLedger: { id: string; name: string } | null;
+  journals: { id: string; journalType: { code: string; name: string } }[];
+}
+
+export interface VoucherWithJournals extends Voucher {
+  journals: {
+    id: string;
+    totalDebit: number;
+    totalCredit: number;
+    journalType: { code: string; name: string };
+    lines: {
+      id: string;
+      debitAmount: number;
+      creditAmount: number;
+      ledger: { id: string; name: string };
+    }[];
+  }[];
+  voucherReferencesGiven: { id: string; referenceType: string; amount: number }[];
+  voucherReferencesReceived: { id: string; referenceType: string; amount: number }[];
+}
+
+export interface Journal {
+  id: string;
+  totalDebit: number;
+  totalCredit: number;
+  isPosted: boolean;
+  notes: string | null;
+  createdAt: string;
+  journalType: { code: string; name: string };
+  voucher: { id: string; voucherNumber: string; voucherType: { name: string } } | null;
+  lines: {
+    id: string;
+    debitAmount: number;
+    creditAmount: number;
+    ledger: { id: string; name: string };
+  }[];
+}
+
+export function fetchAccountGroupsTree() {
+  return request<AccountNature[]>({ method: "GET", path: "/accounting/groups/tree" });
+}
+
+export function fetchLedgers(params: { accountGroupId?: string; patientId?: string; doctorId?: string; userId?: string; search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Ledger>>({
+    method: "GET",
+    path: "/accounting/ledgers",
+    params: {
+      accountGroupId: params.accountGroupId,
+      patientId: params.patientId,
+      doctorId: params.doctorId,
+      userId: params.userId,
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchLedger(id: string) {
+  return request<LedgerWithJournalLines>({ method: "GET", path: `/accounting/ledgers/${id}` });
+}
+
+export function fetchVouchers(params: { voucherTypeId?: string; financialYearId?: string; status?: string; search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Voucher>>({
+    method: "GET",
+    path: "/accounting/vouchers",
+    params: {
+      voucherTypeId: params.voucherTypeId,
+      financialYearId: params.financialYearId,
+      status: params.status,
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
+}
+
+export function fetchVoucher(id: string) {
+  return request<VoucherWithJournals>({ method: "GET", path: `/accounting/vouchers/${id}` });
+}
+
+export function fetchJournals(params: { journalTypeId?: string; voucherId?: string; isPosted?: string; search?: string } & PaginationParams = {}) {
+  return request<PaginatedResult<Journal>>({
+    method: "GET",
+    path: "/accounting/journals",
+    params: {
+      journalTypeId: params.journalTypeId,
+      voucherId: params.voucherId,
+      isPosted: params.isPosted,
+      search: params.search,
+      page: params.page !== undefined ? String(params.page) : undefined,
+      limit: params.limit !== undefined ? String(params.limit) : undefined,
+    },
+  });
 }

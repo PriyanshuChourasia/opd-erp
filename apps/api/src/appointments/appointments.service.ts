@@ -1,19 +1,30 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TokenNumberService } from '../common/services/token-number.service';
 import { paginate } from '../common/utils/paginate';
 import { getDoctorNameMap } from '../common/utils/doctor-names';
+import { resolveDiscount } from '../common/utils/discount';
+import { applyDateRange, applyCreatedAtRange } from '../common/dto/date-range-query.dto';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
 import type { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import type { Appointment } from '@prisma/client';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { CheckSlotQueryDto } from './dto/check-slot-query.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { FindAppointmentsQueryDto } from './dto/find-appointments-query.dto';
 import { CheckoutAppointmentDto } from './dto/checkout-appointment.dto';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
+import { CreatePaymentDto } from '../billing/dto/create-payment.dto';
 
 interface WithDoctor {
   doctor: { id: string } & Record<string, unknown>;
+}
+
+/** "HH:mm" (24h) → minutes since midnight. */
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
 }
 
 /** Attaches the doctor's display name (resolved off `User`) onto one appointment. */
@@ -41,20 +52,102 @@ export class AppointmentsService
     IBaseService<Appointment, CreateAppointmentDto, UpdateAppointmentStatusDto>,
     IPaginatable<Appointment, FindAppointmentsQueryDto>
 {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokenNumberService: TokenNumberService,
+  ) {}
 
-  private generateTokenNumber(date: Date, patientName: string): string {
-    const y = date.getFullYear().toString();
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const d = date.getDate().toString().padStart(2, '0');
-    const h = date.getHours().toString().padStart(2, '0');
-    const min = date.getMinutes().toString().padStart(2, '0');
-    const nameInitials = patientName
-      .split(' ')
-      .map((p) => p.charAt(0).toUpperCase())
-      .join('')
-      .slice(0, 4);
-    return `${y}${m}${d}-${nameInitials}-${h}${min}`;
+  /**
+   * Single-point availability check for a manually-entered booking time.
+   *
+   * Resolves the windows that apply to the requested date using the same
+   * rules as slot generation (recurring weekly EmployeeSchedule rows, plus
+   * one-off EmployeeScheduleException rows: DAY_OFF suppresses the date,
+   * OVERRIDE replaces the weekly windows, EXTRA_SHIFT layers on top) and
+   * reports:
+   *  - `withinSchedule` — the time falls inside any resolved window;
+   *  - `alreadyBooked` — another non-cancelled appointment for this doctor
+   *    already occupies the exact same date + minute;
+   *  - `dayOff` — convenience flag for UI copy when a DAY_OFF exception exists.
+   *
+   * Deliberately independent of SlotGeneratorService: this validates an
+   * arbitrary time (not slot boundaries), and grid generation is untouched.
+   */
+  async checkSlotAvailability(dto: CheckSlotQueryDto) {
+    const { doctorId, date, time, excludeAppointmentId } = dto;
+
+    const dayStart = new Date(`${date}T00:00:00`);
+    if (Number.isNaN(dayStart.getTime())) {
+      throw new BadRequestException('Invalid date — expected YYYY-MM-DD.');
+    }
+    dayStart.setHours(0, 0, 0, 0);
+    const nextDay = new Date(dayStart);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    // Convert JS getDay() (0=Sunday) to DayOfWeek (0=Monday) — same convention
+    // as the slot generator.
+    const dayOfWeek = (dayStart.getDay() + 6) % 7;
+    const timeMinutes = timeToMinutes(time);
+
+    // 1. One-off exceptions for the exact date
+    const exceptions = await this.prisma.employeeScheduleException.findMany({
+      where: {
+        employeeSchedulableType: 'Doctor',
+        employeeSchedulableId: doctorId,
+        date: { gte: dayStart, lt: nextDay },
+        deletedAt: null,
+      },
+      select: { type: true, startTime: true, endTime: true },
+    });
+
+    const dayOff = exceptions.some((e) => e.type === 'DAY_OFF');
+    const overrideRows = exceptions.filter((e) => e.type === 'OVERRIDE');
+    const extraRows = exceptions.filter((e) => e.type === 'EXTRA_SHIFT');
+
+    // 2. Resolve the working windows for this date
+    let windows: { startTime: string; endTime: string }[];
+    if (dayOff) {
+      windows = [];
+    } else if (overrideRows.length > 0) {
+      windows = overrideRows;
+    } else {
+      const recurring = await this.prisma.employeeSchedule.findMany({
+        where: {
+          employeeSchedulableType: 'Doctor',
+          employeeSchedulableId: doctorId,
+          dayOfWeek,
+          deletedAt: null,
+        },
+        select: { startTime: true, endTime: true },
+      });
+      windows = [...recurring, ...extraRows];
+    }
+
+    const withinSchedule = windows.some((w) => {
+      const start = timeToMinutes(w.startTime);
+      const end = timeToMinutes(w.endTime);
+      return timeMinutes >= start && timeMinutes < end;
+    });
+
+    // 3. Already-booked check: any non-cancelled appointment for this doctor
+    // on that date at the exact same minute (excluding the appointment being
+    // edited, when supplied).
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        doctorId,
+        date: { gte: dayStart, lt: nextDay },
+        status: { not: 'CANCELLED' },
+        deletedAt: null,
+        ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
+      },
+      select: { date: true },
+    });
+    const alreadyBooked = appointments.some((a) => {
+      const mins = a.date.getHours() * 60 + a.date.getMinutes();
+      return mins === timeMinutes;
+    });
+
+    return { withinSchedule, alreadyBooked, dayOff };
   }
 
   async create(dto: CreateAppointmentDto, createdById?: string) {
@@ -62,17 +155,17 @@ export class AppointmentsService
 
     const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'PTNT';
-    const tokenNumber = this.generateTokenNumber(date, patientName);
+    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, date);
 
     let registrationFee = dto.registrationFee;
     if (registrationFee === undefined) {
       const priorAppointmentCount = await this.prisma.appointment.count({ where: { patientId: dto.patientId } });
-      const organisation = await this.prisma.organisation.findFirst();
-      registrationFee = priorAppointmentCount === 0 ? (organisation?.registrationFee ?? 0) : 0;
+      const company = await this.prisma.company.findFirst();
+      registrationFee = priorAppointmentCount === 0 ? (company?.registrationFee ?? 0) : 0;
     }
 
     // Booking alone does not queue the patient — they only enter the live
-    // token queue once checked in (see `update`, on the CHECKED_IN transition).
+    // token queue once Confirmed (see `update`, on the CONFIRMED transition).
     const appointment = await this.prisma.appointment.create({
       data: {
         patientId: dto.patientId,
@@ -80,13 +173,36 @@ export class AppointmentsService
         createdById: createdById ?? null,
         date,
         type: dto.type ?? 'CONSULTATION',
-        fee: dto.fee ?? 0,
+        amount: dto.amount ?? 0,
         registrationFee,
+        amountPaid: dto.amountPaid ?? 0,
         reasonForVisit: dto.reasonForVisit,
         notes: dto.notes,
         tokenNumber,
       },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } } },
+    });
+
+    // Save version 1 history entry (mirroring PrescriptionHistory pattern)
+    await this.prisma.appointmentHistory.create({
+      data: {
+        appointmentId: appointment.id,
+        version: 1,
+        previousData: {
+          patientId: appointment.patientId,
+          doctorId: appointment.doctorId,
+          date: appointment.date,
+          type: appointment.type,
+          status: appointment.status,
+          amount: appointment.amount,
+          registrationFee: appointment.registrationFee,
+          amountPaid: appointment.amountPaid,
+          reasonForVisit: appointment.reasonForVisit,
+          notes: appointment.notes,
+        },
+        changeType: 'CREATE',
+        createdById: createdById ?? null,
+      },
     });
 
     return withDoctorName(this.prisma, appointment);
@@ -98,7 +214,10 @@ export class AppointmentsService
     if (query.status) where.status = query.status;
     if (query.patientId) where.patientId = query.patientId;
     if (query.createdById) where.createdById = query.createdById;
-    if (query.date) {
+    // Date range: from/to takes priority; fallback to single-day `date`
+    if (query.from || query.to) {
+      applyDateRange(where, query, 'date');
+    } else if (query.date) {
       const dayStart = new Date(Date.UTC(
         new Date(query.date).getUTCFullYear(),
         new Date(query.date).getUTCMonth(),
@@ -128,50 +247,195 @@ export class AppointmentsService
       ];
     }
 
+    where.deletedAt = null;
+
     const result = await paginate(
       () => this.prisma.appointment.count({ where }),
       ({ skip, take }) =>
         this.prisma.appointment.findMany({
           where,
-          include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+          include: {
+            patient: true,
+            doctor: true,
+            bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } },
+            queueEntry: { select: { tokenNumber: true } },
+          },
           orderBy: [{ createdAt: 'desc' }, { date: 'desc' }],
           skip,
           take,
         }),
       query,
     );
-    return { ...result, data: await withDoctorNames(this.prisma, result.data) };
+    // Flatten queueEntry.tokenNumber onto the appointment for frontend convenience
+    const data = result.data.map((a) => {
+      const { queueEntry: _qe, ...rest } = a as any;
+      return { ...rest, tokenNumber: rest.tokenNumber ?? _qe?.tokenNumber ?? null };
+    });
+    return { ...result, data: await withDoctorNames(this.prisma, data) };
   }
 
   async findOne(id: string) {
     const appointment = await this.prisma.appointment.findUnique({
-      where: { id },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+      where: { id, deletedAt: null },
+      include: {
+        patient: true,
+        doctor: true,
+        bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } },
+        queueEntry: { select: { tokenNumber: true } },
+      },
     });
     if (!appointment) throw new NotFoundException(`Appointment ${id} not found`);
-    return withDoctorName(this.prisma, appointment);
+    const { queueEntry: qe, ...rest } = appointment as any;
+    const flat = { ...rest, tokenNumber: rest.tokenNumber ?? qe?.tokenNumber ?? null };
+    return withDoctorName(this.prisma, flat);
   }
 
   async update(id: string, dto: UpdateAppointmentStatusDto, userId?: string) {
     const existing = await this.findOne(id);
-    const appointment = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        status: dto.status,
-        cancellationReason: dto.status === 'CANCELLED' ? (dto.cancellationReason ?? null) : undefined,
-        updatedById: userId ?? null,
-      },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+
+    // ── Refund gate: CANCELLED / NO_SHOW when money was collected ──
+    if (dto.status === 'CANCELLED' || dto.status === 'NO_SHOW') {
+      // Check if any money was collected (advance payments or invoiced & paid)
+      const paySum = await this.prisma.payment.aggregate({
+        where: { appointmentId: id, direction: 'PAYMENT' },
+        _sum: { amount: true },
+      });
+      const refundSum = await this.prisma.payment.aggregate({
+        where: { appointmentId: id, direction: 'REFUND' },
+        _sum: { amount: true },
+      });
+      const netPaid = (paySum._sum.amount ?? 0) - (refundSum._sum.amount ?? 0);
+
+      if (netPaid > 0) {
+        // Money was collected — require an explicit refund decision
+        if (!dto.refundDecision) {
+          throw new BadRequestException(
+            `Cannot ${dto.status.toLowerCase()} appointment — ₹${netPaid} has been collected. ` +
+            `Provide refundDecision: "REFUND" (with refundAmount + refundReason) or ` +
+            `"FORFEIT" (with refundReason).`,
+          );
+        }
+
+        if (dto.refundDecision === 'REFUND') {
+          if (!dto.refundAmount || dto.refundAmount < 1) {
+            throw new BadRequestException('refundAmount is required and must be >= 1 for REFUND decision.');
+          }
+          if (dto.refundAmount > netPaid) {
+            throw new BadRequestException(
+              `Refund amount ₹${dto.refundAmount} exceeds net paid amount ₹${netPaid}.`,
+            );
+          }
+          if (!dto.refundReason) {
+            throw new BadRequestException('refundReason is required for REFUND decision.');
+          }
+        }
+
+        if (dto.refundDecision === 'FORFEIT' && !dto.refundReason) {
+          throw new BadRequestException('refundReason is required for FORFEIT decision.');
+        }
+      }
+    }
+
+    // ── Execute the status transition + optional refund in a transaction ──
+    const appointment = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
+        where: { id },
+        data: {
+          status: dto.status,
+          cancellationReason: dto.status === 'CANCELLED' ? (dto.cancellationReason ?? null) : undefined,
+          updatedById: userId ?? null,
+        },
+        include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } } },
+      });
+
+      // Process refund if requested
+      if ((dto.status === 'CANCELLED' || dto.status === 'NO_SHOW') && dto.refundDecision === 'REFUND' && dto.refundAmount && dto.refundReason) {
+        // Determine the bill to refund against (if any)
+        const bill = updated.bill;
+        if (bill) {
+          // Refund against the bill
+          await tx.payment.create({
+            data: {
+              billId: bill.id,
+              appointmentId: id,
+              patientId: updated.patientId,
+              amount: dto.refundAmount,
+              method: 'CASH',
+              direction: 'REFUND',
+              notes: `${dto.status} refund: ${dto.refundReason}`,
+              collectedById: userId ?? null,
+            },
+          });
+          // Recompute bill status
+          const billPaySum = await tx.payment.aggregate({
+            where: { billId: bill.id, direction: 'PAYMENT' },
+            _sum: { amount: true },
+          });
+          const billRefundSum = await tx.payment.aggregate({
+            where: { billId: bill.id, direction: 'REFUND' },
+            _sum: { amount: true },
+          });
+          const billNetPaid = (billPaySum._sum.amount ?? 0) - (billRefundSum._sum.amount ?? 0);
+          const newBillStatus = billNetPaid <= 0 ? 'REFUNDED' : billNetPaid < bill.total ? 'PARTIALLY_PAID' : 'PAID';
+          await tx.bill.update({
+            where: { id: bill.id },
+            data: { paidAmount: billNetPaid, status: newBillStatus },
+          });
+        } else {
+          // Refund against the appointment (advance only, no bill yet)
+          await tx.payment.create({
+            data: {
+              appointmentId: id,
+              patientId: updated.patientId,
+              amount: dto.refundAmount,
+              method: 'CASH',
+              direction: 'REFUND',
+              notes: `${dto.status} refund: ${dto.refundReason}`,
+              collectedById: userId ?? null,
+            },
+          });
+        }
+
+        // Sync appointment.amountPaid
+        const apptPaySum = await tx.payment.aggregate({
+          where: { appointmentId: id, direction: 'PAYMENT' },
+          _sum: { amount: true },
+        });
+        const apptRefundSum = await tx.payment.aggregate({
+          where: { appointmentId: id, direction: 'REFUND' },
+          _sum: { amount: true },
+        });
+        const apptNetPaid = (apptPaySum._sum.amount ?? 0) - (apptRefundSum._sum.amount ?? 0);
+        await tx.appointment.update({
+          where: { id },
+          data: { amountPaid: apptNetPaid },
+        });
+      } else if ((dto.status === 'CANCELLED' || dto.status === 'NO_SHOW') && dto.refundDecision === 'FORFEIT' && dto.refundReason) {
+        // Forfeit: no money moves, but record a note
+        await tx.payment.create({
+          data: {
+            appointmentId: id,
+            patientId: updated.patientId,
+            amount: 0,
+            method: 'CASH',
+            direction: 'REFUND',
+            notes: `FORFEITED on ${dto.status.toLowerCase()}: ${dto.refundReason}`,
+            collectedById: userId ?? null,
+          },
+        });
+      }
+
+      return updated;
     });
 
-    // Checking in moves the patient into the live token queue. Idempotent —
-    // a queue entry already linked to this appointment is left alone.
-    if (dto.status === 'CHECKED_IN' && existing.status !== 'CHECKED_IN') {
+    // Confirming or starting consultation moves the patient into the live token queue.
+    // Idempotent — a queue entry already linked to this appointment is left alone.
+    if ((dto.status === 'CONFIRMED' || dto.status === 'IN_PROGRESS') && existing.status !== 'CONFIRMED' && existing.status !== 'IN_PROGRESS') {
       const alreadyQueued = await this.prisma.queueEntry.findUnique({ where: { appointmentId: id } });
       if (!alreadyQueued) {
         const checkedInAt = new Date();
         const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-        const tokenNumber = this.generateTokenNumber(checkedInAt, patientName);
+        const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, checkedInAt);
         await this.prisma.queueEntry.create({
           data: {
             patientId: appointment.patientId,
@@ -198,15 +462,58 @@ export class AppointmentsService
   async updateDetails(id: string, dto: UpdateAppointmentDto, userId?: string) {
     const existing = await this.findOne(id);
 
+    // Calculate next version for history
+    const lastHistory = await this.prisma.appointmentHistory.findFirst({
+      where: { appointmentId: id },
+      orderBy: { version: 'desc' },
+    });
+    const nextVersion = (lastHistory?.version ?? 0) + 1;
+
+    // Snapshot current state before applying changes
+    const previousData = {
+      patientId: existing.patientId,
+      doctorId: existing.doctorId,
+      date: existing.date,
+      type: existing.type,
+      status: existing.status,
+      amount: existing.amount,
+      registrationFee: existing.registrationFee,
+      amountPaid: existing.amountPaid,
+      reasonForVisit: existing.reasonForVisit,
+      notes: existing.notes,
+    };
+
     const data: Record<string, unknown> = {};
     if (dto.date !== undefined) data.date = new Date(dto.date);
     if (dto.doctorId !== undefined) data.doctorId = dto.doctorId;
     if (dto.type !== undefined) data.type = dto.type;
-    if (dto.fee !== undefined) data.fee = dto.fee;
+    if (dto.amount !== undefined) data.amount = dto.amount;
     if (dto.registrationFee !== undefined) data.registrationFee = dto.registrationFee;
+    if (dto.amountPaid !== undefined) data.amountPaid = dto.amountPaid;
     if (dto.reasonForVisit !== undefined) data.reasonForVisit = dto.reasonForVisit;
     if (dto.notes !== undefined) data.notes = dto.notes;
     data.updatedById = userId ?? null;
+
+    // Guard: don't let fee edits drop the total below what's already been paid.
+    // Staff must record a refund first before lowering fees.
+    const newAmount = (data.amount as number | undefined) ?? existing.amount;
+    const newRegFee = (data.registrationFee as number | undefined) ?? existing.registrationFee;
+    const newTotal = newAmount + newRegFee;
+    const paidSum = await this.prisma.payment.aggregate({
+      where: { appointmentId: id, direction: 'PAYMENT' },
+      _sum: { amount: true },
+    });
+    const refundSum = await this.prisma.payment.aggregate({
+      where: { appointmentId: id, direction: 'REFUND' },
+      _sum: { amount: true },
+    });
+    const netPaid = (paidSum._sum.amount ?? 0) - (refundSum._sum.amount ?? 0);
+    if (newTotal < netPaid) {
+      throw new BadRequestException(
+        `Cannot reduce total to ₹${newTotal} — ₹${netPaid} has already been collected. ` +
+        `Record a refund first before lowering fees.`,
+      );
+    }
 
     // If doctor changed, also reassign the linked queue entry regardless of status.
     // The mismatch between appointment and queue doctors is worse than updating
@@ -235,12 +542,24 @@ export class AppointmentsService
       }
     }
 
-    const appointment = await this.prisma.appointment.update({
-      where: { id },
-      data,
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+    // Use a transaction to atomically save history and update appointment
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Save history entry with previous state
+      await tx.appointmentHistory.create({
+        data: {
+          appointmentId: id,
+          version: nextVersion,
+          previousData,
+          changeType: 'UPDATE',
+          createdById: userId ?? null,
+        },
+      });
+
+      // 2. Update appointment
+      await tx.appointment.update({ where: { id }, data });
     });
-    return withDoctorName(this.prisma, appointment);
+
+    return this.findOne(id);
   }
 
   /**
@@ -248,12 +567,33 @@ export class AppointmentsService
    * leaving it in RESCHEDULED status rather than reverting to SCHEDULED —
    * this keeps the change visible in the appointment history/badge.
    */
-  async reschedule(id: string, dto: RescheduleAppointmentDto) {
+  async reschedule(id: string, dto: RescheduleAppointmentDto, userId?: string) {
     const existing = await this.findOne(id);
     const date = new Date(dto.date);
     const doctorId = dto.doctorId ?? existing.doctorId;
     const patientName = `${existing.patient.firstName} ${existing.patient.lastName}`;
-    const tokenNumber = this.generateTokenNumber(date, patientName);
+    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, date);
+
+    // Calculate next version for history
+    const lastHistory = await this.prisma.appointmentHistory.findFirst({
+      where: { appointmentId: id },
+      orderBy: { version: 'desc' },
+    });
+    const nextVersion = (lastHistory?.version ?? 0) + 1;
+
+    // Snapshot current state before reschedule
+    const previousData = {
+      patientId: existing.patientId,
+      doctorId: existing.doctorId,
+      date: existing.date,
+      type: existing.type,
+      status: existing.status,
+      amount: existing.amount,
+      registrationFee: existing.registrationFee,
+      amountPaid: existing.amountPaid,
+      reasonForVisit: existing.reasonForVisit,
+      notes: existing.notes,
+    };
 
     // If the doctor changed during reschedule, also reassign any linked
     // queue entry regardless of status so the patient appears under the
@@ -282,22 +622,51 @@ export class AppointmentsService
       }
     }
 
-    const appointment = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        date,
-        doctorId,
-        tokenNumber,
-        status: 'RESCHEDULED',
-      },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true } } },
+    // Use a transaction to atomically save history and update appointment
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Save history entry with previous state
+      await tx.appointmentHistory.create({
+        data: {
+          appointmentId: id,
+          version: nextVersion,
+          previousData,
+          changeType: 'UPDATE',
+          createdById: userId ?? null,
+        },
+      });
+
+      // 2. Update appointment
+      await tx.appointment.update({
+        where: { id },
+        data: {
+          date,
+          doctorId,
+          tokenNumber,
+          status: 'RESCHEDULED',
+          updatedById: userId ?? null,
+        },
+      });
     });
-    return withDoctorName(this.prisma, appointment);
+
+    return this.findOne(id);
   }
 
-  async remove(id: string) {
+  async findHistory(appointmentId: string) {
+    // Verify appointment exists
+    await this.findOne(appointmentId);
+    return this.prisma.appointmentHistory.findMany({
+      where: { appointmentId },
+      orderBy: { version: 'desc' },
+      include: { createdBy: { select: { id: true, firstName: true, lastName: true } } },
+    });
+  }
+
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.appointment.delete({ where: { id } });
+    return this.prisma.appointment.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 
   /**
@@ -315,7 +684,7 @@ export class AppointmentsService
           itemId: appointment.id,
           itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
           quantity: 1,
-          unitPrice: appointment.fee,
+          unitPrice: appointment.amount,
         },
         ...(appointment.registrationFee > 0
           ? [
@@ -345,50 +714,89 @@ export class AppointmentsService
     if (appointment.bill) throw new ConflictException(`Appointment ${id} is already invoiced (${appointment.bill.invoiceNo})`);
 
     const invoiceNo = await this.generateInvoiceNo();
-    const consultationAmount = appointment.fee;
+    const consultationAmount = appointment.amount;
     const registrationAmount = appointment.registrationFee;
     const subtotal = consultationAmount + registrationAmount;
-    const discount = dto.discount ?? 0;
+    const { discount, discountRuleId } = await resolveDiscount(this.prisma, dto.discountRuleId, subtotal);
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
 
-    return this.prisma.bill.create({
-      data: {
-        patientId: appointment.patientId,
-        appointmentId: appointment.id,
-        invoiceNo,
-        subtotal,
-        discount,
-        tax,
-        total,
-        paymentMethod: dto.paymentMethod ?? 'CASH',
-        notes: dto.notes,
-        items: {
-          create: [
-            {
-              itemType: 'CONSULTATION',
-              itemId: appointment.id,
-              itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
-              quantity: 1,
-              unitPrice: appointment.fee,
-              amount: consultationAmount,
-            },
-            ...(registrationAmount > 0
-              ? [
-                  {
-                    itemType: 'REGISTRATION',
-                    itemId: appointment.id,
-                    itemName: `Registration Fee — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
-                    quantity: 1,
-                    unitPrice: appointment.registrationFee,
-                    amount: registrationAmount,
-                  },
-                ]
-              : []),
-          ],
+    // Seed paidAmount from the actual ledger sum only — payment never happens
+    // through the invoice/checkout flow itself, only via BillingService.addPayment()
+    // (which correctly records a Payment row + Receipt voucher/journal). This just
+    // credits whatever advance was already collected before invoicing.
+    const advanceSum = await this.prisma.payment.aggregate({
+      where: { appointmentId: id, direction: 'PAYMENT' },
+      _sum: { amount: true },
+    });
+    const advancePaid = advanceSum._sum.amount ?? 0;
+    const paidAmount = Math.min(advancePaid, total);
+    const status = paidAmount >= total ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'PENDING';
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Create the bill
+      const bill = await tx.bill.create({
+        data: {
+          patientId: appointment.patientId,
+          appointmentId: appointment.id,
+          invoiceNo,
+          subtotal,
+          discount,
+          discountRuleId,
+          tax,
+          total,
+          paidAmount,
+          status,
+          paymentMethod: dto.paymentMethod ?? 'CASH',
+          referenceNumber: dto.referenceNumber ?? null,
+          notes: dto.notes,
+          createdById: appointment.createdById,
+          items: {
+            create: [
+              {
+                itemType: 'CONSULTATION',
+                itemId: appointment.id,
+                itemName: `${appointment.type.replace('_', ' ')} — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
+                quantity: 1,
+                unitPrice: appointment.amount,
+                amount: consultationAmount,
+              },
+              ...(registrationAmount > 0
+                ? [
+                    {
+                      itemType: 'REGISTRATION',
+                      itemId: appointment.id,
+                      itemName: `Registration Fee — ${appointment.patient.firstName} ${appointment.patient.lastName}`,
+                      quantity: 1,
+                      unitPrice: appointment.registrationFee,
+                      amount: registrationAmount,
+                    },
+                  ]
+                : []),
+            ],
+          },
         },
-      },
-      include: { items: true, patient: true },
+        include: { items: true, patient: true },
+      });
+
+      // 2. If paidAmount > 0, write a ledger row linking the advance to this bill
+      if (paidAmount > 0) {
+        await tx.payment.create({
+          data: {
+            billId: bill.id,
+            appointmentId: appointment.id,
+            patientId: appointment.patientId,
+            amount: paidAmount,
+            method: dto.paymentMethod ?? 'CASH',
+            direction: 'PAYMENT',
+            referenceNumber: dto.referenceNumber ?? null,
+            notes: dto.notes ?? `Invoice ${invoiceNo}`,
+            collectedById: appointment.createdById,
+          },
+        });
+      }
+
+      return bill;
     });
   }
 
@@ -398,5 +806,73 @@ export class AppointmentsService
     const m = (date.getMonth() + 1).toString().padStart(2, '0');
     const count = await this.prisma.bill.count();
     return `INV-${y}${m}-${(count + 1).toString().padStart(5, '0')}`;
+  }
+
+  // ─── Payment Ledger ──────────────────────────────────────────
+
+  /**
+   * Record an advance payment against an appointment (pre-invoice).
+   * Writes a ledger row and syncs Appointment.amountPaid.
+   */
+  async addPayment(appointmentId: string, dto: CreatePaymentDto, userId?: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId, deletedAt: null },
+      include: { bill: true },
+    });
+    if (!appointment) throw new NotFoundException(`Appointment ${appointmentId} not found`);
+
+    // If a bill already exists, route to the billing payment endpoint instead
+    if (appointment.bill) {
+      throw new ConflictException(
+        `Appointment ${appointmentId} is already invoiced (${appointment.bill.invoiceNo}). ` +
+        `Use POST /billing/${appointment.bill.id}/payments to record installments.`,
+      );
+    }
+
+    const payment = await this.prisma.$transaction(async (tx) => {
+      // 1. Write the ledger row
+      const row = await tx.payment.create({
+        data: {
+          appointmentId,
+          patientId: appointment.patientId,
+          amount: dto.amount,
+          method: dto.method,
+          direction: 'PAYMENT',
+          referenceNumber: dto.referenceNumber ?? null,
+          notes: dto.notes ?? null,
+          collectedById: userId ?? null,
+        },
+      });
+
+      // 2. Recompute amountPaid from ledger sum (PAYMENT rows only)
+      const sum = await tx.payment.aggregate({
+        where: { appointmentId, direction: 'PAYMENT' },
+        _sum: { amount: true },
+      });
+      const totalPaid = sum._sum.amount ?? 0;
+
+      await tx.appointment.update({
+        where: { id: appointmentId },
+        data: { amountPaid: totalPaid, updatedById: userId ?? null },
+      });
+
+      return row;
+    });
+
+    return payment;
+  }
+
+  /**
+   * List all payment/refund ledger rows for an appointment.
+   */
+  async getPayments(appointmentId: string) {
+    await this.findOne(appointmentId);
+    return this.prisma.payment.findMany({
+      where: { appointmentId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        collectedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
   }
 }

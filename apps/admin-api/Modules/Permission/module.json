@@ -1,0 +1,12 @@
+{
+    "name": "Permission",
+    "alias": "permission",
+    "description": "Permission module for the admin-api",
+    "keywords": [
+        "permission"
+    ],
+    "priority": 90,
+    "providers": [
+        "Modules\\Permission\\Providers\\PermissionServiceProvider"
+    ]
+}

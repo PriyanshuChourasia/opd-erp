@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Plus, Trash2, Check, Star, Eye, ArrowLeft, Pencil, Stethoscope, TestTube, UserRound, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { FileText, Plus, Trash2, Check, Star, Eye, Pencil, Stethoscope, TestTube, UserRound, X, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
@@ -18,20 +18,18 @@ import {
   type PrescriptionTemplate,
   type TemplateType,
 } from "@/lib/api";
-import { PrescriptionTemplateEditor } from "./prescription-template-editor";
 import { PrescriptionTemplatePreview } from "./prescription-template-preview";
 
 const TYPE_CONFIG: Record<TemplateType, { label: string; icon: typeof FileText; color: string }> = {
   prescription: { label: "Prescription", icon: FileText, color: "bg-blue-100 text-blue-700" },
   diagnosis: { label: "Diagnosis", icon: Stethoscope, color: "bg-green-100 text-green-700" },
   test: { label: "Lab Test", icon: TestTube, color: "bg-red-100 text-red-700" },
+  appointment_slip: { label: "Appointment Slip", icon: CalendarClock, color: "bg-amber-100 text-amber-700" },
 };
 
 export function PrescriptionTemplateList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<PrescriptionTemplate | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<PrescriptionTemplate | null>(null);
 
   const { data: templates = [], isLoading } = useQuery({
@@ -88,22 +86,17 @@ export function PrescriptionTemplateList() {
   });
 
   function openCreate() {
-    setEditingTemplate(null);
-    setEditorOpen(true);
+    navigate({ to: "/organisation/prescription-templates/new" });
   }
 
   function openEdit(tpl: PrescriptionTemplate) {
-    setEditingTemplate(tpl);
-    setEditorOpen(true);
+    navigate({ to: "/organisation/prescription-templates/$templateId/edit", params: { templateId: tpl.id } });
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon-sm" onClick={() => navigate({ to: "/organisation" })}>
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Document Templates</h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -205,6 +198,12 @@ export function PrescriptionTemplateList() {
                             </span>
                           );
                         })()}
+                        {(tpl.isDefault || tpl.doctorId) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700">
+                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                            ACTIVE
+                          </span>
+                        )}
                       </div>
                       {tpl.description && (
                         <p className="text-xs text-muted-foreground mt-0.5">{tpl.description}</p>
@@ -299,12 +298,6 @@ export function PrescriptionTemplateList() {
           })}
         </div>
       )}
-
-      <PrescriptionTemplateEditor
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        template={editingTemplate}
-      />
 
       <PrescriptionTemplatePreview
         template={previewTemplate}

@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/department",
+    "description": "Department module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Department\\": "",
+            "Modules\\Department\\Database\\Factories\\": "database/factories/",
+            "Modules\\Department\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Department\\Tests\\": "tests/"
+        }
+    }
+}

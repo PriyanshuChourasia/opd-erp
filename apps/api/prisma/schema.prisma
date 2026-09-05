@@ -52,15 +52,32 @@ model User {
   createdDispensings           Dispensing[]           @relation("DispensingCreated")
   createdShifts                Shift[]                @relation("ShiftCreated")
   createdEmployeeSchedules     EmployeeSchedule[]     @relation("EmployeeScheduleCreated")
+  createdEmployeeScheduleExceptions EmployeeScheduleException[] @relation("EmployeeScheduleExceptionCreated")
   createdAddresses             Address[]              @relation("AddressCreated")
   createdDocuments             Document[]             @relation("DocumentCreated")
-  createdOrganisations         Organisation[]         @relation("OrganisationCreated")
+  createdCompanies             Company[]              @relation("CompanyCreated")
   createdPatientVitals         PatientVitals[]        @relation("PatientVitalsCreated")
   createdPatientAllergyRecords PatientAllergyRecord[] @relation("PatientAllergyRecordCreated")
   createdDiagnosisSystems      DiagnosisSystem[]      @relation("DiagnosisSystemCreated")
   createdPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateCreated")
   createdSpecializations       Specialization[]        @relation("SpecializationCreated")
   createdPrescriptionHistories PrescriptionHistory[]  @relation("PrescriptionHistoryCreated")
+  createdAppointmentHistories  AppointmentHistory[]  @relation("AppointmentHistoryCreated")
+  createdMedicineGroups         MedicineGroup[]       @relation("MedicineGroupCreated")
+  createdUnits                  Unit[]                @relation("UnitCreated")
+  createdDepartments            Department[]          @relation("DepartmentCreated")
+  createdDesignations           Designation[]         @relation("DesignationCreated")
+  createdFinancialYears         FinancialYear[]       @relation("FinancialYearCreated")
+  createdDoctorDepartments      DoctorDepartment[]    @relation("DoctorDepartmentCreated")
+  createdDoctorSpecializations  DoctorSpecialization[] @relation("DoctorSpecializationCreated")
+  createdBloodGroups            BloodGroup[]          @relation("BloodGroupCreated")
+  collectedPayments             Payment[]             @relation("PaymentCollected")
+  createdDiscountRules          DiscountRule[]        @relation("DiscountRuleCreated")
+  createdAccountGroups          AccountGroup[]        @relation("AccountGroupCreated")
+  createdLedgers                Ledger[]              @relation("LedgerCreated")
+  createdVouchers               Voucher[]             @relation("VoucherCreated")
+  createdJournals               Journal[]             @relation("JournalCreated")
+  ownedLedgers                   Ledger[]              @relation("LedgerOwnerUser")
 
   // Audit relations — Updated by
   updatedRoles                 Role[]                 @relation("RoleUpdated")
@@ -70,7 +87,37 @@ model User {
   updatedPatientAllergies      PatientAllergy[]       @relation("PatientAllergyUpdated")
   updatedDiagnoses             Diagnosis[]            @relation("DiagnosisUpdated")
   updatedPatients              Patient[]              @relation("PatientUpdated")
+  deletedPatients              Patient[]              @relation("PatientDeleted")
   updatedDoctors               Doctor[]               @relation("DoctorUpdated")
+  deletedDoctors               Doctor[]               @relation("DoctorDeleted")
+  deletedSpecializations       Specialization[]        @relation("SpecializationDeleted")
+  deletedDepartments           Department[]            @relation("DepartmentDeleted")
+  deletedDesignations          Designation[]           @relation("DesignationDeleted")
+  deletedMedicineGroups        MedicineGroup[]         @relation("MedicineGroupDeleted")
+  deletedUnits                 Unit[]                  @relation("UnitDeleted")
+  deletedMedicines             Medicine[]              @relation("MedicineDeleted")
+  deletedBloodGroups           BloodGroup[]            @relation("BloodGroupDeleted")
+  deletedAllergies             Allergy[]               @relation("AllergyDeleted")
+  deletedAddresses             Address[]               @relation("AddressDeleted")
+  deletedDocuments             Document[]              @relation("DocumentDeleted")
+  deletedShifts                Shift[]                 @relation("ShiftDeleted")
+  deletedFinancialYears        FinancialYear[]         @relation("FinancialYearDeleted")
+  deletedAppointments          Appointment[]           @relation("AppointmentDeleted")
+  deletedPrescriptions         Prescription[]          @relation("PrescriptionDeleted")
+  deletedBills                 Bill[]                  @relation("BillDeleted")
+  deletedDiagnoses             Diagnosis[]             @relation("DiagnosisDeleted")
+  deletedDiagnosisSystems      DiagnosisSystem[]       @relation("DiagnosisSystemDeleted")
+  deletedDispensings           Dispensing[]            @relation("DispensingDeleted")
+  deletedLabOrders             LabOrder[]              @relation("LabOrderDeleted")
+  deletedProcedureOrders       ProcedureOrder[]        @relation("ProcedureOrderDeleted")
+  deletedRadiologyOrders       RadiologyOrder[]        @relation("RadiologyOrderDeleted")
+  deletedEmployeeSchedules     EmployeeSchedule[]      @relation("EmployeeScheduleDeleted")
+  deletedEmployeeScheduleExceptions EmployeeScheduleException[] @relation("EmployeeScheduleExceptionDeleted")
+  updatedDiscountRules         DiscountRule[]          @relation("DiscountRuleUpdated")
+  deletedDiscountRules         DiscountRule[]          @relation("DiscountRuleDeleted")
+  updatedAccountGroups         AccountGroup[]          @relation("AccountGroupUpdated")
+  deletedLedgers               Ledger[]                @relation("LedgerDeleted")
+  updatedLedgers               Ledger[]                @relation("LedgerUpdated")
   updatedQueueEntries          QueueEntry[]           @relation("QueueEntryUpdated")
   updatedAppointments          Appointment[]          @relation("AppointmentUpdated")
   updatedMedicines             Medicine[]             @relation("MedicineUpdated")
@@ -84,13 +131,24 @@ model User {
   updatedDispensings           Dispensing[]           @relation("DispensingUpdated")
   updatedShifts                Shift[]                @relation("ShiftUpdated")
   updatedEmployeeSchedules     EmployeeSchedule[]     @relation("EmployeeScheduleUpdated")
+  updatedEmployeeScheduleExceptions EmployeeScheduleException[] @relation("EmployeeScheduleExceptionUpdated")
   updatedAddresses             Address[]              @relation("AddressUpdated")
   updatedDocuments             Document[]             @relation("DocumentUpdated")
-  updatedOrganisations         Organisation[]         @relation("OrganisationUpdated")
+  updatedCompanies             Company[]              @relation("CompanyUpdated")
   updatedPatientAllergyRecords PatientAllergyRecord[] @relation("PatientAllergyRecordUpdated")
   updatedDiagnosisSystems      DiagnosisSystem[]      @relation("DiagnosisSystemUpdated")
   updatedPrescriptionTemplates PrescriptionTemplate[] @relation("PrescriptionTemplateUpdated")
   updatedSpecializations       Specialization[]        @relation("SpecializationUpdated")
+  updatedMedicineGroups        MedicineGroup[]         @relation("MedicineGroupUpdated")
+  updatedUnits                 Unit[]                  @relation("UnitUpdated")
+  updatedDepartments           Department[]            @relation("DepartmentUpdated")
+  updatedDesignations          Designation[]           @relation("DesignationUpdated")
+  updatedFinancialYears        FinancialYear[]         @relation("FinancialYearUpdated")
+  updatedBloodGroups           BloodGroup[]          @relation("BloodGroupUpdated")
+  updatedVouchers              Voucher[]              @relation("VoucherUpdated")
+  deletedVouchers              Voucher[]              @relation("VoucherDeleted")
+  updatedJournals              Journal[]              @relation("JournalUpdated")
+  deletedJournals              Journal[]              @relation("JournalDeleted")
 
   @@index([userableType, userableId])
 }
@@ -177,7 +235,10 @@ model Allergy {
   description String?
   severity    AllergySeverity @default(MODERATE)
   category    AllergyCategory @default(OTHER)
-  isActive    Boolean         @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("AllergyDeleted", fields: [deletedById], references: [id])
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   createdById String?
@@ -224,6 +285,9 @@ model DiagnosisSystem {
   updatedBy   User?       @relation("DiagnosisSystemUpdated", fields: [updatedById], references: [id])
   diagnoses   Diagnosis[]
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("DiagnosisSystemDeleted", fields: [deletedById], references: [id])
   @@index([code])
   @@index([createdById])
   @@index([updatedById])
@@ -246,6 +310,9 @@ model Diagnosis {
   updatedBy         User?            @relation("DiagnosisUpdated", fields: [updatedById], references: [id])
   diagnosisSystem   DiagnosisSystem? @relation(fields: [diagnosisSystemId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("DiagnosisDeleted", fields: [deletedById], references: [id])
   @@index([diagnosisSystemId])
   @@index([code])
   @@index([createdById])
@@ -295,6 +362,8 @@ model PatientVitals {
   medicalStatus   String?
   recordedAt      DateTime     @default(now())
   createdAt       DateTime     @default(now())
+  deletedAt       DateTime?
+  deletedById     String?
   createdById     String?
   createdBy       User?        @relation("PatientVitalsCreated", fields: [createdById], references: [id])
   patient         Patient      @relation(fields: [patientId], references: [id])
@@ -313,12 +382,187 @@ model Specialization {
   name        String   @unique
   description String?
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
   updatedById String?
   createdBy   User?    @relation("SpecializationCreated", fields: [createdById], references: [id])
   updatedBy   User?    @relation("SpecializationUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("SpecializationDeleted", fields: [deletedById], references: [id])
+  doctorSpecializations DoctorSpecialization[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Department ──────────────────────────────────────────────
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("DepartmentCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("DepartmentUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("DepartmentDeleted", fields: [deletedById], references: [id])
+  doctorDepartments DoctorDepartment[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Designation ─────────────────────────────────────────────
+
+model Designation {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("DesignationCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("DesignationUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("DesignationDeleted", fields: [deletedById], references: [id])
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Financial Year ──────────────────────────────────────────
+
+model FinancialYear {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("FinancialYearDeleted", fields: [deletedById], references: [id])
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("FinancialYearCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("FinancialYearUpdated", fields: [updatedById], references: [id])
+
+  vouchers    Voucher[]
+  bills       Bill[]
+
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([isCurrent])
+  @@index([companyId])
+}
+
+// ─── Doctor–Department join ──────────────────────────────────
+
+model DoctorDepartment {
+  id           String   @id @default(uuid())
+  doctorId     String
+  departmentId String
+  createdAt    DateTime @default(now())
+  createdById  String?
+  createdBy    User?    @relation("DoctorDepartmentCreated", fields: [createdById], references: [id])
+  doctor       Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  @@unique([doctorId, departmentId])
+  @@index([doctorId])
+  @@index([departmentId])
+}
+
+// ─── Doctor–Specialization join ──────────────────────────────
+
+model DoctorSpecialization {
+  id                String   @id @default(uuid())
+  doctorId          String
+  specializationId  String
+  createdAt         DateTime @default(now())
+  createdById       String?
+  createdBy         User?    @relation("DoctorSpecializationCreated", fields: [createdById], references: [id])
+  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialization    Specialization @relation(fields: [specializationId], references: [id])
+
+  @@unique([doctorId, specializationId])
+  @@index([doctorId])
+  @@index([specializationId])
+}
+
+// ─── Medicine Group ─────────────────────────────────────────
+
+model MedicineGroup {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("MedicineGroupCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("MedicineGroupUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("MedicineGroupDeleted", fields: [deletedById], references: [id])
+  medicines   Medicine[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Unit ────────────────────────────────────────────────────
+
+model Unit {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  symbol      String?
+  description String?
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("UnitCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("UnitUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("UnitDeleted", fields: [deletedById], references: [id])
+  medicines   Medicine[]
+
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model BloodGroup {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("BloodGroupCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("BloodGroupUpdated", fields: [updatedById], references: [id])
+  deletedBy   User?    @relation("BloodGroupDeleted", fields: [deletedById], references: [id])
+  patients    Patient[]
 
   @@index([createdById])
   @@index([updatedById])
@@ -338,17 +582,22 @@ model Patient {
   dateOfBirth      DateTime?
   gender           String?
   bloodGroup       String?
+  bloodGroupId     String?
+  bloodGroupRef    BloodGroup? @relation(fields: [bloodGroupId], references: [id])
   address          String?
   emergencyContact String?
   allergies        String[]
   isFollowUp       Boolean   @default(false)
   isActive         Boolean   @default(true)
+  deletedAt        DateTime?
+  deletedById      String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   createdById      String?
   updatedById      String?
   createdBy        User?     @relation("PatientCreated", fields: [createdById], references: [id])
   updatedBy        User?     @relation("PatientUpdated", fields: [updatedById], references: [id])
+  deletedBy        User?     @relation("PatientDeleted", fields: [deletedById], references: [id])
 
   appointments     Appointment[]
   queueEntries     QueueEntry[]
@@ -357,13 +606,16 @@ model Patient {
   radiologyOrders  RadiologyOrder[]
   procedureOrders  ProcedureOrder[]
   bills            Bill[]
+  payments         Payment[]
   patientAllergies PatientAllergy[]
   allergyRecords   PatientAllergyRecord[]
   vitals           PatientVitals[]
+  ledgers          Ledger[]
 
   @@index([patientCode])
   @@index([firstName])
   @@index([lastName])
+  @@index([deletedAt])
 }
 
 model Doctor {
@@ -381,12 +633,15 @@ model Doctor {
   degreeCertificateUrl       String?
   governmentIdUrl            String?
   isActive                   Boolean  @default(true)
+  deletedAt                  DateTime?
+  deletedById                String?
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
   createdById                String?
   updatedById                String?
   createdBy                  User?    @relation("DoctorCreated", fields: [createdById], references: [id])
   updatedBy                  User?    @relation("DoctorUpdated", fields: [updatedById], references: [id])
+  deletedBy                  User?    @relation("DoctorDeleted", fields: [deletedById], references: [id])
 
   appointments    Appointment[]
   queueEntries    QueueEntry[]
@@ -396,6 +651,9 @@ model Doctor {
   procedureOrders ProcedureOrder[]
 
   assignedPrescriptionTemplate PrescriptionTemplate?
+  doctorDepartments    DoctorDepartment[]
+  doctorSpecializations DoctorSpecialization[]
+  ledgers              Ledger[]
 
   @@index([specialization])
 }
@@ -432,8 +690,9 @@ model Appointment {
   type               String      @default("CONSULTATION")
   status             String      @default("SCHEDULED")
   tokenNumber        String?
-  fee                Int         @default(0)
+  amount             Int         @default(0)
   registrationFee    Int         @default(0)
+  amountPaid         Int         @default(0)
   reasonForVisit     String?
   notes              String?
   cancellationReason String?
@@ -448,7 +707,12 @@ model Appointment {
   bill               Bill?
   queueEntry         QueueEntry?
   patientVitals      PatientVitals[]
+  history            AppointmentHistory[]
+  payments           Payment[] @relation("PaymentAppointment")
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("AppointmentDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
@@ -456,25 +720,56 @@ model Appointment {
   @@index([date])
 }
 
+model AppointmentHistory {
+  id            String   @id @default(uuid())
+  appointmentId String
+  version       Int
+  previousData  Json     // Snapshot of appointment fields before this edit
+  changeType    String   @default("UPDATE") // CREATE | UPDATE
+  changeReason  String?
+  createdAt     DateTime @default(now())
+  createdById   String?
+  createdBy     User?    @relation("AppointmentHistoryCreated", fields: [createdById], references: [id])
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+  @@index([appointmentId, version])
+  @@index([createdById])
+}
+
 model Medicine {
-  id          String   @id @default(uuid())
-  name        String
-  genericName String?
-  brandName   String?
-  category    String?
-  strength    String?
-  unit        String   @default("tablet")
-  price       Int      @default(0)
+  id           String        @id @default(uuid())
+  name         String
+  alias        String?
+  genericName  String?
+  brandName    String?
+  category     String?
+  strength     String?
+  unit         String        @default("tablet")
+  price        Int           @default(0)
+  groupId      String?
+  unitId       String?
+  openingStock Decimal?      @db.Decimal(12, 2) @default(0)
+  currentStock Decimal?      @db.Decimal(12, 2) @default(0)
   isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById String?
-  updatedById String?
-  createdBy   User?    @relation("MedicineCreated", fields: [createdById], references: [id])
-  updatedBy   User?    @relation("MedicineUpdated", fields: [updatedById], references: [id])
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  createdById  String?
+  updatedById  String?
+  createdBy    User?         @relation("MedicineCreated", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("MedicineUpdated", fields: [updatedById], references: [id])
+  deletedBy    User?         @relation("MedicineDeleted", fields: [deletedById], references: [id])
+  group        MedicineGroup? @relation(fields: [groupId], references: [id])
+  unitMaster   Unit?          @relation(fields: [unitId], references: [id])
+  stockItem    StockItem?
 
   @@index([name])
   @@index([genericName])
+  @@index([alias])
+  @@index([groupId])
+  @@index([unitId])
 }
 
 model Prescription {
@@ -497,6 +792,9 @@ model Prescription {
   dispensings Dispensing[]
   history     PrescriptionHistory[]
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("PrescriptionDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
@@ -565,6 +863,9 @@ model LabOrder {
   patient     Patient   @relation(fields: [patientId], references: [id])
   doctor      Doctor    @relation(fields: [doctorId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("LabOrderDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([status])
@@ -591,6 +892,9 @@ model RadiologyOrder {
   patient     Patient   @relation(fields: [patientId], references: [id])
   doctor      Doctor    @relation(fields: [doctorId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("RadiologyOrderDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
@@ -616,6 +920,9 @@ model ProcedureOrder {
   patient       Patient   @relation(fields: [patientId], references: [id])
   doctor        Doctor    @relation(fields: [doctorId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("ProcedureOrderDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([doctorId])
   @@index([createdById])
@@ -630,10 +937,12 @@ model Bill {
   subtotal      Int          @default(0)
   discount      Int          @default(0)
   tax           Int          @default(0)
-  total         Int          @default(0)
-  paymentMethod String       @default("CASH")
-  status        String       @default("PENDING")
-  notes         String?
+  total          Int          @default(0)
+  paidAmount     Int          @default(0)
+  paymentMethod  String       @default("CASH")
+  referenceNumber String?
+  status         String       @default("PENDING")
+  notes          String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   createdById   String?
@@ -643,9 +952,19 @@ model Bill {
   patient       Patient?     @relation(fields: [patientId], references: [id])
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   items         BillItem[]
+  payments      Payment[] @relation("PaymentBill")
+  discountRuleId String?
+  discountRule    DiscountRule? @relation(fields: [discountRuleId], references: [id])
 
+  financialYearId String?
+  financialYear   FinancialYear? @relation(fields: [financialYearId], references: [id])
+
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("BillDeleted", fields: [deletedById], references: [id])
   @@index([patientId])
   @@index([invoiceNo])
+  @@index([financialYearId])
   @@index([createdById])
   @@index([updatedById])
 }
@@ -691,6 +1010,9 @@ model Dispensing {
   updatedBy      User?        @relation("DispensingUpdated", fields: [updatedById], references: [id])
   prescription   Prescription @relation(fields: [prescriptionId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("DispensingDeleted", fields: [deletedById], references: [id])
   @@index([prescriptionId])
   @@index([medicineId])
   @@index([createdById])
@@ -707,7 +1029,10 @@ model Shift {
   breakEndTime   String?
   isOvernight    Boolean            @default(false)
   description    String?
-  isActive       Boolean            @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("ShiftDeleted", fields: [deletedById], references: [id])
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   createdById    String?
@@ -715,6 +1040,7 @@ model Shift {
   createdBy      User?              @relation("ShiftCreated", fields: [createdById], references: [id])
   updatedBy      User?              @relation("ShiftUpdated", fields: [updatedById], references: [id])
   schedules      EmployeeSchedule[]
+  exceptions     EmployeeScheduleException[]
 }
 
 model EmployeeSchedule {
@@ -733,8 +1059,56 @@ model EmployeeSchedule {
   updatedBy               User?    @relation("EmployeeScheduleUpdated", fields: [updatedById], references: [id])
   shift                   Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("EmployeeScheduleDeleted", fields: [deletedById], references: [id])
   @@index([employeeSchedulableType, employeeSchedulableId, dayOfWeek], map: "emp_sched_type_id_dow")
   @@index([employeeSchedulableType, employeeSchedulableId], map: "emp_sched_type_id")
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+enum EmployeeScheduleExceptionType {
+  EXTRA_SHIFT // Layered ON TOP of the recurring weekly schedule for that date
+  OVERRIDE // Replaces the recurring weekly schedule for that date
+  DAY_OFF // Employee unavailable that date
+}
+
+/// One-off / date-specific schedule change. Unlike EmployeeSchedule (which is
+/// keyed by dayOfWeek and recurs weekly), each row applies to exactly one
+/// calendar date and does not touch the employee's recurring schedule.
+/// Multiple rows per date are allowed (e.g. two EXTRA_SHIFT rows, or recurring
+/// weekly rows plus an EXTRA_SHIFT row on the same date).
+///
+/// date is stored as a calendar date normalized to LOCAL midnight, the same
+/// convention appointment date-range queries and the slot generator use
+/// (gte: date, lt: nextDay on the local start-of-day). Not @db.Date on
+/// purpose: Postgres derives @db.Date from a Date's UTC components, which for
+/// positive offsets (IST etc.) shifts the stored day back by one.
+model EmployeeScheduleException {
+  id                      String                        @id @default(uuid())
+  date                    DateTime
+  type                    EmployeeScheduleExceptionType
+  startTime               String
+  endTime                 String
+  shiftId                 String?
+  shift                   Shift?                        @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  employeeSchedulableType String
+  employeeSchedulableId   String
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
+  createdById             String?
+  updatedById             String?
+  deletedAt               DateTime?
+  deletedById             String?
+  createdBy               User?                         @relation("EmployeeScheduleExceptionCreated", fields: [createdById], references: [id])
+  updatedBy               User?                         @relation("EmployeeScheduleExceptionUpdated", fields: [updatedById], references: [id])
+  deletedBy               User?                         @relation("EmployeeScheduleExceptionDeleted", fields: [deletedById], references: [id])
+
+  @@index([employeeSchedulableType, employeeSchedulableId, date], map: "emp_sched_exc_type_id_date")
+  @@index([employeeSchedulableType, employeeSchedulableId], map: "emp_sched_exc_type_id")
+  @@index([date], map: "emp_sched_exc_date")
+  @@index([shiftId])
   @@index([createdById])
   @@index([updatedById])
 }
@@ -753,7 +1127,10 @@ model Address {
   latitude        Float?
   longitude       Float?
   isPrimary       Boolean  @default(false)
-  isActive        Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("AddressDeleted", fields: [deletedById], references: [id])
   addressableType String
   addressableId   String
   createdAt       DateTime @default(now())
@@ -779,7 +1156,10 @@ model Document {
   filePath         String
   caption          String?
   isPrimary        Boolean  @default(false)
-  isActive         Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("DocumentDeleted", fields: [deletedById], references: [id])
   documentableType String
   documentableId   String
   createdAt        DateTime @default(now())
@@ -795,30 +1175,43 @@ model Document {
   @@index([updatedById])
 }
 
-model Organisation {
-  id                  String          @id @default(uuid())
-  name                String
-  address             String?
-  phone               String?
-  email               String?
-  website             String?
-  registrationNumber  String?
-  registrationFee     Int             @default(100)
-  discountEnabled     Boolean         @default(true)
-  maxDiscountPercent  Int             @default(50)
-  defaultDiscountType String          @default("percent")
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  createdById         String?
-  updatedById         String?
-  createdBy           User?           @relation("OrganisationCreated", fields: [createdById], references: [id])
-  updatedBy           User?           @relation("OrganisationUpdated", fields: [updatedById], references: [id])
+model Company {
+  id                    String          @id @default(uuid())
+  name                  String
+  address               String?
+  phone                 String?
+  email                 String?
+  website               String?
+  registrationNumber    String?
+  registrationFee       Int             @default(100)
+  discountEnabled       Boolean         @default(true)
+  maxDiscountPercent    Int             @default(50)
+  defaultDiscountType   String          @default("percent")
+  gstNumber             String?
+  panNumber             String?
+  cinNumber             String?
+  logoUrl               String?
+  drugLicenseNumber     String?
+  drugLicenseExpiry     DateTime?
+  taxRegistrationNumber String?
+  tokenNumberFormat     String          @default("SEQUENTIAL") // SEQUENTIAL | PREFIX_SEQUENTIAL | DATE_SEQUENTIAL | DATE_INITIALS_TIME
+  tokenNumberPrefix     String?
+  tokenNumberPadding    Int             @default(4)
+  tokenNumberResetPolicy String        @default("DAILY") // DAILY | NEVER | PER_FINANCIAL_YEAR
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  createdById           String?
+  updatedById           String?
+  createdBy             User?           @relation("CompanyCreated", fields: [createdById], references: [id])
+  updatedBy             User?           @relation("CompanyUpdated", fields: [updatedById], references: [id])
+  financialYears        FinancialYear[]
+  ledgers               Ledger[]
 }
 
 model PrescriptionTemplate {
   id          String  @id @default(uuid())
   name        String
-  type        String  @default("prescription") // prescription | diagnosis | test
+  type        String  @default("prescription") // prescription | diagnosis | test | appointment_slip
   description String?
   isDefault   Boolean @default(false)
 
@@ -919,4 +1312,341 @@ model RoleSidebarMenu {
   sidebarMenu   SidebarMenu @relation(fields: [sidebarMenuId], references: [id], onDelete: Cascade)
 
   @@id([roleId, sidebarMenuId])
+}
+
+// ─── Payment Ledger ────────────────────────────────────────
+// Immutable ledger of individual financial transactions (payments and refunds).
+// Bill.paidAmount and Appointment.amountPaid are derived by summing rows here.
+model Payment {
+  id              String   @id @default(uuid())
+  appointmentId   String?
+  billId          String?
+  patientId       String
+  amount          Int      // always positive; direction distinguishes PAYMENT from REFUND
+  method          String   // CASH | CARD | UPI
+  direction       String   // PAYMENT | REFUND
+  referenceNumber String?
+  notes           String?
+  collectedById   String?
+  createdAt       DateTime @default(now())
+
+  appointment Appointment? @relation("PaymentAppointment", fields: [appointmentId], references: [id])
+  bill        Bill?        @relation("PaymentBill", fields: [billId], references: [id])
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  collectedBy User?        @relation("PaymentCollected", fields: [collectedById], references: [id])
+
+  @@index([appointmentId])
+  @@index([billId])
+  @@index([patientId])
+  @@index([collectedById])
+  @@index([createdAt])
+}
+
+// ─── Discount Rules ────────────────────────────────────────
+// Admin-configured, named discounts (e.g. "New Year Special", "Loyal
+// Customer") staff pick from at payment time, instead of typing a raw
+// number. `validFrom`/`validTo` are independently optional — null
+// `validFrom` means no start restriction, null `validTo` means it never
+// expires.
+model DiscountRule {
+  id          String    @id @default(uuid())
+  name        String
+  type        String // PERCENTAGE | FLAT
+  value       Int
+  validFrom   DateTime?
+  validTo     DateTime?
+  isActive    Boolean   @default(true)
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("DiscountRuleCreated", fields: [createdById], references: [id])
+  updatedBy   User?     @relation("DiscountRuleUpdated", fields: [updatedById], references: [id])
+  bills       Bill[]
+
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("DiscountRuleDeleted", fields: [deletedById], references: [id])
+
+  @@index([isActive])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+// ─── Double-Entry Accounting: Reference & Chart of Accounts ─
+
+model AccountNature {
+  id            String   @id @default(uuid())
+  code          String   @unique // ASSET | LIABILITY | INCOME | EXPENSE | EQUITY
+  name          String
+  normalBalance String   // DEBIT | CREDIT — decides sign convention
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  accountGroups AccountGroup[]
+}
+
+model AccountGroup {
+  id              String        @id @default(uuid())
+  name            String
+  natureId        String
+  parentGroupId   String?
+  isReserved      Boolean       @default(false)
+  affectsGrossProfit Boolean    @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  createdById     String?
+  updatedById     String?
+  createdBy       User?         @relation("AccountGroupCreated", fields: [createdById], references: [id])
+  updatedBy       User?         @relation("AccountGroupUpdated", fields: [updatedById], references: [id])
+  nature          AccountNature @relation(fields: [natureId], references: [id])
+  parentGroup     AccountGroup? @relation("AccountGroupTree", fields: [parentGroupId], references: [id])
+  childGroups     AccountGroup[] @relation("AccountGroupTree")
+  ledgers         Ledger[]
+
+  @@unique([name, natureId])
+  @@index([natureId])
+  @@index([parentGroupId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Ledger {
+  id                  String       @id @default(uuid())
+  name                String
+  code                String?
+  accountGroupId      String
+  openingBalance      Int          @default(0) // in paise — smallest currency unit
+  openingBalanceType  String?      // DEBIT | CREDIT
+  currentBalance      Int          @default(0) // denormalized running balance
+  isBillWiseTracking  Boolean      @default(false)
+  isCashAccount       Boolean      @default(false)
+  isBankAccount       Boolean      @default(false)
+  linkedPaymentMethod String?      @unique // CASH | CARD | UPI — marks system ledgers payment methods settle into
+  patientId           String?
+  doctorId            String?
+  userId              String?
+  companyId           String?
+  isActive            Boolean      @default(true)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  createdById         String?
+  updatedById         String?
+  createdBy           User?        @relation("LedgerCreated", fields: [createdById], references: [id])
+  updatedBy           User?        @relation("LedgerUpdated", fields: [updatedById], references: [id])
+  accountGroup        AccountGroup @relation(fields: [accountGroupId], references: [id])
+  patient             Patient?     @relation(fields: [patientId], references: [id])
+  doctor              Doctor?      @relation(fields: [doctorId], references: [id])
+  owner               User?        @relation("LedgerOwnerUser", fields: [userId], references: [id])
+  company             Company?     @relation(fields: [companyId], references: [id])
+
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("LedgerDeleted", fields: [deletedById], references: [id])
+
+  vouchersAsParty  Voucher[]   @relation("VoucherPartyLedger")
+  journalLines     JournalLine[]
+  voucherReferences VoucherReference[]
+
+  @@unique([accountGroupId, name])
+  @@index([accountGroupId])
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([userId])
+  @@index([companyId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([isActive])
+}
+
+// ─── Double-Entry Accounting: Voucher & Journal Engine ─────
+
+model VoucherType {
+  id                String   @id @default(uuid())
+  name              String   @unique // SALES, RECEIPT, PAYMENT, JOURNAL, CONTRA, STOCK_JOURNAL, CREDIT_NOTE, DEBIT_NOTE, PURCHASE
+  code              String   @unique
+  affectsAccounting Boolean  @default(true)
+  affectsInventory  Boolean  @default(false)
+  numberingPrefix   String   // INV-, RCP-, PAY-, JNL-, etc.
+  isSystemDefined   Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  vouchers          Voucher[]
+}
+
+model Voucher {
+  id                String      @id @default(uuid())
+  voucherTypeId     String
+  voucherNumber     String
+  voucherDate       DateTime    @default(now())
+  financialYearId   String
+  partyLedgerId     String?
+  totalAmount       Int         @default(0) // in paise
+  status            String      @default("POSTED") // DRAFT | POSTED | CANCELLED
+  sourceModule      String?     // polymorphic: "Bill", "Payment", etc.
+  sourceId          String?     // polymorphic: id of source entity
+  notes             String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  createdById       String?
+  updatedById       String?
+  createdBy         User?       @relation("VoucherCreated", fields: [createdById], references: [id])
+  updatedBy         User?       @relation("VoucherUpdated", fields: [updatedById], references: [id])
+  voucherType       VoucherType @relation(fields: [voucherTypeId], references: [id])
+  financialYear     FinancialYear @relation(fields: [financialYearId], references: [id])
+  partyLedger       Ledger?     @relation("VoucherPartyLedger", fields: [partyLedgerId], references: [id])
+  journals          Journal[]
+  voucherReferencesGiven    VoucherReference[] @relation("VoucherRefGiven")
+  voucherReferencesReceived VoucherReference[] @relation("VoucherRefReceived")
+
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("VoucherDeleted", fields: [deletedById], references: [id])
+
+  @@unique([voucherTypeId, voucherNumber, financialYearId])
+  @@index([voucherTypeId])
+  @@index([financialYearId])
+  @@index([partyLedgerId])
+  @@index([sourceModule, sourceId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model JournalType {
+  id               String   @id @default(uuid())
+  code             String   @unique // GENERAL | OPENING | CLOSING | ADJUSTING | SYSTEM_AUTO
+  name             String
+  requiresApproval Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  journals         Journal[]
+}
+
+model Journal {
+  id                    String      @id @default(uuid())
+  voucherId             String?
+  journalTypeId         String
+  isPosted              Boolean     @default(false)
+  totalDebit            Int         @default(0) // in paise
+  totalCredit           Int         @default(0) // in paise
+  reversalOfJournalId   String?
+  notes                 String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  createdById           String?
+  updatedById           String?
+  createdBy             User?       @relation("JournalCreated", fields: [createdById], references: [id])
+  updatedBy             User?       @relation("JournalUpdated", fields: [updatedById], references: [id])
+  voucher               Voucher?    @relation(fields: [voucherId], references: [id])
+  journalType           JournalType @relation(fields: [journalTypeId], references: [id])
+  lines                 JournalLine[]
+  reversalOf            Journal?    @relation("JournalReversal", fields: [reversalOfJournalId], references: [id])
+  reversedJournals      Journal[]   @relation("JournalReversal")
+
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?    @relation("JournalDeleted", fields: [deletedById], references: [id])
+
+  @@index([voucherId])
+  @@index([journalTypeId])
+  @@index([reversalOfJournalId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model JournalLine {
+  id           String   @id @default(uuid())
+  journalId    String
+  ledgerId     String
+  debitAmount  Int      @default(0) // in paise — exactly one of debit/credit > 0
+  creditAmount Int      @default(0) // in paise
+  createdAt    DateTime @default(now())
+  journal      Journal  @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  ledger       Ledger   @relation(fields: [ledgerId], references: [id])
+
+  @@index([journalId])
+  @@index([ledgerId])
+}
+
+model VoucherReference {
+  id                  String      @id @default(uuid())
+  voucherId           String
+  referenceType       String      // NEW_REF | AGAINST_REF | ON_ACCOUNT | ADVANCE
+  referencedVoucherId String?
+  ledgerId            String
+  amount              Int         // in paise
+  dueDate             DateTime?
+  createdAt           DateTime    @default(now())
+  voucher             Voucher     @relation("VoucherRefGiven", fields: [voucherId], references: [id], onDelete: Cascade)
+  referencedVoucher   Voucher?    @relation("VoucherRefReceived", fields: [referencedVoucherId], references: [id])
+  ledger              Ledger      @relation(fields: [ledgerId], references: [id])
+
+  @@index([voucherId])
+  @@index([referencedVoucherId])
+  @@index([ledgerId])
+}
+
+// ─── Inventory: Stock Items, Batches, Ledger Entries ──────
+
+model StockItem {
+  id                    String    @id @default(uuid())
+  medicineId            String    @unique
+  valuationMethod       String    @default("FIFO") // FIFO | WEIGHTED_AVG
+  reorderLevel          Int       @default(0)
+  hsnCode               String?
+  gstRate               Int       @default(0) // in paise (e.g. 1800 = 18%)
+  stockLedgerAccountId  String?   // → Ledger for inventory asset posting
+  salesAccountId        String?   // → Ledger for sales posting
+  purchaseAccountId     String?   // → Ledger for purchase posting
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  medicine              Medicine  @relation(fields: [medicineId], references: [id])
+  batches               StockBatch[]
+  ledgerEntries         StockLedgerEntry[]
+
+  @@index([medicineId])
+}
+
+model StockBatch {
+  id              String    @id @default(uuid())
+  stockItemId     String
+  batchNo         String?
+  expiryDate      DateTime?
+  purchaseRate    Int       @default(0) // in paise
+  mrp             Int       @default(0) // in paise
+  currentQty      Decimal   @default(0) @db.Decimal(12, 2)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  stockItem       StockItem @relation(fields: [stockItemId], references: [id])
+  ledgerEntries   StockLedgerEntry[]
+
+  @@index([stockItemId])
+  @@index([expiryDate])
+}
+
+model StockLedgerEntry {
+  id               String     @id @default(uuid())
+  voucherId        String?    // → Voucher
+  stockItemId      String
+  batchId          String?
+  quantity         Decimal    @db.Decimal(12, 2) // signed: positive=in, negative=out
+  rate             Int        @default(0) // in paise — valuation at time of movement
+  value            Int        @default(0) // in paise — quantity × rate
+  runningBalanceQty  Decimal  @default(0) @db.Decimal(12, 2)
+  runningBalanceValue Int     @default(0) // in paise
+  movementType     String     // SALE | PURCHASE | OPENING | ADJUSTMENT | TRANSFER | RETURN
+  notes            String?
+  createdAt        DateTime   @default(now())
+  stockItem        StockItem  @relation(fields: [stockItemId], references: [id])
+  batch            StockBatch? @relation(fields: [batchId], references: [id])
+
+  @@index([stockItemId])
+  @@index([batchId])
+  @@index([voucherId])
+  @@index([movementType])
 }

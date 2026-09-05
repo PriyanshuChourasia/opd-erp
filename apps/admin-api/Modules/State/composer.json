@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/state",
+    "description": "State module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\State\\": "",
+            "Modules\\State\\Database\\Factories\\": "database/factories/",
+            "Modules\\State\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\State\\Tests\\": "tests/"
+        }
+    }
+}

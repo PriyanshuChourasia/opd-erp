@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/organization",
+    "description": "Organization module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Organization\\": "",
+            "Modules\\Organization\\Database\\Factories\\": "database/factories/",
+            "Modules\\Organization\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Organization\\Tests\\": "tests/"
+        }
+    }
+}

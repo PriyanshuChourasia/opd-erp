@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { OrganisationPage } from "@/modules/organisation";
+import { CompanyPage } from "@/modules/company";
 
 export const Route = createFileRoute("/_dashboard/organisation/")({
-  staticData: { title: "Organisation" },
-  component: OrganisationPage,
+  staticData: { title: "Company Profile" },
+  component: CompanyPage,
 });

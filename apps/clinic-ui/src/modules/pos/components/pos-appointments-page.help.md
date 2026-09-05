@@ -12,7 +12,7 @@ See `modules/appointments/components/appointments-page.help.md` for the full bre
 - **Status dropdown (row)** — Advances/cancels/reschedules the appointment; CHECKED_IN also refreshes the queue.
 - **Generate invoice / Bulk invoices** — Checkout flows for completed, unpaid appointments.
 - **Create prescription** — Records the doctor's remarks as a prescription for a completed appointment.
-- **Print slip** — Opens the appointment slip preview (PDF download / browser print).
+- **Print slip** — Opens the appointment slip preview in the browser print dialog (save-as-PDF available from there).
 - **Filters** — Date, doctor, status, created-by, and free-text search, all resetting pagination on change.
 
 ## Events

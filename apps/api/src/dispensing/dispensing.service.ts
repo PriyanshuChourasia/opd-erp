@@ -39,7 +39,7 @@ export class DispensingService
   }
 
   async findAll(query: FindDispensingQueryDto): Promise<PaginatedResult<Dispensing>> {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (query.prescriptionId) where.prescriptionId = query.prescriptionId;
     return paginate(
       () => this.prisma.dispensing.count({ where }),
@@ -57,7 +57,7 @@ export class DispensingService
 
   async findOne(id: string) {
     const dispensing = await this.prisma.dispensing.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { prescription: true },
     });
     if (!dispensing) throw new NotFoundException(`Dispensing ${id} not found`);
@@ -76,8 +76,11 @@ export class DispensingService
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.dispensing.delete({ where: { id } });
+    return this.prisma.dispensing.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

@@ -6,9 +6,12 @@ export class CheckoutAppointmentDto {
   paymentMethod?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  discount?: number;
+  @IsString()
+  referenceNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  discountRuleId?: string;
 
   @IsOptional()
   @IsInt()

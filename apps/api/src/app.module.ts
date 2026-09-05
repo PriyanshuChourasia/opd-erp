@@ -19,10 +19,11 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { UsersModule } from './users/users.module';
-import { OrganisationModule } from './organisation/organisation.module';
+import { CompanyModule } from './company/company.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { EmployeeSchedulesModule } from './employee-schedules/employee-schedules.module';
+import { EmployeeScheduleExceptionsModule } from './employee-schedule-exceptions/employee-schedule-exceptions.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AllergiesModule } from './allergies/allergies.module';
 import { DiagnosesModule } from './diagnoses/diagnoses.module';
@@ -34,6 +35,21 @@ import { DatabaseSchemaModule } from './database-schema/database-schema.module';
 import { PrescriptionTemplateModule } from './prescription-template/prescription-template.module';
 import { SpecializationsModule } from './specializations/specializations.module';
 import { SidebarConfigModule } from './sidebar-config/sidebar-config.module';
+import { MedicineGroupsModule } from './medicine-groups/medicine-groups.module';
+import { DiscountsModule } from './discounts/discounts.module';
+import { UnitsModule } from './units/units.module';
+import { DepartmentsModule } from './departments/departments.module';
+import { DesignationsModule } from './designations/designations.module';
+import { FinancialYearsModule } from './financial-years/financial-years.module';
+import { DoctorDepartmentsModule } from './doctor-departments/doctor-departments.module';
+import { DoctorSpecializationsModule } from './doctor-specializations/doctor-specializations.module';
+import { BloodGroupsModule } from './blood-groups/blood-groups.module';
+import { StockModule } from './stock/stock.module';
+import { AccountGroupModule } from './accounting/account-group/account-group.module';
+import { AccountNatureModule } from './accounting/account-nature/account-nature.module';
+import { LedgerModule } from './accounting/ledger/ledger.module';
+import { VoucherModule } from './accounting/voucher/voucher.module';
+import { JournalModule } from './accounting/journal/journal.module';
 
 @Module({
   imports: [
@@ -57,10 +73,11 @@ import { SidebarConfigModule } from './sidebar-config/sidebar-config.module';
     RolesModule,
     PermissionsModule,
     UsersModule,
-    OrganisationModule,
+    CompanyModule,
     ShiftsModule,
     AddressesModule,
     EmployeeSchedulesModule,
+    EmployeeScheduleExceptionsModule,
     DocumentsModule,
     AllergiesModule,
     DiagnosesModule,
@@ -72,6 +89,21 @@ import { SidebarConfigModule } from './sidebar-config/sidebar-config.module';
     PrescriptionTemplateModule,
     SpecializationsModule,
     SidebarConfigModule,
+    MedicineGroupsModule,
+    DiscountsModule,
+    UnitsModule,
+    DepartmentsModule,
+    DesignationsModule,
+    FinancialYearsModule,
+    DoctorDepartmentsModule,
+    DoctorSpecializationsModule,
+    BloodGroupsModule,
+    StockModule,
+    AccountGroupModule,
+    AccountNatureModule,
+    LedgerModule,
+    VoucherModule,
+    JournalModule,
   ],
 })
 export class AppModule {}

@@ -14,7 +14,9 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts",
+    "db:seed:fresh": "ts-node --transpile-only --project prisma/tsconfig.seed.json prisma/seed.ts --fresh"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -33,7 +35,8 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "uuid": "^14.0.1"
+    "uuid": "^14.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
@@ -69,6 +72,9 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@prisma/client$": "<rootDir>/../test/__mocks__/@prisma/client.ts"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

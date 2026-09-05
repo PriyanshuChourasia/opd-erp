@@ -1,0 +1,22 @@
+{
+    "name": "nwidart/document",
+    "description": "Document module for the admin-api",
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Document\\": "",
+            "Modules\\Document\\Database\\Factories\\": "database/factories/",
+            "Modules\\Document\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Document\\Tests\\": "tests/"
+        }
+    }
+}

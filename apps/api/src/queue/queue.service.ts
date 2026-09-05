@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TokenNumberService } from '../common/services/token-number.service';
 import { paginate } from '../common/utils/paginate';
 import { getDoctorNameMap } from '../common/utils/doctor-names';
 import type { IBaseService, IPaginatable } from '../common/interfaces/base-service.interface';
@@ -8,6 +9,8 @@ import type { QueueEntry } from '@prisma/client';
 import { CreateQueueEntryDto } from './dto/create-queue-entry.dto';
 import { UpdateQueueStatusDto } from './dto/update-queue-status.dto';
 import { FindQueueQueryDto } from './dto/find-queue-query.dto';
+import { applyDateRange } from '../common/dto/date-range-query.dto';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 /**
  * Live token queue with status tracking and check-in management.
@@ -21,21 +24,11 @@ import { FindQueueQueryDto } from './dto/find-queue-query.dto';
 export class QueueService
   implements IBaseService<QueueEntry, CreateQueueEntryDto, UpdateQueueStatusDto>, IPaginatable<QueueEntry, FindQueueQueryDto>
 {
-  constructor(private readonly prisma: PrismaService) {}
-
-  private generateTokenNumber(date: Date, patientName: string): string {
-    const y = date.getFullYear().toString();
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const d = date.getDate().toString().padStart(2, '0');
-    const h = date.getHours().toString().padStart(2, '0');
-    const min = date.getMinutes().toString().padStart(2, '0');
-    const nameInitials = patientName
-      .split(' ')
-      .map((p) => p.charAt(0).toUpperCase())
-      .join('')
-      .slice(0, 4);
-    return `${y}${m}${d}-${nameInitials}-${h}${min}`;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokenNumberService: TokenNumberService,
+    private readonly appointmentsService: AppointmentsService,
+  ) {}
 
   private readonly billSelect = { select: { id: true, invoiceNo: true, status: true } };
 
@@ -48,7 +41,7 @@ export class QueueService
       this.prisma.doctor.findUnique({ where: { id: dto.doctorId } }),
     ]);
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'PTNT';
-    const tokenNumber = this.generateTokenNumber(today, patientName);
+    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, today);
 
     // Pair the queue entry with a lightweight walk-in appointment so it can
     // be invoiced through the same checkout flow as scheduled appointments.
@@ -59,7 +52,7 @@ export class QueueService
           doctorId: dto.doctorId,
           date: checkedInAt,
           type: 'WALK_IN',
-          fee: doctor?.consultationFee ?? 0,
+          amount: doctor?.consultationFee ?? 0,
           tokenNumber,
           createdById: userId ?? null,
         },
@@ -76,7 +69,7 @@ export class QueueService
           appointmentId: appointment.id,
           createdById: userId ?? null,
         },
-        include: { patient: true, doctor: true, appointment: { select: { id: true, fee: true, bill: this.billSelect } } },
+        include: { patient: true, doctor: true, appointment: { select: { id: true, amount: true, bill: this.billSelect } } },
       });
     });
   }
@@ -86,15 +79,17 @@ export class QueueService
 
     if (query.doctorId) where.doctorId = query.doctorId;
 
-    // Default to today's queue when no date is given — without this, entries
-    // are unbounded across all history and new ones can be paginated out of view.
-    // Use UTC-based boundaries so that the exclusive lt does not accidentally
-    // exclude entries created at midnight in a non-UTC timezone.
-    const now = query.date ? new Date(query.date) : new Date();
-    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const dayEnd = new Date(dayStart);
-    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
-    where.queueDate = { gte: dayStart, lt: dayEnd };
+    // Date range: from/to takes priority; fallback to single-day `date`;
+    // fallback to today when nothing is given.
+    if (query.from || query.to) {
+      applyDateRange(where, query, 'queueDate');
+    } else {
+      const now = query.date ? new Date(query.date) : new Date();
+      const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+      where.queueDate = { gte: dayStart, lt: dayEnd };
+    }
 
     const result = await paginate(
       () => this.prisma.queueEntry.count({ where }),
@@ -104,7 +99,7 @@ export class QueueService
           include: {
             patient: true,
             doctor: true,
-            appointment: { select: { id: true, fee: true, date: true, bill: this.billSelect } },
+            appointment: { select: { id: true, amount: true, date: true, bill: this.billSelect } },
           },
           // Order by the appointment's actual scheduled time, not the token string —
           // tokenNumber embeds patient initials before the time, so lexical sort
@@ -157,19 +152,30 @@ export class QueueService
   async findOne(id: string) {
     const entry = await this.prisma.queueEntry.findUnique({
       where: { id },
-      include: { patient: true, doctor: true, appointment: { select: { id: true, fee: true, bill: this.billSelect } } },
+      include: { patient: true, doctor: true, appointment: { select: { id: true, amount: true, bill: this.billSelect } } },
     });
     if (!entry) throw new NotFoundException(`Queue entry ${id} not found`);
     return entry;
   }
 
   async update(id: string, dto: UpdateQueueStatusDto, userId?: string) {
-    await this.findOne(id);
-    return this.prisma.queueEntry.update({
+    const existing = await this.findOne(id);
+
+    await this.prisma.queueEntry.update({
       where: { id },
       data: { status: dto.status, updatedById: userId ?? null },
-      include: { patient: true, doctor: true, appointment: { select: { id: true, fee: true, bill: this.billSelect } } },
     });
+
+    // Keep the linked appointment's status in sync with the queue: starting a
+    // consultation or completing it must also move Appointment.status, since
+    // the appointments table reads that directly. Other queue statuses
+    // (WAITING, SKIPPED, NO_SHOW) have no clean 1:1 meaning on the appointment
+    // side, so they are deliberately not forwarded.
+    if (existing.appointmentId && (dto.status === 'IN_PROGRESS' || dto.status === 'COMPLETED')) {
+      await this.appointmentsService.update(existing.appointmentId, { status: dto.status }, userId);
+    }
+
+    return this.findOne(id);
   }
 
   async remove(id: string) {

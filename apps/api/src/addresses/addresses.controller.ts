@@ -53,7 +53,7 @@ export class AddressesController {
 
   @Delete(':id')
   @Permissions('delete:addresses')
-  remove(@Param('id') id: string) {
-    return this.addressesService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
+    return this.addressesService.remove(id, req.user.id);
   }
 }

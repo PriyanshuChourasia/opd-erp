@@ -25,7 +25,7 @@ export class LabOrdersService implements IBaseService<LabOrder, CreateLabOrderDt
   }
 
   async findAll(filters: { patientId?: string; status?: string }) {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (filters.patientId) where.patientId = filters.patientId;
     if (filters.status) where.status = filters.status;
     return this.prisma.labOrder.findMany({
@@ -37,7 +37,7 @@ export class LabOrdersService implements IBaseService<LabOrder, CreateLabOrderDt
 
   async findOne(id: string) {
     const order = await this.prisma.labOrder.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { patient: true, doctor: true },
     });
     if (!order) throw new NotFoundException(`Lab order ${id} not found`);
@@ -55,8 +55,11 @@ export class LabOrdersService implements IBaseService<LabOrder, CreateLabOrderDt
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, deletedById?: string) {
     await this.findOne(id);
-    return this.prisma.labOrder.delete({ where: { id } });
+    return this.prisma.labOrder.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById: deletedById ?? null },
+    });
   }
 }

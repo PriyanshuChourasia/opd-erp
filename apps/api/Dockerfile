@@ -9,7 +9,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY packages/ packages/
 
 # 2. Install everything from root — npm workspaces resolve @repo/* links
-RUN npm ci
+RUN npm install
 
 # 3. Prisma client generation must happen before the source build
 COPY apps/api/prisma apps/api/prisma
@@ -18,6 +18,7 @@ RUN cd apps/api && npx prisma generate
 # 4. Copy & build
 COPY apps/api/tsconfig*.json apps/api/
 COPY apps/api/src apps/api/src
+COPY apps/api/scripts apps/api/scripts
 COPY apps/api/nest-cli.json apps/api/
 RUN cd apps/api && npm run build
 
@@ -25,8 +26,18 @@ RUN cd apps/api && npm run build
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 
-# Prisma needs OpenSSL even at runtime — the slim image doesn't have it
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Prisma needs OpenSSL even at runtime — the slim image doesn't have it.
+# postgresql-client-16 provides pg_dump/pg_restore for the pre-deploy backup
+# step in docker-entrypoint.sh. The client major version must match the
+# postgres:16 server — pg_dump refuses to dump a server newer than itself,
+# and Debian bookworm's stock client is v15 — so pull v16 from the PGDG repo.
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl ca-certificates gnupg openssl \
+ && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg \
+ && echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update -y \
+ && apt-get install -y --no-install-recommends postgresql-client-16 \
+ && rm -rf /var/lib/apt/lists/*
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
@@ -36,9 +47,14 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
 RUN chmod +x ./apps/api/docker-entrypoint.sh
+
+# The medicine catalog seed reads this file via a path relative to the repo
+# root (../../../ from apps/api/prisma) — /app plays that role in the image.
+COPY List_of_Items.xlsx ./List_of_Items.xlsx
 
 EXPOSE 4000
 

@@ -23,9 +23,15 @@ export function useCreatePatient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createPatient,
-    onSuccess: () => {
+    onSuccess: (patient) => {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
-      toast.success("Patient created successfully");
+      if (patient?.portalLogin) {
+        toast.success(
+          `Patient created with portal login — Username: ${patient.portalLogin.username}, Password: ${patient.portalLogin.password}`,
+        );
+      } else {
+        toast.success("Patient created successfully");
+      }
     },
     onError: (err) => { toast.error(extractApiError(err)); },
   });

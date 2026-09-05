@@ -1,5 +1,7 @@
 import { PrismaClient, type Permission, type Doctor } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import * as XLSX from 'xlsx';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
 const FRESH = process.argv.includes('--fresh');
@@ -34,18 +36,22 @@ const shiftData = [
 const RESOURCES = [
   // Core clinical
   'patients', 'appointments', 'doctors', 'prescriptions',
-  'medicine-catalog', 'queue', 'billing', 'dispensing',
+  'medicine-catalog', 'queue', 'billing', 'dispensing', 'discounts',
+  'medicine-groups', 'units',
+  'departments', 'designations', 'financial-years',
+  // Accounting
+  'accounting',
   // Diagnostics & orders
   'lab-orders', 'radiology-orders', 'procedure-orders', 'diagnoses', 'diagnosis-systems',
   // Patient data
   'allergies', 'patient-allergy-records', 'patient-vitals', 'addresses',
   // Organisation & HR
-  'organisation', 'financial-years', 'prescription-templates',
+  'organisation', 'company', 'prescription-templates',
   'users', 'roles', 'permissions', 'shifts', 'employee-schedules',
   // System
   'documents', 'settings', 'dashboard', 'reports', 'developer', 'health',
 ];
-const ACTIONS = ['read', 'create', 'update', 'delete', 'manage'];
+const ACTIONS = ['read', 'create', 'update', 'delete', 'manage', 'refund'];
 
 function permissionName(action: string, resource: string) {
   const label = resource.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -64,9 +70,11 @@ async function wipeAll() {
   await prisma.dispensing.deleteMany();
   await prisma.prescriptionItem.deleteMany();
   await prisma.billItem.deleteMany();
+  await prisma.payment.deleteMany();
   await prisma.queueEntry.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.rolePermission.deleteMany();
+  await prisma.discountRule.deleteMany();
   // 2. Transactional parent records
   await prisma.prescription.deleteMany();
   await prisma.bill.deleteMany();
@@ -94,19 +102,19 @@ async function wipeAll() {
   await prisma.role.deleteMany();
   await prisma.address.deleteMany();
   await prisma.prescriptionTemplate.deleteMany();
-  await prisma.organisation.deleteMany();
+  await prisma.company.deleteMany();
   console.log('✅ All tables wiped.');
 }
 
 // ─── Seed functions ─────────────────────────────────────────
 
 async function seedOrganisation() {
-  const existing = await prisma.organisation.count();
+  const existing = await prisma.company.count();
   if (existing > 0 && !FRESH) {
-    console.log('Organisation already seeded, skipping.');
+    console.log('Company already seeded, skipping.');
     return;
   }
-  await prisma.organisation.upsert({
+  await prisma.company.upsert({
     where: { id: '00000000-0000-0000-0000-000000000001' },
     update: {},
     create: {
@@ -118,9 +126,12 @@ async function seedOrganisation() {
       website: 'https://cityclinic.com',
       registrationNumber: 'REG-MH-2024-0001',
       registrationFee: 100,
+      gstNumber: '27AABCU9603R1ZM',
+      panNumber: 'AABCU9603R',
+      cinNumber: 'U74999MH2014PTC255989',
     },
   });
-  console.log('Seeded organisation.');
+  console.log('Seeded company.');
 }
 
 async function seedShifts() {
@@ -416,6 +427,40 @@ async function seedEmployeeSchedules(doctorRows: Doctor[]) {
   console.log(`Seeded ${count} employee schedules.`);
 }
 
+async function seedBloodGroups() {
+  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  for (const name of bloodGroups) {
+    await prisma.bloodGroup.upsert({ where: { name }, update: {}, create: { name } });
+  }
+  console.log(`✅ Blood groups seeded (${bloodGroups.length} items).`);
+}
+
+// ─── Starter patients (lightweight — safe to seed online) ──
+// A handful of real Patient rows, no vitals/appointments/prescriptions.
+// Runs unconditionally (upsert by patientCode) every seed, including on a
+// fresh online/production deploy, unlike the heavy PATIENT_DEMOS generator
+// below (seedPatientsWithHistory), which is deliberately disabled in main()
+// so re-seeding a live DB doesn't keep regenerating 40+ demo patients.
+const STARTER_PATIENTS = [
+  { firstName: 'Neha', middleName: null, lastName: 'Kapoor', patientCode: 'NEHAKAPOOR-19950322', contactNo: '9876543292', email: 'neha.kapoor@example.com', dateOfBirth: new Date('1995-03-22'), gender: 'Female', bloodGroup: 'A+', address: '8 Sector 15, Noida, UP', emergencyContact: '9876543293', allergies: [], isFollowUp: false },
+  { firstName: 'Arjun', middleName: null, lastName: 'Reddy', patientCode: 'ARJUNREDDY-19880710', contactNo: '9876543294', email: 'arjun.reddy@example.com', dateOfBirth: new Date('1988-07-10'), gender: 'Male', bloodGroup: 'B+', address: '23 Jubilee Hills, Hyderabad, Telangana', emergencyContact: '9876543295', allergies: ['Peanuts'], isFollowUp: false },
+  { firstName: 'Fatima', middleName: null, lastName: 'Sheikh', patientCode: 'FATIMASHEIKH-19700208', contactNo: '9876543296', email: 'fatima.sheikh@example.com', dateOfBirth: new Date('1970-02-08'), gender: 'Female', bloodGroup: 'O-', address: '5 Marine Lines, Mumbai, Maharashtra', emergencyContact: '9876543297', allergies: ['Penicillin'], isFollowUp: true },
+  { firstName: 'Karan', middleName: null, lastName: 'Malhotra', patientCode: 'KARANMALHOTRA-20010914', contactNo: '9876543298', email: 'karan.malhotra@example.com', dateOfBirth: new Date('2001-09-14'), gender: 'Male', bloodGroup: 'AB+', address: '61 Model Town, Ludhiana, Punjab', emergencyContact: '9876543299', allergies: [], isFollowUp: false },
+];
+
+async function seedStarterPatients() {
+  let count = 0;
+  for (const p of STARTER_PATIENTS) {
+    await prisma.patient.upsert({
+      where: { patientCode: p.patientCode },
+      update: {},
+      create: p,
+    });
+    count++;
+  }
+  console.log(`✅ Starter patients seeded (${count} — safe to re-run, upserted by patientCode).`);
+}
+
 async function seedPermissions(): Promise<Permission[]> {
   const permissions: Permission[] = [];
   for (const resource of RESOURCES) {
@@ -431,25 +476,52 @@ async function seedPermissions(): Promise<Permission[]> {
   console.log(`Seeded ${permissions.length} permissions.`);
   return permissions;
 }async function seedRoles(permissions: Permission[]) {
-  // ── Developer (was Super Admin + Developer merged): everything ──
-  const superAdminPerms = [...permissions];
+  async function upsertRoleWithPermissions(name: string, description: string, perms: Permission[]) {
+    const role = await prisma.role.upsert({
+      where: { name },
+      update: { description, isSystem: true },
+      create: { name, description, isSystem: true },
+    });
+    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+    await prisma.rolePermission.createMany({
+      data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })),
+      skipDuplicates: true,
+    });
+    return role;
+  }
 
-  // ── Admin: full operational access, minus Organisation profile and Developer tools ──
-  // Explicit resource:action list (not a Set-of-resources pattern like the other roles)
-  // because this mirrors an exact hand-configured permission grant — some resources are
-  // full CRUD+manage, others are read/update-only. Keep this list in sync if the Admin
-  // role's permissions are adjusted through the Roles & Permissions UI.
+  // ── Developer: full access to every module including Developer tools ──
+  const developerPerms = [...permissions];
+
+  // ── Super Admin: every permission EXCEPT the `developer` resource ──
+  // Developer tooling stays exclusive to the Developer role.
+  const superAdminRolePerms = permissions.filter((p) => p.resource !== 'developer');
+
+  // ── Admin: full operational access, minus Developer tools ──
+  // Explicit resource:action list (not a Set-of-resources pattern like the
+  // other roles) because this mirrors an exact hand-configured permission
+  // grant — some resources are full CRUD+manage, others are read/update-only.
+  // This is the pre-slimming seed's grant verbatim, plus accounting CRUD
+  // (accounting endpoints guard on read/create/update/delete:accounting and
+  // the resource was missing from RESOURCES — see seedPermissions). Keep this
+  // list in sync if the Admin role's permissions are adjusted through the
+  // Roles & Permissions UI.
   const adminPermKeys = new Set([
+    'accounting:create', 'accounting:delete', 'accounting:read', 'accounting:update',
     'addresses:create', 'addresses:delete', 'addresses:manage', 'addresses:read', 'addresses:update',
     'allergies:create', 'allergies:delete', 'allergies:manage', 'allergies:read', 'allergies:update',
     'appointments:create', 'appointments:manage', 'appointments:read', 'appointments:update',
-    'billing:create', 'billing:delete', 'billing:manage', 'billing:read', 'billing:update',
+    'billing:create', 'billing:delete', 'billing:manage', 'billing:read', 'billing:refund', 'billing:update',
+    'company:create', 'company:delete', 'company:manage', 'company:read', 'company:update',
     'dashboard:read', 'dashboard:update',
     'diagnoses:read', 'diagnoses:update',
     'diagnosis-systems:read', 'diagnosis-systems:update',
+    'discounts:create', 'discounts:delete', 'discounts:manage', 'discounts:read', 'discounts:update',
     'dispensing:create', 'dispensing:delete', 'dispensing:manage', 'dispensing:read', 'dispensing:update',
     'doctors:create', 'doctors:delete', 'doctors:manage', 'doctors:read', 'doctors:update',
     'documents:create', 'documents:read', 'documents:update',
+    // Needed to render available booking slots when scheduling/rescheduling appointments.
+    'employee-schedules:read',
     'financial-years:create', 'financial-years:delete', 'financial-years:manage', 'financial-years:read', 'financial-years:update',
     'health:read',
     'lab-orders:read', 'lab-orders:update',
@@ -471,17 +543,24 @@ async function seedPermissions(): Promise<Permission[]> {
   ]);
   const adminPerms = permissions.filter((p) => adminPermKeys.has(`${p.resource}:${p.action}`));
 
-  // ── Receptionist: front-desk operations + inline doctor/patient creation ──
+  // ── Employee: consolidated front-line staff role. Union of the legacy
+  // Receptionist + Nurse + Assistant + Pharmacist + Lab Technician grants,
+  // minus the admin/system resources (roles/permissions/users/settings/
+  // financial-years/company/developer stay Admin+/Super Admin/Developer). ──
   const receptionistResources = new Set([
     'patients', 'appointments', 'queue', 'billing',
     'prescriptions', 'dispensing', 'documents',
   ]);
   const receptionistReadResources = new Set([
     'medicine-catalog', 'lab-orders', 'radiology-orders', 'procedure-orders',
+    // Needed to populate the discount dropdown at payment time.
+    'discounts',
     // Needed to render available booking slots when scheduling/rescheduling appointments.
     'employee-schedules',
     // Needed to reprint a prescription on its doctor's assigned template.
     'prescription-templates',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const receptionistWriteResources = new Set(['doctors', 'users']);
   const receptionistPerms = permissions.filter(
@@ -492,37 +571,12 @@ async function seedPermissions(): Promise<Permission[]> {
       (p.resource === 'doctors' && p.action === 'delete'),
   );
 
-  // ── Doctor: clinical operations ──
-  const doctorReadResources = new Set([
-    'patients', 'appointments', 'queue', 'medicine-catalog',
-    'allergies', 'patient-allergy-records', 'patient-vitals',
-    'diagnoses', 'diagnosis-systems', 'addresses', 'doctors',
-    // Needed to render available slots when rescheduling from the consultation page.
-    'employee-schedules',
-    // Needed to print a prescription on the doctor's own assigned template.
-    'prescription-templates',
-  ]);
-  const doctorWriteResources = new Set([
-    'prescriptions', 'lab-orders', 'radiology-orders', 'procedure-orders',
-    'patient-vitals', 'patient-allergy-records',
-  ]);
-  // Doctor's own consultation workflow (doctor-pos-page.tsx) advances queue
-  // status and appointment status/reschedule — needs update on these two,
-  // but not create (booking stays a Receptionist action).
-  const doctorUpdateOnlyResources = new Set(['queue', 'appointments']);
-  const doctorPerms = permissions.filter(
-    (p) =>
-      (doctorReadResources.has(p.resource) && p.action === 'read') ||
-      (doctorWriteResources.has(p.resource) &&
-        (p.action === 'create' || p.action === 'update' || p.action === 'read')) ||
-      (doctorUpdateOnlyResources.has(p.resource) && p.action === 'update'),
-  );
-
-  // ── Nurse: patient vitals, allergies, queue ──
   const nurseReadResources = new Set([
     'patients', 'appointments', 'queue', 'medicine-catalog',
     'allergies', 'patient-allergy-records', 'patient-vitals',
     'diagnoses', 'addresses', 'doctors',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const nurseWriteResources = new Set(['patient-vitals', 'patient-allergy-records', 'queue']);
   const nursePerms = permissions.filter(
@@ -532,8 +586,7 @@ async function seedPermissions(): Promise<Permission[]> {
         (p.action === 'create' || p.action === 'update' || p.action === 'read')),
   );
 
-  // ── Assistant: basic support ──
-  const assistantReadResources = new Set(['patients', 'appointments', 'medicine-catalog', 'doctors']);
+  const assistantReadResources = new Set(['patients', 'appointments', 'medicine-catalog', 'doctors', 'company']);
   const assistantWriteResources = new Set(['queue']);
   const assistantPerms = permissions.filter(
     (p) =>
@@ -542,9 +595,10 @@ async function seedPermissions(): Promise<Permission[]> {
         (p.action === 'read' || p.action === 'update')),
   );
 
-  // ── Pharmacist: dispensing, prescriptions, medicine catalog ──
   const pharmacistReadResources = new Set([
-    'patients', 'prescriptions', 'medicine-catalog', 'dispensing', 'billing', 'doctors',
+    'patients', 'prescriptions', 'medicine-catalog', 'dispensing', 'billing', 'discounts', 'doctors',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const pharmacistWriteResources = new Set(['dispensing', 'billing']);
   const pharmacistPerms = permissions.filter(
@@ -554,10 +608,11 @@ async function seedPermissions(): Promise<Permission[]> {
         (p.action === 'create' || p.action === 'update' || p.action === 'read')),
   );
 
-  // ── Lab Technician: lab orders, radiology ──
   const labTechReadResources = new Set([
     'patients', 'lab-orders', 'radiology-orders', 'procedure-orders',
     'appointments', 'diagnoses', 'doctors',
+    // Needed for sidebar header company name.
+    'company',
   ]);
   const labTechWriteResources = new Set(['lab-orders', 'radiology-orders', 'procedure-orders']);
   const labTechPerms = permissions.filter(
@@ -567,339 +622,183 @@ async function seedPermissions(): Promise<Permission[]> {
         (p.action === 'create' || p.action === 'update' || p.action === 'read')),
   );
 
-  async function upsertRoleWithPermissions(name: string, description: string, perms: Permission[]) {
-    const role = await prisma.role.upsert({
-      where: { name },
-      update: { description, isSystem: true },
-      create: { name, description, isSystem: true },
-    });
-    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
-    await prisma.rolePermission.createMany({
-      data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })),
-      skipDuplicates: true,
-    });
-    return role;
-  }
+  const EMPLOYEE_EXCLUDED_RESOURCES = new Set([
+    'roles', 'permissions', 'users', 'settings', 'financial-years', 'company', 'developer',
+  ]);
+  const employeePerms = [...new Set([
+    ...receptionistPerms, ...nursePerms, ...assistantPerms, ...pharmacistPerms, ...labTechPerms,
+  ])].filter((p) => !EMPLOYEE_EXCLUDED_RESOURCES.has(p.resource));
 
+  // ── Doctor: clinical operations ──
+  const doctorReadResources = new Set([
+    'patients', 'appointments', 'queue', 'medicine-catalog',
+    'allergies', 'patient-allergy-records', 'patient-vitals',
+    'diagnoses', 'diagnosis-systems', 'addresses', 'doctors',
+    // Needed to render available slots when rescheduling from the consultation page.
+    'employee-schedules',
+    // Needed to print a prescription on the doctor's own assigned template.
+    'prescription-templates',
+    // Needed for sidebar header company name.
+    'company',
+  ]);
+  const doctorWriteResources = new Set([
+    'prescriptions', 'lab-orders', 'radiology-orders', 'procedure-orders',
+    'patient-vitals', 'patient-allergy-records',
+  ]);
+  // Doctor's own consultation workflow (doctor-pos-page.tsx) advances queue
+  // status and appointment status/reschedule — needs update on these two,
+  // but not create (booking stays a front-desk action).
+  const doctorUpdateOnlyResources = new Set(['queue', 'appointments']);
+  const doctorPerms = permissions.filter(
+    (p) =>
+      (doctorReadResources.has(p.resource) && p.action === 'read') ||
+      (doctorWriteResources.has(p.resource) &&
+        (p.action === 'create' || p.action === 'update' || p.action === 'read')) ||
+      (doctorUpdateOnlyResources.has(p.resource) && p.action === 'update'),
+  );
 
-  const superAdmin = await upsertRoleWithPermissions('Developer', 'Full access to every module including Developer tools', superAdminPerms);
-  const admin = await upsertRoleWithPermissions('Admin', 'Full operational access — clinical, billing, staff, and system config — excluding Organisation profile and Developer tools', adminPerms);
-  const receptionist = await upsertRoleWithPermissions('Receptionist', 'Front-desk: patients, appointments, queue, billing, prescriptions, dispensing', receptionistPerms);
+  // ── Patient: read-only access to own data ──
+  const patientReadResources = new Set(['appointments', 'prescriptions', 'lab-orders', 'billing']);
+  const patientPerms = permissions.filter(
+    (p) => patientReadResources.has(p.resource) && p.action === 'read',
+  );
+
+  const developer = await upsertRoleWithPermissions('Developer', 'Full access to every module including Developer tools', developerPerms);
+  const superAdmin = await upsertRoleWithPermissions('Super Admin', 'Full operational access to every module except Developer tools', superAdminRolePerms);
+  const admin = await upsertRoleWithPermissions('Admin', 'Full operational access — clinical, billing, staff, and system config — excluding Developer tools', adminPerms);
+  const employee = await upsertRoleWithPermissions('Employee', 'Front-line staff: front-desk, clinical support, pharmacy, and lab operations', employeePerms);
   const doctor = await upsertRoleWithPermissions('Doctor', 'Clinical: prescriptions, vitals, allergies, lab/radiology/procedure orders', doctorPerms);
-  const nurse = await upsertRoleWithPermissions('Nurse', 'Patient vitals, allergies, queue management', nursePerms);
-  const assistant = await upsertRoleWithPermissions('Assistant', 'Support: view patients, manage queue', assistantPerms);
-  const pharmacist = await upsertRoleWithPermissions('Pharmacist', 'Dispensing, prescriptions, medicine catalog, billing', pharmacistPerms);
-  const labTech = await upsertRoleWithPermissions('Lab Technician', 'Lab orders, radiology orders, procedure orders', labTechPerms);
+  const patient = await upsertRoleWithPermissions('Patient', 'Patient portal: read-only access to own appointments, prescriptions, lab orders, and bills', patientPerms);
 
-  console.log(`Seeded roles: Developer (${superAdminPerms.length}), Admin (${adminPerms.length}), Receptionist (${receptionistPerms.length}), Doctor (${doctorPerms.length}), Nurse (${nursePerms.length}), Assistant (${assistantPerms.length}), Pharmacist (${pharmacistPerms.length}), Lab Technician (${labTechPerms.length}).`);
-  return { superAdmin, admin, receptionist, doctor, nurse, assistant, pharmacist, labTech };
+  console.log(`Seeded roles: Developer (${developerPerms.length}), Super Admin (${superAdminRolePerms.length}), Admin (${adminPerms.length}), Employee (${employeePerms.length}), Doctor (${doctorPerms.length}), Patient (${patientPerms.length}).`);
+  return { developer, superAdmin, admin, employee, doctor, patient };
 }
 
 async function seedUsers(
+  developerRoleId: string,
   superAdminRoleId: string,
-  receptionistRoleId: string,
+  adminRoleId: string,
   doctorRoleId: string,
-  assistantRoleId: string,
-  doctorRows: Doctor[],
-  nurseRoleId?: string,
-  pharmacistRoleId?: string,
-  labTechRoleId?: string,
-  adminRoleId?: string,
+  demoDoctorId: string,
 ) {
-  const password = await bcrypt.hash('Password@123', 10);
+  const developerPassword = await bcrypt.hash('Developer@123', 10);
+  await prisma.user.upsert({
+    where: { email: 'developer@clinic.com' },
+    update: {},
+    create: {
+      username: 'developer',
+      firstName: 'Developer',
+      lastName: 'User',
+      email: 'developer@clinic.com',
+      password: developerPassword,
+      roleId: developerRoleId,
+    },
+  });
+
+  // Super Admin demo account — every permission except Developer-only
+  // tooling (see the Super Admin role definition in seedRoles). Several
+  // other seed functions look this account up by email for createdById
+  // attribution on seeded historical data.
+  const superAdminPassword = await bcrypt.hash('SuperAdmin@123', 10);
+  await prisma.user.upsert({
+    where: { email: 'superadmin@clinic.com' },
+    update: {},
+    create: {
+      username: 'superadmin',
+      firstName: 'Super',
+      lastName: 'Admin',
+      email: 'superadmin@clinic.com',
+      password: superAdminPassword,
+      roleId: superAdminRoleId,
+    },
+  });
+
+  // Admin demo account (operational access, no Developer tools)
+  const adminPassword = await bcrypt.hash('Admin@123', 10);
+  await prisma.user.upsert({
+    where: { email: 'admin@clinic.com' },
+    update: {},
+    create: {
+      username: 'admin',
+      firstName: 'Admin',
+      lastName: 'User',
+      email: 'admin@clinic.com',
+      password: adminPassword,
+      roleId: adminRoleId,
+    },
+  });
+
+  // Demo doctor account — linked to the first doctorData row (Dr Rajesh
+  // Sharma, MCI-10001), whose Mon–Fri 09:00–17:00 schedule is seeded by
+  // seedEmployeeSchedules. Upsert by email: an existing user (e.g. from a
+  // live deployment) keeps its own password.
   const doctorPassword = await bcrypt.hash('Doctor@123', 10);
+  await prisma.user.upsert({
+    where: { email: 'rajesh.sharma@clinic.com' },
+    update: {},
+    create: {
+      username: 'rajeshsharma',
+      firstName: 'Rajesh',
+      lastName: 'Sharma',
+      email: 'rajesh.sharma@clinic.com',
+      password: doctorPassword,
+      roleId: doctorRoleId,
+      userableType: 'Doctor',
+      userableId: demoDoctorId,
+    },
+  });
 
-  // System users (no doctor link)
-  const systemUsers = [
-    { username: 'superadmin', firstName: 'Super', lastName: 'Admin', email: 'superadmin@clinic.com', password, roleId: superAdminRoleId },
-    { username: 'admin', firstName: 'Admin', lastName: 'User', email: 'admin@clinic.com', password, roleId: adminRoleId ?? superAdminRoleId },
-    { username: 'anitapatel', firstName: 'Anita', lastName: 'Patel', email: 'assistant@clinic.com', password, roleId: assistantRoleId },
-  ];
-
-  for (const u of systemUsers) {
-    await prisma.user.upsert({
-      where: { email: u.email },
-      update: {},
-      create: {
-        username: u.username,
-        firstName: u.firstName,
-        lastName: u.lastName,
-        email: u.email,
-        password: u.password,
-        roleId: u.roleId,
-      },
-    });
-  }
-
-  // Receptionist users — linked via userableType
-  const receptionistUsers = [
-    { username: 'frontdesk', firstName: 'Priya', lastName: 'Kapoor', email: 'receptionist@clinic.com', gender: 'FEMALE' },
-    { username: 'meenakshi', firstName: 'Meenakshi', lastName: 'Reddy', email: 'meenakshi@clinic.com', gender: 'FEMALE' },
-    { username: 'rajkumar', firstName: 'Raj', lastName: 'Kumar', email: 'raj@clinic.com', gender: 'MALE' },
-  ];
-
-  for (const u of receptionistUsers) {
-    const existing = await prisma.user.findFirst({ where: { email: u.email } });
-    if (!existing) {
-      await prisma.user.create({
-        data: {
-          username: u.username,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          email: u.email,
-          password: password,
-          roleId: receptionistRoleId,
-          userableType: 'Receptionist',
-          gender: u.gender,
-        },
-      });
-    }
-  }
-
-  // Doctor users — linked via userableType/userableId
-  for (let i = 0; i < doctorRows.length; i++) {
-    const doc = doctorRows[i];
-    const info = doctorData[i];
-    const email = `${info.firstName.toLowerCase()}.${info.lastName.toLowerCase()}@clinic.com`;
-    const username = `${info.firstName.toLowerCase()}${info.lastName.toLowerCase()}`;
-
-    // Check by linked doctor ID OR by email (handles orphaned users from deleted doctors)
-    const existing = await prisma.user.findFirst({
-      where: { OR: [
-        { userableType: 'Doctor', userableId: doc.id },
-        { email },
-      ]},
-    });
-    if (existing) {
-      // If user exists but linked to a different doctor, re-link it
-      if (existing.userableId !== doc.id) {
-        await prisma.user.update({ where: { id: existing.id }, data: { userableId: doc.id } });
-      }
-    } else {
-      await prisma.user.create({
-        data: {
-          username,
-          firstName: info.firstName,
-          lastName: info.lastName,
-          email,
-          password: doctorPassword,
-          roleId: doctorRoleId,
-          userableType: 'Doctor',
-          userableId: doc.id,
-          gender: i % 2 === 0 ? 'MALE' : 'FEMALE',
-        },
-      });
-    }
-  }
-
-  // Nurse users
-  if (nurseRoleId) {
-    const nurseUsers = [
-      { username: 'nursemeera', firstName: 'Meera', lastName: 'Nair', email: 'meera@clinic.com', gender: 'FEMALE' },
-      { username: 'nursedeepak', firstName: 'Deepak', lastName: 'Yadav', email: 'deepak@clinic.com', gender: 'MALE' },
-    ];
-    for (const u of nurseUsers) {
-      const existing = await prisma.user.findFirst({ where: { email: u.email } });
-      if (!existing) {
-        await prisma.user.create({
-          data: {
-            username: u.username,
-            firstName: u.firstName,
-            lastName: u.lastName,
-            email: u.email,
-            password,
-            roleId: nurseRoleId,
-            userableType: 'Nurse',
-            gender: u.gender,
-          },
-        });
-      }
-    }
-  }
-
-  // Pharmacist users
-  if (pharmacistRoleId) {
-    const pharmacistUsers = [
-      { username: 'pharmrakesh', firstName: 'Rakesh', lastName: 'Joshi', email: 'rakesh@clinic.com', gender: 'MALE' },
-      { username: 'pharmneha', firstName: 'Neha', lastName: 'Gupta', email: 'neha@clinic.com', gender: 'FEMALE' },
-    ];
-    for (const u of pharmacistUsers) {
-      const existing = await prisma.user.findFirst({ where: { email: u.email } });
-      if (!existing) {
-        await prisma.user.create({
-          data: {
-            username: u.username,
-            firstName: u.firstName,
-            lastName: u.lastName,
-            email: u.email,
-            password,
-            roleId: pharmacistRoleId,
-            userableType: 'Pharmacist',
-            gender: u.gender,
-          },
-        });
-      }
-    }
-  }
-
-  // Lab Technician users
-  if (labTechRoleId) {
-    const labTechUsers = [
-      { username: 'labkiran', firstName: 'Kiran', lastName: 'Patil', email: 'kiran@clinic.com', gender: 'MALE' },
-      { username: 'labsunita', firstName: 'Sunita', lastName: 'Rao', email: 'sunita.l@clinic.com', gender: 'FEMALE' },
-    ];
-    for (const u of labTechUsers) {
-      const existing = await prisma.user.findFirst({ where: { email: u.email } });
-      if (!existing) {
-        await prisma.user.create({
-          data: {
-            username: u.username,
-            firstName: u.firstName,
-            lastName: u.lastName,
-            email: u.email,
-            password,
-            roleId: labTechRoleId,
-            userableType: 'LabStaff',
-            gender: u.gender,
-          },
-        });
-      }
-    }
-  }
-
-  const extraCount = (nurseRoleId ? 2 : 0) + (pharmacistRoleId ? 2 : 0) + (labTechRoleId ? 2 : 0);
-  console.log(`Seeded ${systemUsers.length} system users + ${receptionistUsers.length} receptionists + ${doctorRows.length} doctor users + ${extraCount} staff users.`);
+  console.log('Seeded 4 login users (Developer, Super Admin, Admin, Doctor).');
   console.log('Login credentials:');
-  console.log('  superadmin@clinic.com / Password@123 (Developer)');
-  console.log('  admin@clinic.com / Password@123 (Admin)');
-  console.log('  receptionist@clinic.com / Password@123 (Receptionist — Priya Kapoor)');
-  console.log('  meenakshi@clinic.com / Password@123 (Receptionist — Meenakshi Reddy)');
-  console.log('  raj@clinic.com / Password@123 (Receptionist — Raj Kumar)');
-  console.log('  rajesh.sharma@clinic.com / Doctor@123 (Doctor)');
-  console.log('  assistant@clinic.com / Password@123 (Assistant)');
-  console.log('  meera@clinic.com / Password@123 (Nurse — Meera Nair)');
-  console.log('  deepak@clinic.com / Password@123 (Nurse — Deepak Yadav)');
-  console.log('  rakesh@clinic.com / Password@123 (Pharmacist — Rakesh Joshi)');
-  console.log('  neha@clinic.com / Password@123 (Pharmacist — Neha Gupta)');
-  console.log('  kiran@clinic.com / Password@123 (Lab Tech — Kiran Patil)');
-  console.log('  sunita.l@clinic.com / Password@123 (Lab Tech — Sunita Rao)');
+  console.log('  developer@clinic.com / Developer@123 (Developer — every permission, including Developer tools)');
+  console.log('  superadmin@clinic.com / SuperAdmin@123 (Super Admin — every permission except Developer tools)');
+  console.log('  admin@clinic.com / Admin@123 (Admin)');
+  console.log('  rajesh.sharma@clinic.com / Doctor@123 (Doctor — Dr Rajesh Sharma)');
 }
 
 // ─── Medicine Catalog ──────────────────────────────────────
+// Sourced from the clinic's actual Tally inventory export (List_of_Items.xlsx,
+// copied to the repo/image root) rather than a hardcoded placeholder list, so
+// every freshly-seeded environment (local, Docker, CI) matches what's really
+// on the shelf. See apps/api/prisma/import-medicines-from-excel.ts for the
+// one-off script this logic was lifted from.
 
-const medicineData = [
-  // ── General / Common ──
-  { name: 'Paracetamol', genericName: 'Paracetamol', brandName: 'Calpol', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 2 },
-  { name: 'Ibuprofen', genericName: 'Ibuprofen', brandName: 'Brufen', category: 'TABLET', strength: '400mg', unit: 'tablet', price: 3 },
-  { name: 'Paracetamol Syrup', genericName: 'Paracetamol', brandName: 'Calpol', category: 'SYRUP', strength: '250mg/5ml', unit: 'ml', price: 60 },
-  { name: 'Amoxicillin', genericName: 'Amoxicillin', brandName: 'Novamox', category: 'CAPSULE', strength: '500mg', unit: 'capsule', price: 8 },
-  { name: 'Azithromycin', genericName: 'Azithromycin', brandName: 'Azithral', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 15 },
-  { name: 'Cefixime', genericName: 'Cefixime', brandName: 'Cefaxime', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 12 },
-  { name: 'Levofloxacin', genericName: 'Levofloxacin', brandName: 'Levoflox', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 15 },
-  { name: 'Metronidazole', genericName: 'Metronidazole', brandName: 'Flagyl', category: 'TABLET', strength: '400mg', unit: 'tablet', price: 4 },
-  { name: 'Doxycycline', genericName: 'Doxycycline', brandName: 'Doxylin', category: 'CAPSULE', strength: '100mg', unit: 'capsule', price: 8 },
-  { name: 'Metformin', genericName: 'Metformin', brandName: 'Glyciphage', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 3 },
-  { name: 'Omeprazole', genericName: 'Omeprazole', brandName: 'Omez', category: 'CAPSULE', strength: '20mg', unit: 'capsule', price: 5 },
-  { name: 'Pantoprazole', genericName: 'Pantoprazole', brandName: 'Pantop', category: 'TABLET', strength: '40mg', unit: 'tablet', price: 5 },
-  { name: 'Cetirizine', genericName: 'Cetirizine', brandName: 'Alerid', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 2 },
-  { name: 'Levocetirizine', genericName: 'Levocetirizine', brandName: 'Levocet', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 5 },
-  { name: 'Montelukast', genericName: 'Montelukast', brandName: 'Montair', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 10 },
-  { name: 'Vitamin B Complex', genericName: 'Vitamin B Complex', brandName: 'Becosules', category: 'CAPSULE', strength: '', unit: 'capsule', price: 8 },
-  { name: 'Multivitamin', genericName: 'Multivitamin', brandName: 'Zincovit', category: 'TABLET', strength: '', unit: 'tablet', price: 6 },
-  { name: 'Folic Acid', genericName: 'Folic Acid', brandName: 'Folic Acid', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 2 },
-  { name: 'Calcium + Vitamin D3', genericName: 'Calcium + Vitamin D3', brandName: 'Shelcal', category: 'TABLET', strength: '500mg+400IU', unit: 'tablet', price: 6 },
-  { name: 'Vitamin B12', genericName: 'Methylcobalamin', brandName: 'Neurobion Forte', category: 'TABLET', strength: '1500mcg', unit: 'tablet', price: 7 },
-  { name: 'Vitamin D3', genericName: 'Cholecalciferol', brandName: 'D3-60K', category: 'CAPSULE', strength: '60K IU', unit: 'capsule', price: 15 },
-  { name: 'Iron + Folic Acid', genericName: 'Ferrous Sulphate + Folic Acid', brandName: 'Ferium XT', category: 'TABLET', strength: '', unit: 'tablet', price: 4 },
+interface ParsedMedicineRow {
+  name: string;
+  alias: string | null;
+  groupName: string;
+  openingStock: number;
+  unitName: string;
+  isActive: boolean;
+}
 
-  // ── Cardiology ──
-  { name: 'Amlodipine', genericName: 'Amlodipine', brandName: 'Amlodac', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 4 },
-  { name: 'Telmisartan', genericName: 'Telmisartan', brandName: 'Telma', category: 'TABLET', strength: '40mg', unit: 'tablet', price: 8 },
-  { name: 'Atorvastatin', genericName: 'Atorvastatin', brandName: 'Atorva', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 7 },
-  { name: 'Metoprolol', genericName: 'Metoprolol', brandName: 'Metolar', category: 'TABLET', strength: '25mg', unit: 'tablet', price: 5 },
-  { name: 'Losartan', genericName: 'Losartan', brandName: 'Losar', category: 'TABLET', strength: '50mg', unit: 'tablet', price: 6 },
-  { name: 'Ramipril', genericName: 'Ramipril', brandName: 'Rami ACE', category: 'TABLET', strength: '2.5mg', unit: 'tablet', price: 5 },
-  { name: 'Enalapril', genericName: 'Enalapril', brandName: 'Enacard', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 4 },
-  { name: 'Aspirin Low Dose', genericName: 'Aspirin', brandName: 'Ecotrin', category: 'TABLET', strength: '75mg', unit: 'tablet', price: 1 },
-  { name: 'Clopidogrel', genericName: 'Clopidogrel', brandName: 'Clopivas', category: 'TABLET', strength: '75mg', unit: 'tablet', price: 10 },
-  { name: 'Nitroglycerin', genericName: 'Nitroglycerin', brandName: 'Angispan', category: 'TABLET', strength: '0.5mg', unit: 'tablet', price: 3 },
-  { name: 'Furosemide', genericName: 'Furosemide', brandName: 'Lasix', category: 'TABLET', strength: '40mg', unit: 'tablet', price: 3 },
-  { name: 'Spironolactone', genericName: 'Spironolactone', brandName: 'Spironex', category: 'TABLET', strength: '25mg', unit: 'tablet', price: 6 },
-  { name: 'Digoxin', genericName: 'Digoxin', brandName: 'Lanoxin', category: 'TABLET', strength: '0.25mg', unit: 'tablet', price: 4 },
+function parseMedicineExcel(): ParsedMedicineRow[] {
+  const excelPath = path.resolve(__dirname, '../../../List_of_Items.xlsx');
+  const wb = XLSX.readFile(excelPath);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-  // ── Respiratory ──
-  { name: 'Salbutamol', genericName: 'Salbutamol', brandName: 'Asthalin', category: 'TABLET', strength: '2mg', unit: 'tablet', price: 3 },
-  { name: 'Salbutamol Inhaler', genericName: 'Salbutamol', brandName: 'Asthalin HFA', category: 'INHALER', strength: '100mcg', unit: 'puff', price: 200 },
-  { name: 'Budesonide Inhaler', genericName: 'Budesonide', brandName: 'Budesonide HFA', category: 'INHALER', strength: '200mcg', unit: 'puff', price: 350 },
-  { name: 'Salmeterol + Fluticasone', genericName: 'Salmeterol + Fluticasone', brandName: 'Seretide Accuhaler', category: 'INHALER', strength: '50/250mcg', unit: 'puff', price: 450 },
-  { name: 'Montelukast + Levocetirizine', genericName: 'Montelukast + Levocetirizine', brandName: 'Montair LC', category: 'TABLET', strength: '10mg+5mg', unit: 'tablet', price: 12 },
-  { name: 'Ipratropium Inhaler', genericName: 'Ipratropium Bromide', brandName: 'Respontin', category: 'INHALER', strength: '20mcg', unit: 'puff', price: 300 },
-  { name: 'Theophylline', genericName: 'Theophylline', brandName: 'Theo-Dur', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 5 },
+  const items: ParsedMedicineRow[] = [];
+  for (const row of rows) {
+    const [rawName, rawAlias, rawGroup, rawStock, rawUnit] = row ?? [];
+    // Real item rows are the only ones with a numeric stock and a unit string —
+    // this skips the letterhead rows, the header row, the blank separator, and
+    // the trailing "Totals" row in one check.
+    if (typeof rawName !== 'string' || !rawName.trim()) continue;
+    if (typeof rawStock !== 'number') continue;
+    if (typeof rawUnit !== 'string' || !rawUnit.trim()) continue;
 
-  // ── Dermatology / Topical ──
-  { name: 'Clotrimazole 1% Cream', genericName: 'Clotrimazole', brandName: 'Clotrimazole Cream', category: 'CREAM', strength: '1%', unit: 'gm', price: 50 },
-  { name: 'Mometasone 0.1% Cream', genericName: 'Mometasone', brandName: 'Momecort', category: 'CREAM', strength: '0.1%', unit: 'gm', price: 80 },
-  { name: 'Fusidic Acid 2% Cream', genericName: 'Fusidic Acid', brandName: 'Fucyn', category: 'CREAM', strength: '2%', unit: 'gm', price: 100 },
-  { name: 'Mupirocin 2% Ointment', genericName: 'Mupirocin', brandName: 'Mupikem', category: 'CREAM', strength: '2%', unit: 'gm', price: 90 },
-  { name: 'Betamethasone Cream', genericName: 'Betamethasone', brandName: 'Betnovate', category: 'CREAM', strength: '0.1%', unit: 'gm', price: 60 },
-  { name: 'Calamine Lotion', genericName: 'Calamine', brandName: 'Calamine Lotion', category: 'OTHER', strength: '8%', unit: 'ml', price: 50 },
-  { name: 'Isotretinoin', genericName: 'Isotretinoin', brandName: 'Isotroin', category: 'CAPSULE', strength: '10mg', unit: 'capsule', price: 25 },
+    const trimmedName = rawName.trim();
+    // A leading '*' is this Tally export's marker for a suspended/inactive item.
+    const isActive = !trimmedName.startsWith('*');
+    const name = (isActive ? trimmedName : trimmedName.slice(1)).trim();
+    const alias = typeof rawAlias === 'string' && rawAlias.trim() ? rawAlias.trim() : null;
+    const groupName = typeof rawGroup === 'string' && rawGroup.trim() ? rawGroup.trim() : 'General';
 
-  // ── Eye / Ear Drops ──
-  { name: 'Moxifloxacin Eye Drops', genericName: 'Moxifloxacin', brandName: 'Moxiflox', category: 'DROPS', strength: '0.5%', unit: 'ml', price: 80 },
-  { name: 'Timolol Eye Drops', genericName: 'Timolol', brandName: 'Timolet', category: 'DROPS', strength: '0.5%', unit: 'ml', price: 90 },
-  { name: 'Ofloxacin Ear Drops', genericName: 'Ofloxacin', brandName: 'Oflox', category: 'DROPS', strength: '0.3%', unit: 'ml', price: 70 },
-  { name: 'Artificial Tears', genericName: 'Carboxymethylcellulose', brandName: 'Refresh Tears', category: 'DROPS', strength: '', unit: 'ml', price: 120 },
-
-  // ── Pain Management ──
-  { name: 'Diclofenac', genericName: 'Diclofenac Sodium', brandName: 'Voveran', category: 'TABLET', strength: '50mg', unit: 'tablet', price: 3 },
-  { name: 'Naproxen', genericName: 'Naproxen', brandName: 'Naprosyn', category: 'TABLET', strength: '250mg', unit: 'tablet', price: 6 },
-  { name: 'Tramadol', genericName: 'Tramadol', brandName: 'Ultracet', category: 'CAPSULE', strength: '50mg', unit: 'capsule', price: 10 },
-  { name: 'Pregabalin', genericName: 'Pregabalin', brandName: 'Pregalin', category: 'CAPSULE', strength: '75mg', unit: 'capsule', price: 15 },
-  { name: 'Gabapentin', genericName: 'Gabapentin', brandName: 'Gabantin', category: 'CAPSULE', strength: '300mg', unit: 'capsule', price: 12 },
-
-  // ── Gastroenterology ──
-  { name: 'Domperidone', genericName: 'Domperidone', brandName: 'Domstal', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 5 },
-  { name: 'Ondansetron', genericName: 'Ondansetron', brandName: 'Emeset', category: 'TABLET', strength: '4mg', unit: 'tablet', price: 6 },
-  { name: 'Ranitidine', genericName: 'Ranitidine', brandName: 'Rantac', category: 'TABLET', strength: '150mg', unit: 'tablet', price: 3 },
-  { name: 'Loperamide', genericName: 'Loperamide', brandName: 'Imodium', category: 'CAPSULE', strength: '2mg', unit: 'capsule', price: 5 },
-  { name: 'Mesalamine', genericName: 'Mesalamine', brandName: 'Mesacol', category: 'TABLET', strength: '400mg', unit: 'tablet', price: 18 },
-
-  // ── Psychiatry / Neurology ──
-  { name: 'Escitalopram', genericName: 'Escitalopram', brandName: 'Nexito', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 10 },
-  { name: 'Sertraline', genericName: 'Sertraline', brandName: 'Serlift', category: 'TABLET', strength: '50mg', unit: 'tablet', price: 12 },
-  { name: 'Clonazepam', genericName: 'Clonazepam', brandName: 'Clonapax', category: 'TABLET', strength: '0.5mg', unit: 'tablet', price: 6 },
-  { name: 'Diazepam', genericName: 'Diazepam', brandName: 'Valium', category: 'TABLET', strength: '5mg', unit: 'tablet', price: 4 },
-  { name: 'Levetiracetam', genericName: 'Levetiracetam', brandName: 'Levepsy', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 16 },
-  { name: 'Carbamazepine', genericName: 'Carbamazepine', brandName: 'Tegrital', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 8 },
-
-  // ── Endocrinology ──
-  { name: 'Levothyroxine', genericName: 'Levothyroxine', brandName: 'Thyronorm', category: 'TABLET', strength: '50mcg', unit: 'tablet', price: 3 },
-  { name: 'Glimepiride', genericName: 'Glimepiride', brandName: 'Amaryl', category: 'TABLET', strength: '1mg', unit: 'tablet', price: 5 },
-  { name: 'Metformin + Glimepiride', genericName: 'Metformin + Glimepiride', brandName: 'Glyciphage G1', category: 'TABLET', strength: '500mg+1mg', unit: 'tablet', price: 7 },
-  { name: 'Insulin Regular', genericName: 'Insulin Regular', brandName: 'Actrapid', category: 'INJECTION', strength: '40IU/ml', unit: 'ml', price: 300 },
-
-  // ── Gynecology ──
-  { name: 'Mefenamic Acid', genericName: 'Mefenamic Acid', brandName: 'Meftal', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 5 },
-  { name: 'Tranexamic Acid', genericName: 'Tranexamic Acid', brandName: 'Traxanet', category: 'TABLET', strength: '500mg', unit: 'tablet', price: 12 },
-  { name: 'Clomiphene', genericName: 'Clomiphene Citrate', brandName: 'Fertomid', category: 'TABLET', strength: '50mg', unit: 'tablet', price: 25 },
-  { name: 'Progesterone', genericName: 'Progesterone', brandName: 'Susten', category: 'CAPSULE', strength: '200mg', unit: 'capsule', price: 30 },
-  { name: 'Dydrogesterone', genericName: 'Dydrogesterone', brandName: 'Duphaston', category: 'TABLET', strength: '10mg', unit: 'tablet', price: 22 },
-
-  // ── Pediatrics ──
-  { name: 'Albendazole', genericName: 'Albendazole', brandName: 'Zentel', category: 'TABLET', strength: '400mg', unit: 'tablet', price: 10 },
-  { name: 'ORS Powder', genericName: 'Oral Rehydration Salts', brandName: 'Electral', category: 'OTHER', strength: '', unit: 'packet', price: 15 },
-  { name: 'Vitamin D3 Drops', genericName: 'Cholecalciferol', brandName: 'D3 Drops', category: 'DROPS', strength: '400IU/drop', unit: 'ml', price: 80 },
-  { name: 'Multivitamin Drops', genericName: 'Multivitamin', brandName: 'Syrup', category: 'SYRUP', strength: '', unit: 'ml', price: 90 },
-  { name: 'Zinc Syrup', genericName: 'Zinc Sulphate', brandName: 'Zinc Syrup', category: 'SYRUP', strength: '20mg/5ml', unit: 'ml', price: 70 },
-
-  // ── Infectious Diseases ──
-  { name: 'Artesunate Injection', genericName: 'Artesunate', brandName: 'Artesunate', category: 'INJECTION', strength: '60mg', unit: 'vial', price: 60 },
-  { name: 'Chloroquine', genericName: 'Chloroquine', brandName: 'Lariago', category: 'TABLET', strength: '250mg', unit: 'tablet', price: 5 },
-  { name: 'Oseltamivir', genericName: 'Oseltamivir', brandName: 'Tamiflu', category: 'CAPSULE', strength: '75mg', unit: 'capsule', price: 250 },
-  { name: 'Hydroxychloroquine', genericName: 'Hydroxychloroquine', brandName: 'HCQS', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 8 },
-  { name: 'Acyclovir', genericName: 'Acyclovir', brandName: 'Acyclovir', category: 'TABLET', strength: '200mg', unit: 'tablet', price: 10 },
-];
+    items.push({ name, alias, groupName, openingStock: rawStock, unitName: rawUnit.trim(), isActive });
+  }
+  return items;
+}
 
 async function seedMedicines() {
   const existing = await prisma.medicine.count();
@@ -907,30 +806,46 @@ async function seedMedicines() {
     console.log('Medicines already seeded, skipping.');
     return;
   }
-  for (const m of medicineData) {
-    // Use a composite unique check: find by name since there's no @unique on the Medicine model
-    const existingMed = await prisma.medicine.findFirst({ where: { name: m.name } });
-    if (!existingMed) {
-      await prisma.medicine.create({
-        data: {
-          name: m.name,
-          genericName: m.genericName,
-          brandName: m.brandName,
-          category: m.category,
-          strength: m.strength || undefined,
-          unit: m.unit,
-          price: m.price,
-        },
-      });
-    }
+
+  const items = parseMedicineExcel();
+
+  const groupIdByName = new Map<string, string>();
+  for (const name of new Set(items.map((i) => i.groupName))) {
+    const group = await prisma.medicineGroup.upsert({ where: { name }, update: {}, create: { name } });
+    groupIdByName.set(name, group.id);
   }
-  console.log(`Seeded ${medicineData.length} medicines in the catalog.`);
+
+  const unitIdByName = new Map<string, string>();
+  for (const name of new Set(items.map((i) => i.unitName))) {
+    const unit = await prisma.unit.upsert({ where: { name }, update: {}, create: { name } });
+    unitIdByName.set(name, unit.id);
+  }
+
+  for (const item of items) {
+    await prisma.medicine.create({
+      data: {
+        name: item.name,
+        alias: item.alias,
+        unit: item.unitName,
+        unitId: unitIdByName.get(item.unitName),
+        groupId: groupIdByName.get(item.groupName),
+        price: 0,
+        openingStock: item.openingStock,
+        currentStock: item.openingStock,
+        isActive: item.isActive,
+      },
+    });
+  }
+  console.log(`Seeded ${items.length} medicines in the catalog from List_of_Items.xlsx.`);
 }
 
-// ─── Patient with Appointment History ──────────────────────
-// Creates demo patients with several completed visits across
-// different doctors — useful for testing the "patient history"
-// feature shown in the new-appointment flow.
+// ─── Demo patients (with vitals history) ──
+// Creates demo patients with vitals history — useful for testing the
+// "patient history" feature shown in the new-appointment flow.
+// NOTE: appointment/prescription history is intentionally NOT seeded for
+// these patients so the demo data never clutters the live
+// Appointments/Queue/Prescriptions views with fake data indistinguishable
+// from real bookings.
 
 const PATIENT_DEMOS = [
   {
@@ -950,13 +865,6 @@ const PATIENT_DEMOS = [
       { heightCm: 172, weightKg: 73, temperatureC: 99.1, pulseBpm: 80, systolicBp: 135, diastolicBp: 88, spo2Percent: 96, respiratoryRate: 17, daysAgo: 30 },
       { heightCm: 172, weightKg: 74, temperatureC: 98.6, pulseBpm: 76, systolicBp: 132, diastolicBp: 86, spo2Percent: 97, respiratoryRate: 16, daysAgo: 14 },
     ],
-    appointments: [
-      { daysAgo: 21, doctorIndex: 0, type: 'WALK_IN', fee: 0, time: '09:30', status: 'COMPLETED', notes: 'General check-up — mild fever' },
-      { daysAgo: 14, doctorIndex: 1, type: 'CONSULTATION', fee: 600, time: '10:15', status: 'COMPLETED', notes: 'Pediatric follow-up for child' },
-      { daysAgo: 10, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '14:00', status: 'COMPLETED', notes: 'Orthopedic consult for knee pain' },
-      { daysAgo: 7, doctorIndex: 0, type: 'FOLLOW_UP', fee: 500, time: '11:00', status: 'COMPLETED', notes: 'Follow-up — fever resolved' },
-      { daysAgo: 3, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '15:30', status: 'COMPLETED', notes: 'Cardiology check-up — chest discomfort' },
-    ],
   },
   {
     patient: {
@@ -975,11 +883,6 @@ const PATIENT_DEMOS = [
       { heightCm: 155, weightKg: 70, temperatureC: 99.1, pulseBpm: 82, systolicBp: 152, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 45 },
       { heightCm: 155, weightKg: 69, temperatureC: 98.8, pulseBpm: 80, systolicBp: 148, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 18 },
     ],
-    appointments: [
-      { daysAgo: 30, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '09:00', status: 'COMPLETED', notes: 'Orthopedic consult — chronic knee pain' },
-      { daysAgo: 18, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '14:00', status: 'COMPLETED', notes: 'Cardiology follow-up — hypertension' },
-      { daysAgo: 5, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '11:30', status: 'COMPLETED', notes: 'BP check — stable' },
-    ],
   },
   {
     patient: {
@@ -997,11 +900,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 80, weightKg: 10.5, temperatureC: 99.0, pulseBpm: 105, systolicBp: 82, diastolicBp: 52, spo2Percent: 98, respiratoryRate: 26, daysAgo: 60 },
     ],
-    appointments: [
-      { daysAgo: 45, doctorIndex: 1, type: 'WALK_IN', fee: 0, time: '10:00', status: 'COMPLETED', notes: 'Newborn check-up — weight & vaccinations' },
-      { daysAgo: 28, doctorIndex: 1, type: 'CONSULTATION', fee: 600, time: '10:30', status: 'COMPLETED', notes: 'Routine vaccination visit' },
-      { daysAgo: 12, doctorIndex: 1, type: 'FOLLOW_UP', fee: 300, time: '09:00', status: 'COMPLETED', notes: 'Milk allergy assessment — improving' },
-    ],
   },
   {
     patient: {
@@ -1018,11 +916,6 @@ const PATIENT_DEMOS = [
     },
     vitalsHistory: [
       { heightCm: 163, weightKg: 60, temperatureC: 98.4, pulseBpm: 72, systolicBp: 120, diastolicBp: 78, spo2Percent: 99, respiratoryRate: 16, daysAgo: 35 },
-    ],
-    appointments: [
-      { daysAgo: 35, doctorIndex: 5, type: 'CONSULTATION', fee: 600, time: '11:00', status: 'COMPLETED', notes: 'Skin rash — diagnosed as eczema' },
-      { daysAgo: 20, doctorIndex: 5, type: 'FOLLOW_UP', fee: 300, time: '14:30', status: 'COMPLETED', notes: 'Dermatology follow-up — improved' },
-      { daysAgo: 8, doctorIndex: 3, type: 'SPECIALIST', fee: 700, time: '10:00', status: 'COMPLETED', notes: 'Gynecology consult — routine check-up' },
     ],
   },
   {
@@ -1042,12 +935,6 @@ const PATIENT_DEMOS = [
       { heightCm: 178, weightKg: 90, temperatureC: 98.8, pulseBpm: 85, systolicBp: 155, diastolicBp: 98, spo2Percent: 94, respiratoryRate: 20, daysAgo: 40 },
       { heightCm: 178, weightKg: 89, temperatureC: 98.4, pulseBpm: 83, systolicBp: 152, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 10 },
     ],
-    appointments: [
-      { daysAgo: 40, doctorIndex: 8, type: 'SPECIALIST', fee: 1200, time: '09:00', status: 'COMPLETED', notes: 'Neurology consult — chronic headaches' },
-      { daysAgo: 25, doctorIndex: 6, type: 'CONSULTATION', fee: 550, time: '15:00', status: 'COMPLETED', notes: 'ENT check — hearing difficulty' },
-      { daysAgo: 10, doctorIndex: 8, type: 'FOLLOW_UP', fee: 600, time: '11:00', status: 'COMPLETED', notes: 'Headache follow-up — MRI reports normal' },
-      { daysAgo: 2, doctorIndex: 6, type: 'FOLLOW_UP', fee: 300, time: '14:00', status: 'COMPLETED', notes: 'ENT follow-up — hearing aid trial' },
-    ],
   },
   {
     patient: {
@@ -1065,10 +952,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 160, weightKg: 54, temperatureC: 98.2, pulseBpm: 70, systolicBp: 112, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 15, daysAgo: 15 },
     ],
-    appointments: [
-      { daysAgo: 15, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'Regular gynecology check-up' },
-      { daysAgo: 5, doctorIndex: 5, type: 'SPECIALIST', fee: 600, time: '14:00', status: 'COMPLETED', notes: 'Acne treatment follow-up' },
-    ],
   },
   {
     patient: {
@@ -1085,10 +968,6 @@ const PATIENT_DEMOS = [
     },
     vitalsHistory: [
       { heightCm: 180, weightKg: 84, temperatureC: 98.4, pulseBpm: 74, systolicBp: 128, diastolicBp: 82, spo2Percent: 98, respiratoryRate: 16, daysAgo: 20 },
-    ],
-    appointments: [
-      { daysAgo: 20, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '09:00', status: 'COMPLETED', notes: 'Sports injury — ankle sprain' },
-      { daysAgo: 8, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '11:00', status: 'COMPLETED', notes: 'Ankle healing well, physiotherapy advised' },
     ],
   },
   {
@@ -1108,10 +987,6 @@ const PATIENT_DEMOS = [
       { heightCm: 158, weightKg: 66, temperatureC: 98.6, pulseBpm: 78, systolicBp: 142, diastolicBp: 90, spo2Percent: 97, respiratoryRate: 18, daysAgo: 60 },
       { heightCm: 158, weightKg: 65, temperatureC: 98.2, pulseBpm: 77, systolicBp: 140, diastolicBp: 89, spo2Percent: 97, respiratoryRate: 17, daysAgo: 30 },
     ],
-    appointments: [
-      { daysAgo: 60, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:30', status: 'COMPLETED', notes: 'Diabetes screening — borderline' },
-      { daysAgo: 30, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'HbA1c results reviewed — lifestyle changes advised' },
-    ],
   },
   {
     patient: {
@@ -1127,9 +1002,6 @@ const PATIENT_DEMOS = [
       systolicBp: 115, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 14,
     },
     vitalsHistory: [],
-    appointments: [
-      { daysAgo: 10, doctorIndex: 7, type: 'CONSULTATION', fee: 600, time: '11:00', status: 'COMPLETED', notes: 'Vision check — mild myopia detected' },
-    ],
   },
   {
     patient: {
@@ -1147,10 +1019,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 152, weightKg: 74, temperatureC: 99.0, pulseBpm: 82, systolicBp: 160, diastolicBp: 102, spo2Percent: 94, respiratoryRate: 21, daysAgo: 45 },
       { heightCm: 152, weightKg: 73, temperatureC: 98.6, pulseBpm: 81, systolicBp: 158, diastolicBp: 100, spo2Percent: 95, respiratoryRate: 20, daysAgo: 15 },
-    ],
-    appointments: [
-      { daysAgo: 45, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Cardiology consult — uncontrolled hypertension' },
-      { daysAgo: 15, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '11:00', status: 'COMPLETED', notes: 'BP medication adjusted — monitor weekly' },
     ],
   },
   // ── Additional demo patients (batch 2) ──
@@ -1171,11 +1039,6 @@ const PATIENT_DEMOS = [
       { heightCm: 158, weightKg: 75, temperatureC: 99.0, pulseBpm: 86, systolicBp: 155, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 40 },
       { heightCm: 158, weightKg: 73, temperatureC: 98.4, pulseBpm: 84, systolicBp: 150, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 15 },
     ],
-    appointments: [
-      { daysAgo: 40, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '10:00', status: 'COMPLETED', notes: 'Cardiology consult — chest pain on exertion' },
-      { daysAgo: 15, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '11:30', status: 'COMPLETED', notes: 'ECG normal — stress test recommended' },
-      { daysAgo: 3, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:00', status: 'COMPLETED', notes: 'General check-up — fatigue and dizziness' },
-    ],
   },
   {
     patient: {
@@ -1194,11 +1057,6 @@ const PATIENT_DEMOS = [
       { heightCm: 170, weightKg: 88, temperatureC: 98.8, pulseBpm: 80, systolicBp: 148, diastolicBp: 92, spo2Percent: 95, respiratoryRate: 18, daysAgo: 60 },
       { heightCm: 170, weightKg: 86, temperatureC: 98.6, pulseBpm: 79, systolicBp: 145, diastolicBp: 90, spo2Percent: 96, respiratoryRate: 17, daysAgo: 30 },
     ],
-    appointments: [
-      { daysAgo: 60, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '09:00', status: 'COMPLETED', notes: 'Back pain — lumbar spondylosis' },
-      { daysAgo: 30, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '10:00', status: 'COMPLETED', notes: 'Physiotherapy started — some improvement' },
-      { daysAgo: 5, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '14:00', status: 'COMPLETED', notes: 'Routine diabetes check' },
-    ],
   },
   {
     patient: {
@@ -1215,10 +1073,6 @@ const PATIENT_DEMOS = [
     },
     vitalsHistory: [
       { heightCm: 165, weightKg: 56, temperatureC: 98.4, pulseBpm: 74, systolicBp: 114, diastolicBp: 73, spo2Percent: 99, respiratoryRate: 15, daysAgo: 12 },
-    ],
-    appointments: [
-      { daysAgo: 12, doctorIndex: 5, type: 'CONSULTATION', fee: 600, time: '14:00', status: 'COMPLETED', notes: 'Acne treatment — isotretinoin started' },
-      { daysAgo: 3, doctorIndex: 5, type: 'FOLLOW_UP', fee: 300, time: '15:00', status: 'COMPLETED', notes: 'Skin improving — continue treatment' },
     ],
   },
   {
@@ -1237,11 +1091,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 175, weightKg: 92, temperatureC: 98.8, pulseBpm: 86, systolicBp: 158, diastolicBp: 98, spo2Percent: 94, respiratoryRate: 21, daysAgo: 50 },
     ],
-    appointments: [
-      { daysAgo: 50, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Cardiology — uncontrolled HTN and diabetes' },
-      { daysAgo: 20, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '10:30', status: 'COMPLETED', notes: 'BP improved with new medication' },
-      { daysAgo: 2, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '11:00', status: 'COMPLETED', notes: 'Blood sugar review — HbA1c 8.1%' },
-    ],
   },
   {
     patient: {
@@ -1259,10 +1108,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 160, weightKg: 58, temperatureC: 98.2, pulseBpm: 74, systolicBp: 115, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 15, daysAgo: 30 },
     ],
-    appointments: [
-      { daysAgo: 30, doctorIndex: 3, type: 'SPECIALIST', fee: 700, time: '10:00', status: 'COMPLETED', notes: 'Prenatal check-up — 16 weeks' },
-      { daysAgo: 7, doctorIndex: 3, type: 'FOLLOW_UP', fee: 500, time: '10:30', status: 'COMPLETED', notes: 'Routine antenatal — growth normal' },
-    ],
   },
   {
     patient: {
@@ -1278,10 +1123,6 @@ const PATIENT_DEMOS = [
       systolicBp: 120, diastolicBp: 78, spo2Percent: 98, respiratoryRate: 15,
     },
     vitalsHistory: [],
-    appointments: [
-      { daysAgo: 8, doctorIndex: 6, type: 'CONSULTATION', fee: 550, time: '11:00', status: 'COMPLETED', notes: 'Chronic sinusitis — CT scan advised' },
-      { daysAgo: 1, doctorIndex: 6, type: 'FOLLOW_UP', fee: 300, time: '14:00', status: 'COMPLETED', notes: 'CT results — mild pansinusitis' },
-    ],
   },
   {
     patient: {
@@ -1299,10 +1140,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 148, weightKg: 62, temperatureC: 98.6, pulseBpm: 78, systolicBp: 140, diastolicBp: 85, spo2Percent: 96, respiratoryRate: 18, daysAgo: 45 },
     ],
-    appointments: [
-      { daysAgo: 45, doctorIndex: 7, type: 'SPECIALIST', fee: 650, time: '10:00', status: 'COMPLETED', notes: 'Cataract evaluation — Grade 2 NS OU' },
-      { daysAgo: 10, doctorIndex: 7, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Pre-op assessment — surgery scheduled' },
-    ],
   },
   {
     patient: {
@@ -1319,10 +1156,6 @@ const PATIENT_DEMOS = [
     },
     vitalsHistory: [
       { heightCm: 172, weightKg: 64, temperatureC: 98.2, pulseBpm: 76, systolicBp: 120, diastolicBp: 76, spo2Percent: 99, respiratoryRate: 15, daysAgo: 20 },
-    ],
-    appointments: [
-      { daysAgo: 20, doctorIndex: 9, type: 'CONSULTATION', fee: 800, time: '14:00', status: 'COMPLETED', notes: 'Anxiety and insomnia — started on Escitalopram' },
-      { daysAgo: 5, doctorIndex: 9, type: 'FOLLOW_UP', fee: 400, time: '15:00', status: 'COMPLETED', notes: 'Mild improvement — dosage adjusted' },
     ],
   },
   {
@@ -1342,10 +1175,6 @@ const PATIENT_DEMOS = [
       { heightCm: 155, weightKg: 70, temperatureC: 98.8, pulseBpm: 82, systolicBp: 165, diastolicBp: 102, spo2Percent: 94, respiratoryRate: 20, daysAgo: 35 },
       { heightCm: 155, weightKg: 69, temperatureC: 98.4, pulseBpm: 81, systolicBp: 162, diastolicBp: 100, spo2Percent: 95, respiratoryRate: 19, daysAgo: 10 },
     ],
-    appointments: [
-      { daysAgo: 35, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Stage 2 hypertension — triple therapy started' },
-      { daysAgo: 10, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '11:00', status: 'COMPLETED', notes: 'BP still elevated — added Spironolactone' },
-    ],
   },
   {
     patient: {
@@ -1361,10 +1190,6 @@ const PATIENT_DEMOS = [
       systolicBp: 122, diastolicBp: 78, spo2Percent: 99, respiratoryRate: 14,
     },
     vitalsHistory: [],
-    appointments: [
-      { daysAgo: 15, doctorIndex: 8, type: 'SPECIALIST', fee: 1200, time: '10:00', status: 'COMPLETED', notes: 'Tension headaches — MRI normal' },
-      { daysAgo: 2, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:30', status: 'COMPLETED', notes: 'Fever and body ache — viral illness' },
-    ],
   },
   {
     patient: {
@@ -1381,10 +1206,6 @@ const PATIENT_DEMOS = [
     },
     vitalsHistory: [
       { heightCm: 150, weightKg: 67, temperatureC: 99.0, pulseBpm: 84, systolicBp: 145, diastolicBp: 90, spo2Percent: 95, respiratoryRate: 19, daysAgo: 30 },
-    ],
-    appointments: [
-      { daysAgo: 30, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '10:00', status: 'COMPLETED', notes: 'Diabetes screening — FBS 142' },
-      { daysAgo: 7, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'HbA1c 7.8% — Metformin started' },
     ],
   },
   {
@@ -1403,10 +1224,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 174, weightKg: 84, temperatureC: 99.2, pulseBpm: 88, systolicBp: 130, diastolicBp: 84, spo2Percent: 96, respiratoryRate: 20, daysAgo: 20 },
     ],
-    appointments: [
-      { daysAgo: 20, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:00', status: 'COMPLETED', notes: 'Acute bronchitis — cough for 5 days' },
-      { daysAgo: 5, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'Bronchitis resolving — inhaler continued' },
-    ],
   },
   {
     patient: {
@@ -1422,10 +1239,6 @@ const PATIENT_DEMOS = [
       systolicBp: 110, diastolicBp: 68, spo2Percent: 99, respiratoryRate: 14,
     },
     vitalsHistory: [],
-    appointments: [
-      { daysAgo: 10, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '09:00', status: 'COMPLETED', notes: 'PCOD evaluation — USG ordered' },
-      { daysAgo: 3, doctorIndex: 3, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'USG confirmed PCOD — Metformin + OCP started' },
-    ],
   },
   {
     patient: {
@@ -1443,10 +1256,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 168, weightKg: 80, temperatureC: 98.4, pulseBpm: 82, systolicBp: 142, diastolicBp: 88, spo2Percent: 96, respiratoryRate: 18, daysAgo: 25 },
     ],
-    appointments: [
-      { daysAgo: 25, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '08:00', status: 'COMPLETED', notes: 'Knee osteoarthritis — Grade 3' },
-      { daysAgo: 5, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '09:00', status: 'COMPLETED', notes: 'Viscosupplementation done' },
-    ],
   },
   {
     patient: {
@@ -1462,10 +1271,6 @@ const PATIENT_DEMOS = [
       systolicBp: 114, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 14,
     },
     vitalsHistory: [],
-    appointments: [
-      { daysAgo: 14, doctorIndex: 5, type: 'CONSULTATION', fee: 600, time: '12:00', status: 'COMPLETED', notes: 'Eczema flare-up — prescribed topical steroids' },
-      { daysAgo: 4, doctorIndex: 5, type: 'FOLLOW_UP', fee: 300, time: '13:00', status: 'COMPLETED', notes: 'Eczema improving — moisturizer emphasized' },
-    ],
   },
   {
     patient: {
@@ -1483,10 +1288,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 180, weightKg: 95, temperatureC: 98.6, pulseBpm: 82, systolicBp: 150, diastolicBp: 95, spo2Percent: 95, respiratoryRate: 19, daysAgo: 42 },
       { heightCm: 180, weightKg: 93, temperatureC: 98.4, pulseBpm: 81, systolicBp: 148, diastolicBp: 93, spo2Percent: 96, respiratoryRate: 18, daysAgo: 14 },
-    ],
-    appointments: [
-      { daysAgo: 42, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:30', status: 'COMPLETED', notes: 'Obesity and metabolic syndrome' },
-      { daysAgo: 14, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'Weight loss program — 2kg lost' },
     ],
   },
   // ── Additional demo patients (batch 3) ──
@@ -1507,11 +1308,6 @@ const PATIENT_DEMOS = [
       { heightCm: 162, weightKg: 73, temperatureC: 98.8, pulseBpm: 80, systolicBp: 148, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 50 },
       { heightCm: 162, weightKg: 71, temperatureC: 98.4, pulseBpm: 79, systolicBp: 142, diastolicBp: 92, spo2Percent: 97, respiratoryRate: 17, daysAgo: 20 },
     ],
-    appointments: [
-      { daysAgo: 50, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '10:00', status: 'COMPLETED', notes: 'Migraine + tension headache' },
-      { daysAgo: 20, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Headache frequency reduced' },
-      { daysAgo: 3, doctorIndex: 5, type: 'CONSULTATION', fee: 600, time: '14:00', status: 'COMPLETED', notes: 'Psoriasis flare-up on elbows' },
-    ],
   },
   {
     patient: {
@@ -1530,11 +1326,6 @@ const PATIENT_DEMOS = [
       { heightCm: 172, weightKg: 89, temperatureC: 98.6, pulseBpm: 84, systolicBp: 155, diastolicBp: 96, spo2Percent: 95, respiratoryRate: 19, daysAgo: 60 },
       { heightCm: 172, weightKg: 87, temperatureC: 98.4, pulseBpm: 83, systolicBp: 150, diastolicBp: 94, spo2Percent: 96, respiratoryRate: 18, daysAgo: 25 },
     ],
-    appointments: [
-      { daysAgo: 60, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Cardiology — angina on exertion' },
-      { daysAgo: 25, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '10:00', status: 'COMPLETED', notes: 'TMT positive — cath planned' },
-      { daysAgo: 5, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Post-angiography — 60% LAD' },
-    ],
   },
   {
     patient: {
@@ -1550,10 +1341,6 @@ const PATIENT_DEMOS = [
       systolicBp: 108, diastolicBp: 68, spo2Percent: 99, respiratoryRate: 14,
     },
     vitalsHistory: [],
-    appointments: [
-      { daysAgo: 18, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'Dysmenorrhea — USG normal' },
-      { daysAgo: 6, doctorIndex: 3, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Pain improved with NSAIDs' },
-    ],
   },
   {
     patient: {
@@ -1572,10 +1359,6 @@ const PATIENT_DEMOS = [
       { heightCm: 166, weightKg: 85, temperatureC: 99.0, pulseBpm: 86, systolicBp: 160, diastolicBp: 100, spo2Percent: 94, respiratoryRate: 21, daysAgo: 45 },
       { heightCm: 166, weightKg: 83, temperatureC: 98.6, pulseBpm: 85, systolicBp: 158, diastolicBp: 99, spo2Percent: 95, respiratoryRate: 20, daysAgo: 12 },
     ],
-    appointments: [
-      { daysAgo: 45, doctorIndex: 8, type: 'SPECIALIST', fee: 1200, time: '10:00', status: 'COMPLETED', notes: 'Stroke evaluation — TIA history' },
-      { daysAgo: 12, doctorIndex: 8, type: 'FOLLOW_UP', fee: 600, time: '11:00', status: 'COMPLETED', notes: 'MRI brain — lacunar infarcts' },
-    ],
   },
   {
     patient: {
@@ -1591,10 +1374,6 @@ const PATIENT_DEMOS = [
       systolicBp: 108, diastolicBp: 70, spo2Percent: 99, respiratoryRate: 14,
     },
     vitalsHistory: [],
-    appointments: [
-      { daysAgo: 22, doctorIndex: 9, type: 'CONSULTATION', fee: 800, time: '14:00', status: 'COMPLETED', notes: 'Depression screening — PHQ-9 14' },
-      { daysAgo: 8, doctorIndex: 9, type: 'FOLLOW_UP', fee: 400, time: '15:00', status: 'COMPLETED', notes: 'Starting Sertraline 50mg' },
-    ],
   },
   {
     patient: {
@@ -1612,10 +1391,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 165, weightKg: 74, temperatureC: 98.4, pulseBpm: 78, systolicBp: 138, diastolicBp: 86, spo2Percent: 96, respiratoryRate: 17, daysAgo: 40 },
     ],
-    appointments: [
-      { daysAgo: 40, doctorIndex: 7, type: 'SPECIALIST', fee: 650, time: '10:00', status: 'COMPLETED', notes: 'Glaucoma screening — elevated IOP' },
-      { daysAgo: 10, doctorIndex: 7, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Timolol started — IOP 18mmHg' },
-    ],
   },
   {
     patient: {
@@ -1632,10 +1407,6 @@ const PATIENT_DEMOS = [
     },
     vitalsHistory: [
       { heightCm: 182, weightKg: 89, temperatureC: 100.2, pulseBpm: 88, systolicBp: 120, diastolicBp: 78, spo2Percent: 98, respiratoryRate: 18, daysAgo: 15 },
-    ],
-    appointments: [
-      { daysAgo: 15, doctorIndex: 6, type: 'CONSULTATION', fee: 550, time: '11:00', status: 'COMPLETED', notes: 'Recurrent sore throat — tonsillitis' },
-      { daysAgo: 3, doctorIndex: 6, type: 'FOLLOW_UP', fee: 300, time: '14:00', status: 'COMPLETED', notes: 'Improved — ENT review in 1 month' },
     ],
   },
   {
@@ -1655,10 +1426,6 @@ const PATIENT_DEMOS = [
       { heightCm: 150, weightKg: 64, temperatureC: 99.2, pulseBpm: 84, systolicBp: 168, diastolicBp: 104, spo2Percent: 94, respiratoryRate: 22, daysAgo: 55 },
       { heightCm: 150, weightKg: 63, temperatureC: 98.8, pulseBpm: 82, systolicBp: 162, diastolicBp: 102, spo2Percent: 95, respiratoryRate: 20, daysAgo: 20 },
     ],
-    appointments: [
-      { daysAgo: 55, doctorIndex: 4, type: 'SPECIALIST', fee: 1000, time: '09:00', status: 'COMPLETED', notes: 'Uncontrolled HTN — ER visit history' },
-      { daysAgo: 20, doctorIndex: 4, type: 'FOLLOW_UP', fee: 500, time: '10:30', status: 'COMPLETED', notes: 'BP improving with triple therapy' },
-    ],
   },
   {
     patient: {
@@ -1675,10 +1442,6 @@ const PATIENT_DEMOS = [
     },
     vitalsHistory: [
       { heightCm: 176, weightKg: 71, temperatureC: 98.2, pulseBpm: 74, systolicBp: 116, diastolicBp: 75, spo2Percent: 99, respiratoryRate: 14, daysAgo: 12 },
-    ],
-    appointments: [
-      { daysAgo: 12, doctorIndex: 2, type: 'CONSULTATION', fee: 800, time: '09:00', status: 'COMPLETED', notes: 'ACL tear — sports injury' },
-      { daysAgo: 2, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '10:00', status: 'COMPLETED', notes: 'Brace fitted — physiotherapy advised' },
     ],
   },
   {
@@ -1697,10 +1460,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 156, weightKg: 68, temperatureC: 98.6, pulseBpm: 78, systolicBp: 140, diastolicBp: 88, spo2Percent: 96, respiratoryRate: 17, daysAgo: 35 },
     ],
-    appointments: [
-      { daysAgo: 35, doctorIndex: 3, type: 'SPECIALIST', fee: 700, time: '09:00', status: 'COMPLETED', notes: 'Menorrhagia — USG shows fibroids' },
-      { daysAgo: 8, doctorIndex: 3, type: 'FOLLOW_UP', fee: 500, time: '10:00', status: 'COMPLETED', notes: 'Conservative management — iron tabs' },
-    ],
   },
   {
     patient: {
@@ -1718,10 +1477,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 170, weightKg: 80, temperatureC: 98.8, pulseBpm: 82, systolicBp: 148, diastolicBp: 92, spo2Percent: 95, respiratoryRate: 18, daysAgo: 30 },
     ],
-    appointments: [
-      { daysAgo: 30, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:00', status: 'COMPLETED', notes: 'GERD — persistent acid reflux' },
-      { daysAgo: 7, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'PPI working — continue 4 weeks' },
-    ],
   },
   {
     patient: {
@@ -1737,10 +1492,6 @@ const PATIENT_DEMOS = [
       systolicBp: 112, diastolicBp: 72, spo2Percent: 99, respiratoryRate: 14,
     },
     vitalsHistory: [],
-    appointments: [
-      { daysAgo: 16, doctorIndex: 1, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'Child fever — viral illness' },
-      { daysAgo: 4, doctorIndex: 1, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Child recovered' },
-    ],
   },
   {
     patient: {
@@ -1758,10 +1509,6 @@ const PATIENT_DEMOS = [
     vitalsHistory: [
       { heightCm: 174, weightKg: 86, temperatureC: 98.6, pulseBpm: 82, systolicBp: 150, diastolicBp: 94, spo2Percent: 95, respiratoryRate: 18, daysAgo: 35 },
     ],
-    appointments: [
-      { daysAgo: 35, doctorIndex: 0, type: 'CONSULTATION', fee: 500, time: '09:30', status: 'COMPLETED', notes: 'Hypothyroidism — TSH elevated' },
-      { daysAgo: 7, doctorIndex: 0, type: 'FOLLOW_UP', fee: 300, time: '10:00', status: 'COMPLETED', notes: 'Levothyroxine started' },
-    ],
   },
   {
     patient: {
@@ -1778,10 +1525,6 @@ const PATIENT_DEMOS = [
     },
     vitalsHistory: [
       { heightCm: 158, weightKg: 57, temperatureC: 98.2, pulseBpm: 72, systolicBp: 108, diastolicBp: 68, spo2Percent: 99, respiratoryRate: 15, daysAgo: 20 },
-    ],
-    appointments: [
-      { daysAgo: 20, doctorIndex: 3, type: 'CONSULTATION', fee: 600, time: '10:00', status: 'COMPLETED', notes: 'PCOD — irregular periods' },
-      { daysAgo: 5, doctorIndex: 3, type: 'FOLLOW_UP', fee: 300, time: '11:00', status: 'COMPLETED', notes: 'Hormonal panel results reviewed' },
     ],
   },
   {
@@ -1801,128 +1544,12 @@ const PATIENT_DEMOS = [
       { heightCm: 168, weightKg: 78, temperatureC: 98.4, pulseBpm: 80, systolicBp: 142, diastolicBp: 90, spo2Percent: 96, respiratoryRate: 17, daysAgo: 50 },
       { heightCm: 168, weightKg: 77, temperatureC: 98.6, pulseBpm: 79, systolicBp: 140, diastolicBp: 89, spo2Percent: 97, respiratoryRate: 16, daysAgo: 18 },
     ],
-    appointments: [
-      { daysAgo: 50, doctorIndex: 2, type: 'SPECIALIST', fee: 800, time: '08:00', status: 'COMPLETED', notes: 'Frozen shoulder — right' },
-      { daysAgo: 18, doctorIndex: 2, type: 'FOLLOW_UP', fee: 400, time: '09:00', status: 'COMPLETED', notes: 'Physiotherapy + intra-articular injection' },
-    ],
   },
 ];
 
-// Appointment/queue history seeding was removed — it cluttered the live
-// Appointments/Queue views with fake data indistinguishable from real
-// bookings. Only the demo patients themselves are seeded now, so the
-// "patient history" feature can still be tested by booking real
-// appointments for them through the app.
-const PRESCRIPTION_DEMOS = [
-  // Patient: Ravi Kumar Sharma (9876543210)
-  { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Follow up in 2 weeks. Reduce salt intake.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 7, diagnosis: 'Upper Respiratory Tract Infection', notes: 'Complete the full course of antibiotics.', status: 'DISPENSED' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
-  { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 30, diagnosis: 'Vitamin D Deficiency', notes: 'Sun exposure 15 min daily.', status: 'DISPENSED' as const, items: [{ medicineName: 'Vitamin D3', dosage: '1-0-0', duration: '60 days', qty: 1 }] },
-  // Patient: Sunita Devi Sharma (9876543212)
-  { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Monitor BP daily. Low-salt diet.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543212', doctorIdx: 2, daysAgo: 30, diagnosis: 'Osteoarthritis - Knee', notes: 'Weight reduction and physiotherapy.', status: 'DISPENSED' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
-  // Patient: Aarav Mehta (9876543214)
-  { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 0, diagnosis: 'Pediatric Asthma', notes: 'Mild intermittent — use only when symptomatic.', status: 'ACTIVE' as const, items: [{ medicineName: 'Salbutamol Inhaler', dosage: '1 puff SOS', duration: '15 days', qty: 1 }] },
-  { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 28, diagnosis: 'Chickenpox', notes: 'Keep hydrated. Isolate until all lesions crust over.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Calamine Lotion', dosage: 'Apply topically TID', duration: '7 days', qty: 1 }] },
-  // Patient: Priya Anand Patel (9876543216)
-  { patientPhone: '9876543216', doctorIdx: 3, daysAgo: 0, diagnosis: 'Menorrhagia', notes: 'Monitor Hb levels. Consider iron supplementation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Tranexamic Acid', dosage: '1-0-0', duration: '5 days', qty: 1 }, { medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 5, diagnosis: 'Eczema / Atopic Dermatitis', notes: 'Moisturize regularly. Avoid harsh soaps.', status: 'DISPENSED' as const, items: [{ medicineName: 'Mometasone 0.1% Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Abdul Rahman Khan (9876543218)
-  { patientPhone: '9876543218', doctorIdx: 4, daysAgo: 2, diagnosis: 'Type 2 Diabetes Mellitus', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Glimepiride', dosage: '1-0-0', duration: '90 days', qty: 2 }] },
-  { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 0, diagnosis: 'Migraine', notes: 'Avoid triggers. Maintain sleep schedule.', status: 'ACTIVE' as const, items: [{ medicineName: 'Naproxen', dosage: '1-0-0', duration: '5 days', qty: 1 }] },
-  { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 3, diagnosis: 'Allergic Rhinitis', status: 'ACTIVE' as const, items: [{ medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Montelukast', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  { patientPhone: '9876543218', doctorIdx: 9, daysAgo: 1, diagnosis: 'Generalized Anxiety Disorder', notes: 'Continue therapy. Follow up in 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Clonazepam', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
-  // Patient: Ananya Lakshmi Iyer (9876543220)
-  { patientPhone: '9876543220', doctorIdx: 3, daysAgo: 0, diagnosis: 'Dysmenorrhea', notes: 'NSAIDs as needed during periods.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mefenamic Acid', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
-  { patientPhone: '9876543220', doctorIdx: 5, daysAgo: 5, diagnosis: 'Acne Vulgaris', notes: 'Avoid oily foods. Use sunscreen.', status: 'DISPENSED' as const, items: [{ medicineName: 'Isotretinoin', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Clotrimazole 1% Cream', dosage: 'Apply locally HS', duration: '30 days', qty: 1 }] },
-  // Patient: Vikram Singh (9876543222)
-  { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 0, diagnosis: 'Ankle Sprain', notes: 'RICE protocol. Follow up in 1 week.', status: 'ACTIVE' as const, items: [{ medicineName: 'Ibuprofen', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Betamethasone Cream', dosage: 'Apply locally BD', duration: '10 days', qty: 1 }] },
-  { patientPhone: '9876543222', doctorIdx: 8, daysAgo: 10, diagnosis: 'Tension Type Headache', notes: 'Stress management. Regular exercise.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '3 days', qty: 1 }, { medicineName: 'Ibuprofen', dosage: '1-0-0', duration: '5 days', qty: 1 }] },
-  // Patient: Lakshmi Priya Nair (9876543224)
-  { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 0, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'Diet control and regular exercise. Recheck HbA1c in 3 months.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
-  { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 30, diagnosis: 'Dyslipidemia', notes: 'Low-fat diet. Walk 30 min daily.', status: 'DISPENSED' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Arjun Reddy Kapoor (9876543226)
-  { patientPhone: '9876543226', doctorIdx: 7, daysAgo: 10, diagnosis: 'Refractive Error', notes: 'Power -1.25 both eyes. Use glasses.', status: 'DISPENSED' as const, items: [] },
-  // Patient: Fatima Begum Sheikh (9876543228)
-  { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Stage 2 hypertension. Increase medication dose. Follow up in 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 15, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'Diet + exercise. Monitor fasting glucose.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543228', doctorIdx: 6, daysAgo: 45, diagnosis: 'Chronic Sinusitis', notes: 'Nasal saline irrigation. Complete antibiotic course.', status: 'DISPENSED' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '10 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Meena Kumari Agarwal (9876543230)
-  { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 0, diagnosis: 'Coronary Artery Disease', notes: 'Start dual antiplatelet. Low-fat diet.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 3, diagnosis: 'Iron Deficiency Anemia', notes: 'Take iron on empty stomach.', status: 'DISPENSED' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '60 days', qty: 2 }, { medicineName: 'Vitamin C', dosage: '1-0-0', duration: '60 days', qty: 2 }] },
-  // Patient: Suresh Babu (9876543232)
-  { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 0, diagnosis: 'Cervical Spondylosis', notes: 'Physiotherapy + ergonomics.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Pregabalin', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  { patientPhone: '9876543232', doctorIdx: 0, daysAgo: 5, diagnosis: 'Dyslipidemia', notes: 'Low-fat diet. Walk 30 min daily.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Kavya Reddy (9876543234)
-  { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 0, diagnosis: 'Acne Vulgaris', notes: 'Isotretinoin — avoid sun. Monthly LFT.', status: 'ACTIVE' as const, items: [{ medicineName: 'Isotretinoin', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Clotrimazole 1% Cream', dosage: 'Apply locally HS', duration: '30 days', qty: 1 }] },
-  // Patient: Rakesh Tiwari (9876543236)
-  { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 2, diagnosis: 'Congestive Heart Failure', notes: 'Fluid restriction. Daily weight.', status: 'ACTIVE' as const, items: [{ medicineName: 'Furosemide', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Spironolactone', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Ramipril', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543236', doctorIdx: 0, daysAgo: 2, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'HbA1c 8.1% — optimize control.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Glimepiride', dosage: '1-0-0', duration: '90 days', qty: 2 }] },
-  // Patient: Pooja Lata Singh (9876543238)
-  { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 0, diagnosis: 'Pregnancy - Routine Antenatal Care', notes: 'Continue iron and calcium. Next visit 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Folic Acid', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  // Patient: Arvind Patel (9876543240)
-  { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 1, diagnosis: 'Chronic Sinusitis', notes: 'Complete course. Nasal irrigation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
-  // Patient: Shanti Devi (9876543242)
-  { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 0, diagnosis: 'Cataract', notes: 'Pre-op drops. Surgery scheduled next week.', status: 'ACTIVE' as const, items: [{ medicineName: 'Moxifloxacin Eye Drops', dosage: '1 drop TID', duration: '7 days', qty: 1 }, { medicineName: 'Timolol Eye Drops', dosage: '1 drop BD', duration: '7 days', qty: 1 }] },
-  // Patient: Mohammed Irfan (9876543244)
-  { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 5, diagnosis: 'Generalized Anxiety Disorder', notes: 'Take at bedtime. Review in 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Clonazepam', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Lakshmi Devi (9876543246)
-  { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Resistant HTN. Monitor K+ with Spironolactone.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Spironolactone', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 10, diagnosis: 'Dyslipidemia', notes: 'High-dose statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Rajiv Menon (9876543248)
-  { patientPhone: '9876543248', doctorIdx: 8, daysAgo: 15, diagnosis: 'Headache - Tension Type', notes: 'Stress management. Paracetamol SOS.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543248', doctorIdx: 0, daysAgo: 2, diagnosis: 'Influenza', notes: 'Oseltamivir if within 48h. Rest fluids.', status: 'DISPENSED' as const, items: [{ medicineName: 'Oseltamivir', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }] },
-  // Patient: Anjum Begum (9876543250)
-  { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 0, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'HbA1c 7.8%. Diet + exercise + Metformin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Deepak Verma (9876543252)
-  { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 5, diagnosis: 'Acute Bronchitis', notes: 'Inhaler PRN. Complete course.', status: 'DISPENSED' as const, items: [{ medicineName: 'Salbutamol Inhaler', dosage: '1 puff PRN', duration: '14 days', qty: 1 }, { medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '10 days', qty: 1 }] },
-  // Patient: Sunita Joshi (9876543254)
-  { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 0, diagnosis: 'Polycystic Ovarian Syndrome', notes: 'OCP + Metformin. Lifestyle modification.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Dydrogesterone', dosage: '1-0-0', duration: '10 days', qty: 3 }] },
-  // Patient: Prakash Rao (9876543256)
-  { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 0, diagnosis: 'Osteoarthritis - Knee', notes: 'Post-injection care. Weight management.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
-  // Patient: Nisha Agarwal (9876543258)
-  { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 0, diagnosis: 'Eczema / Atopic Dermatitis', notes: 'Emollients. Avoid triggers.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mometasone 0.1% Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Vijay Kumar Malhotra (9876543260)
-  { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 0, diagnosis: 'Obesity', notes: 'Diet plan + exercise. Follow up monthly.', status: 'ACTIVE' as const, items: [{ medicineName: 'Orlistat', dosage: '1-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 14, diagnosis: 'Essential Hypertension', notes: 'Lifestyle changes + medication.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Losartan', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  // Patient: Chandrika Menon (9876543262)
-  { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 0, diagnosis: 'Migraine', notes: 'Prophylaxis with Amitriptyline. Avoid triggers.', status: 'ACTIVE' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1 SOS', duration: '5 days', qty: 1 }, { medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543262', doctorIdx: 5, daysAgo: 3, diagnosis: 'Psoriasis', notes: 'Topical steroids + moisturizer.', status: 'ACTIVE' as const, items: [{ medicineName: 'Betamethasone Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Sanjay Patil (9876543264)
-  { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 0, diagnosis: 'Coronary Artery Disease', notes: 'Post-angiography. Dual antiplatelet + statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 5, diagnosis: 'Coronary Artery Disease', notes: 'Pre-PCI medications.', status: 'DISPENSED' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '5 days', qty: 1 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '5 days', qty: 1 }] },
-  // Patient: Divya Prabha Rao (9876543266)
-  { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 0, diagnosis: 'Dysmenorrhea', notes: 'NSAIDs during periods. Heat therapy.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mefenamic Acid', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
-  // Patient: Rajesh Yadav (9876543268)
-  { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 0, diagnosis: 'Cerebrovascular Accident (Stroke)', notes: 'Secondary prevention. Dual antiplatelet + statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '21 days', qty: 1 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Aisha Khan (9876543270)
-  { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 0, diagnosis: 'Major Depressive Disorder', notes: 'SSRI started. Review in 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Sertraline', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  // Patient: Gopal Krishna Iyer (9876543272)
-  { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 0, diagnosis: 'Glaucoma', notes: 'Timolol eye drops. Monitor IOP monthly.', status: 'ACTIVE' as const, items: [{ medicineName: 'Timolol Eye Drops', dosage: '1 drop BD', duration: '30 days', qty: 1 }] },
-  // Patient: Harpreet Singh (9876543274)
-  { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 0, diagnosis: 'Tonsillitis', notes: 'Antibiotics. Tonsillectomy if recurrent.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '10 days', qty: 1 }, { medicineName: 'Paracetamol', dosage: '1-0-1 SOS', duration: '5 days', qty: 1 }] },
-  // Patient: Shobha Devi (9876543276)
-  { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Resistant HTN. BP still elevated.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Furosemide', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
-  // Patient: Aditya Sharma (9876543278)
-  { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 0, diagnosis: 'Ankle Sprain', notes: 'RICE + physiotherapy. Follow up 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Ibuprofen', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Diclofenac', dosage: 'Apply locally TID', duration: '10 days', qty: 1 }] },
-  // Patient: Kamala Nair (9876543280)
-  { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 0, diagnosis: 'Uterine Fibroids', notes: 'Conservative. Iron supplementation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '60 days', qty: 2 }, { medicineName: 'Tranexamic Acid', dosage: '1-0-1', duration: '5 days', qty: 1 }] },
-  // Patient: Manoj Tripathi (9876543282)
-  { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 0, diagnosis: 'GERD', notes: 'PPI 4 weeks. Lifestyle modifications.', status: 'ACTIVE' as const, items: [{ medicineName: 'Pantoprazole', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Domperidone', dosage: '1-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Rekha Joshi (9876543284)
-  { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 0, diagnosis: 'Chickenpox', notes: 'Keep hydrated. Calamine for itch.', status: 'ACTIVE' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Calamine Lotion', dosage: 'Apply topically TID', duration: '7 days', qty: 1 }] },
-  // Patient: Vijay Patel (9876543286)
-  { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 0, diagnosis: 'Hypothyroidism', notes: 'Levothyroxine on empty stomach. Recheck TSH in 6 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Levothyroxine', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
-  // Patient: Sunita Pandey (9876543288)
-  { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 0, diagnosis: 'Polycystic Ovarian Syndrome', notes: 'OCP + lifestyle. Recheck hormones in 3 months.', status: 'ACTIVE' as const, items: [{ medicineName: 'Dydrogesterone', dosage: '1-0-0', duration: '10 days', qty: 3 }, { medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Ashok Gupta (9876543290)
-  { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 0, diagnosis: 'Frozen Shoulder', notes: 'Physiotherapy + NSAIDs. Intra-articular injection.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Pregabalin', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-];
-
-async function seedPatientsWithHistory(doctorRows: Doctor[]) {
+async function seedPatientsWithHistory() {
   let totalPatients = 0;
   let totalVitals = 0;
-  let totalRx = 0;
   // Look up superadmin user for createdById
   const superadmin = await prisma.user.findFirst({ where: { email: 'superadmin@clinic.com' } });
   const userId = superadmin?.id ?? null;
@@ -1990,51 +1617,6 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
     }
   }
   console.log(`Seeded ${totalPatients} demo patients with ${totalVitals} vitals records.`);
-
-  // Seed demo prescriptions for those patients (only if none exist yet)
-  const existingRxCount = await prisma.prescription.count();
-  if (existingRxCount === 0) {
-    const medicines = await prisma.medicine.findMany({ take: 100 });
-    const medicineByName = new Map(medicines.map((m) => [m.name, m]));
-
-    for (const rx of PRESCRIPTION_DEMOS) {
-      const patient = await prisma.patient.findFirst({ where: { contactNo: rx.patientPhone } });
-      if (!patient) {
-        console.warn(`Patient not found for phone ${rx.patientPhone}, skipping prescription.`);
-        continue;
-      }
-      const doctor = doctorRows[rx.doctorIdx];
-      if (!doctor) continue;
-
-      const createdAt = new Date(Date.now() - rx.daysAgo * 24 * 60 * 60 * 1000);
-
-      await prisma.prescription.create({
-        data: {
-          patientId: patient.id,
-          doctorId: doctor.id,
-          diagnosis: rx.diagnosis,
-          notes: rx.notes ?? null,
-          status: rx.status,
-          createdAt,
-          updatedAt: createdAt,
-          items: {
-            create: rx.items.map((item) => {
-              const medicine = medicineByName.get(item.medicineName);
-              return {
-                medicineId: medicine?.id ?? 'unknown',
-                medicineName: item.medicineName,
-                dosage: item.dosage,
-                duration: item.duration,
-                quantity: item.qty,
-              };
-            }),
-          },
-        },
-      });
-      totalRx++;
-    }
-  }
-  console.log(`Seeded ${totalRx} demo prescriptions with items.`);
 }
 
 // ─── Main ───────────────────────────────────────────────────
@@ -2042,11 +1624,7 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
 // ─── Prescription Templates ───────────────────────────────
 
 const prescriptionTemplateData = [
-  // ═══════════════════════════════════════════════════════════
-  // PRESCRIPTION TEMPLATES
-  // ═══════════════════════════════════════════════════════════
-
-  // ── 1. Classic — Traditional formal layout ──
+  // ── 1. Classic — Traditional formal layout (default prescription template) ──
   {
     name: 'Classic Clinic Rx',
     type: 'prescription',
@@ -2087,386 +1665,7 @@ const prescriptionTemplateData = [
       footerColumns: ['address', 'phone', 'email'],
     },
   },
-  // ── 2. Modern — Contemporary with colored header banner ──
-  {
-    name: 'Modern Clinic Rx',
-    type: 'prescription',
-    description: 'Contemporary design with gradient header banner, rounded elements, and color accents',
-    isDefault: false,
-    headerTitle: 'City Heart Clinic',
-    headerSubtitle: 'Cardiology & Cardiovascular Medicine',
-    clinicPhone: '022-25551235',
-    clinicEmail: 'heart@cityclinic.com',
-    clinicWebsite: 'https://cityclinic.com/heart',
-    doctorName: 'Dr. Arun Singh',
-    doctorSpecialization: 'Cardiology',
-    doctorQualification: 'MBBS, DM Cardiology',
-    doctorRegistrationNo: 'MCI-10005',
-    layout: {
-      layoutStyle: 'modern',
-      headerStyle: 'banner',
-      fontFamily: 'sans',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: false,
-      showFooter: true,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: true,
-      primaryColor: '#dc2626',
-      secondaryColor: '#fef2f2',
-      headerBgColor: '#dc2626',
-      recommendations: [],
-      footerText: '',
-      footerColumns: ['address', 'phone'],
-    },
-  },
-  // ── 3. Minimal — Stripped-down, quick prescriptions ──
-  {
-    name: 'Minimal Rx',
-    type: 'prescription',
-    description: 'Clean, minimal template without branding — ideal for quick prescriptions',
-    isDefault: false,
-    headerTitle: '',
-    headerSubtitle: '',
-    clinicPhone: '',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: '',
-    doctorSpecialization: '',
-    doctorQualification: '',
-    doctorRegistrationNo: '',
-    layout: {
-      layoutStyle: 'minimal',
-      headerStyle: 'left',
-      fontFamily: 'sans',
-      paperSize: 'A4',
-      fontSize: 'small',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: false,
-      showClinicAddress: false,
-      showRegistrationNo: false,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      primaryColor: '#000000',
-      secondaryColor: '#ffffff',
-      headerBgColor: '#000000',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-  // ── 4. Two-Column — Split layout for dense prescriptions ──
-  {
-    name: 'Two-Column Rx',
-    type: 'prescription',
-    description: 'Split layout: patient info on left, medicines on right — great for detailed prescriptions',
-    isDefault: false,
-    headerTitle: 'City Clinic — OPD',
-    headerSubtitle: 'Multi-Specialty Clinic',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'info@cityclinic.com',
-    clinicWebsite: 'https://cityclinic.com',
-    doctorName: 'Dr. Lakshmi Iyer',
-    doctorSpecialization: 'Gynecology',
-    doctorQualification: 'MBBS, MS OBG',
-    doctorRegistrationNo: 'MCI-10004',
-    layout: {
-      layoutStyle: 'two-column',
-      headerStyle: 'split',
-      fontFamily: 'sans',
-      paperSize: 'A4',
-      fontSize: 'small',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: true,
-      showFooter: true,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: true,
-      primaryColor: '#7c3aed',
-      secondaryColor: '#ede9fe',
-      headerBgColor: '#7c3aed',
-      recommendations: [
-        'Continue Breastfeeding',
-        'Vaccination Schedule',
-        'Growth Monitoring',
-        'Nutrition Advice',
-        'Iron Supplements',
-      ],
-      footerText: '',
-      footerColumns: ['address', 'phone', 'email'],
-    },
-  },
-  // ── 5. Compact — Dense layout for high-volume clinics ──
-  {
-    name: 'Compact Rx',
-    type: 'prescription',
-    description: 'Dense layout fitting more info in less space — perfect for high-volume OPD',
-    isDefault: false,
-    headerTitle: 'City Clinic — Express',
-    headerSubtitle: 'Quick Consultation Desk',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'express@cityclinic.com',
-    clinicWebsite: '',
-    doctorName: 'Dr. Vivek Mehta',
-    doctorSpecialization: 'Orthopedics',
-    doctorQualification: 'MBBS, MS Ortho',
-    doctorRegistrationNo: 'MCI-10003',
-    layout: {
-      layoutStyle: 'compact',
-      headerStyle: 'left',
-      fontFamily: 'sans',
-      paperSize: 'A5',
-      fontSize: 'small',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: false,
-      showFooter: true,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: false,
-      primaryColor: '#059669',
-      secondaryColor: '#d1fae5',
-      headerBgColor: '#059669',
-      recommendations: [],
-      footerText: '',
-      footerColumns: ['address', 'phone'],
-    },
-  },
-  // ── 6. Banner — Full-width header with centered content ──
-  {
-    name: 'Banner Rx',
-    type: 'prescription',
-    description: 'Full-width header banner with centered content — premium clinic look',
-    isDefault: false,
-    headerTitle: 'City Eye Centre',
-    headerSubtitle: 'Complete Eye Care & Vision Solutions',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'eyes@cityclinic.com',
-    clinicWebsite: 'https://cityclinic.com/eyes',
-    doctorName: 'Dr. Deepa Nair',
-    doctorSpecialization: 'Ophthalmology',
-    doctorQualification: 'MBBS, MS Ophthalmology',
-    doctorRegistrationNo: 'MCI-10008',
-    layout: {
-      layoutStyle: 'banner',
-      headerStyle: 'centered',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: true,
-      showFooter: true,
-      showQRCode: true,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: true,
-      showDiagnosis: true,
-      showNotes: true,
-      freeFormMode: false,
-      writingLineCount: 20,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#0891b2',
-      primaryColor: '#0891b2',
-      secondaryColor: '#ecfeff',
-      headerBgColor: '#0891b2',
-      recommendations: [
-        'Single Vision',
-        'Bifocal',
-        'Trifocal',
-        'Progressive',
-        'Polycarbonate',
-        'Trivex',
-        'Hi-Index',
-        'Anti-Reflective Coating',
-        'Photochromic',
-        'Tint',
-        'Polarized',
-      ],
-      footerText: 'Thank you for choosing City Eye Centre',
-      footerColumns: ['address', 'phone', 'email', 'website'],
-    },
-  },
-  // ── 7. Letterhead — Hospital letterhead with split header and line separator ──
-  {
-    name: 'Hospital Letterhead Rx',
-    type: 'prescription',
-    description: 'Classic hospital letterhead with doctor info left, hospital right, and colored separator line',
-    isDefault: false,
-    headerTitle: 'City Hospital',
-    headerSubtitle: 'Multi-Specialty Hospital',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'info@cityhospital.com',
-    clinicWebsite: 'https://cityhospital.com',
-    doctorName: 'Dr. Arun Singh',
-    doctorSpecialization: 'Cardiology',
-    doctorQualification: 'MBBS, DM Cardiology',
-    doctorRegistrationNo: 'MCI-10005',
-    layout: {
-      layoutStyle: 'letterhead',
-      headerStyle: 'split-line',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: true,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: false,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: false,
-      writingLineCount: 20,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#16a34a',
-      primaryColor: '#16a34a',
-      secondaryColor: '#dcfce7',
-      headerBgColor: '#16a34a',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-  // ── 8. Doctor's Script — Free-form writing pad with handwriting font ──
-  {
-    name: "Doctor's Script Pad",
-    type: 'prescription',
-    description: 'Free-form writing pad with lined paper and handwriting font — for doctors who prefer to write by hand',
-    isDefault: false,
-    headerTitle: '',
-    headerSubtitle: '',
-    clinicPhone: '',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: 'Dr. Priya Kapoor',
-    doctorSpecialization: 'Dermatology',
-    doctorQualification: 'MBBS, MD Dermatology',
-    doctorRegistrationNo: 'MCI-10006',
-    layout: {
-      layoutStyle: 'doctor-script',
-      headerStyle: 'left',
-      fontFamily: 'handwriting',
-      paperSize: 'A4',
-      fontSize: 'large',
-      showRxSymbol: true,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: false,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: false,
-      freeFormMode: true,
-      writingLineCount: 25,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Dr. Priya Kapoor',
-      showHeaderLine: true,
-      headerLineColor: '#d97706',
-      primaryColor: '#d97706',
-      secondaryColor: '#fef3c7',
-      headerBgColor: '#d97706',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-  // ── 9. Prescription Pad — Classic pad with no footer, just signature ──
-  {
-    name: 'Quick Prescription Pad',
-    type: 'prescription',
-    description: 'Minimal pad — header, patient line, writing space, and signature. No footer, no table.',
-    isDefault: false,
-    headerTitle: '',
-    headerSubtitle: '',
-    clinicPhone: '022-25551234',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: 'Dr. Mohammed Farooq',
-    doctorSpecialization: 'ENT',
-    doctorQualification: 'MBBS, MS ENT',
-    doctorRegistrationNo: 'MCI-10007',
-    layout: {
-      layoutStyle: 'prescription-pad',
-      headerStyle: 'split-line',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: false,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: true,
-      writingLineCount: 22,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#7c3aed',
-      primaryColor: '#7c3aed',
-      secondaryColor: '#ede9fe',
-      headerBgColor: '#7c3aed',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-
-  // ═══════════════════════════════════════════════════════════
-  // DIAGNOSIS TEMPLATES
-  // ═══════════════════════════════════════════════════════════
-
-  // ── 10. Standard Diagnosis Report ──
+  // ── 2. Standard Diagnosis Report (default diagnosis template) ──
   {
     name: 'Standard Diagnosis Report',
     type: 'diagnosis',
@@ -2514,206 +1713,6 @@ const prescriptionTemplateData = [
       footerColumns: ['address', 'phone'],
     },
   },
-
-  // ── 11. Fitness Certificate ──
-  {
-    name: 'Fitness Certificate',
-    type: 'diagnosis',
-    description: 'Medical fitness certificate for employment, sports, or travel',
-    isDefault: false,
-    headerTitle: 'City Hospital',
-    headerSubtitle: 'Medical Fitness Department',
-    clinicPhone: '022-25551234',
-    clinicEmail: 'fitness@cityhospital.com',
-    clinicWebsite: '',
-    doctorName: 'Dr. Arun Singh',
-    doctorSpecialization: 'General Medicine',
-    doctorQualification: 'MBBS, MD',
-    doctorRegistrationNo: 'MCI-10005',
-    layout: {
-      layoutStyle: 'letterhead',
-      headerStyle: 'split-line',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: true,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: true,
-      showNotes: true,
-      freeFormMode: true,
-      writingLineCount: 18,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Doctor Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#0891b2',
-      primaryColor: '#0891b2',
-      secondaryColor: '#ecfeff',
-      headerBgColor: '#0891b2',
-      recommendations: [],
-      footerText: 'This certificate is valid for 30 days from the date of issue.',
-      footerColumns: ['address', 'phone'],
-    },
-  },
-
-  // ── 12. Sick Leave Certificate ──
-  {
-    name: 'Sick Leave Certificate',
-    type: 'diagnosis',
-    description: 'Sick leave / medical leave certificate for employers and institutions',
-    isDefault: false,
-    headerTitle: 'City Clinic',
-    headerSubtitle: '',
-    clinicPhone: '022-25551234',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: 'Dr. Sunita Verma',
-    doctorSpecialization: 'General Medicine',
-    doctorQualification: 'MBBS, DCH',
-    doctorRegistrationNo: 'MCI-10002',
-    layout: {
-      layoutStyle: 'minimal',
-      headerStyle: 'left',
-      fontFamily: 'serif',
-      paperSize: 'A4',
-      fontSize: 'medium',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: false,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: true,
-      writingLineCount: 12,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Doctor Signature:',
-      showHeaderLine: true,
-      headerLineColor: '#d97706',
-      primaryColor: '#d97706',
-      secondaryColor: '#fef3c7',
-      headerBgColor: '#d97706',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
-
-  // ═══════════════════════════════════════════════════════════
-  // LAB TEST TEMPLATES
-  // ═══════════════════════════════════════════════════════════
-
-  // ── 13. Standard Lab Test Order ──
-  {
-    name: 'Standard Lab Test Order',
-    type: 'test',
-    description: 'Comprehensive lab test order form with all test categories and checkboxes',
-    isDefault: true,
-    headerTitle: 'City Diagnostic Centre',
-    headerSubtitle: 'NABL Accredited Laboratory',
-    clinicPhone: '022-25551235',
-    clinicEmail: 'lab@cityclinic.com',
-    clinicWebsite: 'https://cityclinic.com/lab',
-    doctorName: '',
-    doctorSpecialization: '',
-    doctorQualification: '',
-    doctorRegistrationNo: '',
-    layout: {
-      layoutStyle: 'classic',
-      headerStyle: 'centered',
-      fontFamily: 'sans',
-      paperSize: 'A4',
-      fontSize: 'small',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: true,
-      showQRCode: true,
-      showBorder: true,
-      showClinicAddress: true,
-      showRegistrationNo: false,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: false,
-      writingLineCount: 20,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Referring Doctor:',
-      showHeaderLine: true,
-      headerLineColor: '#dc2626',
-      primaryColor: '#dc2626',
-      secondaryColor: '#fef2f2',
-      headerBgColor: '#dc2626',
-      recommendations: [],
-      footerText: 'Report will be available in 24-48 hours',
-      footerColumns: ['address', 'phone', 'email'],
-    },
-  },
-
-  // ── 14. Quick Test Requisition ──
-  {
-    name: 'Quick Test Requisition',
-    type: 'test',
-    description: 'Minimal test requisition — just patient info and test checklist',
-    isDefault: false,
-    headerTitle: 'City Clinic Lab',
-    headerSubtitle: '',
-    clinicPhone: '022-25551234',
-    clinicEmail: '',
-    clinicWebsite: '',
-    doctorName: 'Dr. Priya Kapoor',
-    doctorSpecialization: 'Dermatology',
-    doctorQualification: 'MBBS, MD Dermatology',
-    doctorRegistrationNo: 'MCI-10006',
-    layout: {
-      layoutStyle: 'minimal',
-      headerStyle: 'left',
-      fontFamily: 'sans',
-      paperSize: 'A5',
-      fontSize: 'small',
-      showRxSymbol: false,
-      showPatientFields: true,
-      showMedicineTable: false,
-      showRecommendations: false,
-      showFooter: false,
-      showQRCode: false,
-      showBorder: true,
-      showClinicAddress: false,
-      showRegistrationNo: true,
-      showWatermark: false,
-      showDiagnosis: false,
-      showNotes: false,
-      freeFormMode: false,
-      writingLineCount: 15,
-      showWritingLines: true,
-      showSignatureLine: true,
-      signatureText: 'Doctor:',
-      showHeaderLine: true,
-      headerLineColor: '#7c3aed',
-      primaryColor: '#7c3aed',
-      secondaryColor: '#ede9fe',
-      headerBgColor: '#7c3aed',
-      recommendations: [],
-      footerText: '',
-      footerColumns: [],
-    },
-  },
 ];
 
 async function seedPrescriptionTemplates() {
@@ -2749,369 +1748,6 @@ async function seedPrescriptionTemplates() {
   console.log(`Seeded ${prescriptionTemplateData.length} prescription templates (prescription, diagnosis, and test).`);
 }
 
-// ─── Appointments ─────────────────────────────────────────
-
-async function seedAppointments(doctorRows: Doctor[]) {
-  const existing = await prisma.appointment.count();
-  if (existing > 0 && !FRESH) {
-    console.log('Appointments already seeded, skipping.');
-    return;
-  }
-  const patients = await prisma.patient.findMany();
-  if (patients.length === 0) return;
-  const now = Date.now();
-  // Use UTC-based date construction to match the API's filter boundaries
-  function utcDate(daysOffset: number, hours: number, minutes: number): Date {
-    const d = new Date(now + daysOffset * DAY);
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hours, minutes, 0, 0));
-  }
-
-  // Completed appointments (past)
-  const completedAppts = [
-    { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 21, type: 'WALK_IN', fee: 0, status: 'COMPLETED', notes: 'General check-up — mild fever' },
-    { patientPhone: '9876543210', doctorIdx: 1, daysAgo: 14, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Pediatric follow-up for child' },
-    { patientPhone: '9876543210', doctorIdx: 2, daysAgo: 10, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Orthopedic consult for knee pain' },
-    { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Follow-up — fever resolved' },
-    { patientPhone: '9876543210', doctorIdx: 4, daysAgo: 3, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology check-up — chest discomfort' },
-    { patientPhone: '9876543212', doctorIdx: 2, daysAgo: 30, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Orthopedic consult — chronic knee pain' },
-    { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 18, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology follow-up — hypertension' },
-    { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 5, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP check — stable' },
-    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 45, type: 'WALK_IN', fee: 0, status: 'COMPLETED', notes: 'Newborn check-up — weight & vaccinations' },
-    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 28, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Routine vaccination visit' },
-    { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 12, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Milk allergy assessment — improving' },
-    { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 35, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Skin rash — diagnosed as eczema' },
-    { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 20, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Dermatology follow-up — improved' },
-    { patientPhone: '9876543216', doctorIdx: 3, daysAgo: 8, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Gynecology consult — routine check-up' },
-    { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 40, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Neurology consult — chronic headaches' },
-    { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 25, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'ENT check — hearing difficulty' },
-    { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 10, type: 'FOLLOW_UP', fee: 600, status: 'COMPLETED', notes: 'Headache follow-up — MRI reports normal' },
-    { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 2, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'ENT follow-up — hearing aid trial' },
-    { patientPhone: '9876543220', doctorIdx: 3, daysAgo: 15, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Regular gynecology check-up' },
-    { patientPhone: '9876543220', doctorIdx: 5, daysAgo: 5, type: 'SPECIALIST', fee: 600, status: 'COMPLETED', notes: 'Acne treatment follow-up' },
-    { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 20, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Sports injury — ankle sprain' },
-    { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 8, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Ankle healing well, physiotherapy advised' },
-    { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 60, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes screening — borderline' },
-    { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 30, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'HbA1c results reviewed — lifestyle changes advised' },
-    { patientPhone: '9876543226', doctorIdx: 7, daysAgo: 10, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Vision check — mild myopia detected' },
-    { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 45, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology consult — uncontrolled hypertension' },
-    { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 15, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP medication adjusted — monitor weekly' },
-    // ── Batch 2 completed appointments ──
-    { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 40, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Cardiology — chest pain on exertion' },
-    { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 15, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Stress test recommended' },
-    { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 3, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'General check-up — fatigue' },
-    { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 60, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Back pain — spondylosis' },
-    { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 30, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Physiotherapy started' },
-    { patientPhone: '9876543232', doctorIdx: 0, daysAgo: 5, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes check' },
-    { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 12, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Acne treatment started' },
-    { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Skin improving' },
-    { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 50, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'CHF evaluation' },
-    { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 20, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP improved' },
-    { patientPhone: '9876543236', doctorIdx: 0, daysAgo: 2, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'HbA1c review' },
-    { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 30, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Prenatal 16 weeks' },
-    { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 7, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Routine antenatal' },
-    { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 8, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'Chronic sinusitis' },
-    { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 1, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'CT results reviewed' },
-    { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 45, type: 'SPECIALIST', fee: 650, status: 'COMPLETED', notes: 'Cataract evaluation' },
-    { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 10, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Pre-op assessment' },
-    { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 20, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'Anxiety and insomnia' },
-    { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 5, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Dosage adjusted' },
-    { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 35, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Resistant HTN' },
-    { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 10, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Added Spironolactone' },
-    { patientPhone: '9876543248', doctorIdx: 8, daysAgo: 15, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Tension headaches' },
-    { patientPhone: '9876543248', doctorIdx: 0, daysAgo: 2, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Viral fever' },
-    { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 30, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Diabetes screening' },
-    { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'HbA1c 7.8%' },
-    { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 20, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Acute bronchitis' },
-    { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 5, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Bronchitis resolving' },
-    { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 10, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'PCOD evaluation' },
-    { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'USG confirmed PCOD' },
-    { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 25, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Knee OA Grade 3' },
-    { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 5, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Viscosupplementation' },
-    { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 14, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Eczema flare-up' },
-    { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 4, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Eczema improving' },
-    { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 42, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Obesity consult' },
-    { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 14, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Weight loss 2kg' },
-    // ── Batch 3 completed appointments ──
-    { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 50, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Migraine evaluation' },
-    { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 20, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Headache frequency reduced' },
-    { patientPhone: '9876543262', doctorIdx: 5, daysAgo: 3, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Psoriasis flare-up' },
-    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 60, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Angina evaluation' },
-    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 25, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'TMT positive' },
-    { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 5, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Post-angiography' },
-    { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 18, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Dysmenorrhea' },
-    { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 6, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Pain improved' },
-    { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 45, type: 'SPECIALIST', fee: 1200, status: 'COMPLETED', notes: 'Stroke evaluation' },
-    { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 12, type: 'FOLLOW_UP', fee: 600, status: 'COMPLETED', notes: 'MRI review' },
-    { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 22, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'Depression screening' },
-    { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 8, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'SSRI started' },
-    { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 40, type: 'SPECIALIST', fee: 650, status: 'COMPLETED', notes: 'Glaucoma screening' },
-    { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 10, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Timolol started' },
-    { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 15, type: 'CONSULTATION', fee: 550, status: 'COMPLETED', notes: 'Recurrent tonsillitis' },
-    { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 3, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Improved' },
-    { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 55, type: 'SPECIALIST', fee: 1000, status: 'COMPLETED', notes: 'Uncontrolled HTN' },
-    { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 20, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'BP improving' },
-    { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 12, type: 'CONSULTATION', fee: 800, status: 'COMPLETED', notes: 'ACL tear' },
-    { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Brace fitted' },
-    { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 35, type: 'SPECIALIST', fee: 700, status: 'COMPLETED', notes: 'Menorrhagia eval' },
-    { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 8, type: 'FOLLOW_UP', fee: 500, status: 'COMPLETED', notes: 'Conservative mgmt' },
-    { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 30, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'GERD eval' },
-    { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'PPI working' },
-    { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 16, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'Child fever' },
-    { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 4, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Child recovered' },
-    { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 35, type: 'CONSULTATION', fee: 500, status: 'COMPLETED', notes: 'Hypothyroid eval' },
-    { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 7, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Levothyroxine started' },
-    { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 20, type: 'CONSULTATION', fee: 600, status: 'COMPLETED', notes: 'PCOD eval' },
-    { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 5, type: 'FOLLOW_UP', fee: 300, status: 'COMPLETED', notes: 'Hormones reviewed' },
-    { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 50, type: 'SPECIALIST', fee: 800, status: 'COMPLETED', notes: 'Frozen shoulder eval' },
-    { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 18, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Physiotherapy started' },
-    // ── Cancelled and No-Show appointments ──
-    { patientPhone: '9876543262', doctorIdx: 9, daysAgo: 10, type: 'CONSULTATION', fee: 800, status: 'CANCELLED', notes: 'Patient cancelled — personal reasons' },
-    { patientPhone: '9876543270', doctorIdx: 5, daysAgo: 15, type: 'CONSULTATION', fee: 600, status: 'CANCELLED', notes: 'Patient cancelled — felt better' },
-    { patientPhone: '9876543276', doctorIdx: 0, daysAgo: 8, type: 'FOLLOW_UP', fee: 300, status: 'NO_SHOW', notes: 'Patient did not attend' },
-    { patientPhone: '9876543284', doctorIdx: 6, daysAgo: 12, type: 'CONSULTATION', fee: 550, status: 'NO_SHOW', notes: 'Patient did not attend' },
-    { patientPhone: '9876543288', doctorIdx: 5, daysAgo: 18, type: 'CONSULTATION', fee: 600, status: 'RESCHEDULED', notes: 'Rescheduled to later date' },
-    { patientPhone: '9876543264', doctorIdx: 0, daysAgo: 15, type: 'CONSULTATION', fee: 500, status: 'CANCELLED', notes: 'Doctor unavailable — rescheduled' },
-    // ── Confirmed / Checked-In appointments ──
-    { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 1, type: 'CONSULTATION', fee: 500, status: 'CONFIRMED', notes: 'General check-up confirmed' },
-    { patientPhone: '9876543252', doctorIdx: 2, daysAgo: 1, type: 'SPECIALIST', fee: 800, status: 'CHECKED_IN', notes: 'Checked in for ortho consult' },
-  ];
-
-  const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
-  let apptCount = 0;
-
-  for (const a of completedAppts) {
-    const patient = patientByPhone.get(a.patientPhone);
-    if (!patient) continue;
-    const doctor = doctorRows[a.doctorIdx];
-    if (!doctor) continue;
-    const date = utcDate(-a.daysAgo, 9 + (a.doctorIdx % 8), (a.doctorIdx * 15) % 60);
-
-    await prisma.appointment.create({
-      data: {
-        patientId: patient.id,
-        doctorId: doctor.id,
-        date,
-        type: a.type,
-        status: a.status,
-        fee: a.fee,
-        registrationFee: a.daysAgo > 30 ? 100 : 0,
-        notes: a.notes,
-      },
-    });
-    apptCount++;
-  }
-
-  // Upcoming appointments (next 7 days)
-  const upcomingAppts = [
-    { patientPhone: '9876543210', doctorIdx: 0, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP follow-up' },
-    { patientPhone: '9876543212', doctorIdx: 4, daysAhead: 3, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiology review' },
-    { patientPhone: '9876543214', doctorIdx: 1, daysAhead: 1, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Growth assessment' },
-    { patientPhone: '9876543216', doctorIdx: 3, daysAhead: 5, type: 'SPECIALIST', fee: 700, status: 'SCHEDULED', notes: 'Gynecology follow-up' },
-    { patientPhone: '9876543218', doctorIdx: 9, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Psychiatry session' },
-    { patientPhone: '9876543220', doctorIdx: 3, daysAhead: 7, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Prenatal check-up' },
-    { patientPhone: '9876543222', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Ankle rehab check' },
-    { patientPhone: '9876543224', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
-    { patientPhone: '9876543226', doctorIdx: 7, daysAhead: 2, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Glasses fitting' },
-    { patientPhone: '9876543228', doctorIdx: 4, daysAhead: 1, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
-    // ── Batch 2 upcoming appointments ──
-    { patientPhone: '9876543230', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiology review' },
-    { patientPhone: '9876543232', doctorIdx: 2, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Back pain check' },
-    { patientPhone: '9876543234', doctorIdx: 5, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Acne review' },
-    { patientPhone: '9876543236', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'CHF follow-up' },
-    { patientPhone: '9876543238', doctorIdx: 3, daysAhead: 5, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Prenatal 20 weeks' },
-    { patientPhone: '9876543242', doctorIdx: 7, daysAhead: 3, type: 'SPECIALIST', fee: 650, status: 'SCHEDULED', notes: 'Cataract surgery' },
-    { patientPhone: '9876543244', doctorIdx: 9, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Anxiety review' },
-    { patientPhone: '9876543246', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
-    { patientPhone: '9876543250', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
-    { patientPhone: '9876543254', doctorIdx: 3, daysAhead: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
-    { patientPhone: '9876543256', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Knee review' },
-    { patientPhone: '9876543260', doctorIdx: 0, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Weight check' },
-    // ── Batch 3 upcoming ──
-    { patientPhone: '9876543262', doctorIdx: 5, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Psoriasis review' },
-    { patientPhone: '9876543264', doctorIdx: 4, daysAhead: 2, type: 'SPECIALIST', fee: 1000, status: 'SCHEDULED', notes: 'Pre-PCI assessment' },
-    { patientPhone: '9876543268', doctorIdx: 8, daysAhead: 4, type: 'FOLLOW_UP', fee: 600, status: 'SCHEDULED', notes: 'Stroke secondary prevention' },
-    { patientPhone: '9876543270', doctorIdx: 9, daysAhead: 3, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'SSRI review' },
-    { patientPhone: '9876543272', doctorIdx: 7, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'IOP recheck' },
-    { patientPhone: '9876543276', doctorIdx: 4, daysAhead: 2, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
-    { patientPhone: '9876543278', doctorIdx: 2, daysAhead: 4, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'ACL rehab check' },
-    { patientPhone: '9876543280', doctorIdx: 3, daysAhead: 6, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Fibroid review' },
-    { patientPhone: '9876543282', doctorIdx: 0, daysAhead: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PPI review' },
-    { patientPhone: '9876543286', doctorIdx: 0, daysAhead: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'TSH recheck' },
-    { patientPhone: '9876543288', doctorIdx: 3, daysAhead: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
-    { patientPhone: '9876543290', doctorIdx: 2, daysAhead: 6, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Frozen shoulder rehab' },
-  ];
-
-  for (const a of upcomingAppts) {
-    const patient = patientByPhone.get(a.patientPhone);
-    if (!patient) continue;
-    const doctor = doctorRows[a.doctorIdx];
-    if (!doctor) continue;
-    const date = utcDate(a.daysAhead, 9 + (a.doctorIdx % 8), (a.doctorIdx * 15) % 60);
-
-    await prisma.appointment.create({
-      data: {
-        patientId: patient.id,
-        doctorId: doctor.id,
-        date,
-        type: a.type,
-        status: a.status,
-        fee: a.fee,
-        notes: a.notes,
-      },
-    });
-    apptCount++;
-  }
-
-  // Today's appointments (one per doctor with a queue entry)
-  const todayAppts = [
-    { patientPhone: '9876543210', doctorIdx: 0, type: 'FOLLOW_UP', fee: 500, status: 'IN_PROGRESS', notes: 'Routine follow-up' },
-    { patientPhone: '9876543224', doctorIdx: 0, type: 'CONSULTATION', fee: 500, status: 'SCHEDULED', notes: 'Diabetes review' },
-    { patientPhone: '9876543214', doctorIdx: 1, type: 'CONSULTATION', fee: 600, status: 'IN_PROGRESS', notes: 'Growth assessment' },
-    { patientPhone: '9876543222', doctorIdx: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Ankle rehab check' },
-    { patientPhone: '9876543220', doctorIdx: 3, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Prenatal check-up' },
-    { patientPhone: '9876543228', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP monitoring' },
-    { patientPhone: '9876543212', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Hypertension review' },
-    { patientPhone: '9876543216', doctorIdx: 5, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Eczema follow-up' },
-    { patientPhone: '9876543218', doctorIdx: 6, type: 'CONSULTATION', fee: 550, status: 'IN_PROGRESS', notes: 'Ear pain' },
-    { patientPhone: '9876543226', doctorIdx: 7, type: 'CONSULTATION', fee: 600, status: 'SCHEDULED', notes: 'Vision check' },
-    { patientPhone: '9876543218', doctorIdx: 8, type: 'FOLLOW_UP', fee: 600, status: 'SCHEDULED', notes: 'Headache follow-up' },
-    { patientPhone: '9876543210', doctorIdx: 9, type: 'CONSULTATION', fee: 800, status: 'SCHEDULED', notes: 'Anxiety session' },
-    // ── Batch 2 today appointments ──
-    { patientPhone: '9876543230', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Cardiac follow-up' },
-    { patientPhone: '9876543236', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'CHF review' },
-    { patientPhone: '9876543246', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Resistant HTN' },
-    { patientPhone: '9876543250', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Diabetes review' },
-    { patientPhone: '9876543242', doctorIdx: 7, type: 'SPECIALIST', fee: 650, status: 'SCHEDULED', notes: 'Pre-op drops check' },
-    { patientPhone: '9876543260', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'IN_PROGRESS', notes: 'Weight management' },
-    // ── Batch 3 today appointments ──
-    { patientPhone: '9876543262', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Migraine follow-up' },
-    { patientPhone: '9876543264', doctorIdx: 4, type: 'SPECIALIST', fee: 1000, status: 'SCHEDULED', notes: 'Pre-PCI assessment' },
-    { patientPhone: '9876543268', doctorIdx: 8, type: 'FOLLOW_UP', fee: 600, status: 'IN_PROGRESS', notes: 'Stroke follow-up' },
-    { patientPhone: '9876543270', doctorIdx: 9, type: 'FOLLOW_UP', fee: 400, status: 'SCHEDULED', notes: 'Depression review' },
-    { patientPhone: '9876543272', doctorIdx: 7, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Glaucoma check' },
-    { patientPhone: '9876543276', doctorIdx: 4, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'BP recheck' },
-    { patientPhone: '9876543280', doctorIdx: 3, type: 'FOLLOW_UP', fee: 500, status: 'SCHEDULED', notes: 'Fibroid review' },
-    { patientPhone: '9876543286', doctorIdx: 0, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'Thyroid recheck' },
-    { patientPhone: '9876543288', doctorIdx: 3, type: 'FOLLOW_UP', fee: 300, status: 'SCHEDULED', notes: 'PCOD follow-up' },
-    { patientPhone: '9876543290', doctorIdx: 2, type: 'FOLLOW_UP', fee: 400, status: 'COMPLETED', notes: 'Frozen shoulder check' },
-  ];  for (let i = 0; i < todayAppts.length; i++) {
-    const a = todayAppts[i];
-    const patient = patientByPhone.get(a.patientPhone);
-    if (!patient) continue;
-    const doctor = doctorRows[a.doctorIdx];
-    if (!doctor) continue;
-
-    const date = utcDate(0, 9 + i, (i * 15) % 60);
-
-    await prisma.appointment.create({
-      data: {
-        patientId: patient.id,
-        doctorId: doctor.id,
-        date,
-        type: a.type,
-        status: a.status,
-        fee: a.fee,
-        notes: a.notes,
-      },
-    });
-    apptCount++;
-  }
-
-  console.log(`Seeded ${apptCount} appointments (${completedAppts.length} completed, ${upcomingAppts.length} upcoming, ${todayAppts.length} today).`);
-}
-
-// ─── Queue Entries ────────────────────────────────────────
-
-async function seedQueueEntries(doctorRows: Doctor[]) {
-  const existing = await prisma.queueEntry.count();
-  if (existing > 0 && !FRESH) {
-    console.log('Queue entries already seeded, skipping.');
-    return;
-  }
-  const patients = await prisma.patient.findMany();
-  if (patients.length === 0) return;
-  const patientByPhone = new Map(patients.map((p) => [p.contactNo, p]));
-  // Use UTC midnight to match the queue service's filter boundaries
-  const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
-
-  const queueData = [
-    // Dr. Rajesh Sharma (idx 0) — General Medicine
-    { patientPhone: '9876543210', doctorIdx: 0, token: 'T001', status: 'IN_PROGRESS' },
-    { patientPhone: '9876543224', doctorIdx: 0, token: 'T002', status: 'WAITING' },
-    // Dr. Sunita Verma (idx 1) — Pediatrics
-    { patientPhone: '9876543214', doctorIdx: 1, token: 'T003', status: 'IN_PROGRESS' },
-    // Dr. Vivek Mehta (idx 2) — Orthopedics
-    { patientPhone: '9876543222', doctorIdx: 2, token: 'T004', status: 'COMPLETED' },
-    // Dr. Lakshmi Iyer (idx 3) — Gynecology
-    { patientPhone: '9876543220', doctorIdx: 3, token: 'T005', status: 'WAITING' },
-    // Dr. Arun Singh (idx 4) — Cardiology
-    { patientPhone: '9876543228', doctorIdx: 4, token: 'T006', status: 'WAITING' },
-    { patientPhone: '9876543212', doctorIdx: 4, token: 'T007', status: 'WAITING' },
-    // Dr. Priya Kapoor (idx 5) — Dermatology
-    { patientPhone: '9876543216', doctorIdx: 5, token: 'T008', status: 'WAITING' },
-    // Dr. Mohammed Farooq (idx 6) — ENT
-    { patientPhone: '9876543218', doctorIdx: 6, token: 'T009', status: 'IN_PROGRESS' },
-    // Dr. Deepa Nair (idx 7) — Ophthalmology
-    { patientPhone: '9876543226', doctorIdx: 7, token: 'T010', status: 'WAITING' },
-    // Dr. Sanjay Gupta (idx 8) — Neurology
-    { patientPhone: '9876543218', doctorIdx: 8, token: 'T011', status: 'WAITING' },
-    // Dr. Anjali Desai (idx 9) — Psychiatry
-    { patientPhone: '9876543210', doctorIdx: 9, token: 'T012', status: 'WAITING' },
-    // ── Batch 2 queue entries ──
-    { patientPhone: '9876543230', doctorIdx: 4, token: 'T013', status: 'WAITING' },
-    { patientPhone: '9876543236', doctorIdx: 4, token: 'T014', status: 'WAITING' },
-    { patientPhone: '9876543246', doctorIdx: 4, token: 'T015', status: 'WAITING' },
-    { patientPhone: '9876543250', doctorIdx: 0, token: 'T016', status: 'WAITING' },
-    { patientPhone: '9876543242', doctorIdx: 7, token: 'T017', status: 'WAITING' },
-    { patientPhone: '9876543260', doctorIdx: 0, token: 'T018', status: 'IN_PROGRESS' },
-    { patientPhone: '9876543234', doctorIdx: 5, token: 'T019', status: 'WAITING' },
-    { patientPhone: '9876543258', doctorIdx: 5, token: 'T020', status: 'WAITING' },
-    { patientPhone: '9876543238', doctorIdx: 3, token: 'T021', status: 'WAITING' },
-    { patientPhone: '9876543254', doctorIdx: 3, token: 'T022', status: 'WAITING' },
-    { patientPhone: '9876543232', doctorIdx: 2, token: 'T023', status: 'WAITING' },
-    { patientPhone: '9876543256', doctorIdx: 2, token: 'T024', status: 'COMPLETED' },
-    { patientPhone: '9876543244', doctorIdx: 9, token: 'T025', status: 'WAITING' },
-    { patientPhone: '9876543240', doctorIdx: 6, token: 'T026', status: 'WAITING' },
-    // ── Batch 3 queue entries ──
-    { patientPhone: '9876543262', doctorIdx: 0, token: 'T027', status: 'WAITING' },
-    { patientPhone: '9876543268', doctorIdx: 8, token: 'T028', status: 'SEND_IN' },
-    { patientPhone: '9876543270', doctorIdx: 9, token: 'T029', status: 'SEND_IN' },
-    { patientPhone: '9876543272', doctorIdx: 7, token: 'T030', status: 'WAITING' },
-    { patientPhone: '9876543274', doctorIdx: 6, token: 'T031', status: 'WAITING' },
-    { patientPhone: '9876543276', doctorIdx: 4, token: 'T032', status: 'WAITING' },
-    { patientPhone: '9876543278', doctorIdx: 2, token: 'T033', status: 'WAITING' },
-    { patientPhone: '9876543280', doctorIdx: 3, token: 'T034', status: 'WAITING' },
-    { patientPhone: '9876543282', doctorIdx: 0, token: 'T035', status: 'WAITING' },
-    { patientPhone: '9876543284', doctorIdx: 1, token: 'T036', status: 'WAITING' },
-    { patientPhone: '9876543286', doctorIdx: 0, token: 'T037', status: 'SEND_IN' },
-    { patientPhone: '9876543288', doctorIdx: 3, token: 'T038', status: 'WAITING' },
-    { patientPhone: '9876543290', doctorIdx: 2, token: 'T039', status: 'SKIPPED' },
-    { patientPhone: '9876543266', doctorIdx: 3, token: 'T040', status: 'NO_SHOW' },
-    { patientPhone: '9876543264', doctorIdx: 4, token: 'T041', status: 'SKIPPED' },
-  ];
-
-  let count = 0;
-  for (const q of queueData) {
-    const patient = patientByPhone.get(q.patientPhone);
-    if (!patient) continue;
-    const doctor = doctorRows[q.doctorIdx];
-    if (!doctor) continue;
-
-    await prisma.queueEntry.create({
-      data: {
-        patientId: patient.id,
-        doctorId: doctor.id,
-        tokenNumber: q.token,
-        status: q.status,
-        queueDate: today,
-        checkedInAt: new Date(),
-      },
-    });
-    count++;
-  }
-  console.log(`Seeded ${count} queue entries for today.`);
-}
-
 // ─── Bills ────────────────────────────────────────────────
 
 async function seedBills() {
@@ -3134,7 +1770,7 @@ async function seedBills() {
     const patient = patientById.get(appt.patientId);
     if (!patient) continue;
     const invoiceNo = `INV-${String(invoiceCounter++).padStart(5, '0')}`;
-    const consultationFee = appt.fee || 500;
+    const consultationFee = appt.amount || 500;
     const registrationFee = appt.registrationFee || 0;
     const medicineFee = Math.floor(Math.random() * 300) + 50;
     const labFee = Math.random() > 0.5 ? Math.floor(Math.random() * 500) + 200 : 0;
@@ -3550,25 +2186,501 @@ async function main() {
 
   const permissions = await seedPermissions();
   const roles = await seedRoles(permissions);
-  await seedUsers(
-    roles.superAdmin.id, roles.receptionist.id, roles.doctor.id, roles.assistant.id, doctors,
-    roles.nurse.id, roles.pharmacist.id, roles.labTech.id, roles.admin.id,
-  );
+  // Demo doctor login links to Dr Rajesh Sharma (first doctorData entry, MCI-10001).
+  const demoDoctor = doctors.find((d) => d.medicalRegistrationNo === 'MCI-10001') ?? doctors[0];
+  await seedUsers(roles.developer.id, roles.superAdmin.id, roles.admin.id, roles.doctor.id, demoDoctor.id);
 
-  console.log('\n📊 Seeding demo transactional data...');
+  await seedBloodGroups();
 
-  await seedPatientsWithHistory(doctors);
-  await seedAppointments(doctors);
-  await seedQueueEntries(doctors);
-  await seedBills();
-  await seedOrders(doctors);
-  await seedDispensing();
+  await seedStarterPatients();
+  // Demo patients + vitals only — no appointments/prescriptions are
+  // (re)generated or wiped here; see comment above STARTER_PATIENTS.
+  await seedPatientsWithHistory();
+  // Patient allergy links + detailed records for the same PATIENT_DEMOS
+  // patients above — self-contained skip-if-already-seeded guards.
   await seedPatientAllergies();
 
-  await seedPrescriptionTemplates();
-  await seedSidebarConfig();
+  console.log('\n📊 Skipping remaining demo transactional data (bills, accounting)...');
+  console.log('   Patients and medicines are kept from wipe-data.ts.');
+  console.log('   Run seedAccounting() separately if you need chart-of-accounts.');
+
+  // Uncomment below to re-seed specific data:
+  // await seedBills();
+  // await seedOrders(doctors);
+  // await seedDispensing();
+  // await seedPrescriptionTemplates();
+  // await seedAccounting();
+  // await backfillMissingLedgers();
+  // await seedAccountingDemoData();
+  // await seedSidebarConfig();
 
   console.log('✅ Seed complete.');
+}
+
+async function seedAccounting() {
+  // ── 1. Seed 5 Account Natures ──
+  const natures = [
+    { code: 'ASSET', name: 'Assets', normalBalance: 'DEBIT' },
+    { code: 'LIABILITY', name: 'Liabilities', normalBalance: 'CREDIT' },
+    { code: 'INCOME', name: 'Income', normalBalance: 'CREDIT' },
+    { code: 'EXPENSE', name: 'Expenses', normalBalance: 'DEBIT' },
+    { code: 'EQUITY', name: 'Equity', normalBalance: 'CREDIT' },
+  ];
+
+  const natureIdMap = new Map<string, string>();
+  for (const n of natures) {
+    const row = await prisma.accountNature.upsert({
+      where: { code: n.code },
+      update: { name: n.name, normalBalance: n.normalBalance },
+      create: n,
+    });
+    natureIdMap.set(n.code, row.id);
+  }
+  console.log(`Seeded ${natures.length} account natures.`);
+
+  // ── 2. Seed Tally-style primary Account Groups (hierarchical) ──
+  interface GroupSeed {
+    name: string;
+    nature: string; // code
+    parent?: string; // parent name within same nature
+    isReserved?: boolean;
+    affectsGrossProfit?: boolean;
+  }
+
+  const groupDefs: GroupSeed[] = [
+    // Assets
+    { name: 'Current Assets', nature: 'ASSET', isReserved: true },
+    { name: 'Bank Accounts', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Cash-in-Hand', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Sundry Debtors', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Staff Accounts', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Inventory Asset', nature: 'ASSET', parent: 'Current Assets', isReserved: true },
+    { name: 'Fixed Assets', nature: 'ASSET', isReserved: true },
+
+    // Liabilities
+    { name: 'Current Liabilities', nature: 'LIABILITY', isReserved: true },
+    { name: 'Sundry Creditors', nature: 'LIABILITY', parent: 'Current Liabilities', isReserved: true },
+    { name: 'Doctor Payables', nature: 'LIABILITY', parent: 'Current Liabilities', isReserved: true },
+    { name: 'Duties & Taxes', nature: 'LIABILITY', parent: 'Current Liabilities', isReserved: true },
+    { name: 'GST Payable', nature: 'LIABILITY', parent: 'Duties & Taxes', isReserved: true },
+    { name: 'Long-term Liabilities', nature: 'LIABILITY', isReserved: true },
+
+    // Income
+    { name: 'Sales Accounts', nature: 'INCOME', isReserved: true, affectsGrossProfit: true },
+    { name: 'Pharmacy Sales', nature: 'INCOME', parent: 'Sales Accounts', affectsGrossProfit: true },
+    { name: 'Consultation Income', nature: 'INCOME', parent: 'Sales Accounts', affectsGrossProfit: true },
+    { name: 'Lab Income', nature: 'INCOME', parent: 'Sales Accounts', affectsGrossProfit: true },
+    { name: 'Other Income', nature: 'INCOME', isReserved: true },
+
+    // Expenses
+    { name: 'Purchase Accounts', nature: 'EXPENSE', isReserved: true, affectsGrossProfit: true },
+    { name: 'Cost of Goods Sold', nature: 'EXPENSE', parent: 'Purchase Accounts', affectsGrossProfit: true },
+    { name: 'Direct Expenses', nature: 'EXPENSE', isReserved: true, affectsGrossProfit: true },
+    { name: 'Indirect Expenses', nature: 'EXPENSE', isReserved: true },
+
+    // Equity
+    { name: 'Capital Account', nature: 'EQUITY', isReserved: true },
+    { name: 'Retained Earnings', nature: 'EQUITY', isReserved: true },
+  ];
+
+  // First pass: create all groups (parents first, then children)
+  const groupIdMap = new Map<string, string>(); // name → id
+  const deferred: GroupSeed[] = [];
+
+  for (const g of groupDefs) {
+    if (g.parent && !groupIdMap.has(g.parent)) {
+      deferred.push(g);
+      continue;
+    }
+    const natureId = natureIdMap.get(g.nature)!;
+    const parentGroupId = g.parent ? groupIdMap.get(g.parent) ?? null : null;
+    const row = await prisma.accountGroup.upsert({
+      where: { name_natureId: { name: g.name, natureId } },
+      update: { parentGroupId, isReserved: g.isReserved ?? false, affectsGrossProfit: g.affectsGrossProfit ?? false },
+      create: {
+        name: g.name,
+        natureId,
+        parentGroupId,
+        isReserved: g.isReserved ?? false,
+        affectsGrossProfit: g.affectsGrossProfit ?? false,
+      },
+    });
+    groupIdMap.set(g.name, row.id);
+  }
+
+  // Second pass: deferred children
+  for (const g of deferred) {
+    const natureId = natureIdMap.get(g.nature)!;
+    const parentGroupId = g.parent ? groupIdMap.get(g.parent) ?? null : null;
+    const row = await prisma.accountGroup.upsert({
+      where: { name_natureId: { name: g.name, natureId } },
+      update: { parentGroupId, isReserved: g.isReserved ?? false, affectsGrossProfit: g.affectsGrossProfit ?? false },
+      create: {
+        name: g.name,
+        natureId,
+        parentGroupId,
+        isReserved: g.isReserved ?? false,
+        affectsGrossProfit: g.affectsGrossProfit ?? false,
+      },
+    });
+    groupIdMap.set(g.name, row.id);
+  }
+  console.log(`Seeded ${groupDefs.length} account groups.`);
+
+  // ── 3. Seed default Ledgers ──
+  interface LedgerSeed {
+    name: string;
+    accountGroup: string;
+    isCashAccount?: boolean;
+    isBankAccount?: boolean;
+    isBillWiseTracking?: boolean;
+  }
+
+  const ledgerDefs: LedgerSeed[] = [
+    { name: 'Cash', accountGroup: 'Cash-in-Hand', isCashAccount: true },
+    { name: 'Bank Account', accountGroup: 'Bank Accounts', isBankAccount: true },
+    { name: 'Pharmacy Sales', accountGroup: 'Pharmacy Sales' },
+    { name: 'Consultation Income', accountGroup: 'Consultation Income' },
+    { name: 'Lab Income', accountGroup: 'Lab Income' },
+    { name: 'GST Payable', accountGroup: 'GST Payable' },
+    { name: 'Sundry Debtors', accountGroup: 'Sundry Debtors', isBillWiseTracking: true },
+    { name: 'Sundry Creditors', accountGroup: 'Sundry Creditors', isBillWiseTracking: true },
+    { name: 'Inventory Asset', accountGroup: 'Inventory Asset' },
+    { name: 'Cost of Goods Sold', accountGroup: 'Cost of Goods Sold' },
+    { name: 'Capital Account', accountGroup: 'Capital Account' },
+    { name: 'Retained Earnings', accountGroup: 'Retained Earnings' },
+  ];
+
+  let ledgerCount = 0;
+  for (const l of ledgerDefs) {
+    const accountGroupId = groupIdMap.get(l.accountGroup);
+    if (!accountGroupId) {
+      console.warn(`⚠️  Skipping ledger "${l.name}" — group "${l.accountGroup}" not found.`);
+      continue;
+    }
+    const existing = await prisma.ledger.findFirst({
+      where: { name: l.name, accountGroupId },
+    });
+    if (!existing) {
+      await prisma.ledger.create({
+        data: {
+          name: l.name,
+          accountGroupId,
+          isCashAccount: l.isCashAccount ?? false,
+          isBankAccount: l.isBankAccount ?? false,
+          isBillWiseTracking: l.isBillWiseTracking ?? false,
+        },
+      });
+      ledgerCount++;
+    }
+  }
+  console.log(`Seeded ${ledgerCount} default ledgers.`);
+
+  // ── 4. Seed VoucherTypes ──
+  const voucherTypes = [
+    { name: 'Sales', code: 'SALES', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'SAL', isSystemDefined: true },
+    { name: 'Purchase', code: 'PURCHASE', affectsAccounting: true, affectsInventory: true, numberingPrefix: 'PUR', isSystemDefined: true },
+    { name: 'Receipt', code: 'RECEIPT', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'REC', isSystemDefined: true },
+    { name: 'Payment', code: 'PAYMENT', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'PAY', isSystemDefined: true },
+    { name: 'Journal', code: 'JOURNAL', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'JNL', isSystemDefined: true },
+    { name: 'Contra', code: 'CONTRA', affectsAccounting: true, affectsInventory: false, numberingPrefix: 'CTR', isSystemDefined: true },
+    { name: 'Stock Journal', code: 'STOCK_JOURNAL', affectsAccounting: false, affectsInventory: true, numberingPrefix: 'STK', isSystemDefined: true },
+    { name: 'Credit Note', code: 'CREDIT_NOTE', affectsAccounting: true, affectsInventory: true, numberingPrefix: 'CRN', isSystemDefined: true },
+    { name: 'Debit Note', code: 'DEBIT_NOTE', affectsAccounting: true, affectsInventory: true, numberingPrefix: 'DBN', isSystemDefined: true },
+  ];
+
+  const voucherTypeIdMap = new Map<string, string>();
+  for (const vt of voucherTypes) {
+    const row = await prisma.voucherType.upsert({
+      where: { code: vt.code },
+      update: { name: vt.name },
+      create: vt,
+    });
+    voucherTypeIdMap.set(vt.code, row.id);
+  }
+  console.log(`Seeded ${voucherTypes.length} voucher types.`);
+
+  // ── 5. Seed JournalTypes ──
+  const journalTypes = [
+    { code: 'GENERAL', name: 'General', requiresApproval: false },
+    { code: 'OPENING', name: 'Opening Balance', requiresApproval: true },
+    { code: 'CLOSING', name: 'Closing/Year-End', requiresApproval: true },
+    { code: 'ADJUSTING', name: 'Adjusting Entry', requiresApproval: true },
+    { code: 'SYSTEM_AUTO', name: 'System Auto-Generated', requiresApproval: false },
+  ];
+
+  const journalTypeIdMap = new Map<string, string>();
+  for (const jt of journalTypes) {
+    const row = await prisma.journalType.upsert({
+      where: { code: jt.code },
+      update: {},
+      create: jt,
+    });
+    journalTypeIdMap.set(jt.code, row.id);
+  }
+  console.log(`Seeded ${journalTypes.length} journal types.`);
+
+  // ── 6. Ensure a FinancialYear with isCurrent: true ──
+  const currentFY = await prisma.financialYear.findFirst({ where: { isCurrent: true } });
+  if (!currentFY) {
+    const now = new Date();
+    const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const fyStart = new Date(fyStartYear, 3, 1); // April 1
+    const fyEnd = new Date(fyStart.getFullYear() + 1, 2, 31); // March 31
+    const fyName = `${fyStart.getFullYear()}-${fyEnd.getFullYear()}`;
+    await prisma.financialYear.create({
+      data: { name: fyName, startDate: fyStart, endDate: fyEnd, isCurrent: true },
+    });
+    console.log(`Seeded financial year: ${fyName}`);
+  } else {
+    console.log(`Financial year already exists: ${currentFY.name}`);
+  }
+
+  // ── 7. Add linkedPaymentMethod to existing payment-method ledgers ──
+  // Map CASH to the Cash ledger, CARD/UPI to the Bank Account ledger
+  const cashLedger = await prisma.ledger.findFirst({ where: { name: 'Cash' } });
+  if (cashLedger && !cashLedger.linkedPaymentMethod) {
+    await prisma.ledger.update({ where: { id: cashLedger.id }, data: { linkedPaymentMethod: 'CASH' } });
+    console.log('Marked Cash ledger with linkedPaymentMethod = CASH');
+  }
+  const bankLedger = await prisma.ledger.findFirst({ where: { name: 'Bank Account' } });
+  if (bankLedger) {
+    // CARD and UPI are unique fields, so we can't set both on the same row.
+    // We'll handle CARD/UPI resolution in code by mapping both to Bank Account.
+    console.log('Bank Account ledger found — CARD/UPI will resolve to this ledger in code.');
+  }
+}
+
+/**
+ * Every Patient/Doctor/User must always have its own ledger (app-level invariant
+ * enforced going forward in patients/doctors/users/auth services). This backfills
+ * any row created before that wiring existed, or restored by a --fresh reseed.
+ */
+async function backfillMissingLedgers() {
+  const sundryDebtors = await prisma.accountGroup.findFirst({ where: { name: 'Sundry Debtors' } });
+  const doctorPayables = await prisma.accountGroup.findFirst({ where: { name: 'Doctor Payables' } });
+  const staffAccounts = await prisma.accountGroup.findFirst({ where: { name: 'Staff Accounts' } });
+  if (!sundryDebtors || !doctorPayables || !staffAccounts) {
+    console.warn('⚠️  Skipping ledger backfill — required account groups not found.');
+    return;
+  }
+
+  let patientCount = 0;
+  const patients = await prisma.patient.findMany({ where: { deletedAt: null } });
+  for (const p of patients) {
+    const existing = await prisma.ledger.findFirst({ where: { patientId: p.id } });
+    if (existing) continue;
+    await prisma.ledger.create({
+      data: {
+        name: `${p.firstName} ${p.lastName}`.trim(),
+        accountGroupId: sundryDebtors.id,
+        openingBalance: 0,
+        openingBalanceType: 'DEBIT',
+        isBillWiseTracking: true,
+        patientId: p.id,
+      },
+    });
+    patientCount++;
+  }
+
+  let doctorCount = 0;
+  const doctors = await prisma.doctor.findMany();
+  for (const d of doctors) {
+    const existing = await prisma.ledger.findFirst({ where: { doctorId: d.id } });
+    if (existing) continue;
+    const linkedUser = await prisma.user.findFirst({ where: { userableType: 'Doctor', userableId: d.id } });
+    const name = linkedUser ? `${linkedUser.firstName} ${linkedUser.lastName}`.trim() : `Doctor (${d.medicalRegistrationNo})`;
+    await prisma.ledger.create({
+      data: {
+        name,
+        accountGroupId: doctorPayables.id,
+        openingBalance: 0,
+        openingBalanceType: 'CREDIT',
+        isBillWiseTracking: true,
+        doctorId: d.id,
+      },
+    });
+    doctorCount++;
+  }
+
+  let userCount = 0;
+  const users = await prisma.user.findMany();
+  for (const u of users) {
+    const existing = await prisma.ledger.findFirst({ where: { userId: u.id } });
+    if (existing) continue;
+    await prisma.ledger.create({
+      data: {
+        name: `${u.firstName} ${u.lastName}`.trim(),
+        accountGroupId: staffAccounts.id,
+        openingBalance: 0,
+        openingBalanceType: 'DEBIT',
+        isBillWiseTracking: false,
+        userId: u.id,
+      },
+    });
+    userCount++;
+  }
+
+  console.log(`Backfilled ledgers: ${patientCount} patient(s), ${doctorCount} doctor(s), ${userCount} user(s).`);
+}
+
+/**
+ * Demo data to exercise the accounting engine end-to-end: one Sales voucher
+ * (consultation bill) + a partial Receipt against it, so Voucher/Journal/
+ * JournalLine/VoucherReference/Ledger.currentBalance can all be inspected
+ * together in prisma studio. Idempotent — skips if the demo bill already exists.
+ */
+async function seedAccountingDemoData() {
+  const existingDemo = await prisma.bill.findFirst({ where: { invoiceNo: 'DEMO-INV-0001' } });
+  if (existingDemo) {
+    console.log('Accounting demo data already seeded, skipping.');
+    return;
+  }
+
+  const patient = await prisma.patient.findFirst({ where: { deletedAt: null }, orderBy: { createdAt: 'asc' } });
+  const doctor = await prisma.doctor.findFirst({ orderBy: { createdAt: 'asc' } });
+  if (!patient || !doctor) {
+    console.warn('⚠️  Skipping accounting demo data — need at least one patient and one doctor seeded first.');
+    return;
+  }
+
+  const fy = await prisma.financialYear.findFirst({ where: { isCurrent: true } });
+  const salesType = await prisma.voucherType.findFirst({ where: { code: 'SALES' } });
+  const receiptType = await prisma.voucherType.findFirst({ where: { code: 'RECEIPT' } });
+  const generalJournalType = await prisma.journalType.findFirst({ where: { code: 'GENERAL' } });
+  const consultationIncome = await prisma.ledger.findFirst({ where: { name: 'Consultation Income' } });
+  const cashLedger = await prisma.ledger.findFirst({ where: { linkedPaymentMethod: 'CASH' } });
+  const patientLedger = await prisma.ledger.findFirst({ where: { patientId: patient.id } });
+  if (!fy || !salesType || !receiptType || !generalJournalType || !consultationIncome || !cashLedger || !patientLedger) {
+    console.warn('⚠️  Skipping accounting demo data — required masters not found. Run seedAccounting()/backfillMissingLedgers() first.');
+    return;
+  }
+
+  const consultationFee = doctor.consultationFee > 0 ? doctor.consultationFee : 500;
+
+  // 1. Demo Bill (consultation) — mirrors what BillingService.create() would produce.
+  const bill = await prisma.bill.create({
+    data: {
+      patientId: patient.id,
+      invoiceNo: 'DEMO-INV-0001',
+      subtotal: consultationFee,
+      discount: 0,
+      tax: 0,
+      total: consultationFee,
+      paymentMethod: 'CASH',
+      status: 'PENDING',
+      notes: 'Seed demo — consultation bill',
+      items: {
+        create: [
+          {
+            itemType: 'CONSULTATION',
+            itemId: doctor.id,
+            itemName: `Consultation — Dr. ${doctor.specialization ?? 'General'}`,
+            quantity: 1,
+            unitPrice: consultationFee,
+            amount: consultationFee,
+          },
+        ],
+      },
+    },
+  });
+
+  // 2. Sales voucher + journal: Dr Patient Ledger, Cr Consultation Income.
+  const salesVoucherCount = await prisma.voucher.count({ where: { voucherTypeId: salesType.id, financialYearId: fy.id } });
+  const salesVoucher = await prisma.voucher.create({
+    data: {
+      voucherTypeId: salesType.id,
+      voucherNumber: `${salesType.numberingPrefix}-${fy.id.slice(0, 8)}-${(salesVoucherCount + 1).toString().padStart(4, '0')}`,
+      financialYearId: fy.id,
+      partyLedgerId: patientLedger.id,
+      totalAmount: consultationFee,
+      status: 'POSTED',
+      sourceModule: 'Bill',
+      sourceId: bill.id,
+      notes: `Sales voucher for ${bill.invoiceNo}`,
+    },
+  });
+  const salesJournal = await prisma.journal.create({
+    data: {
+      voucherId: salesVoucher.id,
+      journalTypeId: generalJournalType.id,
+      isPosted: true,
+      totalDebit: consultationFee,
+      totalCredit: consultationFee,
+      notes: `Sales journal for ${bill.invoiceNo}`,
+    },
+  });
+  await prisma.journalLine.createMany({
+    data: [
+      { journalId: salesJournal.id, ledgerId: patientLedger.id, debitAmount: consultationFee, creditAmount: 0 },
+      { journalId: salesJournal.id, ledgerId: consultationIncome.id, debitAmount: 0, creditAmount: consultationFee },
+    ],
+  });
+  await prisma.ledger.update({ where: { id: patientLedger.id }, data: { currentBalance: { increment: consultationFee } } });
+  await prisma.ledger.update({ where: { id: consultationIncome.id }, data: { currentBalance: { increment: consultationFee } } });
+
+  // 3. Partial payment (60%) → Receipt voucher + journal + AGAINST_REF voucher reference.
+  const paidAmount = Math.round(consultationFee * 0.6);
+  const payment = await prisma.payment.create({
+    data: {
+      billId: bill.id,
+      patientId: patient.id,
+      amount: paidAmount,
+      method: 'CASH',
+      direction: 'PAYMENT',
+      notes: 'Seed demo — partial payment',
+    },
+  });
+  await prisma.bill.update({ where: { id: bill.id }, data: { paidAmount, status: 'PARTIALLY_PAID' } });
+
+  const receiptVoucherCount = await prisma.voucher.count({ where: { voucherTypeId: receiptType.id, financialYearId: fy.id } });
+  const receiptVoucher = await prisma.voucher.create({
+    data: {
+      voucherTypeId: receiptType.id,
+      voucherNumber: `${receiptType.numberingPrefix}-${fy.id.slice(0, 8)}-${(receiptVoucherCount + 1).toString().padStart(4, '0')}`,
+      financialYearId: fy.id,
+      partyLedgerId: patientLedger.id,
+      totalAmount: paidAmount,
+      status: 'POSTED',
+      sourceModule: 'Payment',
+      sourceId: payment.id,
+      notes: `Receipt for ${bill.invoiceNo}`,
+    },
+  });
+  const receiptJournal = await prisma.journal.create({
+    data: {
+      voucherId: receiptVoucher.id,
+      journalTypeId: generalJournalType.id,
+      isPosted: true,
+      totalDebit: paidAmount,
+      totalCredit: paidAmount,
+      notes: `Receipt journal for ${bill.invoiceNo}`,
+    },
+  });
+  await prisma.journalLine.createMany({
+    data: [
+      { journalId: receiptJournal.id, ledgerId: cashLedger.id, debitAmount: paidAmount, creditAmount: 0 },
+      { journalId: receiptJournal.id, ledgerId: patientLedger.id, debitAmount: 0, creditAmount: paidAmount },
+    ],
+  });
+  await prisma.ledger.update({ where: { id: cashLedger.id }, data: { currentBalance: { increment: paidAmount } } });
+  await prisma.ledger.update({ where: { id: patientLedger.id }, data: { currentBalance: { decrement: paidAmount } } });
+
+  await prisma.voucherReference.create({
+    data: {
+      voucherId: receiptVoucher.id,
+      referenceType: 'AGAINST_REF',
+      referencedVoucherId: salesVoucher.id,
+      ledgerId: patientLedger.id,
+      amount: paidAmount,
+    },
+  });
+
+  console.log(
+    `Seeded accounting demo data: Bill ${bill.invoiceNo} (₹${consultationFee}) → ` +
+      `Sales voucher ${salesVoucher.voucherNumber} + Receipt voucher ${receiptVoucher.voucherNumber} ` +
+      `(₹${paidAmount} paid, ₹${consultationFee - paidAmount} outstanding on ${patientLedger.name}).`,
+  );
 }
 
 async function seedSidebarConfig() {
@@ -3590,30 +2702,40 @@ async function seedSidebarConfig() {
   const developerId = roleMap.get('Developer');
   const superAdminId = roleMap.get('Super Admin') ?? developerId;
 
+  const doctorAsAdminId = roleMap.get('Doctor as Admin');
+  const patientRoleId = roleMap.get('Patient');
+
   const allRoleIds = Array.from(roleMap.values());
   const clinicalRoles = [adminId, doctorId, receptionistId, nurseId, developerId].filter(Boolean);
   const frontDeskRoles = [adminId, receptionistId, developerId].filter(Boolean);
   const pharmacyRoles = [adminId, pharmacistId, developerId].filter(Boolean);
 
+  // Doctor as Admin sees only Dashboard + Appointments in the sidebar
+  const doctorAsAdminOnlyRoles = [adminId, doctorAsAdminId, developerId].filter(Boolean);
+
   const menuItems = [
     // Clinic group
     { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', group: 'Clinic', sortOrder: 0, roleIds: allRoleIds },
     { label: 'Appointments', path: '/appointments', icon: 'CalendarClock', group: 'Clinic', sortOrder: 1, roleIds: [...frontDeskRoles, doctorId, nurseId].filter(Boolean) },
+    { label: 'Appointments', path: '/doctor-admin/appointments', icon: 'CalendarClock', group: 'Clinic', sortOrder: 1, roleIds: [doctorAsAdminId].filter(Boolean) },
+    { label: 'Prescriptions', path: '/doctor-admin/prescriptions', icon: 'ClipboardList', group: 'Clinic', sortOrder: 2, roleIds: [doctorAsAdminId].filter(Boolean) },
     { label: 'Patients', path: '/patients', icon: 'Users', group: 'Clinic', sortOrder: 2, roleIds: frontDeskRoles },
     { label: 'Doctors', path: '/doctors', icon: 'UserCog', group: 'Clinic', sortOrder: 3, roleIds: frontDeskRoles },
     { label: 'Prescriptions', path: '/prescriptions', icon: 'ClipboardList', group: 'Clinic', sortOrder: 4, roleIds: clinicalRoles },
     { label: 'Diagnoses', path: '/diagnoses', icon: 'Stethoscope', group: 'Clinic', sortOrder: 5, roleIds: clinicalRoles },
 
-    // Reports group
-    { label: 'Revenue by Category', path: '/reports/revenue-by-category', icon: 'BarChart3', group: 'Reports', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Outstanding Bills', path: '/reports/outstanding-bills', icon: 'AlertCircle', group: 'Reports', sortOrder: 1, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Doctor Performance', path: '/reports/doctor-performance', icon: 'UserCog', group: 'Reports', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
-    { label: 'Top Medicines', path: '/reports/top-medicines', icon: 'Pill', group: 'Reports', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
+    // OPD Reports group
+    { label: 'Daily OPD Summary', path: '/reports/daily-opd-summary', icon: 'Activity', group: 'OPD Reports', sortOrder: 0, roleIds: [adminId, doctorId, receptionistId, developerId].filter(Boolean) },
+    { label: 'Doctor-wise OPD', path: '/reports/doctor-wise-opd', icon: 'Stethoscope', group: 'OPD Reports', sortOrder: 1, roleIds: [adminId, doctorId, developerId].filter(Boolean) },
+    { label: 'Revenue / Collection', path: '/reports/revenue-collection', icon: 'Wallet', group: 'OPD Reports', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Outstanding Payments', path: '/reports/outstanding-payments', icon: 'AlertCircle', group: 'OPD Reports', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
 
     // Pharmacy & Billing group
     { label: 'Medicine Catalog', path: '/medicine-catalog', icon: 'Pill', group: 'Pharmacy & Billing', sortOrder: 0, roleIds: pharmacyRoles },
     { label: 'Billing', path: '/billing', icon: 'Receipt', group: 'Pharmacy & Billing', sortOrder: 1, roleIds: pharmacyRoles },
     { label: 'Dispensing', path: '/dispensing', icon: 'Package', group: 'Pharmacy & Billing', sortOrder: 2, roleIds: pharmacyRoles },
+    { label: 'Stock Inquiry', path: '/stock-inquiry', icon: 'Search', group: 'Pharmacy & Billing', sortOrder: 3, roleIds: pharmacyRoles },
+    { label: 'Purchase Entry', path: '/stock-purchase', icon: 'Truck', group: 'Pharmacy & Billing', sortOrder: 4, roleIds: pharmacyRoles },
 
     // Organisation group
     { label: 'Overview', path: '/organisation', icon: 'Building2', group: 'Organisation', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
@@ -3622,6 +2744,14 @@ async function seedSidebarConfig() {
     { label: 'Addresses', path: '/addresses', icon: 'MapPin', group: 'Organisation', sortOrder: 3, roleIds: [adminId, developerId].filter(Boolean) },
     { label: 'Users', path: '/organisation/users', icon: 'UserCog', group: 'Organisation', sortOrder: 4, roleIds: [adminId, developerId].filter(Boolean) },
     { label: 'Sidebar Config', path: '/organisation/sidebar-config', icon: 'Settings', group: 'Organisation', sortOrder: 5, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Departments', path: '/organisation/departments', icon: 'Building2', group: 'Organisation', sortOrder: 6, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Designations', path: '/organisation/designations', icon: 'UserCog', group: 'Organisation', sortOrder: 7, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Financial Years', path: '/organisation/financial-years', icon: 'CalendarClock', group: 'Organisation', sortOrder: 8, roleIds: [adminId, developerId].filter(Boolean) },
+
+    // Accounting group
+    { label: 'Chart of Accounts', path: '/accounting', icon: 'BookOpen', group: 'Accounting', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Ledgers', path: '/accounting/ledgers', icon: 'BookMarked', group: 'Accounting', sortOrder: 1, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Vouchers', path: '/accounting/vouchers', icon: 'Receipt', group: 'Accounting', sortOrder: 2, roleIds: [adminId, developerId].filter(Boolean) },
 
     // Access Control group
     { label: 'Roles & Permissions', path: '/organisation/roles', icon: 'ShieldCheck', group: 'Access Control', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
@@ -3630,6 +2760,13 @@ async function seedSidebarConfig() {
     { label: 'Overview', path: '/developer', icon: 'Cpu', group: 'Developer', sortOrder: 0, roleIds: [developerId].filter(Boolean) },
     { label: 'Modules', path: '/developer/modules', icon: 'Box', group: 'Developer', sortOrder: 1, roleIds: [developerId].filter(Boolean) },
     { label: 'Features', path: '/developer/features', icon: 'Zap', group: 'Developer', sortOrder: 2, roleIds: [developerId].filter(Boolean) },
+
+    // Patient Portal group
+    { label: 'Dashboard', path: '/patient', icon: 'LayoutDashboard', group: 'Patient Portal', sortOrder: 0, roleIds: [patientRoleId].filter(Boolean) },
+    { label: 'Appointments', path: '/patient/appointments', icon: 'CalendarClock', group: 'Patient Portal', sortOrder: 1, roleIds: [patientRoleId].filter(Boolean) },
+    { label: 'Prescriptions', path: '/patient/prescriptions', icon: 'ClipboardList', group: 'Patient Portal', sortOrder: 2, roleIds: [patientRoleId].filter(Boolean) },
+    { label: 'Lab Reports', path: '/patient/lab-orders', icon: 'FlaskConical', group: 'Patient Portal', sortOrder: 3, roleIds: [patientRoleId].filter(Boolean) },
+    { label: 'Bills', path: '/patient/bills', icon: 'Receipt', group: 'Patient Portal', sortOrder: 4, roleIds: [patientRoleId].filter(Boolean) },
 
     // Account group
     { label: 'Profile', path: '/profile', icon: 'User', group: 'Account', sortOrder: 0, roleIds: allRoleIds },

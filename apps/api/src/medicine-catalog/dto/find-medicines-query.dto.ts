@@ -5,4 +5,8 @@ export class FindMedicinesQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  groupId?: string;
 }

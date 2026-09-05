@@ -2383,6 +2383,9 @@ async function main() {
   // Demo appointments + prescriptions (each independently safe to rerun —
   // see the shouldSeedAppt/shouldSeedRx guards inside seedPatientsWithHistory).
   await seedPatientsWithHistory(doctors);
+  // Patient allergy links + detailed records for the same PATIENT_DEMOS
+  // patients above — self-contained skip-if-already-seeded guards.
+  await seedPatientAllergies();
 
   console.log('\n📊 Skipping remaining demo transactional data (bills, accounting)...');
   console.log('   Patients and medicines are kept from wipe-data.ts.');
@@ -2392,7 +2395,6 @@ async function main() {
   // await seedBills();
   // await seedOrders(doctors);
   // await seedDispensing();
-  // await seedPatientAllergies();
   // await seedPrescriptionTemplates();
   // await seedAccounting();
   // await backfillMissingLedgers();

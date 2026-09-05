@@ -195,7 +195,12 @@ input[type="number"] {
     position: static !important;
     width: auto !important;
   }
-  body > *:not(:has(#print-area)) {
+  /* :not(#print-area) matters now that RxDoc.tsx portals the prescription's
+     #print-area directly to document.body (see RxPrintRoot) — it can be a
+     DIRECT child of body itself, not just an ancestor containing it, and
+     :has() never matches the element it's called on, so without this
+     exclusion this rule would hide #print-area itself in that case. */
+  body > *:not(#print-area):not(:has(#print-area)) {
     display: none !important;
   }
   body *:not(#print-area):not(#print-area *):not(:has(#print-area)) {
@@ -351,18 +356,30 @@ input[type="number"] {
 
 /* Prescriptions print on A4 portrait with zero @page margin. The document
    is already paginated into real `.rx-page` sheets by the shared
-   prescription-document model (the exact same DOM powers the screen
-   preview, browser print and PDF export), so printing is a straight 1:1
-   map: every `.rx-page` is one physical 210mm x 297mm sheet and the
-   browser is never asked to paginate content itself. Each sheet is a
-   fixed-height flex column — header (shrink-0, full bleed) → padded body
-   (flex: 1) → footer (shrink-0, full bleed) — so the footer image lands on
-   the physical bottom edge of every page and the signature row
-   (margin-top:auto inside the FINAL page's body) sits directly above it.
-   overflow:hidden only absorbs a rounding hair; genuine overflow was
-   already moved to the next .rx-page by the paginator. The template-based
-   prescription print (print-prescription-button) keeps its own natural
-   pagination via the .prescription-print-area mapping below. */
+   prescription-document model, and the print DOM (#print-area, built by
+   RxPrintRoot in RxDoc.tsx) is a completely separate, always-off-screen copy
+   of those pages — independent of whatever the on-screen one-page-at-a-time
+   preview is currently showing or how it's scaled. Printing is therefore a
+   straight 1:1 map with no ancestor transform/scroll to fight: every
+   `.rx-page` is one physical 210mm x 297mm sheet and the browser is never
+   asked to paginate content itself. Each sheet is a fixed-height flex column
+   — header (shrink-0, full bleed) → padded body (flex: 1) → footer
+   (shrink-0, full bleed) — so the footer image lands on the physical bottom
+   edge of every page and the signature row (margin-top:auto inside the
+   FINAL page's body) sits directly above it. overflow:hidden only absorbs a
+   rounding hair; genuine overflow was already moved to the next .rx-page by
+   the paginator. The template-based prescription print
+   (print-prescription-button) keeps its own natural pagination via the
+   .prescription-print-area mapping below. */
+.rx-print-doc {
+  /* Always off-screen on screen, regardless of whether the print dialog is
+     open — nothing ever needs to scroll or transform this into view for
+     window.print() to work; @media print below is what brings it on-page. */
+  position: fixed;
+  left: -99999px;
+  top: 0;
+  pointer-events: none;
+}
 @page prescription-a4 {
   size: 210mm 297mm;
   margin: 0;
@@ -372,36 +389,18 @@ input[type="number"] {
   page: prescription-a4;
 }
 @media print {
-  /* Screen-only preview scaling (RxDocPreview) must not leak into print:
-     collapse the scale wrappers so the real sheet DOM sits directly on the
-     physical page. Inline transform/width styles can't beat these resets. */
-  .rx-preview-viewport,
-  .rx-preview-scaler,
-  .rx-preview-page {
-    display: block !important;
-    width: auto !important;
-    height: auto !important;
-    min-width: 0 !important;
-    min-height: 0 !important;
-    max-width: none !important;
-    max-height: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    transform: none !important;
-  }
-  /* The strip is just a stack of already-paginated sheets — no flex column,
-     no fixed screen width, no on-screen gap separators. */
+  /* Bring the print DOM back into normal flow — it's the only thing left
+     visible once the generic #print-area hiding rules above take effect. */
   #print-area.rx-print-doc {
     display: block !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
     width: auto !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
     background: transparent !important;
-  }
-  .rx-preview-sep {
-    display: none !important;
   }
   /* Each .rx-page IS one physical A4 sheet: fixed 210mm x 297mm, one page
      per sheet (break-after:page), no automatic browser splitting. */
@@ -468,7 +467,7 @@ input[type="number"] {
   #print-area.invoice-print-area > * + * {
     margin-top: 1px !important;
   }
-  /* green banner blocks (top/bottom bands) */
+  /* header/footer bands (black, top/bottom) */
   #print-area.invoice-print-area .rounded-t-lg,
   #print-area.invoice-print-area .rounded-b-lg {
     padding-block: 3px !important;

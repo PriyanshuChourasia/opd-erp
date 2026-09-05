@@ -177,6 +177,7 @@ export function CreatePrescriptionPage() {
   }, [appointment, appointmentId, previewItems, previewDiagnosis, previewNotes, organisation]);
 
   const [rxPdfGenerating, setRxPdfGenerating] = useState(false);
+  const [rxDocReady, setRxDocReady] = useState(false);
   async function downloadRxPdf() {
     if (!previewDocData) return;
     setRxPdfGenerating(true);
@@ -430,17 +431,17 @@ export function CreatePrescriptionPage() {
           form state (not a saved Prescription row), so it works even before
           this prescription has ever been saved, and doesn't depend on a
           PrescriptionTemplate existing for the doctor. */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      <Dialog open={previewOpen} onOpenChange={(open) => { setPreviewOpen(open); if (!open) setRxDocReady(false); }}>
         <DialogContent className="flex h-[85vh] max-h-[95vh] flex-col overflow-hidden sm:max-w-[850px]" showCloseButton>
           <DialogHeader className="shrink-0"><DialogTitle>Prescription Preview</DialogTitle></DialogHeader>
-          {previewDocData && <RxDocPreview data={previewDocData} />}
+          {previewDocData && <RxDocPreview data={previewDocData} onReady={setRxDocReady} />}
           <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
-            <Button variant="default" onClick={downloadRxPdf} disabled={!previewDocData || rxPdfGenerating} className="gap-1.5">
+            <Button variant="default" onClick={downloadRxPdf} disabled={!rxDocReady || rxPdfGenerating} className="gap-1.5">
               <FileDown className="size-3.5" />
               {rxPdfGenerating ? "Generating…" : "Download PDF"}
             </Button>
-            <Button variant="default" onClick={printRxDocument} disabled={!previewDocData} className="gap-1.5">
+            <Button variant="default" onClick={printRxDocument} disabled={!rxDocReady} className="gap-1.5">
               <Printer className="size-3.5" />Print
             </Button>
           </DialogFooter>

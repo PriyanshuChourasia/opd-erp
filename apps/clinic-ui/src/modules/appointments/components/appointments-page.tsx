@@ -397,7 +397,10 @@ export function AppointmentsPage() {
     },
     {
       accessorKey: "fee",          header: () => <div className="text-center">Amount</div>,
-      cell: ({ row }) => <div className="text-center text-sm font-medium">{currency(row.original.amount)}</div>,
+      // Once a bill exists its total is the source of truth (discount/tax may
+      // have changed it at checkout); before that, fall back to consultation
+      // + registration fee — the same total the Edit page shows.
+      cell: ({ row }) => <div className="text-center text-sm font-medium">{currency(row.original.bill ? row.original.bill.total : row.original.amount + row.original.registrationFee)}</div>,
     },
     {
       id: "actions",
@@ -425,7 +428,7 @@ export function AppointmentsPage() {
                 <TooltipContent>Vitals</TooltipContent>
               </Tooltip>
             )}
-            {appt.status !== "CANCELLED" && appt.status !== "COMPLETED" && (
+            {appt.status !== "COMPLETED" && (
               <>
                 <div className="flex items-center gap-1">                    <Tooltip>
                     <TooltipTrigger asChild>
@@ -436,7 +439,7 @@ export function AppointmentsPage() {
                           toast.info("No invoice yet. Use Edit \u2192 Save & Pay to generate an invoice.");
                         }
                       }}>
-                        <FileText className={cn("size-4.5", appt.bill ? "text-green-600" : "text-muted-foreground")} />
+                        <FileText className="size-4.5 text-green-600" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>{appt.bill ? (appt.bill.status === "PAID" ? "View Receipt" : "View Invoice") : "No invoice yet"}</TooltipContent>
@@ -485,7 +488,7 @@ export function AppointmentsPage() {
                           toast.info("No invoice yet. Use Edit \u2192 Save & Pay to generate an invoice.");
                         }
                       }}>
-                        <FileText className={cn("size-4.5", appt.bill ? "text-green-600" : "text-muted-foreground")} />
+                        <FileText className="size-4.5 text-green-600" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>{appt.bill ? (appt.bill.status === "PAID" ? "View Receipt" : "View Invoice") : "No invoice yet"}</TooltipContent>

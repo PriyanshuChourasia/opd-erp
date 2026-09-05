@@ -9,24 +9,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { PaymentHistory } from "@/components/payment-history";
 import { ReceiptViewSheet } from "@/components/receipt-view-sheet";
 
+// Monochrome badges — the whole invoice prints in black/white/gray, so
+// status is conveyed by the label text and weight/border rather than hue.
 const STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  PAID: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  PARTIAL: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  PARTIALLY_PAID: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  REFUNDED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  PENDING: "bg-gray-100 text-gray-700 border border-dashed border-gray-400 dark:bg-gray-800 dark:text-gray-300",
+  PAID: "bg-black text-white font-semibold dark:bg-white dark:text-black",
+  PARTIAL: "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+  PARTIALLY_PAID: "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+  REFUNDED: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+  CANCELLED: "bg-white text-gray-900 border border-gray-900 line-through dark:bg-black dark:text-white dark:border-white",
 };
 
 // Plain hex equivalents of STATUS_STYLES, for the inline-styled print markup
 // (which can't use Tailwind's oklch-based utility classes — see buildInvoiceHtml).
 const STATUS_HEX: Record<string, { bg: string; fg: string }> = {
-  PENDING: { bg: "#fef3c7", fg: "#b45309" },
-  PAID: { bg: "#dcfce7", fg: "#15803d" },
-  PARTIAL: { bg: "#dbeafe", fg: "#1d4ed8" },
-  PARTIALLY_PAID: { bg: "#dbeafe", fg: "#1d4ed8" },
-  REFUNDED: { bg: "#f3f4f6", fg: "#4b5563" },
-  CANCELLED: { bg: "#fee2e2", fg: "#b91c1c" },
+  PENDING: { bg: "#f3f4f6", fg: "#374151" },
+  PAID: { bg: "#000000", fg: "#ffffff" },
+  PARTIAL: { bg: "#e5e7eb", fg: "#1f2937" },
+  PARTIALLY_PAID: { bg: "#e5e7eb", fg: "#1f2937" },
+  REFUNDED: { bg: "#f3f4f6", fg: "#6b7280" },
+  CANCELLED: { bg: "#ffffff", fg: "#111827" },
 };
 
 function currency(value: number) { const v = Number.isFinite(value) ? value : 0; return `₹${v.toFixed(2)}`; }
@@ -35,11 +37,12 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// Clinic brand colour used for the invoice header / footer bands. Kept as a
-// plain hex so it works in the inline-styled print markup (Tailwind's oklch
-// utilities can't be relied on in print).
-const BRAND = "#01aa82";
-const BRAND_SOFT = "#e6f7f2";
+// Invoice header / footer band colour — black, so the whole invoice prints
+// in black/white/gray with no colour ink. Kept as a plain hex so it works
+// in the inline-styled print markup (Tailwind's oklch utilities can't be
+// relied on in print).
+const BRAND = "#000000";
+const BRAND_SOFT = "#d1d5db";
 
 /**
  * Self-contained invoice markup — every style is inline (no Tailwind classes,
@@ -123,8 +126,8 @@ function buildInvoiceHtml(bill: Bill, organisation?: Organisation): string {
     ${bill.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Discount</span><span>-${currency(bill.discount)}</span></div>` : ""}
     ${bill.tax > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Tax</span><span>${currency(bill.tax)}</span></div>` : ""}
     <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;color:#000;margin-top:2px;"><span>Total</span><span>${currency(bill.total)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:#16a34a;font-weight:600;margin-top:2px;"><span>Paid</span><span>${currency(bill.paidAmount ?? 0)}</span></div>
-    ${(bill.total - (bill.paidAmount ?? 0)) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#d97706;font-weight:600;margin-top:2px;"><span>Due</span><span>${currency(bill.total - (bill.paidAmount ?? 0))}</span></div>` : ""}
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#000;font-weight:600;margin-top:2px;"><span>Paid</span><span>${currency(bill.paidAmount ?? 0)}</span></div>
+    ${(bill.total - (bill.paidAmount ?? 0)) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#000;font-weight:600;text-decoration:underline;margin-top:2px;"><span>Due</span><span>${currency(bill.total - (bill.paidAmount ?? 0))}</span></div>` : ""}
   </div>
   <div style="display:flex;justify-content:space-between;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:8px;font-size:12px;color:#6b7280;">
     <span>Payment method</span>
@@ -189,7 +192,7 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
         {bill && (
           <div ref={printAreaRef} id="print-area" className="invoice-print-area space-y-4 px-4 pb-4 text-sm">
             {organisation && (
-              <div className="rounded-t-lg bg-[#01aa82] px-5 py-4 text-white">
+              <div className="rounded-t-lg bg-black px-5 py-4 text-white dark:bg-white dark:text-black">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-3">
                     {organisation.logoUrl && (
@@ -201,7 +204,7 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
                     )}
                     <p className="font-semibold">{organisation.name}</p>
                   </div>
-                  <div className="text-right text-xs leading-relaxed text-emerald-50">
+                  <div className="text-right text-xs leading-relaxed text-gray-300 dark:text-gray-700">
                     {organisation.address && <p>{organisation.address}</p>}
                     <p>{[organisation.phone, organisation.email].filter(Boolean).join(" · ")}</p>
                     {organisation.gstNumber && <p>GST No: {organisation.gstNumber}</p>}
@@ -260,9 +263,9 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
               {bill.discount > 0 && <div className="flex justify-between"><span>Discount</span><span>-{currency(bill.discount)}</span></div>}
               {bill.tax > 0 && <div className="flex justify-between"><span>Tax</span><span>{currency(bill.tax)}</span></div>}
               <div className="flex justify-between text-sm font-semibold text-foreground"><span>Total</span><span>{currency(bill.total)}</span></div>
-              <div className="flex justify-between text-xs text-green-600 font-medium"><span>Paid</span><span>{currency(bill.paidAmount ?? 0)}</span></div>
+              <div className="flex justify-between text-xs text-foreground font-medium"><span>Paid</span><span>{currency(bill.paidAmount ?? 0)}</span></div>
               {(bill.total - (bill.paidAmount ?? 0)) > 0 && (
-                <div className="flex justify-between text-xs text-amber-600 font-medium"><span>Due</span><span>{currency(bill.total - (bill.paidAmount ?? 0))}</span></div>
+                <div className="flex justify-between text-xs text-foreground font-semibold underline"><span>Due</span><span>{currency(bill.total - (bill.paidAmount ?? 0))}</span></div>
               )}
             </div>
 
@@ -278,7 +281,7 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
               </div>
             )}
 
-            <div className="flex items-center justify-between rounded-b-lg bg-[#01aa82] px-5 py-3 text-xs text-emerald-50">
+            <div className="flex items-center justify-between rounded-b-lg bg-black px-5 py-3 text-xs text-white dark:bg-white dark:text-black">
               <span>Thank you for your visit — please keep this invoice for your records.</span>
               <span className="font-semibold">{bill.invoiceNo}</span>
             </div>

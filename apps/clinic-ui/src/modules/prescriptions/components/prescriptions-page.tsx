@@ -347,6 +347,7 @@ export function PrescriptionsPage() {
   // ── Print Preview, PDF and Export Word ──
   const [pdfPreviewRx, setPdfPreviewRx] = useState<Prescription | null>(null);
   const [rxPdfGenerating, setRxPdfGenerating] = useState(false);
+  const [rxDocReady, setRxDocReady] = useState(false);
   const previewRxData = useMemo(
     () => (pdfPreviewRx ? rxDocFromSavedPrescription(pdfPreviewRx, organisation) : null),
     [pdfPreviewRx, organisation],
@@ -956,23 +957,23 @@ export function PrescriptionsPage() {
       </Sheet>
 
       {/* ── Print Preview Dialog ── */}
-      <Dialog open={!!pdfPreviewRx} onOpenChange={(open) => { if (!open) setPdfPreviewRx(null); }}>
+      <Dialog open={!!pdfPreviewRx} onOpenChange={(open) => { if (!open) { setPdfPreviewRx(null); setRxDocReady(false); } }}>
         <DialogContent className="flex h-[85vh] max-h-[95vh] flex-col overflow-hidden sm:max-w-[850px]" showCloseButton>
           <DialogHeader className="shrink-0">
             <DialogTitle>Prescription Preview</DialogTitle>
           </DialogHeader>
 
           {previewRxData && (
-            <RxDocPreview data={previewRxData} />
+            <RxDocPreview data={previewRxData} onReady={setRxDocReady} />
           )}
 
           <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setPdfPreviewRx(null)}>Close</Button>
-            <Button variant="default" onClick={downloadRxPdf} disabled={!previewRxData || rxPdfGenerating} className="gap-1.5">
+            <Button variant="default" onClick={downloadRxPdf} disabled={!rxDocReady || rxPdfGenerating} className="gap-1.5">
               <FileDown className="size-3.5" />
               {rxPdfGenerating ? "Generating…" : "Download PDF"}
             </Button>
-            <Button variant="default" onClick={printRxDocument} disabled={!previewRxData} className="gap-1.5">
+            <Button variant="default" onClick={printRxDocument} disabled={!rxDocReady} className="gap-1.5">
               <Printer className="size-3.5" />Print
             </Button>
           </DialogFooter>

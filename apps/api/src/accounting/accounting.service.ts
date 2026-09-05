@@ -166,6 +166,28 @@ export class AccountingService {
   }
 
   /**
+   * Ledger names are unique per account group (`@@unique([accountGroupId,
+   * name])` on Ledger) — that constraint is intentional and stays: reports
+   * and lookups need each party's ledger to resolve to a single unambiguous
+   * name within a group. But the display names ledgers get created from
+   * (patient/doctor/user names) are NOT unique — two patients can share a
+   * name — so creating a second party's ledger under a name already taken
+   * by someone else's ledger in the same group would otherwise 409 on the
+   * very first payment/voucher for whichever party's ledger gets created
+   * second. Disambiguate with a short suffix instead of letting that reach
+   * the DB as a conflict.
+   */
+  private async disambiguateLedgerName(
+    tx: TransactionClient,
+    accountGroupId: string,
+    name: string,
+    ownerId: string,
+  ): Promise<string> {
+    const taken = await tx.ledger.findFirst({ where: { accountGroupId, name } });
+    return taken ? `${name} (${ownerId.slice(0, 8)})` : name;
+  }
+
+  /**
    * Find or create a ledger for a patient under the Sundry Debtors group.
    * Safe to call inside a transaction.
    */
@@ -189,9 +211,10 @@ export class AccountingService {
       throw new BadRequestException('Sundry Debtors account group not found. Run seed.');
     }
 
+    const name = await this.disambiguateLedgerName(tx, sundryDebtorsGroup.id, patientName, patientId);
     return tx.ledger.create({
       data: {
-        name: patientName,
+        name,
         accountGroupId: sundryDebtorsGroup.id,
         openingBalance: 0,
         openingBalanceType: 'DEBIT',
@@ -225,9 +248,10 @@ export class AccountingService {
       throw new BadRequestException('Doctor Payables account group not found. Run seed.');
     }
 
+    const name = await this.disambiguateLedgerName(tx, doctorPayablesGroup.id, doctorName, doctorId);
     return tx.ledger.create({
       data: {
-        name: doctorName,
+        name,
         accountGroupId: doctorPayablesGroup.id,
         openingBalance: 0,
         openingBalanceType: 'CREDIT',
@@ -261,9 +285,10 @@ export class AccountingService {
       throw new BadRequestException('Staff Accounts account group not found. Run seed.');
     }
 
+    const name = await this.disambiguateLedgerName(tx, staffAccountsGroup.id, userName, userId);
     return tx.ledger.create({
       data: {
-        name: userName,
+        name,
         accountGroupId: staffAccountsGroup.id,
         openingBalance: 0,
         openingBalanceType: 'DEBIT',

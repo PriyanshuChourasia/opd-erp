@@ -254,13 +254,24 @@ export function EditAppointmentPage() {
           });
         }
       } else {
-        await checkoutAppointment(appointmentId, {
+        const bill = await checkoutAppointment(appointmentId, {
           paymentMethod: payload.paymentMethod,
           ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
           discountRuleId: payload.discountRuleId,
           tax: payload.tax > 0 ? payload.tax : undefined,
           notes: payload.notes || undefined,
         });
+        // checkout() only seeds paidAmount from pre-existing advance payments —
+        // the amount collected just now in the PaymentSheet still has to be
+        // recorded against the newly created bill, or it prints/records as PENDING.
+        if (payload.paidAmount && payload.paidAmount > 0) {
+          await addBillPayment(bill.id, {
+            amount: payload.paidAmount,
+            method: payload.paymentMethod,
+            ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
+            notes: payload.notes || undefined,
+          });
+        }
       }
     },
     onSuccess: () => {
@@ -276,6 +287,13 @@ export function EditAppointmentPage() {
       navigate({ to: "/appointments" });
     },
     onError: (err) => {
+      // checkout() and addBillPayment() aren't one atomic step — if checkout
+      // succeeds but the payment write fails, a bill now exists server-side
+      // that this page's stale `appointment` data doesn't know about yet.
+      // Refetch so a retry takes the "add payment to existing bill" branch
+      // instead of calling checkout() again and hitting a 409 Conflict.
+      queryClient.invalidateQueries({ queryKey: ["appointment", appointmentId] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
       toast.error(extractApiError(err));
     },
   });

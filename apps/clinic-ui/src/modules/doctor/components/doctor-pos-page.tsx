@@ -14,7 +14,6 @@ import {
   HeartPulse,
   History,
   Minus,
-  Pencil,
   Pill,
   Plus,
   Search,
@@ -48,8 +47,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DiagnosisSelect } from "@/components/diagnosis-select";
 import { PatientHistorySheet } from "./patient-history-sheet";
-import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
-import { fetchAllergies, fetchPatientVitalsLatest } from "@/lib/api";
+import { fetchAllergies, fetchPatientVitalsLatest, fetchPatientVitalsHistory } from "@/lib/api";
 
 interface RxItem {
   tempId: string;
@@ -158,7 +156,6 @@ export function DoctorPosPage() {
   const [newProcedureName, setNewProcedureName] = useState("");
   const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [editPatientOpen, setEditPatientOpen] = useState(false);
   // ── Cancel appointment ──
   const [cancelTarget, setCancelTarget] = useState<QueueEntry | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -294,6 +291,16 @@ export function DoctorPosPage() {
       medicalStatus: latest.medicalStatus ?? "",
     });
   }
+
+  // Full vitals history for whichever patient the Vitals sheet is open for —
+  // fetched only while the sheet is open, so it's not extra work on every
+  // consultation load.
+  const { data: vitalsHistoryResponse } = useQuery({
+    queryKey: ["patientVitals", "history", vitalsTarget?.patientId],
+    queryFn: () => fetchPatientVitalsHistory(vitalsTarget!.patientId),
+    enabled: vitalsOpen && !!vitalsTarget?.patientId,
+  });
+  const vitalsHistory = vitalsHistoryResponse?.data ?? [];
 
   const completeMutation = useMutation({
     mutationFn: async () => {
@@ -595,20 +602,20 @@ export function DoctorPosPage() {
                           variant="outline"
                           size="sm"
                           className="h-7 gap-1.5 px-2 text-xs"
-                          onClick={() => setEditPatientOpen(true)}
+                          onClick={() => setHistoryOpen(true)}
                         >
-                          <Pencil className="size-3.5" />
-                          Edit
+                          <History className="size-3.5" />
+                          All Prescriptions
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="h-7 gap-1.5 px-2 text-xs"
-                          onClick={() => setHistoryOpen(true)}
+                          onClick={() => openVitals(selectedEntry)}
                         >
-                          <History className="size-3.5" />
-                          All Prescriptions
+                          <HeartPulse className="size-3.5" />
+                          Vitals
                         </Button>
                       </div>
                       <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground/70">{selectedEntry.patient?.contactNo}</p>
@@ -1011,25 +1018,14 @@ export function DoctorPosPage() {
         onOpenChange={setHistoryOpen}
       />
 
-      <PatientFormSheet
-        open={editPatientOpen}
-        onOpenChange={setEditPatientOpen}
-        editingPatient={selectedEntry?.patient ?? null}
-        onSaved={() => {
-          queryClient.invalidateQueries({ queryKey: ["queue"] });
-          queryClient.invalidateQueries({ queryKey: ["patientVitals"] });
-          setEditPatientOpen(false);
-          toast.success("Patient updated successfully");
-        }}
-      />
-
-      {/* ── Record Vitals Sheet ── */}
+      {/* ── Patient Vitals Sheet: history (read-only, no delete for doctors)
+          plus a form to record a new reading ── */}
       <Sheet open={vitalsOpen} onOpenChange={(open) => { if (!open) { setVitalsOpen(false); setVitalsTarget(null); } }}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <HeartPulse className="size-5 text-rose-500" />
-              Record Vitals
+              Patient Vitals
             </SheetTitle>
           </SheetHeader>
           <div className="space-y-4 px-4 py-4">
@@ -1040,6 +1036,41 @@ export function DoctorPosPage() {
                 <p className="text-xs text-muted-foreground">{vitalsTarget.patient?.contactNo}</p>
               </div>
             )}
+
+            {/* History — read-only. No delete action here: doctors record and
+                view vitals but never remove past readings (server-enforced —
+                the Doctor role has no delete:patient-vitals permission). */}
+            <div className="space-y-2">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">History</span>
+              {vitalsHistory.length === 0 ? (
+                <p className="rounded-none border border-dashed p-3 text-center text-xs text-muted-foreground">
+                  No past vitals recorded yet.
+                </p>
+              ) : (
+                <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                  {vitalsHistory.map((v) => (
+                    <div key={v.id} className="rounded-none border p-2.5 text-xs">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-medium">{new Date(v.recordedAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                        {v.medicalStatus && <span className="text-[10px] text-muted-foreground">{v.medicalStatus}</span>}
+                      </div>
+                      <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-muted-foreground">
+                        {v.heightCm != null && <span>Ht <span className="font-medium text-foreground">{v.heightCm}cm</span></span>}
+                        {v.weightKg != null && <span>Wt <span className="font-medium text-foreground">{v.weightKg}kg</span></span>}
+                        {v.bmi != null && <span>BMI <span className="font-medium text-foreground">{v.bmi}</span></span>}
+                        {v.temperatureC != null && <span>Temp <span className="font-medium text-foreground">{v.temperatureC}°F</span></span>}
+                        {v.pulseBpm != null && <span>Pulse <span className="font-medium text-foreground">{v.pulseBpm}</span></span>}
+                        {v.systolicBp != null && v.diastolicBp != null && <span>BP <span className="font-medium text-foreground">{v.systolicBp}/{v.diastolicBp}</span></span>}
+                        {v.spo2Percent != null && <span>SpO₂ <span className="font-medium text-foreground">{v.spo2Percent}%</span></span>}
+                        {v.respiratoryRate != null && <span>RR <span className="font-medium text-foreground">{v.respiratoryRate}</span></span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <span className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Record New Vitals</span>
             <div className="grid grid-cols-2 gap-3">
               <Field>
                 <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>

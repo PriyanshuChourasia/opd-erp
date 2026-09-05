@@ -7,6 +7,7 @@ import {
   createAppointment,
   createDoctorWithUser,
   checkoutAppointment,
+  addBillPayment,
   fetchDoctors,
   fetchPatients,
   fetchPatient,
@@ -304,13 +305,24 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
         ...(form.registrationFee !== null ? { registrationFee: form.registrationFee } : {}),
         notes: form.notes || undefined,
       });
-      await checkoutAppointment(appointment.id, {
+      const bill = await checkoutAppointment(appointment.id, {
         paymentMethod: payload.paymentMethod,
         ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
         discountRuleId: payload.discountRuleId,
         tax: payload.tax > 0 ? payload.tax : undefined,
         notes: payload.notes || undefined,
       });
+      // checkout() only seeds paidAmount from pre-existing advance payments —
+      // the amount collected just now in the PaymentSheet still has to be
+      // recorded against the newly created bill, or it prints/records as PENDING.
+      if (payload.paidAmount && payload.paidAmount > 0) {
+        await addBillPayment(bill.id, {
+          amount: payload.paidAmount,
+          method: payload.paymentMethod,
+          ...(payload.referenceNumber ? { referenceNumber: payload.referenceNumber } : {}),
+          notes: payload.notes || undefined,
+        });
+      }
       return appointment;
     },
     onSuccess: () => {
@@ -321,6 +333,11 @@ export function NewAppointmentPage({ hideTitle }: { hideTitle?: boolean } = {}) 
       navigate({ to: isReceptionist ? '/receptionist/appointments' : '/appointments' });
     },
     onError: (err) => {
+      // If createAppointment/checkout already succeeded and only the payment
+      // write failed, the appointment (with an unpaid bill) now exists —
+      // surface it in the list so it isn't invisible and doesn't get
+      // double-booked by a naive retry.
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
       toast.error(extractApiError(err));
     },
   });

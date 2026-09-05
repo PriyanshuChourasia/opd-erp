@@ -839,12 +839,13 @@ async function seedMedicines() {
   console.log(`Seeded ${items.length} medicines in the catalog from List_of_Items.xlsx.`);
 }
 
-// ─── Demo patients (with vitals & prescription history) ──
+// ─── Demo patients (with vitals history) ──
 // Creates demo patients with vitals history — useful for testing the
 // "patient history" feature shown in the new-appointment flow.
-// NOTE: appointment history is intentionally NOT seeded for these patients
-// (see the note above PRESCRIPTION_DEMOS) so the demo data never clutters
-// the live Appointments/Queue views.
+// NOTE: appointment/prescription history is intentionally NOT seeded for
+// these patients so the demo data never clutters the live
+// Appointments/Queue/Prescriptions views with fake data indistinguishable
+// from real bookings.
 
 const PATIENT_DEMOS = [
   {
@@ -1546,122 +1547,9 @@ const PATIENT_DEMOS = [
   },
 ];
 
-// Appointment/queue history seeding was removed — it cluttered the live
-// Appointments/Queue views with fake data indistinguishable from real
-// bookings. Only the demo patients themselves are seeded now, so the
-// "patient history" feature can still be tested by booking real
-// appointments for them through the app.
-const PRESCRIPTION_DEMOS = [
-  // Patient: Ravi Kumar Sharma (9876543210)
-  { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Follow up in 2 weeks. Reduce salt intake.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 7, diagnosis: 'Upper Respiratory Tract Infection', notes: 'Complete the full course of antibiotics.', status: 'DISPENSED' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
-  { patientPhone: '9876543210', doctorIdx: 0, daysAgo: 30, diagnosis: 'Vitamin D Deficiency', notes: 'Sun exposure 15 min daily.', status: 'DISPENSED' as const, items: [{ medicineName: 'Vitamin D3', dosage: '1-0-0', duration: '60 days', qty: 1 }] },
-  // Patient: Sunita Devi Sharma (9876543212)
-  { patientPhone: '9876543212', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Monitor BP daily. Low-salt diet.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543212', doctorIdx: 2, daysAgo: 30, diagnosis: 'Osteoarthritis - Knee', notes: 'Weight reduction and physiotherapy.', status: 'DISPENSED' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
-  // Patient: Aarav Mehta (9876543214)
-  { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 0, diagnosis: 'Pediatric Asthma', notes: 'Mild intermittent — use only when symptomatic.', status: 'ACTIVE' as const, items: [{ medicineName: 'Salbutamol Inhaler', dosage: '1 puff SOS', duration: '15 days', qty: 1 }] },
-  { patientPhone: '9876543214', doctorIdx: 1, daysAgo: 28, diagnosis: 'Chickenpox', notes: 'Keep hydrated. Isolate until all lesions crust over.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Calamine Lotion', dosage: 'Apply topically TID', duration: '7 days', qty: 1 }] },
-  // Patient: Priya Anand Patel (9876543216)
-  { patientPhone: '9876543216', doctorIdx: 3, daysAgo: 0, diagnosis: 'Menorrhagia', notes: 'Monitor Hb levels. Consider iron supplementation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Tranexamic Acid', dosage: '1-0-0', duration: '5 days', qty: 1 }, { medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543216', doctorIdx: 5, daysAgo: 5, diagnosis: 'Eczema / Atopic Dermatitis', notes: 'Moisturize regularly. Avoid harsh soaps.', status: 'DISPENSED' as const, items: [{ medicineName: 'Mometasone 0.1% Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Abdul Rahman Khan (9876543218)
-  { patientPhone: '9876543218', doctorIdx: 4, daysAgo: 2, diagnosis: 'Type 2 Diabetes Mellitus', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Glimepiride', dosage: '1-0-0', duration: '90 days', qty: 2 }] },
-  { patientPhone: '9876543218', doctorIdx: 8, daysAgo: 0, diagnosis: 'Migraine', notes: 'Avoid triggers. Maintain sleep schedule.', status: 'ACTIVE' as const, items: [{ medicineName: 'Naproxen', dosage: '1-0-0', duration: '5 days', qty: 1 }] },
-  { patientPhone: '9876543218', doctorIdx: 6, daysAgo: 3, diagnosis: 'Allergic Rhinitis', status: 'ACTIVE' as const, items: [{ medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Montelukast', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  { patientPhone: '9876543218', doctorIdx: 9, daysAgo: 1, diagnosis: 'Generalized Anxiety Disorder', notes: 'Continue therapy. Follow up in 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Clonazepam', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
-  // Patient: Ananya Lakshmi Iyer (9876543220)
-  { patientPhone: '9876543220', doctorIdx: 3, daysAgo: 0, diagnosis: 'Dysmenorrhea', notes: 'NSAIDs as needed during periods.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mefenamic Acid', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
-  { patientPhone: '9876543220', doctorIdx: 5, daysAgo: 5, diagnosis: 'Acne Vulgaris', notes: 'Avoid oily foods. Use sunscreen.', status: 'DISPENSED' as const, items: [{ medicineName: 'Isotretinoin', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Clotrimazole 1% Cream', dosage: 'Apply locally HS', duration: '30 days', qty: 1 }] },
-  // Patient: Vikram Singh (9876543222)
-  { patientPhone: '9876543222', doctorIdx: 2, daysAgo: 0, diagnosis: 'Ankle Sprain', notes: 'RICE protocol. Follow up in 1 week.', status: 'ACTIVE' as const, items: [{ medicineName: 'Ibuprofen', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Betamethasone Cream', dosage: 'Apply locally BD', duration: '10 days', qty: 1 }] },
-  { patientPhone: '9876543222', doctorIdx: 8, daysAgo: 10, diagnosis: 'Tension Type Headache', notes: 'Stress management. Regular exercise.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '3 days', qty: 1 }, { medicineName: 'Ibuprofen', dosage: '1-0-0', duration: '5 days', qty: 1 }] },
-  // Patient: Lakshmi Priya Nair (9876543224)
-  { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 0, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'Diet control and regular exercise. Recheck HbA1c in 3 months.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
-  { patientPhone: '9876543224', doctorIdx: 0, daysAgo: 30, diagnosis: 'Dyslipidemia', notes: 'Low-fat diet. Walk 30 min daily.', status: 'DISPENSED' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Arjun Reddy Kapoor (9876543226)
-  { patientPhone: '9876543226', doctorIdx: 7, daysAgo: 10, diagnosis: 'Refractive Error', notes: 'Power -1.25 both eyes. Use glasses.', status: 'DISPENSED' as const, items: [] },
-  // Patient: Fatima Begum Sheikh (9876543228)
-  { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Stage 2 hypertension. Increase medication dose. Follow up in 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543228', doctorIdx: 4, daysAgo: 15, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'Diet + exercise. Monitor fasting glucose.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543228', doctorIdx: 6, daysAgo: 45, diagnosis: 'Chronic Sinusitis', notes: 'Nasal saline irrigation. Complete antibiotic course.', status: 'DISPENSED' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '10 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Meena Kumari Agarwal (9876543230)
-  { patientPhone: '9876543230', doctorIdx: 4, daysAgo: 0, diagnosis: 'Coronary Artery Disease', notes: 'Start dual antiplatelet. Low-fat diet.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543230', doctorIdx: 0, daysAgo: 3, diagnosis: 'Iron Deficiency Anemia', notes: 'Take iron on empty stomach.', status: 'DISPENSED' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '60 days', qty: 2 }, { medicineName: 'Vitamin C', dosage: '1-0-0', duration: '60 days', qty: 2 }] },
-  // Patient: Suresh Babu (9876543232)
-  { patientPhone: '9876543232', doctorIdx: 2, daysAgo: 0, diagnosis: 'Cervical Spondylosis', notes: 'Physiotherapy + ergonomics.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Pregabalin', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  { patientPhone: '9876543232', doctorIdx: 0, daysAgo: 5, diagnosis: 'Dyslipidemia', notes: 'Low-fat diet. Walk 30 min daily.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Kavya Reddy (9876543234)
-  { patientPhone: '9876543234', doctorIdx: 5, daysAgo: 0, diagnosis: 'Acne Vulgaris', notes: 'Isotretinoin — avoid sun. Monthly LFT.', status: 'ACTIVE' as const, items: [{ medicineName: 'Isotretinoin', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Clotrimazole 1% Cream', dosage: 'Apply locally HS', duration: '30 days', qty: 1 }] },
-  // Patient: Rakesh Tiwari (9876543236)
-  { patientPhone: '9876543236', doctorIdx: 4, daysAgo: 2, diagnosis: 'Congestive Heart Failure', notes: 'Fluid restriction. Daily weight.', status: 'ACTIVE' as const, items: [{ medicineName: 'Furosemide', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Spironolactone', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Ramipril', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543236', doctorIdx: 0, daysAgo: 2, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'HbA1c 8.1% — optimize control.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Glimepiride', dosage: '1-0-0', duration: '90 days', qty: 2 }] },
-  // Patient: Pooja Lata Singh (9876543238)
-  { patientPhone: '9876543238', doctorIdx: 3, daysAgo: 0, diagnosis: 'Pregnancy - Routine Antenatal Care', notes: 'Continue iron and calcium. Next visit 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Folic Acid', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  // Patient: Arvind Patel (9876543240)
-  { patientPhone: '9876543240', doctorIdx: 6, daysAgo: 1, diagnosis: 'Chronic Sinusitis', notes: 'Complete course. Nasal irrigation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '7 days', qty: 1 }] },
-  // Patient: Shanti Devi (9876543242)
-  { patientPhone: '9876543242', doctorIdx: 7, daysAgo: 0, diagnosis: 'Cataract', notes: 'Pre-op drops. Surgery scheduled next week.', status: 'ACTIVE' as const, items: [{ medicineName: 'Moxifloxacin Eye Drops', dosage: '1 drop TID', duration: '7 days', qty: 1 }, { medicineName: 'Timolol Eye Drops', dosage: '1 drop BD', duration: '7 days', qty: 1 }] },
-  // Patient: Mohammed Irfan (9876543244)
-  { patientPhone: '9876543244', doctorIdx: 9, daysAgo: 5, diagnosis: 'Generalized Anxiety Disorder', notes: 'Take at bedtime. Review in 4 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Clonazepam', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Lakshmi Devi (9876543246)
-  { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Resistant HTN. Monitor K+ with Spironolactone.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Spironolactone', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543246', doctorIdx: 4, daysAgo: 10, diagnosis: 'Dyslipidemia', notes: 'High-dose statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Rajiv Menon (9876543248)
-  { patientPhone: '9876543248', doctorIdx: 8, daysAgo: 15, diagnosis: 'Headache - Tension Type', notes: 'Stress management. Paracetamol SOS.', status: 'DISPENSED' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543248', doctorIdx: 0, daysAgo: 2, diagnosis: 'Influenza', notes: 'Oseltamivir if within 48h. Rest fluids.', status: 'DISPENSED' as const, items: [{ medicineName: 'Oseltamivir', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }] },
-  // Patient: Anjum Begum (9876543250)
-  { patientPhone: '9876543250', doctorIdx: 0, daysAgo: 0, diagnosis: 'Type 2 Diabetes Mellitus', notes: 'HbA1c 7.8%. Diet + exercise + Metformin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Deepak Verma (9876543252)
-  { patientPhone: '9876543252', doctorIdx: 0, daysAgo: 5, diagnosis: 'Acute Bronchitis', notes: 'Inhaler PRN. Complete course.', status: 'DISPENSED' as const, items: [{ medicineName: 'Salbutamol Inhaler', dosage: '1 puff PRN', duration: '14 days', qty: 1 }, { medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Montelukast + Levocetirizine', dosage: '0-0-1', duration: '10 days', qty: 1 }] },
-  // Patient: Sunita Joshi (9876543254)
-  { patientPhone: '9876543254', doctorIdx: 3, daysAgo: 0, diagnosis: 'Polycystic Ovarian Syndrome', notes: 'OCP + Metformin. Lifestyle modification.', status: 'ACTIVE' as const, items: [{ medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Dydrogesterone', dosage: '1-0-0', duration: '10 days', qty: 3 }] },
-  // Patient: Prakash Rao (9876543256)
-  { patientPhone: '9876543256', doctorIdx: 2, daysAgo: 0, diagnosis: 'Osteoarthritis - Knee', notes: 'Post-injection care. Weight management.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Calcium + Vitamin D3', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
-  // Patient: Nisha Agarwal (9876543258)
-  { patientPhone: '9876543258', doctorIdx: 5, daysAgo: 0, diagnosis: 'Eczema / Atopic Dermatitis', notes: 'Emollients. Avoid triggers.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mometasone 0.1% Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Levocetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Vijay Kumar Malhotra (9876543260)
-  { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 0, diagnosis: 'Obesity', notes: 'Diet plan + exercise. Follow up monthly.', status: 'ACTIVE' as const, items: [{ medicineName: 'Orlistat', dosage: '1-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543260', doctorIdx: 0, daysAgo: 14, diagnosis: 'Essential Hypertension', notes: 'Lifestyle changes + medication.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Losartan', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  // Patient: Chandrika Menon (9876543262)
-  { patientPhone: '9876543262', doctorIdx: 0, daysAgo: 0, diagnosis: 'Migraine', notes: 'Prophylaxis with Amitriptyline. Avoid triggers.', status: 'ACTIVE' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1 SOS', duration: '5 days', qty: 1 }, { medicineName: 'Escitalopram', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543262', doctorIdx: 5, daysAgo: 3, diagnosis: 'Psoriasis', notes: 'Topical steroids + moisturizer.', status: 'ACTIVE' as const, items: [{ medicineName: 'Betamethasone Cream', dosage: 'Apply locally OD', duration: '14 days', qty: 1 }, { medicineName: 'Cetirizine', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Sanjay Patil (9876543264)
-  { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 0, diagnosis: 'Coronary Artery Disease', notes: 'Post-angiography. Dual antiplatelet + statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  { patientPhone: '9876543264', doctorIdx: 4, daysAgo: 5, diagnosis: 'Coronary Artery Disease', notes: 'Pre-PCI medications.', status: 'DISPENSED' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '5 days', qty: 1 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '5 days', qty: 1 }] },
-  // Patient: Divya Prabha Rao (9876543266)
-  { patientPhone: '9876543266', doctorIdx: 3, daysAgo: 0, diagnosis: 'Dysmenorrhea', notes: 'NSAIDs during periods. Heat therapy.', status: 'ACTIVE' as const, items: [{ medicineName: 'Mefenamic Acid', dosage: '1-0-1', duration: '3 days', qty: 1 }] },
-  // Patient: Rajesh Yadav (9876543268)
-  { patientPhone: '9876543268', doctorIdx: 8, daysAgo: 0, diagnosis: 'Cerebrovascular Accident (Stroke)', notes: 'Secondary prevention. Dual antiplatelet + statin.', status: 'ACTIVE' as const, items: [{ medicineName: 'Aspirin Low Dose', dosage: '1-0-0', duration: '90 days', qty: 3 }, { medicineName: 'Clopidogrel', dosage: '1-0-0', duration: '21 days', qty: 1 }, { medicineName: 'Atorvastatin', dosage: '0-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Aisha Khan (9876543270)
-  { patientPhone: '9876543270', doctorIdx: 9, daysAgo: 0, diagnosis: 'Major Depressive Disorder', notes: 'SSRI started. Review in 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Sertraline', dosage: '0-0-1', duration: '30 days', qty: 1 }] },
-  // Patient: Gopal Krishna Iyer (9876543272)
-  { patientPhone: '9876543272', doctorIdx: 7, daysAgo: 0, diagnosis: 'Glaucoma', notes: 'Timolol eye drops. Monitor IOP monthly.', status: 'ACTIVE' as const, items: [{ medicineName: 'Timolol Eye Drops', dosage: '1 drop BD', duration: '30 days', qty: 1 }] },
-  // Patient: Harpreet Singh (9876543274)
-  { patientPhone: '9876543274', doctorIdx: 6, daysAgo: 0, diagnosis: 'Tonsillitis', notes: 'Antibiotics. Tonsillectomy if recurrent.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amoxicillin', dosage: '1-0-1', duration: '10 days', qty: 1 }, { medicineName: 'Paracetamol', dosage: '1-0-1 SOS', duration: '5 days', qty: 1 }] },
-  // Patient: Shobha Devi (9876543276)
-  { patientPhone: '9876543276', doctorIdx: 4, daysAgo: 0, diagnosis: 'Essential Hypertension', notes: 'Resistant HTN. BP still elevated.', status: 'ACTIVE' as const, items: [{ medicineName: 'Amlodipine', dosage: '1-0-0', duration: '30 days', qty: 2 }, { medicineName: 'Telmisartan', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Metoprolol', dosage: '0-0-1', duration: '30 days', qty: 1 }, { medicineName: 'Furosemide', dosage: '1-0-0', duration: '30 days', qty: 1 }] },
-  // Patient: Aditya Sharma (9876543278)
-  { patientPhone: '9876543278', doctorIdx: 2, daysAgo: 0, diagnosis: 'Ankle Sprain', notes: 'RICE + physiotherapy. Follow up 2 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Ibuprofen', dosage: '1-0-1', duration: '7 days', qty: 1 }, { medicineName: 'Diclofenac', dosage: 'Apply locally TID', duration: '10 days', qty: 1 }] },
-  // Patient: Kamala Nair (9876543280)
-  { patientPhone: '9876543280', doctorIdx: 3, daysAgo: 0, diagnosis: 'Uterine Fibroids', notes: 'Conservative. Iron supplementation.', status: 'ACTIVE' as const, items: [{ medicineName: 'Iron + Folic Acid', dosage: '1-0-0', duration: '60 days', qty: 2 }, { medicineName: 'Tranexamic Acid', dosage: '1-0-1', duration: '5 days', qty: 1 }] },
-  // Patient: Manoj Tripathi (9876543282)
-  { patientPhone: '9876543282', doctorIdx: 0, daysAgo: 0, diagnosis: 'GERD', notes: 'PPI 4 weeks. Lifestyle modifications.', status: 'ACTIVE' as const, items: [{ medicineName: 'Pantoprazole', dosage: '1-0-0', duration: '30 days', qty: 1 }, { medicineName: 'Domperidone', dosage: '1-0-1', duration: '14 days', qty: 1 }] },
-  // Patient: Rekha Joshi (9876543284)
-  { patientPhone: '9876543284', doctorIdx: 1, daysAgo: 0, diagnosis: 'Chickenpox', notes: 'Keep hydrated. Calamine for itch.', status: 'ACTIVE' as const, items: [{ medicineName: 'Paracetamol', dosage: '1-0-1', duration: '5 days', qty: 1 }, { medicineName: 'Calamine Lotion', dosage: 'Apply topically TID', duration: '7 days', qty: 1 }] },
-  // Patient: Vijay Patel (9876543286)
-  { patientPhone: '9876543286', doctorIdx: 0, daysAgo: 0, diagnosis: 'Hypothyroidism', notes: 'Levothyroxine on empty stomach. Recheck TSH in 6 weeks.', status: 'ACTIVE' as const, items: [{ medicineName: 'Levothyroxine', dosage: '1-0-0', duration: '90 days', qty: 3 }] },
-  // Patient: Sunita Pandey (9876543288)
-  { patientPhone: '9876543288', doctorIdx: 3, daysAgo: 0, diagnosis: 'Polycystic Ovarian Syndrome', notes: 'OCP + lifestyle. Recheck hormones in 3 months.', status: 'ACTIVE' as const, items: [{ medicineName: 'Dydrogesterone', dosage: '1-0-0', duration: '10 days', qty: 3 }, { medicineName: 'Metformin', dosage: '1-0-1', duration: '90 days', qty: 3 }] },
-  // Patient: Ashok Gupta (9876543290)
-  { patientPhone: '9876543290', doctorIdx: 2, daysAgo: 0, diagnosis: 'Frozen Shoulder', notes: 'Physiotherapy + NSAIDs. Intra-articular injection.', status: 'ACTIVE' as const, items: [{ medicineName: 'Diclofenac', dosage: '1-0-1', duration: '14 days', qty: 1 }, { medicineName: 'Pregabalin', dosage: '0-0-1', duration: '14 days', qty: 1 }] },
-];
-
-async function seedPatientsWithHistory(doctorRows: Doctor[]) {
+async function seedPatientsWithHistory() {
   let totalPatients = 0;
   let totalVitals = 0;
-  let totalRx = 0;
-  let totalAppt = 0;
   // Look up superadmin user for createdById
   const superadmin = await prisma.user.findFirst({ where: { email: 'superadmin@clinic.com' } });
   const userId = superadmin?.id ?? null;
@@ -1729,81 +1617,6 @@ async function seedPatientsWithHistory(doctorRows: Doctor[]) {
     }
   }
   console.log(`Seeded ${totalPatients} demo patients with ${totalVitals} vitals records.`);
-
-  // Seed demo prescriptions + their appointments for those patients (each
-  // independently skipped once its own table already has rows, so a DB that
-  // e.g. already has prescriptions from elsewhere still gets appointments).
-  const existingRxCount = await prisma.prescription.count();
-  const existingApptCount = await prisma.appointment.count();
-  const shouldSeedRx = existingRxCount === 0;
-  const shouldSeedAppt = existingApptCount === 0;
-  if (shouldSeedRx || shouldSeedAppt) {
-    const medicines = await prisma.medicine.findMany({ take: 100 });
-    const medicineByName = new Map(medicines.map((m) => [m.name, m]));
-
-    for (const rx of PRESCRIPTION_DEMOS) {
-      const patient = await prisma.patient.findFirst({ where: { contactNo: rx.patientPhone } });
-      if (!patient) {
-        console.warn(`Patient not found for phone ${rx.patientPhone}, skipping prescription.`);
-        continue;
-      }
-      const doctor = doctorRows[rx.doctorIdx];
-      if (!doctor) continue;
-
-      const visitDate = new Date(Date.now() - rx.daysAgo * 24 * 60 * 60 * 1000);
-
-      // One completed appointment per demo visit — a prescription already
-      // exists for it, so the consultation it came from must have happened.
-      if (shouldSeedAppt) {
-        await prisma.appointment.create({
-          data: {
-            patientId: patient.id,
-            doctorId: doctor.id,
-            date: visitDate,
-            type: 'CONSULTATION',
-            status: 'COMPLETED',
-            amount: doctor.consultationFee,
-            amountPaid: doctor.consultationFee,
-            reasonForVisit: rx.diagnosis,
-            notes: rx.notes ?? null,
-            createdAt: visitDate,
-            updatedAt: visitDate,
-            createdById: userId,
-          },
-        });
-        totalAppt++;
-      }
-
-      if (shouldSeedRx) {
-        await prisma.prescription.create({
-          data: {
-            patientId: patient.id,
-            doctorId: doctor.id,
-            diagnosis: rx.diagnosis,
-            notes: rx.notes ?? null,
-            status: rx.status,
-            createdAt: visitDate,
-            updatedAt: visitDate,
-            createdById: userId,
-            items: {
-              create: rx.items.map((item) => {
-                const medicine = medicineByName.get(item.medicineName);
-                return {
-                  medicineId: medicine?.id ?? 'unknown',
-                  medicineName: item.medicineName,
-                  dosage: item.dosage,
-                  duration: item.duration,
-                  quantity: item.qty,
-                };
-              }),
-            },
-          },
-        });
-        totalRx++;
-      }
-    }
-  }
-  console.log(`Seeded ${totalAppt} demo appointments and ${totalRx} demo prescriptions with items.`);
 }
 
 // ─── Main ───────────────────────────────────────────────────
@@ -2353,54 +2166,6 @@ async function seedPatientAllergies() {
   console.log(`Seeded ${recordCount} patient allergy records.`);
 }
 
-// ─── Appointment & prescription wipe (non-fresh refreshes) ──
-// Wipes every appointment and prescription record so the demo data below is
-// regenerated on every seed run instead of being skipped by the
-// shouldSeedAppt/shouldSeedRx guards. Deletion order is FK-safe: children
-// (dispensing, prescription items/history, payments, queue entries) before
-// parents (prescriptions, bills, appointments). Vitals and bills NOT linked
-// to an appointment (walk-in invoices) are left untouched.
-async function wipeAppointmentsAndPrescriptions() {
-  console.log('🧹 Wiping all appointment & prescription data...');
-  await prisma.$transaction(async (tx) => {
-    // Dispensing references prescriptions (Restrict) — wipe first.
-    await tx.dispensing.deleteMany();
-
-    // Payments tied to the appointments/bills being wiped.
-    const apptBills = await tx.bill.findMany({
-      where: { appointmentId: { not: null } },
-      select: { id: true },
-    });
-    const apptBillIds = apptBills.map((b) => b.id);
-    await tx.payment.deleteMany({
-      where: {
-        OR: [
-          { appointmentId: { not: null } },
-          ...(apptBillIds.length > 0 ? [{ billId: { in: apptBillIds } }] : []),
-        ],
-      },
-    });
-
-    // Queue entries are tied to appointments — wipe (SetNull would orphan them).
-    await tx.queueEntry.deleteMany();
-
-    // Prescription children, then the prescriptions themselves.
-    await tx.prescriptionItem.deleteMany();
-    await tx.prescriptionHistory.deleteMany();
-    await tx.prescription.deleteMany();
-
-    // Bills created from the wiped appointments (BillItems cascade).
-    await tx.bill.deleteMany({ where: { appointmentId: { not: null } } });
-
-    // Vitals recorded against the wiped appointments (unlinked vitals stay).
-    await tx.patientVitals.deleteMany({ where: { appointmentId: { not: null } } });
-
-    // AppointmentHistory cascades with appointment delete.
-    await tx.appointment.deleteMany();
-  });
-  console.log('✅ Appointment & prescription data wiped.');
-}
-
 // ─── Main ───────────────────────────────────────────────────
 
 async function main() {
@@ -2428,12 +2193,9 @@ async function main() {
   await seedBloodGroups();
 
   await seedStarterPatients();
-  // Wipe existing appointment & prescription data first so the demo rows below
-  // are regenerated on every seed run (fresh mode already wiped via wipeAll).
-  await wipeAppointmentsAndPrescriptions();
-  // Demo appointments + prescriptions (each independently safe to rerun —
-  // see the shouldSeedAppt/shouldSeedRx guards inside seedPatientsWithHistory).
-  await seedPatientsWithHistory(doctors);
+  // Demo patients + vitals only — no appointments/prescriptions are
+  // (re)generated or wiped here; see comment above STARTER_PATIENTS.
+  await seedPatientsWithHistory();
   // Patient allergy links + detailed records for the same PATIENT_DEMOS
   // patients above — self-contained skip-if-already-seeded guards.
   await seedPatientAllergies();

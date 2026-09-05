@@ -773,7 +773,7 @@ interface ParsedMedicineRow {
 }
 
 function parseMedicineExcel(): ParsedMedicineRow[] {
-  const excelPath = path.resolve(__dirname, '../../../List_of_Items.xlsx');
+  const excelPath = path.resolve(__dirname, '../../../medicine_file/List_of_Items.xlsx');
   const wb = XLSX.readFile(excelPath);
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
@@ -2200,16 +2200,21 @@ async function main() {
   // patients above — self-contained skip-if-already-seeded guards.
   await seedPatientAllergies();
 
-  console.log('\n📊 Skipping remaining demo transactional data (bills, accounting)...');
+  // Chart of accounts + current FinancialYear — required for billing/payment
+  // endpoints (accounting.service.ts throws 400 without an isCurrent=true
+  // FinancialYear). Every step here upserts or checks-before-create, so it's
+  // safe/idempotent to run on every container start alongside the rest of
+  // this file.
+  await seedAccounting();
+
+  console.log('\n📊 Skipping remaining demo transactional data (bills)...');
   console.log('   Patients and medicines are kept from wipe-data.ts.');
-  console.log('   Run seedAccounting() separately if you need chart-of-accounts.');
 
   // Uncomment below to re-seed specific data:
   // await seedBills();
   // await seedOrders(doctors);
   // await seedDispensing();
   // await seedPrescriptionTemplates();
-  // await seedAccounting();
   // await backfillMissingLedgers();
   // await seedAccountingDemoData();
   // await seedSidebarConfig();

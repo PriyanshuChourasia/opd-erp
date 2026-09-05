@@ -157,7 +157,12 @@ export function QueuePage() {
 
   const checkoutMutation = useMutation({
     mutationFn: (appointmentId: string) => checkoutAppointment(appointmentId),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["queue"] }); toast.success("Invoice generated successfully"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["billing"] });
+      toast.success("Invoice generated successfully");
+    },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 

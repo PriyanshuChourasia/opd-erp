@@ -53,8 +53,9 @@ COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
 RUN chmod +x ./apps/api/docker-entrypoint.sh
 
 # The medicine catalog seed reads this file via a path relative to the repo
-# root (../../../ from apps/api/prisma) — /app plays that role in the image.
-COPY List_of_Items.xlsx ./List_of_Items.xlsx
+# root (../../../medicine_file from apps/api/prisma) — /app plays that role
+# in the image, so the medicine_file/ subdirectory must be preserved here.
+COPY ./medicine_file/List_of_Items.xlsx ./medicine_file/List_of_Items.xlsx
 
 EXPOSE 4000
 

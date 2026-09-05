@@ -69,9 +69,9 @@ export class PatientsService
       // access — no separate "Enable Portal Login" step needed. Registration
       // must NEVER fail because of portal setup, so any blocker (missing
       // Patient role, email/username already taken by another User) silently
-      // skips portal creation; the manual Enable button stays as the fallback.
+      // skips portal creation.
       if (dto.email?.trim()) {
-        const creds = await this.createPortalUser(tx, created, 'Patient@123');
+        const creds = await this.createPortalUser(tx, created);
         if (creds) {
           portalLogin = { username: creds.username, email: creds.email, password: creds.password };
         }
@@ -173,8 +173,7 @@ export class PatientsService
       throw new NotFoundException('Patient role not found — run seed first');
     }
 
-    const rawPassword = dto.password ?? 'Patient@123';
-    const portal = await this.createPortalUser(this.prisma, patient, rawPassword);
+    const portal = await this.createPortalUser(this.prisma, patient, dto.password);
     if (!portal) {
       const taken = patient.email
         ? `email ${patient.email}`
@@ -188,6 +187,10 @@ export class PatientsService
    * Shared portal-User creation used by both the manual "Enable Portal Login"
    * action and automatic creation during patient registration.
    *
+   * Portal login id is the patient's EMAIL; the password is the patient's
+   * DATE OF BIRTH (DDMMYYYY), falling back to a fixed default when no DOB is
+   * on file. A caller-provided password (manual flow) still wins.
+   *
    * Returns null (instead of throwing) when creation is not possible: the
    * Patient role is missing or the email/username is already taken by another
    * User — callers decide whether that is a hard error (manual flow) or a
@@ -196,14 +199,23 @@ export class PatientsService
   private async createPortalUser(
     db: PrismaService | Prisma.TransactionClient,
     patient: Patient,
-    rawPassword = 'Patient@123',
+    rawPassword?: string,
   ): Promise<{ userId: string; username: string; email: string; password: string } | null> {
     const patientRole = await db.role.findFirst({ where: { name: 'Patient' } });
     if (!patientRole) return null;
 
-    // Generate username from patient code
-    const username = patient.patientCode.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const email = patient.email ?? `${username}@portal.local`;
+    // Login id is the patient's email; patients without an email fall back to
+    // a code-derived portal address so a login can still exist for them.
+    const fallbackUsername = patient.patientCode.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const username = patient.email?.trim() || `${fallbackUsername}@portal.local`;
+    const email = patient.email ?? `${fallbackUsername}@portal.local`;
+
+    // Password is the date of birth as DDMMYYYY (e.g. 15 Aug 1990 → 15081990).
+    const dob = patient.dateOfBirth ? new Date(patient.dateOfBirth) : null;
+    const dobPassword = dob
+      ? `${String(dob.getDate()).padStart(2, '0')}${String(dob.getMonth() + 1).padStart(2, '0')}${dob.getFullYear()}`
+      : 'Patient@123';
+    const password = rawPassword ?? dobPassword;
 
     // User.email and User.username are both unique — skip (never crash) if
     // either is taken by another account.
@@ -212,7 +224,7 @@ export class PatientsService
     });
     if (clash) return null;
 
-    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await db.user.create({
       data: {
@@ -233,7 +245,7 @@ export class PatientsService
       userId: user.id,
       username: user.username,
       email: user.email,
-      password: rawPassword, // Only returned on creation — the raw password
+      password, // Only returned on creation — the raw password
     };
   }
 

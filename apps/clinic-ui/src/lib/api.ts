@@ -619,6 +619,12 @@ export interface BillItem {
   quantity: number;
   unitPrice: number;
   amount: number;
+  /** Read-only invoice enrichment: batch(es) actually sold for MEDICINE lines (stock ledger). */
+  batchNo?: string | null;
+  /** Read-only invoice enrichment: expiry date(s) (ISO, possibly comma-joined) for MEDICINE lines. */
+  expiryDate?: string | null;
+  /** Read-only invoice enrichment: HSN code from the medicine's StockItem. */
+  hsnCode?: string | null;
   createdAt: string;
 }
 

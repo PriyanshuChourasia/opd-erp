@@ -172,12 +172,12 @@ export function PaymentSheet({
           {/* ── Totals breakdown ── */}
           <div className="space-y-2 rounded-none border bg-muted/20 px-4 py-3 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-muted-foreground">Consultation Fee</span>
               <span>{currency(subtotal)}</span>
             </div>
             {discountAmount > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-green-600">Discount{selectedRule ? ` (${selectedRule.name})` : ""}</span>
+                <span className="text-green-600">Discount ({selectedRule?.name ?? ""})</span>
                 <span className="text-green-600">−{currency(discountAmount)}</span>
               </div>
             )}
@@ -189,13 +189,13 @@ export function PaymentSheet({
             </div>
             {alreadyPaid > 0 && (
               <div className="flex items-center justify-between text-green-600">
-                <span>Already Paid</span>
+                <span>Already Paid (prior installments)</span>
                 <span>−{currency(alreadyPaid)}</span>
               </div>
             )}
             <div className="border-t pt-1.5">
               <div className="flex items-center justify-between font-semibold">
-                <span>Amount Due</span>
+                <span>Amount Due Today</span>
                 <span className="text-lg text-primary">{currency(amountDue)}</span>
               </div>
             </div>
@@ -206,13 +206,13 @@ export function PaymentSheet({
                 onChange={(e) => setPaidAmountInput(Math.max(0, Math.min(amountDue, Number(e.target.value) || 0)))}
               />
             </div>
-            <div className="flex items-center justify-between font-semibold">
-              <span>Amount Paid</span>
+            {/* <div className="flex items-center justify-between font-semibold">
+              <span>Amount To Be Collected</span>
               <span className="text-lg text-green-600">{currency(paidAmount)}</span>
-            </div>
+            </div> */}
             {paidAmount < amountDue && (
               <div className="flex items-center justify-between text-sm font-medium text-amber-600">
-                <span>Balance Due</span>
+                <span>Remaining Balance</span>
                 <span>{currency(amountDue - paidAmount)}</span>
               </div>
             )}

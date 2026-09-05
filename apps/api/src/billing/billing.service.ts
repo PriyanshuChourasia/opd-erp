@@ -35,6 +35,70 @@ async function withDoctorNames<T extends WithAppointmentDoctor>(prisma: PrismaSe
   return bills.map((b) => (b.appointment ? { ...b, appointment: { ...b.appointment, doctorName: nameMap.get(b.appointment.doctorId) ?? null } } : b));
 }
 
+interface WithBillItems {
+  id: string;
+  items: { itemType: string; itemId: string | null }[];
+}
+
+/**
+ * Read-only enrichment for the invoice: for MEDICINE items, resolve the
+ * exact batch/expiry that was actually sold on the bill's SALES voucher
+ * (from the stock ledger) plus the medicine's HSN code from its StockItem.
+ * Leaves items untouched when no stock movement exists (e.g. walk-in
+ * charges, seeded bills without stock). This does not modify any stock or
+ * accounting state — it only reads it.
+ */
+async function withItemBatchDetails<T extends WithBillItems>(prisma: PrismaService, bill: T): Promise<T> {
+  const medicineItems = bill.items.filter((i) => i.itemType === 'MEDICINE' && i.itemId);
+  if (medicineItems.length === 0) return bill;
+
+  const voucher = await prisma.voucher.findFirst({
+    where: { sourceModule: 'Bill', sourceId: bill.id },
+  });
+  if (!voucher) return bill;
+
+  const entries = await prisma.stockLedgerEntry.findMany({
+    where: { voucherId: voucher.id, movementType: 'SALE' },
+    include: {
+      stockItem: { select: { medicineId: true, hsnCode: true } },
+      batch: { select: { batchNo: true, expiryDate: true } },
+    },
+  });
+  if (entries.length === 0) return bill;
+
+  const detailByMedicine = new Map<string, { batchNos: string[]; expiryDates: string[]; hsnCode: string | null }>();
+  for (const entry of entries) {
+    const medicineId = entry.stockItem.medicineId;
+    let detail = detailByMedicine.get(medicineId);
+    if (!detail) {
+      detail = { batchNos: [], expiryDates: [], hsnCode: entry.stockItem.hsnCode ?? null };
+      detailByMedicine.set(medicineId, detail);
+    }
+    if (entry.batch?.batchNo && !detail.batchNos.includes(entry.batch.batchNo)) {
+      detail.batchNos.push(entry.batch.batchNo);
+    }
+    if (entry.batch?.expiryDate) {
+      const iso = entry.batch.expiryDate.toISOString();
+      if (!detail.expiryDates.includes(iso)) detail.expiryDates.push(iso);
+    }
+  }
+
+  return {
+    ...bill,
+    items: bill.items.map((item) => {
+      if (item.itemType !== 'MEDICINE' || !item.itemId) return item;
+      const detail = detailByMedicine.get(item.itemId);
+      if (!detail) return item;
+      return {
+        ...item,
+        batchNo: detail.batchNos.length > 0 ? detail.batchNos.join(', ') : null,
+        expiryDate: detail.expiryDates.length > 0 ? detail.expiryDates.join(', ') : null,
+        hsnCode: detail.hsnCode,
+      };
+    }),
+  };
+}
+
 /**
  * Generates invoice numbers using the database's auto-increment by
  * counting existing bills + 1, prefixed with year-month.
@@ -148,7 +212,7 @@ export class BillingService
       include: { items: true, patient: true, appointment: { select: { id: true, doctorId: true, type: true, date: true } } },
     });
     if (!bill) throw new NotFoundException(`Bill ${id} not found`);
-    return withDoctorName(this.prisma, bill);
+    return withDoctorName(this.prisma, await withItemBatchDetails(this.prisma, bill));
   }
 
   async update(id: string, dto: UpdateBillStatusDto, userId?: string) {

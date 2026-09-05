@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Bill/Payment amounts are stored and served in rupees (whole units) — no
+// paise division. (Only the accounting/stock modules deal in paise.)
 function currency(value: number) {
-  return `₹${(value / 100).toFixed(2)}`;
+  const v = Number.isFinite(value) ? value : 0;
+  return `₹${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(dateStr: string) {

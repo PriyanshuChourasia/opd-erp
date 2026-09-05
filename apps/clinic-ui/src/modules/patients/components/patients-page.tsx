@@ -1,4 +1,4 @@
-import { getPatientName, createPatientVitals, createPortalLogin } from "@/lib/api";
+import { getPatientName, createPatientVitals } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
@@ -6,7 +6,6 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   CalendarPlus,
   HeartPulse,
-  LogIn,
   Pencil,
   Plus,
   Search,
@@ -189,14 +188,6 @@ export function PatientsPage() {
   const deleteMutation = useMutation({
     mutationFn: deletePatient,
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["patients"] }); setDeleteConfirm(null); toast.success("Patient deactivated successfully"); },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
-
-  const portalLoginMutation = useMutation({
-    mutationFn: (patientId: string) => createPortalLogin(patientId),
-    onSuccess: (result) => {
-      toast.success(`Portal login created — Username: ${result.username}, Password: ${result.password}`);
-    },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 
@@ -427,16 +418,6 @@ export function PatientsPage() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Edit Patient</TooltipContent>
-              </Tooltip>
-            )}
-            {canUpdate && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-8 text-primary" onClick={() => portalLoginMutation.mutate(patient.id)} disabled={patient.hasPortalLogin || portalLoginMutation.isPending}>
-                    <LogIn className={`size-3.5 ${patient.hasPortalLogin ? "opacity-40" : ""}`} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{patient.hasPortalLogin ? "Portal login already enabled" : "Enable Portal Login"}</TooltipContent>
               </Tooltip>
             )}
             {canDelete && (deleteConfirm === patient.id ? (

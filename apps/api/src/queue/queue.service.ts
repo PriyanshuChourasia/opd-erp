@@ -10,6 +10,7 @@ import { CreateQueueEntryDto } from './dto/create-queue-entry.dto';
 import { UpdateQueueStatusDto } from './dto/update-queue-status.dto';
 import { FindQueueQueryDto } from './dto/find-queue-query.dto';
 import { applyDateRange } from '../common/dto/date-range-query.dto';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 /**
  * Live token queue with status tracking and check-in management.
@@ -26,6 +27,7 @@ export class QueueService
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokenNumberService: TokenNumberService,
+    private readonly appointmentsService: AppointmentsService,
   ) {}
 
   private readonly billSelect = { select: { id: true, invoiceNo: true, status: true } };
@@ -157,12 +159,23 @@ export class QueueService
   }
 
   async update(id: string, dto: UpdateQueueStatusDto, userId?: string) {
-    await this.findOne(id);
-    return this.prisma.queueEntry.update({
+    const existing = await this.findOne(id);
+
+    await this.prisma.queueEntry.update({
       where: { id },
       data: { status: dto.status, updatedById: userId ?? null },
-      include: { patient: true, doctor: true, appointment: { select: { id: true, amount: true, bill: this.billSelect } } },
     });
+
+    // Keep the linked appointment's status in sync with the queue: starting a
+    // consultation or completing it must also move Appointment.status, since
+    // the appointments table reads that directly. Other queue statuses
+    // (WAITING, SKIPPED, NO_SHOW) have no clean 1:1 meaning on the appointment
+    // side, so they are deliberately not forwarded.
+    if (existing.appointmentId && (dto.status === 'IN_PROGRESS' || dto.status === 'COMPLETED')) {
+      await this.appointmentsService.update(existing.appointmentId, { status: dto.status }, userId);
+    }
+
+    return this.findOne(id);
   }
 
   async remove(id: string) {

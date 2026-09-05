@@ -2353,6 +2353,54 @@ async function seedPatientAllergies() {
   console.log(`Seeded ${recordCount} patient allergy records.`);
 }
 
+// ─── Appointment & prescription wipe (non-fresh refreshes) ──
+// Wipes every appointment and prescription record so the demo data below is
+// regenerated on every seed run instead of being skipped by the
+// shouldSeedAppt/shouldSeedRx guards. Deletion order is FK-safe: children
+// (dispensing, prescription items/history, payments, queue entries) before
+// parents (prescriptions, bills, appointments). Vitals and bills NOT linked
+// to an appointment (walk-in invoices) are left untouched.
+async function wipeAppointmentsAndPrescriptions() {
+  console.log('🧹 Wiping all appointment & prescription data...');
+  await prisma.$transaction(async (tx) => {
+    // Dispensing references prescriptions (Restrict) — wipe first.
+    await tx.dispensing.deleteMany();
+
+    // Payments tied to the appointments/bills being wiped.
+    const apptBills = await tx.bill.findMany({
+      where: { appointmentId: { not: null } },
+      select: { id: true },
+    });
+    const apptBillIds = apptBills.map((b) => b.id);
+    await tx.payment.deleteMany({
+      where: {
+        OR: [
+          { appointmentId: { not: null } },
+          ...(apptBillIds.length > 0 ? [{ billId: { in: apptBillIds } }] : []),
+        ],
+      },
+    });
+
+    // Queue entries are tied to appointments — wipe (SetNull would orphan them).
+    await tx.queueEntry.deleteMany();
+
+    // Prescription children, then the prescriptions themselves.
+    await tx.prescriptionItem.deleteMany();
+    await tx.prescriptionHistory.deleteMany();
+    await tx.prescription.deleteMany();
+
+    // Bills created from the wiped appointments (BillItems cascade).
+    await tx.bill.deleteMany({ where: { appointmentId: { not: null } } });
+
+    // Vitals recorded against the wiped appointments (unlinked vitals stay).
+    await tx.patientVitals.deleteMany({ where: { appointmentId: { not: null } } });
+
+    // AppointmentHistory cascades with appointment delete.
+    await tx.appointment.deleteMany();
+  });
+  console.log('✅ Appointment & prescription data wiped.');
+}
+
 // ─── Main ───────────────────────────────────────────────────
 
 async function main() {
@@ -2380,6 +2428,9 @@ async function main() {
   await seedBloodGroups();
 
   await seedStarterPatients();
+  // Wipe existing appointment & prescription data first so the demo rows below
+  // are regenerated on every seed run (fresh mode already wiped via wipeAll).
+  await wipeAppointmentsAndPrescriptions();
   // Demo appointments + prescriptions (each independently safe to rerun —
   // see the shouldSeedAppt/shouldSeedRx guards inside seedPatientsWithHistory).
   await seedPatientsWithHistory(doctors);

@@ -44,3 +44,7 @@ PROJECT_BLUEPRINT.md
 AGENTS.md
 .claude
 graphify-out/
+
+List_of_Items.xlsx
+medicine_file/*medicine_file/*.xls
+medicine_file/*.xls

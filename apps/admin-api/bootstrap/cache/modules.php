@@ -1,0 +1,47 @@
+<?php return array (
+  'providers' => 
+  array (
+    0 => 'Modules\\FinancialYear\\Providers\\FinancialYearServiceProvider',
+    1 => 'Modules\\Organization\\Providers\\OrganizationServiceProvider',
+    2 => 'Modules\\License\\Providers\\LicenseServiceProvider',
+    3 => 'Modules\\ApplicationFeature\\Providers\\ApplicationFeatureServiceProvider',
+    4 => 'Modules\\ApplicationModule\\Providers\\ApplicationModuleServiceProvider',
+    5 => 'Modules\\Country\\Providers\\CountryServiceProvider',
+    6 => 'Modules\\Customer\\Providers\\CustomerServiceProvider',
+    7 => 'Modules\\Department\\Providers\\DepartmentServiceProvider',
+    8 => 'Modules\\Designation\\Providers\\DesignationServiceProvider',
+    9 => 'Modules\\Document\\Providers\\DocumentServiceProvider',
+    10 => 'Modules\\Employee\\Providers\\EmployeeServiceProvider',
+    11 => 'Modules\\Permission\\Providers\\PermissionServiceProvider',
+    12 => 'Modules\\Role\\Providers\\RoleServiceProvider',
+    13 => 'Modules\\State\\Providers\\StateServiceProvider',
+    14 => 'Modules\\User\\Providers\\UserServiceProvider',
+    15 => 'Modules\\UserPermission\\Providers\\UserPermissionServiceProvider',
+    16 => 'Modules\\UserRole\\Providers\\UserRoleServiceProvider',
+    17 => 'Modules\\Auth\\Providers\\AuthServiceProvider',
+  ),
+  'eager' => 
+  array (
+    0 => 'Modules\\FinancialYear\\Providers\\FinancialYearServiceProvider',
+    1 => 'Modules\\Organization\\Providers\\OrganizationServiceProvider',
+    2 => 'Modules\\License\\Providers\\LicenseServiceProvider',
+    3 => 'Modules\\ApplicationFeature\\Providers\\ApplicationFeatureServiceProvider',
+    4 => 'Modules\\ApplicationModule\\Providers\\ApplicationModuleServiceProvider',
+    5 => 'Modules\\Country\\Providers\\CountryServiceProvider',
+    6 => 'Modules\\Customer\\Providers\\CustomerServiceProvider',
+    7 => 'Modules\\Department\\Providers\\DepartmentServiceProvider',
+    8 => 'Modules\\Designation\\Providers\\DesignationServiceProvider',
+    9 => 'Modules\\Document\\Providers\\DocumentServiceProvider',
+    10 => 'Modules\\Employee\\Providers\\EmployeeServiceProvider',
+    11 => 'Modules\\Permission\\Providers\\PermissionServiceProvider',
+    12 => 'Modules\\Role\\Providers\\RoleServiceProvider',
+    13 => 'Modules\\State\\Providers\\StateServiceProvider',
+    14 => 'Modules\\User\\Providers\\UserServiceProvider',
+    15 => 'Modules\\UserPermission\\Providers\\UserPermissionServiceProvider',
+    16 => 'Modules\\UserRole\\Providers\\UserRoleServiceProvider',
+    17 => 'Modules\\Auth\\Providers\\AuthServiceProvider',
+  ),
+  'deferred' => 
+  array (
+  ),
+);

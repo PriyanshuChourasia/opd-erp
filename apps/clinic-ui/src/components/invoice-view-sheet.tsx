@@ -468,11 +468,11 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
         onOpenChange={(open) => !open && setReceiptPaymentId(null)}
       />
 
-      {/* Print Preview Dialog — near-full-viewport modal so the A4-portrait
+      {/* Print Preview Dialog — near-full-viewport modal so the A5-portrait
           page can be reviewed without the modal itself growing & scrolling:
           header and footer stay pinned while only the page area scrolls. The
-          page div is sized to the A4-portrait sheet (210×297mm @96dpi → 794×1123px)
-          that this invoice prints on — see @page invoice-a4 in index.css. */}
+          page div is sized to the A5-portrait sheet (148×210mm @96dpi → 559×794px)
+          that this invoice prints on — see @page invoice-a5 in index.css. */}
       <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
         <DialogContent className="flex h-[95vh] w-[95vw] max-w-none flex-col overflow-hidden sm:max-w-none">
           <DialogHeader>
@@ -482,7 +482,7 @@ export function InvoiceViewSheet({ bill, onOpenChange, organisation, previewOnly
             {displayBill && (
               <div
                 className="mx-auto bg-white"
-                style={{ maxWidth: 794, minHeight: 1123, boxShadow: "0 1px 3px rgba(15,23,42,0.2), 0 8px 24px rgba(15,23,42,0.12)" }}
+                style={{ maxWidth: 559, minHeight: 794, boxShadow: "0 1px 3px rgba(15,23,42,0.2), 0 8px 24px rgba(15,23,42,0.12)" }}
               >
                 <div className="px-8 pb-8 pt-9" dangerouslySetInnerHTML={{ __html: doc }} />
               </div>

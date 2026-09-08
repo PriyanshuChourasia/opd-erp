@@ -430,17 +430,22 @@ input[type="number"] {
   }
 }
 
-/* Invoices print on A4 portrait (same stock as prescriptions). The invoice
-   markup inside InvoiceViewSheet's #print-area is self-contained inline
-   styles (see buildInvoiceHtml), so pagination is driven purely by its own
-   content: normal invoices fit a single page; longer ones flow onto a second
-   page naturally (the itemized table repeats its header via table-header-group). */
-@page invoice-a4 {
-  size: 210mm 297mm;
-  margin: 10mm 12mm;
+/* Invoices print on A5 portrait. The invoice markup inside InvoiceViewSheet's
+   #print-area is self-contained inline styles (see buildInvoiceHtml), so
+   pagination is driven purely by its own content: normal invoices fit a
+   single page; longer ones flow onto a second page naturally (the itemized
+   table repeats its header via table-header-group). Explicit mm dimensions
+   instead of `size: A5` — see the appointment-slip comment above for why the
+   named-size keyword is unreliable in Chrome. */
+@page invoice-a5 {
+  size: 148mm 210mm;
+  margin: 6mm 8mm;
 }
 .invoice-print-area {
-  page: invoice-a4;
+  page: invoice-a5;
+  width: 148mm;
+  height: 210mm;
+  box-sizing: border-box;
 }
 
 /* Hospital letterhead banner (header.png / footer.png), used on invoices
@@ -454,13 +459,14 @@ input[type="number"] {
   border-radius: 6px;
 }
 
-/* The invoice is a full A4-portrait document already — no A5-style compaction
-   needed. These rules only keep the page white with no padding of its own and
-   make sure no awkward break slips between the totals and payment sections. */
+/* The invoice prints on A5 portrait. These rules keep the page pinned to the
+   A5 sheet size, white with no padding of its own, and make sure no awkward
+   break slips between the totals and payment sections. */
 @media print {
   #print-area.invoice-print-area {
     display: block !important;
-    width: auto !important;
+    width: 148mm !important;
+    height: auto !important;
     min-width: 0 !important;
     max-width: none !important;
     margin: 0 !important;

@@ -1,21 +1,34 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, useParams } from "@tanstack/react-router";
-import { Pill, Plus, Search, X, Activity } from "lucide-react";
+import { Activity, Check, Eye, History, HeartPulse, Pencil, Plus, Printer, FileDown, Trash2, X } from "lucide-react";
 import {
   fetchPrescription,
+  fetchPrescriptions,
+  fetchPatientVitalsLatest,
+  fetchOrganisation,
   fetchProcedureOrders,
+  createProcedureOrder,
+  updateProcedureOrder,
+  deleteProcedureOrder,
   fetchMedicines,
   updatePrescription,
   getPatientName,
-  type Medicine,
+  type ProcedureOrder,
 } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
+import { hasPermission } from "@/lib/roles";
+import { useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DiagnosisSelect } from "@/components/diagnosis-select";
+import { RxDocPreview, printRxDocument } from "@/components/prescription-document/RxDoc";
+import { rxDocFromNewPrescription } from "@/components/prescription-document/rx-doc-data";
+import { generateRxPdf } from "@/components/prescription-document/rx-pdf";
 import { prescriptionsListRoute } from "../lib/prescription-routes";
 
 interface EditRxItem {
@@ -23,10 +36,17 @@ interface EditRxItem {
   medicineId: string;
   medicineName: string;
   dosage: string;
+  frequency: string;
   duration: string;
   instructions: string;
   quantity: number;
 }
+
+function emptyEditRxItem(): EditRxItem {
+  return { tempId: crypto.randomUUID(), medicineId: "", medicineName: "", dosage: "", frequency: "", duration: "", instructions: "", quantity: 1 };
+}
+
+const PROCEDURE_CATEGORIES = ["DIAGNOSTIC", "THERAPEUTIC", "SURGICAL", "PREVENTIVE", "OTHER"];
 
 export function EditPrescriptionPage() {
   const queryClient = useQueryClient();
@@ -37,17 +57,26 @@ export function EditPrescriptionPage() {
   const { prescriptionId } = useParams({ strict: false });
   const backTo = prescriptionsListRoute(location.pathname);
 
-  const [editDiagnosis, setEditDiagnosis] = useState("");
+  const user = useAppSelector((state) => state.auth.user);
+  const [editDiagnosis, setEditDiagnosis] = useState<string[]>([]);
   const [editNotes, setEditNotes] = useState("");
   const [editItems, setEditItems] = useState<EditRxItem[]>([]);
-  const [editMedicineQuery, setEditMedicineQuery] = useState("");
-  const [showEditMedicineSearch, setShowEditMedicineSearch] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [medicineSearchIdx, setMedicineSearchIdx] = useState<number | null>(null);
+  const [medicineQuery, setMedicineQuery] = useState("");
 
   // ── Fetch prescription ──
   const { data: prescription, isLoading: prescriptionLoading } = useQuery({
     queryKey: ["prescription", prescriptionId],
     queryFn: () => fetchPrescription(prescriptionId!),
     enabled: !!prescriptionId,
+  });
+
+  // ── Fetch vitals ──
+  const { data: vitals } = useQuery({
+    queryKey: ["patientVitals", "latest", prescription?.patientId],
+    queryFn: () => fetchPatientVitalsLatest(prescription!.patientId),
+    enabled: !!prescription?.patientId,
   });
 
   // ── Fetch procedures ordered for this patient by this doctor ──
@@ -61,10 +90,78 @@ export function EditPrescriptionPage() {
     [procedureOrdersResponse, prescription?.doctorId],
   );
 
+  // ── Procedure add/edit ──
+  const [newProcedureName, setNewProcedureName] = useState("");
+  const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
+  const [newProcedureNotes, setNewProcedureNotes] = useState("");
+  const [editingProcedureId, setEditingProcedureId] = useState<string | null>(null);
+  const [editProcedureName, setEditProcedureName] = useState("");
+  const [editProcedureCategory, setEditProcedureCategory] = useState("DIAGNOSTIC");
+  const [editProcedureNotes, setEditProcedureNotes] = useState("");
+
+  const createProcedureMutation = useMutation({
+    mutationFn: () => {
+      if (!prescription) throw new Error("No prescription");
+      return createProcedureOrder({
+        patientId: prescription.patientId,
+        doctorId: prescription.doctorId,
+        procedureName: newProcedureName.trim(),
+        category: newProcedureCategory,
+        ...(newProcedureNotes.trim() ? { notes: newProcedureNotes.trim() } : {}),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["procedure-orders", prescription?.patientId] });
+      setNewProcedureName("");
+      setNewProcedureCategory("DIAGNOSTIC");
+      setNewProcedureNotes("");
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const updateProcedureMutation = useMutation({
+    mutationFn: (id: string) => updateProcedureOrder(id, {
+      procedureName: editProcedureName.trim(),
+      category: editProcedureCategory,
+      notes: editProcedureNotes.trim(),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["procedure-orders", prescription?.patientId] });
+      setEditingProcedureId(null);
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const deleteProcedureMutation = useMutation({
+    mutationFn: (id: string) => deleteProcedureOrder(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["procedure-orders", prescription?.patientId] });
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  function startEditProcedure(p: ProcedureOrder) {
+    setEditingProcedureId(p.id);
+    setEditProcedureName(p.procedureName);
+    setEditProcedureCategory(p.category ?? "DIAGNOSTIC");
+    setEditProcedureNotes(p.notes ?? "");
+  }
+
+  // ── Fetch prescription history ──
+  const { data: historyResponse, isLoading: historyLoading } = useQuery({
+    queryKey: ["patient-prescriptions", prescription?.patientId],
+    queryFn: () => fetchPrescriptions({ patientId: prescription!.patientId, page: 1, limit: 10 }),
+    enabled: !!prescription?.patientId && showHistory,
+  });
+  const pastPrescriptions = useMemo(
+    () => (historyResponse?.data ?? []).filter((rx) => rx.id !== prescriptionId),
+    [historyResponse, prescriptionId],
+  );
+
   // Pre-fill from the fetched prescription, once
   useEffect(() => {
     if (!prescription) return;
-    setEditDiagnosis(prescription.diagnosis ?? "");
+    setEditDiagnosis(prescription.diagnosis ? prescription.diagnosis.split(", ").map((d) => d.trim()).filter(Boolean) : []);
     setEditNotes(prescription.notes ?? "");
     setEditItems(
       prescription.items.map((item) => ({
@@ -72,57 +169,46 @@ export function EditPrescriptionPage() {
         medicineId: item.medicineId,
         medicineName: item.medicineName,
         dosage: item.dosage,
+        frequency: "",
         duration: item.duration ?? "",
         instructions: item.instructions ?? "",
         quantity: item.quantity,
       })),
     );
-    setEditMedicineQuery("");
-    setShowEditMedicineSearch(false);
   }, [prescription]);
 
-  const editMedicineResults = useQuery({
-    queryKey: ["medicines", "search", "rx-edit", editMedicineQuery],
-    queryFn: () => fetchMedicines({ search: editMedicineQuery, limit: 20 }),
-    enabled: editMedicineQuery.trim().length >= 2,
+  // ── Medicine search ──
+  const { data: medicinesResponse } = useQuery({
+    queryKey: ["medicines", "rx-edit-search", medicineQuery],
+    queryFn: () => fetchMedicines({ search: medicineQuery, limit: 10 }),
+    enabled: medicineQuery.trim().length >= 1 && medicineSearchIdx !== null,
   });
-  const editMedicines = editMedicineResults.data?.data ?? [];
+  const medicineResults = useMemo(() => medicinesResponse?.data ?? [], [medicinesResponse]);
 
-  function addMedicineToEdit(med: Medicine) {
-    setEditItems((prev) => [
-      ...prev,
-      {
-        tempId: crypto.randomUUID(),
-        medicineId: med.id,
-        medicineName: [med.brandName ?? med.name, med.strength].filter(Boolean).join(" "),
-        dosage: "1-0-1",
-        duration: "7 days",
-        instructions: "",
-        quantity: 1,
-      },
-    ]);
-    setEditMedicineQuery("");
-    setShowEditMedicineSearch(false);
+  function addEditItem() { setEditItems((prev) => [...prev, emptyEditRxItem()]); }
+  function removeEditItem(idx: number) { setEditItems((prev) => prev.filter((_, i) => i !== idx)); }
+  function updateEditItem(idx: number, field: keyof EditRxItem, value: string | number) {
+    setEditItems((prev) => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
   }
 
-  function updateEditItem(tempId: string, patch: Partial<EditRxItem>) {
-    setEditItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, ...patch } : i)));
-  }
+  const canSubmit = editItems.some((it) => it.medicineName.trim()) || editNotes.trim();
 
   const editMutation = useMutation({
-    mutationFn: () =>
-      updatePrescription(prescriptionId!, {
-        diagnosis: editDiagnosis || undefined,
-        notes: editNotes || undefined,
-        items: editItems.map((item) => ({
-          medicineId: item.medicineId,
-          medicineName: item.medicineName,
-          dosage: item.dosage,
-          duration: item.duration || undefined,
-          instructions: item.instructions || undefined,
-          quantity: item.quantity,
-        })),
-      }),
+    mutationFn: () => {
+      const validItems = editItems.filter((it) => it.medicineName.trim());
+      return updatePrescription(prescriptionId!, {
+        diagnosis: editDiagnosis.length > 0 ? editDiagnosis.join(", ") : undefined,
+        notes: editNotes.trim() || undefined,
+        items: validItems.length > 0 ? validItems.map((it) => ({
+          medicineId: it.medicineId || "manual",
+          medicineName: it.medicineName,
+          dosage: it.dosage || "As directed",
+          ...(it.frequency ? { duration: `${it.frequency} ${it.duration}`.trim() } : it.duration ? { duration: it.duration } : {}),
+          quantity: it.quantity || 1,
+          ...(it.instructions ? { instructions: it.instructions } : {}),
+        })) : [{ medicineId: "manual", medicineName: "Verbal Instructions", dosage: "As per doctor's advice", quantity: 1 }],
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
       toast.success("Prescription updated");
@@ -130,6 +216,52 @@ export function EditPrescriptionPage() {
     },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
+
+  // ── Prescription preview ──
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const canReadOrganisation = hasPermission(user?.permissions, "read", "company");
+  const { data: organisation } = useQuery({ queryKey: ["organisation"], queryFn: fetchOrganisation, enabled: canReadOrganisation });
+  const previewItems = useMemo(() => editItems.filter((it) => it.medicineName.trim()), [editItems]);
+  const previewDiagnosis = editDiagnosis.length > 0 ? editDiagnosis.join(", ") : undefined;
+  const previewNotes = editNotes.trim() || undefined;
+
+  const previewDocData = useMemo(() => {
+    if (!prescription) return null;
+    return rxDocFromNewPrescription({
+      reference: prescription.id.slice(0, 8).toUpperCase(),
+      referenceTitle: "Rx No",
+      regNo: prescription.doctor?.medicalRegistrationNo ?? undefined,
+      patient: prescription.patient,
+      doctor: prescription.doctor,
+      diagnosis: previewDiagnosis,
+      notes: previewNotes,
+      items: (previewItems.length > 0 ? previewItems : [emptyEditRxItem()]).map((it) => ({
+        medicineId: it.medicineId || undefined,
+        medicineName: it.medicineName || "Verbal Instructions",
+        dosage: it.dosage || "As per doctor's advice",
+        duration: [it.frequency, it.duration].filter(Boolean).join(" ") || undefined,
+        quantity: it.quantity || 1,
+        instructions: it.instructions || undefined,
+      })),
+      organisation,
+    });
+  }, [prescription, previewItems, previewDiagnosis, previewNotes, organisation]);
+
+  const [rxPdfGenerating, setRxPdfGenerating] = useState(false);
+  const [rxDocReady, setRxDocReady] = useState(false);
+  async function downloadRxPdf() {
+    if (!previewDocData) return;
+    setRxPdfGenerating(true);
+    try {
+      const { pageCount } = await generateRxPdf(previewDocData);
+      toast.success(pageCount > 1 ? `PDF downloaded (${pageCount} pages)` : "PDF downloaded successfully");
+    } catch (err) {
+      console.error("PDF generation failed", err);
+      toast.error("Failed to generate PDF");
+    } finally {
+      setRxPdfGenerating(false);
+    }
+  }
 
   if (prescriptionLoading) {
     return (
@@ -159,8 +291,16 @@ export function EditPrescriptionPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowHistory((v) => !v)}>
+            <History className="size-4 mr-1.5" />
+            History {showHistory && pastPrescriptions.length > 0 && <Badge variant="secondary" className="ml-1">{pastPrescriptions.length}</Badge>}
+          </Button>
+          <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+            <Eye className="size-4 mr-1.5" />
+            Preview
+          </Button>
           <Button variant="outline" onClick={() => navigate({ to: backTo })}>Cancel</Button>
-          <Button disabled={editItems.length === 0 || editMutation.isPending} onClick={() => editMutation.mutate()}>
+          <Button disabled={!canSubmit || editMutation.isPending} onClick={() => editMutation.mutate()}>
             {editMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>
@@ -185,27 +325,144 @@ export function EditPrescriptionPage() {
             </CardContent>
           </Card>
 
-          {/* Procedures */}
-          {procedureOrders.length > 0 && (
+          {/* Vitals */}
+          {vitals && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-1.5">
-                  <Activity className="size-4 text-amber-600" />
-                  Procedures
-                  <Badge variant="outline" className="text-[10px]">{procedureOrders.length}</Badge>
+                  <HeartPulse className="size-4 text-rose-500" />
+                  Latest Vitals
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {procedureOrders.map((p) => (
-                  <div key={p.id} className="rounded-none border-l-2 border-amber-400/50 bg-muted/20 px-3 py-2 text-xs">
-                    <div className="flex items-center justify-between mb-0.5">
+              <CardContent>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                  {vitals.heightCm != null && <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{vitals.heightCm} cm</p></div>}
+                  {vitals.weightKg != null && <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{vitals.weightKg} kg</p></div>}
+                  {vitals.bmi != null && <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{vitals.bmi}</p></div>}
+                  {vitals.temperatureC != null && <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{vitals.temperatureC}°F</p></div>}
+                  {vitals.pulseBpm != null && <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{vitals.pulseBpm} bpm</p></div>}
+                  {vitals.systolicBp != null && vitals.diastolicBp != null && <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{vitals.systolicBp}/{vitals.diastolicBp}</p></div>}
+                  {vitals.spo2Percent != null && <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{vitals.spo2Percent}%</p></div>}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Procedures */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-1.5">
+                <Activity className="size-4 text-amber-600" />
+                Procedures
+                {procedureOrders.length > 0 && <Badge variant="outline" className="text-[10px]">{procedureOrders.length}</Badge>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {procedureOrders.map((p) => (
+                editingProcedureId === p.id ? (
+                  <div key={p.id} className="rounded-none border-l-2 border-amber-400/50 bg-muted/20 px-3 py-2 space-y-1.5">
+                    <Input className="h-7 text-xs" value={editProcedureName} onChange={(e) => setEditProcedureName(e.target.value)} placeholder="Procedure name" />
+                    <select
+                      className="flex h-7 w-full rounded-none border border-input bg-background px-2 text-[11px]"
+                      value={editProcedureCategory}
+                      onChange={(e) => setEditProcedureCategory(e.target.value)}
+                    >
+                      {PROCEDURE_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+                    </select>
+                    <Input className="h-7 text-xs" value={editProcedureNotes} onChange={(e) => setEditProcedureNotes(e.target.value)} placeholder="Notes (optional)" />
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon-sm" onClick={() => setEditingProcedureId(null)}>
+                        <X className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-primary"
+                        disabled={!editProcedureName.trim() || updateProcedureMutation.isPending}
+                        onClick={() => updateProcedureMutation.mutate(p.id)}
+                      >
+                        <Check className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={p.id} className="group rounded-none border-l-2 border-amber-400/50 bg-muted/20 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between mb-0.5 gap-1">
                       <span className="font-medium">{p.procedureName}</span>
-                      <Badge variant="outline" className="text-[10px]">{p.status.replace("_", " ")}</Badge>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge variant="outline" className="text-[10px]">{p.status.replace("_", " ")}</Badge>
+                        <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100" onClick={() => startEditProcedure(p)}>
+                          <Pencil className="size-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-destructive opacity-0 group-hover:opacity-100"
+                          onClick={() => deleteProcedureMutation.mutate(p.id)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
                     </div>
                     {p.category && <p className="text-[10px] text-muted-foreground">{p.category}</p>}
                     {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
                   </div>
-                ))}
+                )
+              ))}
+              {procedureOrders.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-1">No procedures ordered yet.</p>
+              )}
+              <div className="flex gap-1.5 border-t pt-2">
+                <Input
+                  className="h-8 text-xs"
+                  placeholder="Add procedure (e.g. ECG, Dressing)..."
+                  value={newProcedureName}
+                  onChange={(e) => setNewProcedureName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && newProcedureName.trim()) createProcedureMutation.mutate(); }}
+                />
+                <select
+                  className="flex h-8 w-28 shrink-0 rounded-none border border-input bg-background px-1.5 text-[11px]"
+                  value={newProcedureCategory}
+                  onChange={(e) => setNewProcedureCategory(e.target.value)}
+                >
+                  {PROCEDURE_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={!newProcedureName.trim() || createProcedureMutation.isPending}
+                  onClick={() => createProcedureMutation.mutate()}
+                >
+                  <Plus className="size-3.5" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Prescription History */}
+          {showHistory && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Prescription History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {historyLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading...</p>
+                ) : pastPrescriptions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No previous prescriptions</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {pastPrescriptions.map((rx) => (
+                      <div key={rx.id} className="rounded-none border-l-2 border-primary/30 bg-muted/20 px-3 py-2 text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium">{rx.diagnosis || "No diagnosis"}</span>
+                          <span className="text-[10px] text-muted-foreground">{new Date(rx.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        {rx.notes && <p className="text-[11px] text-muted-foreground line-clamp-2">{rx.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -216,77 +473,113 @@ export function EditPrescriptionPage() {
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">Diagnosis</CardTitle></CardHeader>
             <CardContent>
-              <Input value={editDiagnosis} onChange={(e) => setEditDiagnosis(e.target.value)} placeholder="e.g. Hypertension, Diabetes..." />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">Medicines</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => setShowEditMedicineSearch(true)}>
-                <Pill className="mr-1 size-3" />Add
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {showEditMedicineSearch && (
-                <div className="rounded-none border p-2 space-y-2">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input placeholder="Search medicine..." className="pl-9 h-8 text-xs" autoFocus value={editMedicineQuery} onChange={(e) => setEditMedicineQuery(e.target.value)} />
-                  </div>
-                  {editMedicineQuery.trim().length >= 2 && (
-                    <div className="max-h-40 overflow-y-auto rounded-none border bg-popover">
-                      {editMedicines.length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">No medicines found</p>
-                      ) : (
-                        editMedicines.map((med) => (
-                          <button
-                            key={med.id}
-                            type="button"
-                            className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-muted"
-                            onClick={() => addMedicineToEdit(med)}
-                          >
-                            <span><span className="font-medium">{med.brandName}</span> {med.strength && <span className="text-muted-foreground">{med.strength}</span>}</span>
-                            <Plus className="size-3 text-muted-foreground" />
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setShowEditMedicineSearch(false); setEditMedicineQuery(""); }}>Cancel</Button>
-                </div>
-              )}
-              {editItems.length === 0 ? (
-                <p className="py-2 text-center text-xs text-muted-foreground">No medicines added</p>
-              ) : (
-                editItems.map((item) => (
-                  <div key={item.tempId} className="space-y-1.5 rounded-none border px-2 py-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-medium truncate">{item.medicineName}</p>
-                      <Button variant="ghost" size="icon" className="size-5 shrink-0" title="Remove item" onClick={() => setEditItems((p) => p.filter((i) => i.tempId !== item.tempId))}>
-                        <X className="size-3 text-destructive" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <Input className="h-7 text-[11px]" placeholder="Dosage" value={item.dosage} onChange={(e) => updateEditItem(item.tempId, { dosage: e.target.value })} />
-                      <Input className="h-7 text-[11px]" placeholder="Duration" value={item.duration} onChange={(e) => updateEditItem(item.tempId, { duration: e.target.value })} />
-                      <Input className="h-7 text-[11px]" type="number" min={1} placeholder="Qty" value={item.quantity} onChange={(e) => updateEditItem(item.tempId, { quantity: Number(e.target.value) || 1 })} />
-                    </div>
-                    <Input className="h-7 text-[11px]" placeholder="Instructions (optional)" value={item.instructions} onChange={(e) => updateEditItem(item.tempId, { instructions: e.target.value })} />
-                  </div>
-                ))
-              )}
+              <DiagnosisSelect value={editDiagnosis} onChange={setEditDiagnosis} />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">Notes</CardTitle></CardHeader>
             <CardContent>
-              <Input placeholder="Optional" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+              <textarea
+                rows={4}
+                className="flex w-full rounded-none border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="Enter doctor's instructions, follow-up advice, lifestyle changes..."
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Medicine Items */}
+          <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm">Prescribed Medicines</CardTitle>
+              <Button variant="outline" size="sm" onClick={addEditItem}>
+                <Plus className="size-3.5 mr-1" /> Add Medicine
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {editItems.map((item, idx) => (
+                <div key={item.tempId} className="rounded-none border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Medicine #{idx + 1}</span>
+                    {editItems.length > 1 && (
+                      <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => removeEditItem(idx)}>
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2 relative">
+                      <Input
+                        placeholder="Medicine name..."
+                        value={item.medicineName}
+                        onChange={(e) => {
+                          updateEditItem(idx, "medicineName", e.target.value);
+                          setMedicineQuery(e.target.value);
+                          setMedicineSearchIdx(idx);
+                        }}
+                        onFocus={() => { setMedicineSearchIdx(idx); setMedicineQuery(item.medicineName); }}
+                        onBlur={() => setTimeout(() => setMedicineSearchIdx(null), 200)}
+                      />
+                      {medicineSearchIdx === idx && medicineResults.length > 0 && (
+                        <div className="absolute z-50 mt-1 w-full max-h-40 overflow-y-auto rounded-none border bg-popover shadow-md">
+                          {medicineResults.map((med) => (
+                            <button
+                              key={med.id}
+                              type="button"
+                              className="flex w-full flex-col items-start px-3 py-1.5 text-left text-sm hover:bg-muted"
+                              onMouseDown={() => {
+                                updateEditItem(idx, "medicineId", med.id);
+                                updateEditItem(idx, "medicineName", med.name);
+                                setMedicineSearchIdx(null);
+                              }}
+                            >
+                              <span className="font-medium">{med.name}</span>
+                              {med.genericName && <span className="text-[10px] text-muted-foreground">{med.genericName}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Input placeholder="Dosage (e.g. 500mg)" value={item.dosage} onChange={(e) => updateEditItem(idx, "dosage", e.target.value)} />
+                    <Input placeholder="Frequency (e.g. BD)" value={item.frequency} onChange={(e) => updateEditItem(idx, "frequency", e.target.value)} />
+                    <Input placeholder="Duration (e.g. 7 days)" value={item.duration} onChange={(e) => updateEditItem(idx, "duration", e.target.value)} />
+                    <Input type="number" min={1} placeholder="Qty" value={item.quantity} onChange={(e) => updateEditItem(idx, "quantity", parseInt(e.target.value) || 1)} />
+                  </div>
+                  <Input placeholder="Special instructions (optional)" value={item.instructions} onChange={(e) => updateEditItem(idx, "instructions", e.target.value)} />
+                </div>
+              ))}
+              {editItems.length === 0 && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground mb-2">No medicines added yet</p>
+                  <Button variant="outline" size="sm" onClick={addEditItem}>
+                    <Plus className="size-3.5 mr-1" /> Add Medicine
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* ── Prescription Preview Dialog ── */}
+      <Dialog open={previewOpen} onOpenChange={(open) => { setPreviewOpen(open); if (!open) setRxDocReady(false); }}>
+        <DialogContent className="flex h-[85vh] max-h-[95vh] flex-col overflow-hidden sm:max-w-[850px]" showCloseButton>
+          <DialogHeader className="shrink-0"><DialogTitle>Prescription Preview</DialogTitle></DialogHeader>
+          {previewDocData && <RxDocPreview data={previewDocData} onReady={setRxDocReady} />}
+          <DialogFooter className="shrink-0">
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
+            <Button variant="default" onClick={downloadRxPdf} disabled={!rxDocReady || rxPdfGenerating} className="gap-1.5">
+              <FileDown className="size-3.5" />
+              {rxPdfGenerating ? "Generating…" : "Download PDF"}
+            </Button>
+            <Button variant="default" onClick={printRxDocument} disabled={!rxDocReady} className="gap-1.5">
+              <Printer className="size-3.5" />Print
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

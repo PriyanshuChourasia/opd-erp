@@ -2408,6 +2408,30 @@ export function fetchProcedureOrders(filters: { patientId?: string; status?: str
   });
 }
 
+export interface UpdateProcedureOrderInput {
+  procedureName?: string;
+  category?: string;
+  notes?: string;
+  status?: string;
+  result?: string;
+  resultDate?: string;
+}
+
+export function updateProcedureOrder(id: string, input: UpdateProcedureOrderInput) {
+  return request<ProcedureOrder>({
+    method: "PATCH",
+    path: `/procedure-orders/${id}`,
+    body: input,
+  });
+}
+
+export function deleteProcedureOrder(id: string) {
+  return request<void>({
+    method: "DELETE",
+    path: `/procedure-orders/${id}`,
+  });
+}
+
 // ─── Profile API ─────────────────────────────────────────────
 
 export function fetchProfile() {

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Activity, Eye, History, Plus, Trash2, AlertTriangle, HeartPulse, Printer, FileDown } from "lucide-react";
+import { Activity, Eye, History, Pencil, Plus, Trash2, Check, X, AlertTriangle, HeartPulse, Printer, FileDown } from "lucide-react";
 import {
   fetchAppointment,
   fetchPatientVitalsLatest,
@@ -9,9 +9,13 @@ import {
   fetchMedicines,
   fetchOrganisation,
   fetchProcedureOrders,
+  createProcedureOrder,
+  updateProcedureOrder,
+  deleteProcedureOrder,
   createPrescription,
   getPatientName,
   type PrescriptionItem,
+  type ProcedureOrder,
 } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
@@ -41,6 +45,8 @@ interface RxItem {
 function emptyRxItem(): RxItem {
   return { medicineId: "", medicineName: "", dosage: "", frequency: "", duration: "", quantity: 1, instructions: "" };
 }
+
+const PROCEDURE_CATEGORIES = ["DIAGNOSTIC", "THERAPEUTIC", "SURGICAL", "PREVENTIVE", "OTHER"];
 
 export function CreatePrescriptionPage() {
   const queryClient = useQueryClient();
@@ -109,6 +115,63 @@ export function CreatePrescriptionPage() {
     () => (procedureOrdersResponse ?? []).filter((p) => p.doctorId === appointment?.doctorId),
     [procedureOrdersResponse, appointment?.doctorId],
   );
+
+  // ── Procedure add/edit ──
+  const [newProcedureName, setNewProcedureName] = useState("");
+  const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
+  const [newProcedureNotes, setNewProcedureNotes] = useState("");
+  const [editingProcedureId, setEditingProcedureId] = useState<string | null>(null);
+  const [editProcedureName, setEditProcedureName] = useState("");
+  const [editProcedureCategory, setEditProcedureCategory] = useState("DIAGNOSTIC");
+  const [editProcedureNotes, setEditProcedureNotes] = useState("");
+
+  const createProcedureMutation = useMutation({
+    mutationFn: () => {
+      if (!appointment) throw new Error("No appointment");
+      return createProcedureOrder({
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+        procedureName: newProcedureName.trim(),
+        category: newProcedureCategory,
+        ...(newProcedureNotes.trim() ? { notes: newProcedureNotes.trim() } : {}),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["procedure-orders", appointment?.patientId] });
+      setNewProcedureName("");
+      setNewProcedureCategory("DIAGNOSTIC");
+      setNewProcedureNotes("");
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const updateProcedureMutation = useMutation({
+    mutationFn: (id: string) => updateProcedureOrder(id, {
+      procedureName: editProcedureName.trim(),
+      category: editProcedureCategory,
+      notes: editProcedureNotes.trim(),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["procedure-orders", appointment?.patientId] });
+      setEditingProcedureId(null);
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const deleteProcedureMutation = useMutation({
+    mutationFn: (id: string) => deleteProcedureOrder(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["procedure-orders", appointment?.patientId] });
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  function startEditProcedure(p: ProcedureOrder) {
+    setEditingProcedureId(p.id);
+    setEditProcedureName(p.procedureName);
+    setEditProcedureCategory(p.category ?? "DIAGNOSTIC");
+    setEditProcedureNotes(p.notes ?? "");
+  }
 
   // ── Fetch prescription history ──
   const { data: historyResponse, isLoading: historyLoading } = useQuery({
@@ -295,29 +358,95 @@ export function CreatePrescriptionPage() {
           )}
 
           {/* Procedures */}
-          {procedureOrders.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-1.5">
-                  <Activity className="size-4 text-amber-600" />
-                  Procedures
-                  <Badge variant="outline" className="text-[10px]">{procedureOrders.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {procedureOrders.map((p) => (
-                  <div key={p.id} className="rounded-none border-l-2 border-amber-400/50 bg-muted/20 px-3 py-2 text-xs">
-                    <div className="flex items-center justify-between mb-0.5">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-1.5">
+                <Activity className="size-4 text-amber-600" />
+                Procedures
+                {procedureOrders.length > 0 && <Badge variant="outline" className="text-[10px]">{procedureOrders.length}</Badge>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {procedureOrders.map((p) => (
+                editingProcedureId === p.id ? (
+                  <div key={p.id} className="rounded-none border-l-2 border-amber-400/50 bg-muted/20 px-3 py-2 space-y-1.5">
+                    <Input className="h-7 text-xs" value={editProcedureName} onChange={(e) => setEditProcedureName(e.target.value)} placeholder="Procedure name" />
+                    <select
+                      className="flex h-7 w-full rounded-none border border-input bg-background px-2 text-[11px]"
+                      value={editProcedureCategory}
+                      onChange={(e) => setEditProcedureCategory(e.target.value)}
+                    >
+                      {PROCEDURE_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+                    </select>
+                    <Input className="h-7 text-xs" value={editProcedureNotes} onChange={(e) => setEditProcedureNotes(e.target.value)} placeholder="Notes (optional)" />
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon-sm" onClick={() => setEditingProcedureId(null)}>
+                        <X className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-primary"
+                        disabled={!editProcedureName.trim() || updateProcedureMutation.isPending}
+                        onClick={() => updateProcedureMutation.mutate(p.id)}
+                      >
+                        <Check className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={p.id} className="group rounded-none border-l-2 border-amber-400/50 bg-muted/20 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between mb-0.5 gap-1">
                       <span className="font-medium">{p.procedureName}</span>
-                      <Badge variant="outline" className="text-[10px]">{p.status.replace("_", " ")}</Badge>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge variant="outline" className="text-[10px]">{p.status.replace("_", " ")}</Badge>
+                        <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100" onClick={() => startEditProcedure(p)}>
+                          <Pencil className="size-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-destructive opacity-0 group-hover:opacity-100"
+                          onClick={() => deleteProcedureMutation.mutate(p.id)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
                     </div>
                     {p.category && <p className="text-[10px] text-muted-foreground">{p.category}</p>}
                     {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+                )
+              ))}
+              {procedureOrders.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-1">No procedures ordered yet.</p>
+              )}
+              <div className="flex gap-1.5 border-t pt-2">
+                <Input
+                  className="h-8 text-xs"
+                  placeholder="Add procedure (e.g. ECG, Dressing)..."
+                  value={newProcedureName}
+                  onChange={(e) => setNewProcedureName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && newProcedureName.trim()) createProcedureMutation.mutate(); }}
+                />
+                <select
+                  className="flex h-8 w-28 shrink-0 rounded-none border border-input bg-background px-1.5 text-[11px]"
+                  value={newProcedureCategory}
+                  onChange={(e) => setNewProcedureCategory(e.target.value)}
+                >
+                  {PROCEDURE_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={!newProcedureName.trim() || createProcedureMutation.isPending}
+                  onClick={() => createProcedureMutation.mutate()}
+                >
+                  <Plus className="size-3.5" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Prescription History */}
           {showHistory && (

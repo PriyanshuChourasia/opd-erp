@@ -2029,6 +2029,10 @@ export function fetchPrescriptions(
   });
 }
 
+export function fetchPrescription(id: string) {
+  return request<Prescription>({ method: "GET", path: `/prescriptions/${id}` });
+}
+
 // ─── Dispensing API ───────────────────────────────────────────
 
 export function fetchDispensings(params: { prescriptionId?: string } & PaginationParams = {}) {
@@ -2393,6 +2397,14 @@ export function createProcedureOrder(input: CreateProcedureOrderInput) {
     method: "POST",
     path: "/procedure-orders",
     body: input,
+  });
+}
+
+export function fetchProcedureOrders(filters: { patientId?: string; status?: string } = {}) {
+  return request<ProcedureOrder[]>({
+    method: "GET",
+    path: "/procedure-orders",
+    params: filters,
   });
 }
 

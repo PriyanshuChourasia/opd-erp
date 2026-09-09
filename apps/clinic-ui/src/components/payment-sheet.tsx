@@ -139,14 +139,14 @@ export function PaymentSheet({
             </div>
           </Field>
 
-          {/* ── Card Reference Number ── */}
+          {/* ── Card Invoice / UPI UTR Number ── */}
           {(method === "CARD" || method === "UPI") && (
             <Field>
-              <FieldLabel htmlFor="pm-ref">Invoice / Transaction Number</FieldLabel>
+              <FieldLabel htmlFor="pm-ref">{method === "UPI" ? "UTR Number" : "Invoice / Transaction Number"}</FieldLabel>
               <Input
                 id="pm-ref"
                 type="text"
-                placeholder="Enter card invoice or transaction number"
+                placeholder={method === "UPI" ? "Enter UTR number" : "Enter card invoice or transaction number"}
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
               />

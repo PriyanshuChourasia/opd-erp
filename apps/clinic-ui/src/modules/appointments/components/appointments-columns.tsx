@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Banknote, ClipboardList, Eye, FileText, HeartPulse, Printer } from "lucide-react";
+import { Banknote, ClipboardList, Eye, FileText, HeartPulse, Pencil, Printer } from "lucide-react";
 import { checkoutAppointment, getPatientName, type Appointment, type AppointmentStatus } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -230,28 +230,26 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
                 <TooltipContent>Collect Payment</TooltipContent>
               </Tooltip>
             )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-9" aria-label="Print appointment slip" onClick={() => onPrintAppt(appt)}>
+                  <Printer className="size-4.5 text-gray-600" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Print Slip</TooltipContent>
+            </Tooltip>
             {appt.status !== "COMPLETED" && (
-              <>
-                <InvoiceActionCell appt={appt} onOpenInvoice={onOpenInvoice} />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-9" aria-label="Print appointment slip" onClick={() => onPrintAppt(appt)}>
-                      <Printer className="size-4.5 text-gray-600" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Print Slip</TooltipContent>
-                </Tooltip>
-              </>
+              <InvoiceActionCell appt={appt} onOpenInvoice={onOpenInvoice} />
             )}
             {appt.status === "COMPLETED" && (
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-9" aria-label="Print prescription" onClick={() => onPrintPrescription(appt)}>
-                      <Printer className="size-4.5 text-indigo-600" />
+                    <Button variant="ghost" size="icon" className="size-9" aria-label="Edit prescription" onClick={() => navigate({ to: "/appointments/$appointmentId/prescription", params: { appointmentId: appt.id } })}>
+                      <Pencil className="size-4.5 text-indigo-600" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Print Prescription</TooltipContent>
+                  <TooltipContent>Edit Prescription</TooltipContent>
                 </Tooltip>
                 <InvoiceActionCell appt={appt} onOpenInvoice={onOpenInvoice} />
               </>
@@ -279,5 +277,5 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
         );
       },
     },
-  ], [navigate, onOpenVitals, onPrintAppt, onOpenInvoice, onCollectPayment, onPrintPrescription, onStatusChange]);
+  ], [navigate, onOpenVitals, onPrintAppt, onOpenInvoice, onCollectPayment, onStatusChange]);
 }

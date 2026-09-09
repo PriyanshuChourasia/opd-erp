@@ -19,6 +19,7 @@ export async function createBill(data: {
   items: { itemType: string; itemId?: string; itemName: string; quantity: number; unitPrice: number }[];
   discountRuleId?: string;
   paymentMethod: PaymentMethod;
+  referenceNumber?: string;
 }): Promise<Bill> {
   return apiFetch<Bill>("/billing", { method: "POST", body: JSON.stringify(data) });
 }

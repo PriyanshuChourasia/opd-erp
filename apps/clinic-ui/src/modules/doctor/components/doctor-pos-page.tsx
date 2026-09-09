@@ -75,6 +75,7 @@ interface ProcedureItem {
   tempId: string;
   procedureName: string;
   category: string;
+  notes: string;
 }
 
 const PROCEDURE_CATEGORIES = ["DIAGNOSTIC", "THERAPEUTIC", "SURGICAL", "PREVENTIVE", "OTHER"];
@@ -155,6 +156,7 @@ export function DoctorPosPage() {
   const [procedureOrders, setProcedureOrders] = useState<ProcedureItem[]>([]);
   const [newProcedureName, setNewProcedureName] = useState("");
   const [newProcedureCategory, setNewProcedureCategory] = useState<string>("DIAGNOSTIC");
+  const [newProcedureNotes, setNewProcedureNotes] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   // ── Cancel appointment ──
   const [cancelTarget, setCancelTarget] = useState<QueueEntry | null>(null);
@@ -330,6 +332,7 @@ export function DoctorPosPage() {
               doctorId,
               procedureName: p.procedureName,
               category: p.category,
+              notes: p.notes || undefined,
             }),
           ),
         );
@@ -363,6 +366,7 @@ export function DoctorPosPage() {
     setMedicineDropdownOpen(false);
     setProcedureOrders([]);
     setNewProcedureName("");
+    setNewProcedureNotes("");
     setHistoryOpen(false);
   }
 
@@ -375,6 +379,7 @@ export function DoctorPosPage() {
     setMedicineDropdownOpen(false);
     setProcedureOrders([]);
     setNewProcedureName("");
+    setNewProcedureNotes("");
     setHistoryOpen(false);
   }
 
@@ -382,9 +387,10 @@ export function DoctorPosPage() {
     if (!newProcedureName.trim()) return;
     setProcedureOrders((prev) => [
       ...prev,
-      { tempId: crypto.randomUUID(), procedureName: newProcedureName.trim(), category: newProcedureCategory },
+      { tempId: crypto.randomUUID(), procedureName: newProcedureName.trim(), category: newProcedureCategory, notes: newProcedureNotes.trim() },
     ]);
     setNewProcedureName("");
+    setNewProcedureNotes("");
   }
 
   function removeProcedureOrder(tempId: string) {
@@ -943,6 +949,12 @@ export function DoctorPosPage() {
                       <Plus className="size-4" />
                     </Button>
                   </div>
+                  <Input
+                    placeholder="Notes (optional)"
+                    value={newProcedureNotes}
+                    onChange={(e) => setNewProcedureNotes(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addProcedureOrder(); }}
+                  />
                   {procedureOrders.length === 0 ? (
                     <div className="flex flex-col items-center gap-1.5 py-4 text-center">
                       <Activity className="size-6 text-amber-300 dark:text-amber-700" />
@@ -955,6 +967,7 @@ export function DoctorPosPage() {
                           <div>
                             <p className="text-sm font-medium">{p.procedureName}</p>
                             <p className="text-[10px] text-muted-foreground">{p.category}</p>
+                            {p.notes && <p className="text-[10px] text-muted-foreground italic">{p.notes}</p>}
                           </div>
                           <Button variant="ghost" size="icon" className="size-8" title="Remove procedure" onClick={() => removeProcedureOrder(p.tempId)}>
                             <Trash2 className="size-4 text-destructive" />

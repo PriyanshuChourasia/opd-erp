@@ -41,11 +41,14 @@ export class QueueService
       this.prisma.doctor.findUnique({ where: { id: dto.doctorId } }),
     ]);
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'PTNT';
-    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, today);
 
     // Pair the queue entry with a lightweight walk-in appointment so it can
     // be invoiced through the same checkout flow as scheduled appointments.
+    // Token generation happens inside the same transaction as both inserts
+    // (generateTokenNumber() takes an advisory lock scoped to it) so two
+    // concurrent check-ins can never mint the same token.
     return this.prisma.$transaction(async (tx) => {
+      const tokenNumber = await this.tokenNumberService.generateTokenNumber(tx, patientName, today);
       const appointment = await tx.appointment.create({
         data: {
           patientId: dto.patientId,

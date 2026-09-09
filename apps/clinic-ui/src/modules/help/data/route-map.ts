@@ -57,6 +57,8 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/organisation/users": { module: "users" },
   "/patients": { module: "patients" },
   "/prescriptions": { module: "prescriptions" },
+  "/prescriptions/new": { module: "prescriptions", page: "new-prescription-page" },
+  "/prescriptions/$prescriptionId/edit": { module: "prescriptions", page: "edit-prescription-page" },
   "/profile": { module: "profile" },
   "/settings": { module: "company" },
   "/shifts": { module: "shifts" },
@@ -82,6 +84,8 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/receptionist/doctors": { module: "doctors" },
   "/receptionist/patients": { module: "patients" },
   "/receptionist/prescriptions": { module: "prescriptions" },
+  "/receptionist/prescriptions/new": { module: "prescriptions", page: "new-prescription-page" },
+  "/receptionist/prescriptions/$prescriptionId/edit": { module: "prescriptions", page: "edit-prescription-page" },
   "/receptionist/profile": { module: "profile" },
 
   // POS workspace
@@ -93,6 +97,8 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   // Doctor workspace
   "/doctor": { module: "doctor" },
   "/doctor/prescriptions": { module: "prescriptions" },
+  "/doctor/prescriptions/new": { module: "prescriptions", page: "new-prescription-page" },
+  "/doctor/prescriptions/$prescriptionId/edit": { module: "prescriptions", page: "edit-prescription-page" },
   "/doctor/profile": { module: "profile" },
   "/doctor/admin": { module: "doctor" },
   "/doctor/admin/appointments": { module: "doctor" },

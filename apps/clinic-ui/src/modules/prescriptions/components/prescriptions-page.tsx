@@ -1,23 +1,19 @@
 import { getPatientName } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, FileDown, FileText, Eye, Pill, Plus, X, Clock, Printer } from "lucide-react";
+import { ClipboardList, Receipt, CreditCard, RotateCcw, Ban, Search, Pencil, FileDown, FileText, Eye, Plus, X, Clock, Printer } from "lucide-react";
 import {
   fetchPrescriptions,
-  createPrescription,
   fetchPrescriptionHistory,
-  fetchPatients,
   fetchBills,
   fetchDoctors,
-  fetchMedicines,
   fetchOrganisation,
   updateBillStatus,
-  updatePrescription,
   type Prescription,
   type PrescriptionHistoryEntry,
   type BillStatus,
-  type Medicine,
   type Patient,
 } from "@/lib/api";
 import { toast } from "sonner";
@@ -26,19 +22,12 @@ import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
 import { useDateRangeSync } from "@/lib/date-range-search";
 import { downloadBlob } from "@/lib/rx-export";
+import { newPrescriptionRoute, editPrescriptionRoute } from "../lib/prescription-routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DataTable } from "@/components/data-table/data-table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -80,18 +69,10 @@ function todayStr() {
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
 
-interface EditRxItem {
-  tempId: string;
-  medicineId: string;
-  medicineName: string;
-  dosage: string;
-  duration: string;
-  instructions: string;
-  quantity: number;
-}
-
 export function PrescriptionsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   // Doctors only ever see their own prescriptions — the server enforces this
   // regardless of what's sent, but we also hide the doctor picker so the UI
   // doesn't imply they could browse other doctors' prescriptions.
@@ -178,171 +159,6 @@ export function PrescriptionsPage() {
     setSelectedPatient({ id: patientId, firstName: patient.firstName, middleName: patient.middleName, lastName: patient.lastName, contactNo: patient.contactNo });
     setInvoicesOpen(true);
   }
-
-  // ── Create prescription ──
-  const [createSheetOpen, setCreateSheetOpen] = useState(false);
-  const [createPatientSearch, setCreatePatientSearch] = useState("");
-  const [createPatient, setCreatePatient] = useState<{ id: string; firstName: string; middleName?: string | null; lastName: string; contactNo: string } | null>(null);
-  const [createDoctorId, setCreateDoctorId] = useState("");
-  const [createDoctorQuery, setCreateDoctorQuery] = useState("");
-  const [createDoctorSearchOpen, setCreateDoctorSearchOpen] = useState(false);
-  const [createDiagnosis, setCreateDiagnosis] = useState("");
-  const [createNotes, setCreateNotes] = useState("");
-  const [createItems, setCreateItems] = useState<EditRxItem[]>([]);
-  const [createMedicineQuery, setCreateMedicineQuery] = useState("");
-  const [showCreateMedicineSearch, setShowCreateMedicineSearch] = useState(false);
-
-  const createPatientResults = useQuery({
-    queryKey: ["create-rx-patients", createPatientSearch],
-    queryFn: () => fetchPatients({ search: createPatientSearch, limit: 8 }),
-    enabled: createPatientSearch.trim().length >= 1 && !createPatient,
-  });
-
-  const createMedicineResults = useQuery({
-    queryKey: ["medicines", "search", "rx-create", createMedicineQuery],
-    queryFn: () => fetchMedicines({ search: createMedicineQuery, limit: 20 }),
-    enabled: createMedicineQuery.trim().length >= 2,
-  });
-  const createMedicines = createMedicineResults.data?.data ?? [];
-
-  const createMutation = useMutation({
-    mutationFn: () =>
-      createPrescription({
-        patientId: createPatient!.id,
-        doctorId: createDoctorId,
-        diagnosis: createDiagnosis || undefined,
-        notes: createNotes || undefined,
-        items: createItems.map((item) => ({
-          medicineId: item.medicineId,
-          medicineName: item.medicineName,
-          dosage: item.dosage,
-          duration: item.duration || undefined,
-          instructions: item.instructions || undefined,
-          quantity: item.quantity,
-        })),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
-      setCreateSheetOpen(false);
-      resetCreateForm();
-      toast.success("Prescription created successfully");
-    },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
-
-  function resetCreateForm() {
-    setCreatePatient(null);
-    setCreatePatientSearch("");
-    // For doctors, always use their own ID so they don't have to search for themselves
-    setCreateDoctorId(isDoctor ? (user?.userableId ?? "") : "");
-    setCreateDoctorQuery("");
-    setCreateDiagnosis("");
-    setCreateNotes("");
-    setCreateItems([]);
-    setCreateMedicineQuery("");
-    setShowCreateMedicineSearch(false);
-  }
-
-  function addMedicineToCreate(med: Medicine) {
-    setCreateItems((prev) => [
-      ...prev,
-      {
-        tempId: crypto.randomUUID(),
-        medicineId: med.id,
-        medicineName: [med.brandName ?? med.name, med.strength].filter(Boolean).join(" "),
-        dosage: "1-0-1",
-        duration: "7 days",
-        instructions: "",
-        quantity: 1,
-      },
-    ]);
-    setCreateMedicineQuery("");
-    setShowCreateMedicineSearch(false);
-  }
-
-  function updateCreateItem(tempId: string, patch: Partial<EditRxItem>) {
-    setCreateItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, ...patch } : i)));
-  }
-
-  // ── Edit prescription ──
-  const [editSheetOpen, setEditSheetOpen] = useState(false);
-  const [editingRx, setEditingRx] = useState<Prescription | null>(null);
-  const [editDiagnosis, setEditDiagnosis] = useState("");
-  const [editNotes, setEditNotes] = useState("");
-  const [editItems, setEditItems] = useState<EditRxItem[]>([]);
-  const [editMedicineQuery, setEditMedicineQuery] = useState("");
-  const [showEditMedicineSearch, setShowEditMedicineSearch] = useState(false);
-
-  const editMedicineResults = useQuery({
-    queryKey: ["medicines", "search", "rx-edit", editMedicineQuery],
-    queryFn: () => fetchMedicines({ search: editMedicineQuery, limit: 20 }),
-    enabled: editMedicineQuery.trim().length >= 2,
-  });
-  const editMedicines = editMedicineResults.data?.data ?? [];
-
-  function openEdit(rx: Prescription) {
-    setEditingRx(rx);
-    setEditDiagnosis(rx.diagnosis ?? "");
-    setEditNotes(rx.notes ?? "");
-    setEditItems(
-      rx.items.map((item) => ({
-        tempId: item.id,
-        medicineId: item.medicineId,
-        medicineName: item.medicineName,
-        dosage: item.dosage,
-        duration: item.duration ?? "",
-        instructions: item.instructions ?? "",
-        quantity: item.quantity,
-      })),
-    );
-    setEditMedicineQuery("");
-    setShowEditMedicineSearch(false);
-    setEditSheetOpen(true);
-  }
-
-  function addMedicineToEdit(med: Medicine) {
-    setEditItems((prev) => [
-      ...prev,
-      {
-        tempId: crypto.randomUUID(),
-        medicineId: med.id,
-        medicineName: [med.brandName ?? med.name, med.strength].filter(Boolean).join(" "),
-        dosage: "1-0-1",
-        duration: "7 days",
-        instructions: "",
-        quantity: 1,
-      },
-    ]);
-    setEditMedicineQuery("");
-    setShowEditMedicineSearch(false);
-  }
-
-  function updateEditItem(tempId: string, patch: Partial<EditRxItem>) {
-    setEditItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, ...patch } : i)));
-  }
-
-  const editMutation = useMutation({
-    mutationFn: () =>
-      updatePrescription(editingRx!.id, {
-        diagnosis: editDiagnosis || undefined,
-        notes: editNotes || undefined,
-        items: editItems.map((item) => ({
-          medicineId: item.medicineId,
-          medicineName: item.medicineName,
-          dosage: item.dosage,
-          duration: item.duration || undefined,
-          instructions: item.instructions || undefined,
-          quantity: item.quantity,
-        })),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
-      setEditSheetOpen(false);
-      setEditingRx(null);
-      toast.success("Prescription updated");
-    },
-    onError: (err) => { toast.error(extractApiError(err)); },
-  });
 
   // ── Print Preview, PDF and Export Word ──
   const [pdfPreviewRx, setPdfPreviewRx] = useState<Prescription | null>(null);
@@ -460,46 +276,55 @@ export function PrescriptionsPage() {
         const rx = row.original;
         return (
           <div className="flex justify-end items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              title={rx.status === "ACTIVE" && canUpdate ? "Preview" : "View"}
-              onClick={() => setPdfPreviewRx(rx)}
-            >
-              {rx.status === "ACTIVE" && canUpdate ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
-            </Button>
-            <Select onValueChange={(value) => {
-              if (value === "export-word") exportWord(rx);
-              else if (value === "edit") openEdit(rx);
-              else if (value === "history") setHistoryRx(rx);
-              else if (value === "invoices" && rx.patient) openInvoices(rx.patientId, rx.patient);
-            }}>
-              <SelectTrigger className="h-8 w-32 text-xs">
-                <SelectValue placeholder="Actions" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="export-word">
-                  <FileDown className="mr-2 size-3.5" />
-                  Export Word
-                </SelectItem>
-                {rx.status === "ACTIVE" && canUpdate && (
-                  <SelectItem value="edit">
-                    <Pencil className="mr-2 size-3.5" />
-                    Edit
-                  </SelectItem>
-                )}
-                <SelectItem value="history">
-                  <Clock className="mr-2 size-3.5" />
-                  Version History
-                </SelectItem>
-                {rx.patient && (
-                  <SelectItem value="invoices">
-                    Invoices
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => setPdfPreviewRx(rx)}
+                >
+                  {rx.status === "ACTIVE" && canUpdate ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{rx.status === "ACTIVE" && canUpdate ? "Preview" : "View"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => exportWord(rx)}>
+                  <FileDown className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Export Word</TooltipContent>
+            </Tooltip>
+            {rx.status === "ACTIVE" && canUpdate && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => navigate({ to: editPrescriptionRoute(location.pathname, rx.id), params: { prescriptionId: rx.id } })}>
+                    <Pencil className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Edit</TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setHistoryRx(rx)}>
+                  <Clock className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Version History</TooltipContent>
+            </Tooltip>
+            {rx.patient && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => openInvoices(rx.patientId, rx.patient)}>
+                    <Receipt className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Invoices</TooltipContent>
+              </Tooltip>
+            )}
           </div>
         );
       },
@@ -514,7 +339,7 @@ export function PrescriptionsPage() {
           <p className="mt-1 text-sm text-muted-foreground">Consultation diagnoses and prescribed medicines</p>
         </div>
         {canCreate && (
-          <Button onClick={() => { resetCreateForm(); setCreateSheetOpen(true); }}>
+          <Button onClick={() => navigate({ to: newPrescriptionRoute(location.pathname) })}>
             <Plus className="mr-2 size-4" />Create Prescription
           </Button>
         )}
@@ -611,266 +436,6 @@ export function PrescriptionsPage() {
           />
         </CardContent>
       </Card>
-
-      {/* ── Create prescription ── */}
-      <Sheet open={createSheetOpen} onOpenChange={(open) => { if (!open) { setCreateSheetOpen(false); resetCreateForm(); } }}>
-        <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Create Prescription</SheetTitle>
-            <SheetDescription>Search patient, select doctor, add diagnosis and medicines.</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 space-y-4 px-4 pb-4">
-            {/* Patient */}
-            <Field>
-              <FieldLabel>Patient *</FieldLabel>
-              {createPatient ? (
-                <div className="flex items-center justify-between rounded-none border px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium">{getPatientName(createPatient)}</p>
-                    <p className="text-xs text-muted-foreground">{createPatient.contactNo}</p>
-                  </div>
-                  <Button variant="ghost" size="icon-sm" onClick={() => { setCreatePatient(null); setCreatePatientSearch(""); }}><X className="size-4" /></Button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Search patient by name or phone..." className="pl-9" value={createPatientSearch} onChange={(e) => setCreatePatientSearch(e.target.value)} />
-                  {createPatientSearch.trim().length >= 1 && (
-                    <div className="absolute z-10 mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
-                      {createPatientResults.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>}
-                      {!createPatientResults.isLoading && (createPatientResults.data?.data ?? []).length === 0 && (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">No patients found</p>
-                      )}
-                      {(createPatientResults.data?.data ?? []).map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-                          onClick={() => { setCreatePatient({ id: p.id, firstName: p.firstName, middleName: p.middleName, lastName: p.lastName, contactNo: p.contactNo }); setCreatePatientSearch(""); }}
-                        >
-                          <span className="font-medium">{getPatientName(p)}</span>
-                          <span className="text-xs text-muted-foreground">{p.contactNo}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </Field>
-
-            {/* Doctor — auto-populated for doctors, shown as a read-only field */}
-            <Field>
-              <FieldLabel>Doctor *</FieldLabel>
-              {isDoctor ? (
-                <div className="flex items-center rounded-none border px-3 py-2 bg-muted/30">
-                  <span className="text-sm font-medium text-muted-foreground">You (auto-assigned)</span>
-                </div>
-              ) : createDoctorId ? (
-                <div className="flex items-center justify-between rounded-none border px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{doctors.find((d) => d.id === createDoctorId)?.name ?? doctors.find((d) => d.id === createDoctorId)?.medicalRegistrationNo ?? 'Doctor'}</span>
-                  </div>
-                  <Button variant="ghost" size="icon-sm" onClick={() => setCreateDoctorId("")}><X className="size-4" /></Button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search doctor by name or specialization..."
-                    className="pl-9"
-                    value={createDoctorQuery}
-                    onChange={(e) => { setCreateDoctorQuery(e.target.value); setCreateDoctorSearchOpen(true); }}
-                    onFocus={() => setCreateDoctorSearchOpen(true)}
-                    onBlur={() => setTimeout(() => setCreateDoctorSearchOpen(false), 200)}
-                  />
-                  {createDoctorSearchOpen && (
-                    <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
-                      {doctors
-                        .filter((d) =>
-                          !createDoctorQuery.trim() ||
-                          (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(createDoctorQuery.trim().toLowerCase()) ||
-                          (d.specialization ?? "").toLowerCase().includes(createDoctorQuery.trim().toLowerCase())
-                        )
-                        .length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">No doctors found</p>
-                      ) : (
-                        doctors
-                          .filter((d) =>
-                            !createDoctorQuery.trim() ||
-                            (d.name ?? d.medicalRegistrationNo ?? "").toLowerCase().includes(createDoctorQuery.trim().toLowerCase()) ||
-                            (d.specialization ?? "").toLowerCase().includes(createDoctorQuery.trim().toLowerCase())
-                          )
-                          .map((d) => (
-                            <button
-                              key={d.id}
-                              type="button"
-                              className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                              onMouseDown={() => { setCreateDoctorId(d.id); setCreateDoctorSearchOpen(false); setCreateDoctorQuery(""); }}
-                            >
-                              <span className="font-medium">{d.name ?? d.medicalRegistrationNo}</span>
-                              {d.specialization && <span className="text-xs text-muted-foreground">{d.specialization}</span>}
-                            </button>
-                          ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </Field>
-
-            {/* Diagnosis */}
-            <Field><FieldLabel htmlFor="create-diagnosis">Diagnosis</FieldLabel>
-              <Input id="create-diagnosis" value={createDiagnosis} onChange={(e) => setCreateDiagnosis(e.target.value)} placeholder="e.g. Hypertension, Diabetes..." />
-            </Field>
-
-            {/* Medicines */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <FieldLabel>Medicines</FieldLabel>
-                <Button variant="outline" size="sm" onClick={() => setShowCreateMedicineSearch(true)}>
-                  <Pill className="mr-1 size-3" />Add
-                </Button>
-              </div>
-              {showCreateMedicineSearch && (
-                <div className="rounded-none border p-2 space-y-2">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input placeholder="Search medicine..." className="pl-9 h-8 text-xs" autoFocus value={createMedicineQuery} onChange={(e) => setCreateMedicineQuery(e.target.value)} />
-                  </div>
-                  {createMedicineQuery.trim().length >= 2 && (
-                    <div className="max-h-40 overflow-y-auto rounded-none border bg-popover">
-                      {createMedicines.length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">No medicines found</p>
-                      ) : (
-                        createMedicines.map((med) => (
-                          <button key={med.id} type="button" className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-muted"
-                            onClick={() => addMedicineToCreate(med)}>
-                            <span><span className="font-medium">{med.brandName}</span> {med.strength && <span className="text-muted-foreground">{med.strength}</span>}</span>
-                            <Plus className="size-3 text-muted-foreground" />
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setShowCreateMedicineSearch(false); setCreateMedicineQuery(""); }}>Cancel</Button>
-                </div>
-              )}
-              {createItems.length === 0 ? (
-                <p className="py-2 text-center text-xs text-muted-foreground">No medicines added</p>
-              ) : (
-                createItems.map((item) => (
-                  <div key={item.tempId} className="space-y-1.5 rounded-none border px-2 py-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-medium truncate">{item.medicineName}</p>
-                      <Button variant="ghost" size="icon" className="size-5 shrink-0" title="Remove item" onClick={() => setCreateItems((p) => p.filter((i) => i.tempId !== item.tempId))}>
-                        <X className="size-3 text-destructive" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <Input className="h-7 text-[11px]" placeholder="Dosage" value={item.dosage} onChange={(e) => updateCreateItem(item.tempId, { dosage: e.target.value })} />
-                      <Input className="h-7 text-[11px]" placeholder="Duration" value={item.duration} onChange={(e) => updateCreateItem(item.tempId, { duration: e.target.value })} />
-                      <Input className="h-7 text-[11px]" type="number" min={1} placeholder="Qty" value={item.quantity} onChange={(e) => updateCreateItem(item.tempId, { quantity: Number(e.target.value) || 1 })} />
-                    </div>
-                    <Input className="h-7 text-[11px]" placeholder="Instructions (optional)" value={item.instructions} onChange={(e) => updateCreateItem(item.tempId, { instructions: e.target.value })} />
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Notes */}
-            <Field><FieldLabel htmlFor="create-notes">Notes</FieldLabel>
-              <Input id="create-notes" placeholder="Optional" value={createNotes} onChange={(e) => setCreateNotes(e.target.value)} />
-            </Field>
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => { setCreateSheetOpen(false); resetCreateForm(); }}>Cancel</Button>
-            <Button
-              disabled={!createPatient || !createDoctorId || createItems.length === 0 || createMutation.isPending}
-              onClick={() => createMutation.mutate()}
-            >
-              {createMutation.isPending ? "Creating..." : "Create Prescription"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      {/* ── Edit prescription ── */}
-      <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Edit Prescription{editingRx ? ` — ${editingRx.patient ? getPatientName(editingRx.patient) : null}` : ""}</SheetTitle>
-            <SheetDescription>Update diagnosis, notes, and prescribed medicines.</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 space-y-4 px-4 pb-4">
-            <Field><FieldLabel htmlFor="edit-diagnosis">Diagnosis</FieldLabel>
-              <Input id="edit-diagnosis" value={editDiagnosis} onChange={(e) => setEditDiagnosis(e.target.value)} />
-            </Field>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <FieldLabel>Medicines</FieldLabel>
-                <Button variant="outline" size="sm" onClick={() => setShowEditMedicineSearch(true)}>
-                  <Pill className="mr-1 size-3" />Add
-                </Button>
-              </div>
-              {showEditMedicineSearch && (
-                <div className="rounded-none border p-2 space-y-2">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input placeholder="Search medicine..." className="pl-9 h-8 text-xs" autoFocus value={editMedicineQuery} onChange={(e) => setEditMedicineQuery(e.target.value)} />
-                  </div>
-                  {editMedicineQuery.trim().length >= 2 && (
-                    <div className="max-h-40 overflow-y-auto rounded-none border bg-popover">
-                      {editMedicines.length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">No medicines found</p>
-                      ) : (
-                        editMedicines.map((med) => (
-                          <button key={med.id} type="button" className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-muted"
-                            onClick={() => addMedicineToEdit(med)}>
-                            <span><span className="font-medium">{med.brandName}</span> {med.strength && <span className="text-muted-foreground">{med.strength}</span>}</span>
-                            <Plus className="size-3 text-muted-foreground" />
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setShowEditMedicineSearch(false); setEditMedicineQuery(""); }}>Cancel</Button>
-                </div>
-              )}
-              {editItems.length === 0 ? (
-                <p className="py-2 text-center text-xs text-muted-foreground">No medicines added</p>
-              ) : (
-                editItems.map((item) => (
-                  <div key={item.tempId} className="space-y-1.5 rounded-none border px-2 py-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-medium truncate">{item.medicineName}</p>
-                      <Button variant="ghost" size="icon" className="size-5 shrink-0" title="Remove item" onClick={() => setEditItems((p) => p.filter((i) => i.tempId !== item.tempId))}>
-                        <X className="size-3 text-destructive" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <Input className="h-7 text-[11px]" placeholder="Dosage" value={item.dosage} onChange={(e) => updateEditItem(item.tempId, { dosage: e.target.value })} />
-                      <Input className="h-7 text-[11px]" placeholder="Duration" value={item.duration} onChange={(e) => updateEditItem(item.tempId, { duration: e.target.value })} />
-                      <Input className="h-7 text-[11px]" type="number" min={1} placeholder="Qty" value={item.quantity} onChange={(e) => updateEditItem(item.tempId, { quantity: Number(e.target.value) || 1 })} />
-                    </div>
-                    <Input className="h-7 text-[11px]" placeholder="Instructions (optional)" value={item.instructions} onChange={(e) => updateEditItem(item.tempId, { instructions: e.target.value })} />
-                  </div>
-                ))
-              )}
-            </div>
-
-            <Field><FieldLabel htmlFor="edit-notes">Notes</FieldLabel>
-              <Input id="edit-notes" placeholder="Optional" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
-            </Field>
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setEditSheetOpen(false)}>Cancel</Button>
-            <Button disabled={editItems.length === 0 || editMutation.isPending} onClick={() => editMutation.mutate()}>
-              {editMutation.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
 
       <Sheet open={invoicesOpen} onOpenChange={setInvoicesOpen}>
         <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">

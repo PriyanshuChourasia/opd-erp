@@ -304,6 +304,22 @@ input[type="number"] {
   }
 }
 
+/* Default page — every print without a more-specific named @page (i.e. any
+   document whose elements carry no `page` property) is A5 landscape
+   (210mm x 148mm) with zero margin. The named pages below — appointment-slip,
+   prescription-a4, invoice-a5, receipt-a5 — override this for the documents
+   that need it, so this default only ever catches unstyled prints. Explicit mm
+   dimensions are used instead of `size: A5 landscape` because Chrome's
+   named-size + orientation keyword parsing is unreliable for @page rules: it
+   can silently fail to resolve and fall back to the default page size while
+   still hiding the print dialog's Layout/Paper-size pickers, leaving no way
+   to fix it from the dialog. Explicit dimensions are unambiguous (also see
+   the appointment-slip note below). */
+@page {
+  size: 210mm 148mm;
+  margin: 0;
+}
+
 /* Appointment slip prints on A5 landscape instead of the browser default.
    Explicit mm dimensions (width first) instead of `size: A5 landscape` —
    Chrome's support for the named-size + orientation keyword combination is
@@ -430,49 +446,98 @@ input[type="number"] {
   }
 }
 
-/* Invoices print on A5 portrait. The invoice markup inside InvoiceViewSheet's
+/* Invoices print on A5 landscape. The invoice markup inside InvoiceViewSheet's
    #print-area is self-contained inline styles (see buildInvoiceHtml), so
-   pagination is driven purely by its own content: normal invoices fit a
-   single page; longer ones flow onto a second page naturally (the itemized
-   table repeats its header via table-header-group). Explicit mm dimensions
-   instead of `size: A5` — see the appointment-slip comment above for why the
-   named-size keyword is unreliable in Chrome. */
+   pagination is driven purely by its own content: normal invoices fit a single
+   148mm-tall sheet; longer ones flow onto a second page naturally (the
+   itemized table repeats its header via table-header-group). Explicit mm
+   dimensions instead of `size: A5` — see the appointment-slip comment above
+   for why the named-size keyword is unreliable in Chrome. The @page margin is
+   0 on purpose: the 6mm gutter is carried by #print-area's own border-box
+   padding (see .invoice-print-area and the @media print block below), so the
+   printed document starts at the physical top-left of the sheet and the same
+   6mm padding renders in the on-screen preview, keeping preview and print
+   pixel-identical. */
 @page invoice-a5 {
-  size: 148mm 210mm;
-  margin: 6mm 8mm;
+  size: 210mm 148mm;
+  margin: 0;
 }
 .invoice-print-area {
   page: invoice-a5;
-  width: 148mm;
-  height: 210mm;
+  /* Applies on screen too, so the sheet view and the Preview dialog show the
+     exact same 210mm x 148mm sheet with the same 6mm gutter that prints —
+     preview and print can never drift apart (210mm/148mm ≈ 794px/559px at
+     96dpi). The full-bleed physical sheet is the element's border box; the
+     printable content area comes out to 198mm x 136mm. */
+  width: 210mm;
+  height: 148mm;
+  padding: 6mm;
   box-sizing: border-box;
 }
 
-/* Hospital letterhead banner (header.png / footer.png), used on invoices
-   and receipts. The source images are wide strips (~4:1 and ~7.8:1) —
-   capped to a slim height so they read as a letterhead accent rather than
-   dominating the page, on screen and in print alike. */
+/* Hospital letterhead banner (header.png / footer.png), used on receipts.
+   The source images are wide strips (~4:1 and ~7.8:1) — capped to a slim
+   height so they read as a letterhead accent rather than dominating the A5
+   landscape page, on screen and in print alike. 44px ≈ 11.6mm, sized so two
+   banners + all receipt sections fit the 136mm-tall print content area. */
 .invoice-banner-image {
-  max-height: 90px;
+  max-height: 44px;
   object-fit: contain;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
 }
 
-/* The invoice prints on A5 portrait. These rules keep the page pinned to the
-   A5 sheet size, white with no padding of its own, and make sure no awkward
-   break slips between the totals and payment sections. */
+/* The invoice prints on A5 landscape. These rules keep the page pinned to the
+   A5 landscape sheet size (210mm x 148mm, zero page margin — the 6mm gutter
+   comes from #print-area's own padding), white with nothing of its own outside
+   that box, and make sure no awkward break slips between the totals and
+   payment sections. Re-pinned here with !important so dev/prod CSS ordering
+   can't shift the geometry and pagination can't add a second page while
+   content fits the sheet. */
 @media print {
   #print-area.invoice-print-area {
     display: block !important;
-    width: 148mm !important;
+    width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
     height: auto !important;
-    min-width: 0 !important;
-    max-width: none !important;
+    min-height: 148mm !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 6mm !important;
+    box-sizing: border-box !important;
     background: #ffffff !important;
     color: #0f172a !important;
+  }
+}
+
+/* Receipts print on the same A5 landscape sheet as invoices: zero @page margin
+   with a 6mm border-box gutter carried by #print-area's own padding, so the
+   receipt starts at the physical top-left of the A5 landscape sheet and fits a
+   single page when the (compacted) content fits. The on-screen sheet keeps its
+   own Tailwind padding/spacing; this print rule re-pins the geometry with
+   !important so the printed page is exactly one 210mm x 148mm sheet. */
+@page receipt-a5 {
+  size: 210mm 148mm;
+  margin: 0;
+}
+.receipt-print-area {
+  page: receipt-a5;
+}
+@media print {
+  #print-area.receipt-print-area {
+    display: block !important;
+    width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
+    height: auto !important;
+    min-height: 148mm !important;
+    margin: 0 !important;
+    padding: 6mm !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 

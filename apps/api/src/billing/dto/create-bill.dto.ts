@@ -37,6 +37,10 @@ export class CreateBillDto {
 
   @IsOptional()
   @IsString()
+  referenceNumber?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
 
   @IsOptional()

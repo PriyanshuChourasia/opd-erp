@@ -155,7 +155,6 @@ export class AppointmentsService
 
     const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'PTNT';
-    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, date);
 
     let registrationFee = dto.registrationFee;
     if (registrationFee === undefined) {
@@ -164,23 +163,29 @@ export class AppointmentsService
       registrationFee = priorAppointmentCount === 0 ? (company?.registrationFee ?? 0) : 0;
     }
 
+    // Token generation and the insert that consumes it must share one
+    // transaction — generateTokenNumber() takes an advisory lock scoped to
+    // it, so two concurrent bookings can never read the same count.
     // Booking alone does not queue the patient — they only enter the live
     // token queue once Confirmed (see `update`, on the CONFIRMED transition).
-    const appointment = await this.prisma.appointment.create({
-      data: {
-        patientId: dto.patientId,
-        doctorId: dto.doctorId,
-        createdById: createdById ?? null,
-        date,
-        type: dto.type ?? 'CONSULTATION',
-        amount: dto.amount ?? 0,
-        registrationFee,
-        amountPaid: dto.amountPaid ?? 0,
-        reasonForVisit: dto.reasonForVisit,
-        notes: dto.notes,
-        tokenNumber,
-      },
-      include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } } },
+    const appointment = await this.prisma.$transaction(async (tx) => {
+      const tokenNumber = await this.tokenNumberService.generateTokenNumber(tx, patientName, date);
+      return tx.appointment.create({
+        data: {
+          patientId: dto.patientId,
+          doctorId: dto.doctorId,
+          createdById: createdById ?? null,
+          date,
+          type: dto.type ?? 'CONSULTATION',
+          amount: dto.amount ?? 0,
+          registrationFee,
+          amountPaid: dto.amountPaid ?? 0,
+          reasonForVisit: dto.reasonForVisit,
+          notes: dto.notes,
+          tokenNumber,
+        },
+        include: { patient: true, doctor: true, bill: { select: { id: true, invoiceNo: true, status: true, total: true, paidAmount: true } } },
+      });
     });
 
     // Save version 1 history entry (mirroring PrescriptionHistory pattern)
@@ -435,17 +440,19 @@ export class AppointmentsService
       if (!alreadyQueued) {
         const checkedInAt = new Date();
         const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-        const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, checkedInAt);
-        await this.prisma.queueEntry.create({
-          data: {
-            patientId: appointment.patientId,
-            doctorId: appointment.doctorId,
-            tokenNumber,
-            queueDate: checkedInAt,
-            checkedInAt,
-            status: 'WAITING',
-            appointmentId: appointment.id,
-          },
+        await this.prisma.$transaction(async (tx) => {
+          const tokenNumber = await this.tokenNumberService.generateTokenNumber(tx, patientName, checkedInAt);
+          await tx.queueEntry.create({
+            data: {
+              patientId: appointment.patientId,
+              doctorId: appointment.doctorId,
+              tokenNumber,
+              queueDate: checkedInAt,
+              checkedInAt,
+              status: 'WAITING',
+              appointmentId: appointment.id,
+            },
+          });
         });
       }
     }
@@ -572,7 +579,6 @@ export class AppointmentsService
     const date = new Date(dto.date);
     const doctorId = dto.doctorId ?? existing.doctorId;
     const patientName = `${existing.patient.firstName} ${existing.patient.lastName}`;
-    const tokenNumber = await this.tokenNumberService.generateTokenNumber(patientName, date);
 
     // Calculate next version for history
     const lastHistory = await this.prisma.appointmentHistory.findFirst({
@@ -622,8 +628,11 @@ export class AppointmentsService
       }
     }
 
-    // Use a transaction to atomically save history and update appointment
+    // Use a transaction to atomically generate the token, save history, and
+    // update the appointment.
     await this.prisma.$transaction(async (tx) => {
+      const tokenNumber = await this.tokenNumberService.generateTokenNumber(tx, patientName, date);
+
       // 1. Save history entry with previous state
       await tx.appointmentHistory.create({
         data: {

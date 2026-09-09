@@ -38,7 +38,7 @@ export function PosCheckoutPage() {
   const [cardName, setCardName] = useState("");
   const [cardStartDate, setCardStartDate] = useState("");
   const [cardEndDate, setCardEndDate] = useState("");
-  const [upiId, setUpiId] = useState("");
+  const [utrNumber, setUtrNumber] = useState("");
 
   const invoicePreview = useQuery({
     queryKey: ["appointment-invoice-preview", appointmentId],
@@ -80,11 +80,13 @@ export function PosCheckoutPage() {
       items: cart.map((item) => ({ itemType: item.itemType ?? "MEDICINE", itemId: item.itemId, itemName: item.description, quantity: item.quantity, unitPrice: item.unitPrice })),
       discountRuleId: discountRuleId ?? undefined,
       paymentMethod,
+      ...(paymentMethod === "UPI" && utrNumber.trim() ? { referenceNumber: utrNumber.trim() } : {}),
     }),
     onSuccess: () => {
       setCart([]);
       setSelectedPatient(null);
       setDiscountRuleId(null);
+      setUtrNumber("");
       toast.success("Sale completed successfully");
       if (appointmentId) {
         queryClient.invalidateQueries({ queryKey: ["appointments"] });
@@ -218,7 +220,7 @@ export function PosCheckoutPage() {
               </div>
             )}
             {paymentMethod === "UPI" && (
-              <Input placeholder="UPI ID (e.g. name@upi)" value={upiId} onChange={(e) => setUpiId(e.target.value)} />
+              <Input placeholder="UTR Number" value={utrNumber} onChange={(e) => setUtrNumber(e.target.value)} />
             )}
           </div>
           <div className="flex items-center justify-between border-t pt-4 text-base font-semibold"><span>Total</span><span>{currency(total)}</span></div>

@@ -19,7 +19,15 @@ export class ProcedureOrdersController {
 
   @Permissions('read:procedure-orders')
   @Get()
-  findAll(@Query('patientId') patientId?: string, @Query('status') status?: string) {
+  findAll(
+    @Query('patientId') patientId?: string,
+    @Query('status') status?: string,
+    @Req() req: { user: { id: string; userableType?: string; userableId?: string } } = {} as any,
+  ) {
+    // Patient portal: force scoping to own procedure orders
+    if (req.user?.userableType === 'Patient' && req.user?.userableId) {
+      patientId = req.user.userableId;
+    }
     return this.service.findAll({ patientId, status });
   }
 

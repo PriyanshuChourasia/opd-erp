@@ -172,6 +172,7 @@ export class BillingService
           tax,
           total,
           paymentMethod: dto.paymentMethod ?? 'CASH',
+          referenceNumber: dto.referenceNumber,
           notes: dto.notes,
           createdById: userId ?? null,
           items: { create: items },

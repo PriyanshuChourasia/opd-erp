@@ -39,7 +39,6 @@ export function AppointmentSlipPreviewDialog({ appointment, onOpenChange, organi
             return (
               <>
                 {/* Header */}
-                <img src="/header.png" alt="" className="w-full h-auto rounded-t border border-gray-200" />
                 <div className="flex items-center justify-end gap-3 px-4 py-1 text-[9px] leading-tight text-gray-600">
                   Slip No: {apptId} | Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                 </div>
@@ -155,7 +154,6 @@ export function AppointmentSlipPreviewDialog({ appointment, onOpenChange, organi
                 <div className="bg-gray-100 py-1 px-3 text-center text-[8px] leading-tight text-gray-500 border-t border-gray-200">
                   This is a computer-generated slip. Generated on {new Date().toLocaleString("en-IN")} | {organisation?.email ? `Email: ${organisation.email}` : ""} | {organisation?.website ?? "www.clinic.com"}
                 </div>
-                <img src="/footer.png" alt="" className="w-full h-auto rounded-b border border-gray-200" />
               </>
             );
           })()}

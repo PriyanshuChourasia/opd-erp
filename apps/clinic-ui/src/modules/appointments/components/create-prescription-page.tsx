@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Eye, History, Plus, Trash2, AlertTriangle, HeartPulse, Printer, FileDown } from "lucide-react";
+import { Activity, Eye, History, Plus, Trash2, AlertTriangle, HeartPulse, Printer, FileDown } from "lucide-react";
 import {
   fetchAppointment,
   fetchPatientVitalsLatest,
   fetchPrescriptions,
   fetchMedicines,
   fetchOrganisation,
+  fetchProcedureOrders,
   createPrescription,
   getPatientName,
   type PrescriptionItem,
@@ -97,6 +98,17 @@ export function CreatePrescriptionPage() {
     queryFn: () => fetchPatientVitalsLatest(appointment!.patientId),
     enabled: !!appointment?.patientId,
   });
+
+  // ── Fetch procedures ordered for this patient by this doctor ──
+  const { data: procedureOrdersResponse } = useQuery({
+    queryKey: ["procedure-orders", appointment?.patientId],
+    queryFn: () => fetchProcedureOrders({ patientId: appointment!.patientId }),
+    enabled: !!appointment?.patientId,
+  });
+  const procedureOrders = useMemo(
+    () => (procedureOrdersResponse ?? []).filter((p) => p.doctorId === appointment?.doctorId),
+    [procedureOrdersResponse, appointment?.doctorId],
+  );
 
   // ── Fetch prescription history ──
   const { data: historyResponse, isLoading: historyLoading } = useQuery({
@@ -278,6 +290,31 @@ export function CreatePrescriptionPage() {
                   {vitals.systolicBp != null && vitals.diastolicBp != null && <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{vitals.systolicBp}/{vitals.diastolicBp}</p></div>}
                   {vitals.spo2Percent != null && <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{vitals.spo2Percent}%</p></div>}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Procedures */}
+          {procedureOrders.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <Activity className="size-4 text-amber-600" />
+                  Procedures
+                  <Badge variant="outline" className="text-[10px]">{procedureOrders.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {procedureOrders.map((p) => (
+                  <div key={p.id} className="rounded-none border-l-2 border-amber-400/50 bg-muted/20 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="font-medium">{p.procedureName}</span>
+                      <Badge variant="outline" className="text-[10px]">{p.status.replace("_", " ")}</Badge>
+                    </div>
+                    {p.category && <p className="text-[10px] text-muted-foreground">{p.category}</p>}
+                    {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}

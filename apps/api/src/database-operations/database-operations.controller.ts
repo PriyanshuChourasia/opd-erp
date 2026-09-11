@@ -65,14 +65,65 @@ export class DatabaseOperationsController {
     this.sendJson(res, filename, payload);
   }
 
+  @Post('tables/:model/restore')
+  @Permissions('write:database-operations')
+  async restoreTable(@Param('model') model: string, @Res() res: Response) {
+    const body = await this.readBody(res);
+    const { filename, restored } = await this.service.restoreTable(model, body);
+    this.sendJson(res, filename, { restored });
+  }
+
+  @Post('tables/:model/records/:id/restore')
+  @Permissions('write:database-operations')
+  async restoreDocument(@Param('model') model: string, @Param('id') id: string, @Res() res: Response) {
+    const body = await this.readBody(res);
+    const { filename, restored } = await this.service.restoreDocument(model, id, body);
+    this.sendJson(res, filename, { restored });
+  }
+
+  @Post('snapshot/full/restore')
+  @Permissions('write:database-operations')
+  async fullRestore(@Res() res: Response) {
+    const tempPath = await this.saveUploadedDump(res);
+    try {
+      await this.service.fullRestore(tempPath);
+      this.sendJson(res, 'full_restore_complete.json', { restored: true });
+    } finally {
+      fsUnlink(tempPath).catch(() => {});
+    }
+  }
+
   private sendJson(res: Response, filename: string, payload: unknown) {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(payload, null, 2));
   }
+
+  private async readBody(res: Response): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      let body = '';
+      res.req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+      res.req.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch { reject(new BadRequestException('Invalid JSON body')); }
+      });
+      res.req.on('error', reject);
+    });
+  }
+
+  private async saveUploadedDump(res: Response): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const tempPath = path.join(os.tmpdir(), `restore_${Date.now()}_${Math.random().toString(36).slice(2)}.dump`);
+      const writeStream = fs.createWriteStream(tempPath);
+      res.req.pipe(writeStream);
+      writeStream.on('finish', () => resolve(tempPath));
+      writeStream.on('error', reject);
+    });
+  }
 }
 
 import * as fs from 'fs';
 import { promisify } from 'util';
+import * as path from 'path';
+import * as os from 'os';
 
 const fsUnlink = promisify(fs.unlink);

@@ -62,7 +62,7 @@ const RESOURCES = [
   // Multi-tenant platform (platform-admin scope)
   'organizations', 'customers', 'licenses', 'license-plans', 'application-modules', 'application-features',
 ];
-const ACTIONS = ['read', 'create', 'update', 'delete', 'manage', 'refund'];
+const ACTIONS = ['read', 'create', 'update', 'delete', 'manage', 'refund', 'write']};
 
 function permissionName(action: string, resource: string) {
   const label = resource.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

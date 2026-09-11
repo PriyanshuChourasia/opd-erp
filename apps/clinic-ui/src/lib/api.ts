@@ -51,6 +51,22 @@ export async function downloadRangeSnapshot(params: { table?: string; startDate:
   await downloadBlob('/database-operations/snapshot/range', params, 'database_range_snapshot.json');
 }
 
+export async function restoreTable(model: string, rows: unknown) {
+  await request<{ restored: number }>({ method: 'POST', path: `/database-operations/tables/${model}/restore`, body: rows });
+}
+
+export async function restoreDocument(model: string, id: string, row: unknown) {
+  await request<{ restored: boolean }>({ method: 'POST', path: `/database-operations/tables/${model}/records/${id}/restore`, body: row });
+}
+
+export async function restoreFullSnapshot(file: File) {
+  const form = new FormData();
+  form.append('file', file);
+  await apiClient.post('/database-operations/snapshot/full/restore', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+}
+
 
 /**
  * Drop-in replacement for the old `apiFetch` that used the native `fetch` API.

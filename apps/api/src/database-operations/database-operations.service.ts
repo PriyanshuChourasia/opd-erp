@@ -125,6 +125,60 @@ export class DatabaseOperationsService {
     return `snapshot_${label}_${ts}.json`;
   }
 
+  async restoreTable(model: string, rows: unknown[]): Promise<{ filename: string; restored: number }> {
+    if (!this.backupableModels.includes(model)) {
+      throw new NotFoundException(`Model ${model} is not backupable`);
+    }
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new BadRequestException('Expected a non-empty JSON array of records');
+    }
+    const accessor = this.accessor(model);
+    let restored = 0;
+    await this.prisma.$transaction(async (tx) => {
+      for (const row of rows) {
+        if (!hasId(row)) {
+          throw new BadRequestException(`Record missing string 'id' field: ${JSON.stringify(row).slice(0, 200)}`);
+        }
+        const id = (row as Record<string, unknown>).id as string;
+        const { id: _id, ...data } = row as Record<string, unknown>;
+        await (tx as any)[model.charAt(0).toLowerCase() + model.slice(1)].upsert({
+          where: { id },
+          update: data as any,
+          create: data as any,
+        });
+        restored++;
+      }
+    });
+    return { filename: this.tableFilename(model), restored };
+  }
+
+  async restoreDocument(model: string, id: string, row: unknown): Promise<{ filename: string; restored: boolean }> {
+    if (!this.backupableModels.includes(model)) {
+      throw new NotFoundException(`Model ${model} is not backupable`);
+    }
+    if (!isRecord(row)) {
+      throw new BadRequestException('Expected a single JSON object record');
+    }
+    const accessor = this.accessor(model);
+    const { id: _id, ...data } = row as Record<string, unknown>;
+    await accessor.upsert({
+      where: { id },
+      update: data as any,
+      create: data as any,
+    });
+    return { filename: this.documentFilename(model, id), restored: true };
+  }
+
+  async fullRestore(tempPath: string): Promise<void> {
+    const dbUrl = this.stripSchemaSuffix(process.env.DATABASE_URL);
+    if (!dbUrl) {
+      throw new BadRequestException('DATABASE_URL is not configured');
+    }
+    await this.runPgRestore(dbUrl, tempPath);
+  }
+
+  // ─── helpers ────────────────────────────────────────────────────────
+
   private runPgDump(dbUrl: string, tempPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
       // Mirror docker-entrypoint.sh: strip ?schema=... before calling pg_dump
@@ -139,6 +193,27 @@ export class DatabaseOperationsService {
       proc.on('error', (err) => reject(new Error(`Failed to spawn pg_dump: ${err.message}`)));
     });
   }
+
+  private runPgRestore(dbUrl: string, tempPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const args = ['-d', dbUrl, tempPath];
+      const proc = childProcess.spawn('pg_restore', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      let stderr = '';
+      proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      proc.on('close', (code) => {
+        if (code === 0) return resolve();
+        reject(new Error(`pg_restore exited with code ${code}: ${stderr.trim()}`));
+      });
+      proc.on('error', (err) => reject(new Error(`Failed to spawn pg_restore: ${err.message}`)));
+    });
+  }
+}
+    });
+  }
 }
 
-type PrismaclientModel = { findMany(opts?: any): Promise<any[]>; findUnique(opts?: any): Promise<any> };
+type PrismaclientModel = { findMany(opts?: any): Promise<any[]>; findUnique(opts?: any): Promise<any>; create(opts?: any): Promise<any>; update(opts?: any): Promise<any>; delete(opts?: any): Promise<any> };
+
+function isRecord(x: unknown): x is Record<string, unknown> { return typeof x === 'object' && x !== null && !Array.isArray(x); }
+
+function hasId(row: unknown): boolean { return isRecord(row) && 'id' in row && typeof (row as Record<string, unknown>).id === 'string'; }

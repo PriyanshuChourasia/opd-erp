@@ -1,11 +1,12 @@
 import { Controller, Get, Param, Put, Patch, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DatabaseSchemaService } from './database-schema.service';
 import { SaveSchemaChangesDto } from './dto/save-changes.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('database-schema')
 export class DatabaseSchemaController {
   constructor(private readonly schemaService: DatabaseSchemaService) {}

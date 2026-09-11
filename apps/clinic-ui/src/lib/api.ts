@@ -1,8 +1,56 @@
 import type { AuthUser } from "@/store/auth-slice";
 import { apiClient, toApiError, extractApiError } from "./axios-client";
 
-export { ApiError } from "./axios-client";
-export { extractApiError, toApiError };
+export { ApiError } from "./axios-client";export { extractApiError, toApiError };
+
+/** Blob download helper following the existing document-download pattern. */
+export async function downloadBlob(
+  path: string,
+  params?: Record<string, string>,
+  fallbackName: string,
+): Promise<void> {
+  const res = await apiClient.get(path, {
+    responseType: 'blob',
+    params,
+  });
+  const raw = res.headers['content-disposition'];
+  let filename: string | null = null;
+  if (typeof raw === 'string') {
+    const m = raw.match(/filename="([^"]+)"/);
+    filename = m ? m[1] : null;
+  }
+  const name = filename ?? fallbackName;
+  const url = URL.createObjectURL(res.data as Blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Database Operations API ───────────────────────────────────────────
+export function fetchDatabaseTables() {
+  return request<{ data: string[] }>({ method: 'GET', path: '/database-operations/tables' });
+}
+
+export async function downloadTableBackup(model: string) {
+  await downloadBlob(`/database-operations/tables/${model}/backup`, undefined, `${model.toLowerCase()}_backup.json`);
+}
+
+export async function downloadDocumentBackup(model: string, id: string) {
+  await downloadBlob(`/database-operations/tables/${model}/records/${id}/backup`, undefined, `${model.toLowerCase()}_${id}_backup.json`);
+}
+
+export async function downloadFullSnapshot() {
+  await downloadBlob('/database-operations/snapshot/full', undefined, 'database_full_snapshot.dump');
+}
+
+export async function downloadRangeSnapshot(params: { table?: string; startDate: string; endDate: string }) {
+  await downloadBlob('/database-operations/snapshot/range', params, 'database_range_snapshot.json');
+}
+
 
 /**
  * Drop-in replacement for the old `apiFetch` that used the native `fetch` API.

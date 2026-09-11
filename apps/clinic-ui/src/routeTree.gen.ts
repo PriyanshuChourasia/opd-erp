@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
-import { Route as DeveloperRouteImport } from './routes/_developer'
 import { Route as DoctorRouteImport } from './routes/_doctor'
 import { Route as PatientRouteImport } from './routes/_patient'
 import { Route as PosRouteImport } from './routes/_pos'
@@ -19,6 +18,7 @@ import { Route as ReceptionistRouteImport } from './routes/_receptionist'
 import { Route as DisplayRouteImport } from './routes/display'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardDeveloperRouteImport } from './routes/_dashboard/_developer'
 import { Route as DashboardAddressesRouteImport } from './routes/_dashboard/addresses'
 import { Route as DashboardAllergiesRouteImport } from './routes/_dashboard/allergies'
 import { Route as DashboardBillingRouteImport } from './routes/_dashboard/billing'
@@ -52,10 +52,6 @@ import { Route as DashboardReportsDailyOpdSummaryRouteImport } from './routes/_d
 import { Route as DashboardReportsDoctorWiseOpdRouteImport } from './routes/_dashboard/reports/doctor-wise-opd'
 import { Route as DashboardReportsOutstandingPaymentsRouteImport } from './routes/_dashboard/reports/outstanding-payments'
 import { Route as DashboardReportsRevenueCollectionRouteImport } from './routes/_dashboard/reports/revenue-collection'
-import { Route as DeveloperDeveloperIndexRouteImport } from './routes/_developer/developer/index'
-import { Route as DeveloperDeveloperApisRouteImport } from './routes/_developer/developer/apis'
-import { Route as DeveloperDeveloperFeaturesRouteImport } from './routes/_developer/developer/features'
-import { Route as DeveloperDeveloperModulesRouteImport } from './routes/_developer/developer/modules'
 import { Route as DoctorDoctorIndexRouteImport } from './routes/_doctor/doctor/index'
 import { Route as DoctorDoctorAdminRouteImport } from './routes/_doctor/doctor/admin'
 import { Route as DoctorDoctorProfileRouteImport } from './routes/_doctor/doctor/profile'
@@ -73,14 +69,17 @@ import { Route as ReceptionistReceptionistBillingRouteImport } from './routes/_r
 import { Route as ReceptionistReceptionistDoctorsRouteImport } from './routes/_receptionist/receptionist/doctors'
 import { Route as ReceptionistReceptionistPatientsRouteImport } from './routes/_receptionist/receptionist/patients'
 import { Route as ReceptionistReceptionistProfileRouteImport } from './routes/_receptionist/receptionist/profile'
+import { Route as DashboardDeveloperDeveloperIndexRouteImport } from './routes/_dashboard/_developer/developer/index'
+import { Route as DashboardDeveloperDeveloperApisRouteImport } from './routes/_dashboard/_developer/developer/apis'
+import { Route as DashboardDeveloperDeveloperDatabaseOperationsRouteImport } from './routes/_dashboard/_developer/developer/database-operations'
+import { Route as DashboardDeveloperDeveloperFeaturesRouteImport } from './routes/_dashboard/_developer/developer/features'
+import { Route as DashboardDeveloperDeveloperModulesRouteImport } from './routes/_dashboard/_developer/developer/modules'
 import { Route as DashboardAccountingLedgerLedgerIdRouteImport } from './routes/_dashboard/accounting/ledger/$ledgerId'
 import { Route as DashboardAppointmentsAppointmentIdEditRouteImport } from './routes/_dashboard/appointments/$appointmentId.edit'
 import { Route as DashboardAppointmentsAppointmentIdPrescriptionRouteImport } from './routes/_dashboard/appointments/$appointmentId.prescription'
 import { Route as DashboardOrganisationPrescriptionTemplatesIndexRouteImport } from './routes/_dashboard/organisation/prescription-templates/index'
 import { Route as DashboardOrganisationPrescriptionTemplatesNewRouteImport } from './routes/_dashboard/organisation/prescription-templates/new'
 import { Route as DashboardPrescriptionsPrescriptionIdEditRouteImport } from './routes/_dashboard/prescriptions/$prescriptionId.edit'
-import { Route as DeveloperDeveloperSchemaIndexRouteImport } from './routes/_developer/developer/schema/index'
-import { Route as DeveloperDeveloperSchemaModelRouteImport } from './routes/_developer/developer/schema/$model'
 import { Route as DoctorDoctorAdminAppointmentsRouteImport } from './routes/_doctor/doctor/admin.appointments'
 import { Route as DoctorDoctorAdminPrescriptionsRouteImport } from './routes/_doctor/doctor/admin.prescriptions'
 import { Route as DoctorDoctorPrescriptionsIndexRouteImport } from './routes/_doctor/doctor/prescriptions/index'
@@ -89,6 +88,7 @@ import { Route as ReceptionistReceptionistAppointmentsIndexRouteImport } from '.
 import { Route as ReceptionistReceptionistAppointmentsNewRouteImport } from './routes/_receptionist/receptionist/appointments/new'
 import { Route as ReceptionistReceptionistPrescriptionsIndexRouteImport } from './routes/_receptionist/receptionist/prescriptions/index'
 import { Route as ReceptionistReceptionistPrescriptionsNewRouteImport } from './routes/_receptionist/receptionist/prescriptions/new'
+import { Route as DashboardDeveloperDeveloperSchemaIndexRouteImport } from './routes/_dashboard/_developer/developer/schema/index'
 import { Route as DashboardOrganisationPrescriptionTemplatesTemplateIdEditRouteImport } from './routes/_dashboard/organisation/prescription-templates/$templateId.edit'
 import { Route as DoctorDoctorPrescriptionsPrescriptionIdEditRouteImport } from './routes/_doctor/doctor/prescriptions/$prescriptionId.edit'
 import { Route as ReceptionistReceptionistPrescriptionsPrescriptionIdEditRouteImport } from './routes/_receptionist/receptionist/prescriptions/$prescriptionId.edit'
@@ -100,10 +100,6 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DeveloperRoute = DeveloperRouteImport.update({
-  id: '/_developer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DoctorRoute = DoctorRouteImport.update({
@@ -136,6 +132,10 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardDeveloperRoute = DashboardDeveloperRouteImport.update({
+  id: '/_developer',
+  getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardAddressesRoute = DashboardAddressesRouteImport.update({
   id: '/addresses',
@@ -321,28 +321,6 @@ const DashboardReportsRevenueCollectionRoute =
     path: '/reports/revenue-collection',
     getParentRoute: () => DashboardRoute,
   } as any)
-const DeveloperDeveloperIndexRoute = DeveloperDeveloperIndexRouteImport.update({
-  id: '/developer/',
-  path: '/developer/',
-  getParentRoute: () => DeveloperRoute,
-} as any)
-const DeveloperDeveloperApisRoute = DeveloperDeveloperApisRouteImport.update({
-  id: '/developer/apis',
-  path: '/developer/apis',
-  getParentRoute: () => DeveloperRoute,
-} as any)
-const DeveloperDeveloperFeaturesRoute =
-  DeveloperDeveloperFeaturesRouteImport.update({
-    id: '/developer/features',
-    path: '/developer/features',
-    getParentRoute: () => DeveloperRoute,
-  } as any)
-const DeveloperDeveloperModulesRoute =
-  DeveloperDeveloperModulesRouteImport.update({
-    id: '/developer/modules',
-    path: '/developer/modules',
-    getParentRoute: () => DeveloperRoute,
-  } as any)
 const DoctorDoctorIndexRoute = DoctorDoctorIndexRouteImport.update({
   id: '/doctor/',
   path: '/doctor/',
@@ -435,6 +413,36 @@ const ReceptionistReceptionistProfileRoute =
     path: '/receptionist/profile',
     getParentRoute: () => ReceptionistRoute,
   } as any)
+const DashboardDeveloperDeveloperIndexRoute =
+  DashboardDeveloperDeveloperIndexRouteImport.update({
+    id: '/developer/',
+    path: '/developer/',
+    getParentRoute: () => DashboardDeveloperRoute,
+  } as any)
+const DashboardDeveloperDeveloperApisRoute =
+  DashboardDeveloperDeveloperApisRouteImport.update({
+    id: '/developer/apis',
+    path: '/developer/apis',
+    getParentRoute: () => DashboardDeveloperRoute,
+  } as any)
+const DashboardDeveloperDeveloperDatabaseOperationsRoute =
+  DashboardDeveloperDeveloperDatabaseOperationsRouteImport.update({
+    id: '/developer/database-operations',
+    path: '/developer/database-operations',
+    getParentRoute: () => DashboardDeveloperRoute,
+  } as any)
+const DashboardDeveloperDeveloperFeaturesRoute =
+  DashboardDeveloperDeveloperFeaturesRouteImport.update({
+    id: '/developer/features',
+    path: '/developer/features',
+    getParentRoute: () => DashboardDeveloperRoute,
+  } as any)
+const DashboardDeveloperDeveloperModulesRoute =
+  DashboardDeveloperDeveloperModulesRouteImport.update({
+    id: '/developer/modules',
+    path: '/developer/modules',
+    getParentRoute: () => DashboardDeveloperRoute,
+  } as any)
 const DashboardAccountingLedgerLedgerIdRoute =
   DashboardAccountingLedgerLedgerIdRouteImport.update({
     id: '/accounting/ledger/$ledgerId',
@@ -470,18 +478,6 @@ const DashboardPrescriptionsPrescriptionIdEditRoute =
     id: '/prescriptions/$prescriptionId/edit',
     path: '/prescriptions/$prescriptionId/edit',
     getParentRoute: () => DashboardRoute,
-  } as any)
-const DeveloperDeveloperSchemaIndexRoute =
-  DeveloperDeveloperSchemaIndexRouteImport.update({
-    id: '/developer/schema/',
-    path: '/developer/schema/',
-    getParentRoute: () => DeveloperRoute,
-  } as any)
-const DeveloperDeveloperSchemaModelRoute =
-  DeveloperDeveloperSchemaModelRouteImport.update({
-    id: '/developer/schema/$model',
-    path: '/developer/schema/$model',
-    getParentRoute: () => DeveloperRoute,
   } as any)
 const DoctorDoctorAdminAppointmentsRoute =
   DoctorDoctorAdminAppointmentsRouteImport.update({
@@ -530,6 +526,12 @@ const ReceptionistReceptionistPrescriptionsNewRoute =
     id: '/receptionist/prescriptions/new',
     path: '/receptionist/prescriptions/new',
     getParentRoute: () => ReceptionistRoute,
+  } as any)
+const DashboardDeveloperDeveloperSchemaIndexRoute =
+  DashboardDeveloperDeveloperSchemaIndexRouteImport.update({
+    id: '/developer/schema/',
+    path: '/developer/schema/',
+    getParentRoute: () => DashboardDeveloperRoute,
   } as any)
 const DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute =
   DashboardOrganisationPrescriptionTemplatesTemplateIdEditRouteImport.update({
@@ -585,9 +587,6 @@ export interface FileRoutesByFullPath {
   '/reports/doctor-wise-opd': typeof DashboardReportsDoctorWiseOpdRoute
   '/reports/outstanding-payments': typeof DashboardReportsOutstandingPaymentsRoute
   '/reports/revenue-collection': typeof DashboardReportsRevenueCollectionRoute
-  '/developer/apis': typeof DeveloperDeveloperApisRoute
-  '/developer/features': typeof DeveloperDeveloperFeaturesRoute
-  '/developer/modules': typeof DeveloperDeveloperModulesRoute
   '/doctor/admin': typeof DoctorDoctorAdminRouteWithChildren
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/patient/appointments': typeof PatientPatientAppointmentsRoute
@@ -604,30 +603,33 @@ export interface FileRoutesByFullPath {
   '/appointments/': typeof DashboardAppointmentsIndexRoute
   '/organisation/': typeof DashboardOrganisationIndexRoute
   '/prescriptions/': typeof DashboardPrescriptionsIndexRoute
-  '/developer/': typeof DeveloperDeveloperIndexRoute
   '/doctor/': typeof DoctorDoctorIndexRoute
   '/patient/': typeof PatientPatientIndexRoute
   '/pos/': typeof PosPosIndexRoute
   '/receptionist/': typeof ReceptionistReceptionistIndexRoute
+  '/developer/apis': typeof DashboardDeveloperDeveloperApisRoute
+  '/developer/database-operations': typeof DashboardDeveloperDeveloperDatabaseOperationsRoute
+  '/developer/features': typeof DashboardDeveloperDeveloperFeaturesRoute
+  '/developer/modules': typeof DashboardDeveloperDeveloperModulesRoute
   '/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
   '/appointments/$appointmentId/prescription': typeof DashboardAppointmentsAppointmentIdPrescriptionRoute
   '/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/prescriptions/$prescriptionId/edit': typeof DashboardPrescriptionsPrescriptionIdEditRoute
-  '/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
   '/doctor/admin/prescriptions': typeof DoctorDoctorAdminPrescriptionsRoute
   '/doctor/prescriptions/new': typeof DoctorDoctorPrescriptionsNewRoute
   '/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
   '/receptionist/prescriptions/new': typeof ReceptionistReceptionistPrescriptionsNewRoute
+  '/developer/': typeof DashboardDeveloperDeveloperIndexRoute
   '/organisation/prescription-templates/': typeof DashboardOrganisationPrescriptionTemplatesIndexRoute
-  '/developer/schema/': typeof DeveloperDeveloperSchemaIndexRoute
   '/doctor/prescriptions/': typeof DoctorDoctorPrescriptionsIndexRoute
   '/receptionist/appointments/': typeof ReceptionistReceptionistAppointmentsIndexRoute
   '/receptionist/prescriptions/': typeof ReceptionistReceptionistPrescriptionsIndexRoute
   '/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
   '/doctor/prescriptions/$prescriptionId/edit': typeof DoctorDoctorPrescriptionsPrescriptionIdEditRoute
   '/receptionist/prescriptions/$prescriptionId/edit': typeof ReceptionistReceptionistPrescriptionsPrescriptionIdEditRoute
+  '/developer/schema/': typeof DashboardDeveloperDeveloperSchemaIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -664,9 +666,6 @@ export interface FileRoutesByTo {
   '/reports/doctor-wise-opd': typeof DashboardReportsDoctorWiseOpdRoute
   '/reports/outstanding-payments': typeof DashboardReportsOutstandingPaymentsRoute
   '/reports/revenue-collection': typeof DashboardReportsRevenueCollectionRoute
-  '/developer/apis': typeof DeveloperDeveloperApisRoute
-  '/developer/features': typeof DeveloperDeveloperFeaturesRoute
-  '/developer/modules': typeof DeveloperDeveloperModulesRoute
   '/doctor/admin': typeof DoctorDoctorAdminRouteWithChildren
   '/doctor/profile': typeof DoctorDoctorProfileRoute
   '/patient/appointments': typeof PatientPatientAppointmentsRoute
@@ -683,36 +682,38 @@ export interface FileRoutesByTo {
   '/appointments': typeof DashboardAppointmentsIndexRoute
   '/organisation': typeof DashboardOrganisationIndexRoute
   '/prescriptions': typeof DashboardPrescriptionsIndexRoute
-  '/developer': typeof DeveloperDeveloperIndexRoute
   '/doctor': typeof DoctorDoctorIndexRoute
   '/patient': typeof PatientPatientIndexRoute
   '/pos': typeof PosPosIndexRoute
   '/receptionist': typeof ReceptionistReceptionistIndexRoute
+  '/developer/apis': typeof DashboardDeveloperDeveloperApisRoute
+  '/developer/database-operations': typeof DashboardDeveloperDeveloperDatabaseOperationsRoute
+  '/developer/features': typeof DashboardDeveloperDeveloperFeaturesRoute
+  '/developer/modules': typeof DashboardDeveloperDeveloperModulesRoute
   '/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
   '/appointments/$appointmentId/prescription': typeof DashboardAppointmentsAppointmentIdPrescriptionRoute
   '/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/prescriptions/$prescriptionId/edit': typeof DashboardPrescriptionsPrescriptionIdEditRoute
-  '/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
   '/doctor/admin/prescriptions': typeof DoctorDoctorAdminPrescriptionsRoute
   '/doctor/prescriptions/new': typeof DoctorDoctorPrescriptionsNewRoute
   '/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
   '/receptionist/prescriptions/new': typeof ReceptionistReceptionistPrescriptionsNewRoute
+  '/developer': typeof DashboardDeveloperDeveloperIndexRoute
   '/organisation/prescription-templates': typeof DashboardOrganisationPrescriptionTemplatesIndexRoute
-  '/developer/schema': typeof DeveloperDeveloperSchemaIndexRoute
   '/doctor/prescriptions': typeof DoctorDoctorPrescriptionsIndexRoute
   '/receptionist/appointments': typeof ReceptionistReceptionistAppointmentsIndexRoute
   '/receptionist/prescriptions': typeof ReceptionistReceptionistPrescriptionsIndexRoute
   '/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
   '/doctor/prescriptions/$prescriptionId/edit': typeof DoctorDoctorPrescriptionsPrescriptionIdEditRoute
   '/receptionist/prescriptions/$prescriptionId/edit': typeof ReceptionistReceptionistPrescriptionsPrescriptionIdEditRoute
+  '/developer/schema': typeof DashboardDeveloperDeveloperSchemaIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_dashboard': typeof DashboardRouteWithChildren
-  '/_developer': typeof DeveloperRouteWithChildren
   '/_doctor': typeof DoctorRouteWithChildren
   '/_patient': typeof PatientRouteWithChildren
   '/_pos': typeof PosRouteWithChildren
@@ -720,6 +721,7 @@ export interface FileRoutesById {
   '/display': typeof DisplayRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
+  '/_dashboard/_developer': typeof DashboardDeveloperRouteWithChildren
   '/_dashboard/addresses': typeof DashboardAddressesRoute
   '/_dashboard/allergies': typeof DashboardAllergiesRoute
   '/_dashboard/billing': typeof DashboardBillingRoute
@@ -750,9 +752,6 @@ export interface FileRoutesById {
   '/_dashboard/reports/doctor-wise-opd': typeof DashboardReportsDoctorWiseOpdRoute
   '/_dashboard/reports/outstanding-payments': typeof DashboardReportsOutstandingPaymentsRoute
   '/_dashboard/reports/revenue-collection': typeof DashboardReportsRevenueCollectionRoute
-  '/_developer/developer/apis': typeof DeveloperDeveloperApisRoute
-  '/_developer/developer/features': typeof DeveloperDeveloperFeaturesRoute
-  '/_developer/developer/modules': typeof DeveloperDeveloperModulesRoute
   '/_doctor/doctor/admin': typeof DoctorDoctorAdminRouteWithChildren
   '/_doctor/doctor/profile': typeof DoctorDoctorProfileRoute
   '/_patient/patient/appointments': typeof PatientPatientAppointmentsRoute
@@ -769,30 +768,33 @@ export interface FileRoutesById {
   '/_dashboard/appointments/': typeof DashboardAppointmentsIndexRoute
   '/_dashboard/organisation/': typeof DashboardOrganisationIndexRoute
   '/_dashboard/prescriptions/': typeof DashboardPrescriptionsIndexRoute
-  '/_developer/developer/': typeof DeveloperDeveloperIndexRoute
   '/_doctor/doctor/': typeof DoctorDoctorIndexRoute
   '/_patient/patient/': typeof PatientPatientIndexRoute
   '/_pos/pos/': typeof PosPosIndexRoute
   '/_receptionist/receptionist/': typeof ReceptionistReceptionistIndexRoute
+  '/_dashboard/_developer/developer/apis': typeof DashboardDeveloperDeveloperApisRoute
+  '/_dashboard/_developer/developer/database-operations': typeof DashboardDeveloperDeveloperDatabaseOperationsRoute
+  '/_dashboard/_developer/developer/features': typeof DashboardDeveloperDeveloperFeaturesRoute
+  '/_dashboard/_developer/developer/modules': typeof DashboardDeveloperDeveloperModulesRoute
   '/_dashboard/accounting/ledger/$ledgerId': typeof DashboardAccountingLedgerLedgerIdRoute
   '/_dashboard/appointments/$appointmentId/edit': typeof DashboardAppointmentsAppointmentIdEditRoute
   '/_dashboard/appointments/$appointmentId/prescription': typeof DashboardAppointmentsAppointmentIdPrescriptionRoute
   '/_dashboard/organisation/prescription-templates/new': typeof DashboardOrganisationPrescriptionTemplatesNewRoute
   '/_dashboard/prescriptions/$prescriptionId/edit': typeof DashboardPrescriptionsPrescriptionIdEditRoute
-  '/_developer/developer/schema/$model': typeof DeveloperDeveloperSchemaModelRoute
   '/_doctor/doctor/admin/appointments': typeof DoctorDoctorAdminAppointmentsRoute
   '/_doctor/doctor/admin/prescriptions': typeof DoctorDoctorAdminPrescriptionsRoute
   '/_doctor/doctor/prescriptions/new': typeof DoctorDoctorPrescriptionsNewRoute
   '/_receptionist/receptionist/appointments/new': typeof ReceptionistReceptionistAppointmentsNewRoute
   '/_receptionist/receptionist/prescriptions/new': typeof ReceptionistReceptionistPrescriptionsNewRoute
+  '/_dashboard/_developer/developer/': typeof DashboardDeveloperDeveloperIndexRoute
   '/_dashboard/organisation/prescription-templates/': typeof DashboardOrganisationPrescriptionTemplatesIndexRoute
-  '/_developer/developer/schema/': typeof DeveloperDeveloperSchemaIndexRoute
   '/_doctor/doctor/prescriptions/': typeof DoctorDoctorPrescriptionsIndexRoute
   '/_receptionist/receptionist/appointments/': typeof ReceptionistReceptionistAppointmentsIndexRoute
   '/_receptionist/receptionist/prescriptions/': typeof ReceptionistReceptionistPrescriptionsIndexRoute
   '/_dashboard/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
   '/_doctor/doctor/prescriptions/$prescriptionId/edit': typeof DoctorDoctorPrescriptionsPrescriptionIdEditRoute
   '/_receptionist/receptionist/prescriptions/$prescriptionId/edit': typeof ReceptionistReceptionistPrescriptionsPrescriptionIdEditRoute
+  '/_dashboard/_developer/developer/schema/': typeof DashboardDeveloperDeveloperSchemaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -831,9 +833,6 @@ export interface FileRouteTypes {
     | '/reports/doctor-wise-opd'
     | '/reports/outstanding-payments'
     | '/reports/revenue-collection'
-    | '/developer/apis'
-    | '/developer/features'
-    | '/developer/modules'
     | '/doctor/admin'
     | '/doctor/profile'
     | '/patient/appointments'
@@ -850,30 +849,33 @@ export interface FileRouteTypes {
     | '/appointments/'
     | '/organisation/'
     | '/prescriptions/'
-    | '/developer/'
     | '/doctor/'
     | '/patient/'
     | '/pos/'
     | '/receptionist/'
+    | '/developer/apis'
+    | '/developer/database-operations'
+    | '/developer/features'
+    | '/developer/modules'
     | '/accounting/ledger/$ledgerId'
     | '/appointments/$appointmentId/edit'
     | '/appointments/$appointmentId/prescription'
     | '/organisation/prescription-templates/new'
     | '/prescriptions/$prescriptionId/edit'
-    | '/developer/schema/$model'
     | '/doctor/admin/appointments'
     | '/doctor/admin/prescriptions'
     | '/doctor/prescriptions/new'
     | '/receptionist/appointments/new'
     | '/receptionist/prescriptions/new'
+    | '/developer/'
     | '/organisation/prescription-templates/'
-    | '/developer/schema/'
     | '/doctor/prescriptions/'
     | '/receptionist/appointments/'
     | '/receptionist/prescriptions/'
     | '/organisation/prescription-templates/$templateId/edit'
     | '/doctor/prescriptions/$prescriptionId/edit'
     | '/receptionist/prescriptions/$prescriptionId/edit'
+    | '/developer/schema/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -910,9 +912,6 @@ export interface FileRouteTypes {
     | '/reports/doctor-wise-opd'
     | '/reports/outstanding-payments'
     | '/reports/revenue-collection'
-    | '/developer/apis'
-    | '/developer/features'
-    | '/developer/modules'
     | '/doctor/admin'
     | '/doctor/profile'
     | '/patient/appointments'
@@ -929,35 +928,37 @@ export interface FileRouteTypes {
     | '/appointments'
     | '/organisation'
     | '/prescriptions'
-    | '/developer'
     | '/doctor'
     | '/patient'
     | '/pos'
     | '/receptionist'
+    | '/developer/apis'
+    | '/developer/database-operations'
+    | '/developer/features'
+    | '/developer/modules'
     | '/accounting/ledger/$ledgerId'
     | '/appointments/$appointmentId/edit'
     | '/appointments/$appointmentId/prescription'
     | '/organisation/prescription-templates/new'
     | '/prescriptions/$prescriptionId/edit'
-    | '/developer/schema/$model'
     | '/doctor/admin/appointments'
     | '/doctor/admin/prescriptions'
     | '/doctor/prescriptions/new'
     | '/receptionist/appointments/new'
     | '/receptionist/prescriptions/new'
+    | '/developer'
     | '/organisation/prescription-templates'
-    | '/developer/schema'
     | '/doctor/prescriptions'
     | '/receptionist/appointments'
     | '/receptionist/prescriptions'
     | '/organisation/prescription-templates/$templateId/edit'
     | '/doctor/prescriptions/$prescriptionId/edit'
     | '/receptionist/prescriptions/$prescriptionId/edit'
+    | '/developer/schema'
   id:
     | '__root__'
     | '/'
     | '/_dashboard'
-    | '/_developer'
     | '/_doctor'
     | '/_patient'
     | '/_pos'
@@ -965,6 +966,7 @@ export interface FileRouteTypes {
     | '/display'
     | '/help'
     | '/login'
+    | '/_dashboard/_developer'
     | '/_dashboard/addresses'
     | '/_dashboard/allergies'
     | '/_dashboard/billing'
@@ -995,9 +997,6 @@ export interface FileRouteTypes {
     | '/_dashboard/reports/doctor-wise-opd'
     | '/_dashboard/reports/outstanding-payments'
     | '/_dashboard/reports/revenue-collection'
-    | '/_developer/developer/apis'
-    | '/_developer/developer/features'
-    | '/_developer/developer/modules'
     | '/_doctor/doctor/admin'
     | '/_doctor/doctor/profile'
     | '/_patient/patient/appointments'
@@ -1014,36 +1013,38 @@ export interface FileRouteTypes {
     | '/_dashboard/appointments/'
     | '/_dashboard/organisation/'
     | '/_dashboard/prescriptions/'
-    | '/_developer/developer/'
     | '/_doctor/doctor/'
     | '/_patient/patient/'
     | '/_pos/pos/'
     | '/_receptionist/receptionist/'
+    | '/_dashboard/_developer/developer/apis'
+    | '/_dashboard/_developer/developer/database-operations'
+    | '/_dashboard/_developer/developer/features'
+    | '/_dashboard/_developer/developer/modules'
     | '/_dashboard/accounting/ledger/$ledgerId'
     | '/_dashboard/appointments/$appointmentId/edit'
     | '/_dashboard/appointments/$appointmentId/prescription'
     | '/_dashboard/organisation/prescription-templates/new'
     | '/_dashboard/prescriptions/$prescriptionId/edit'
-    | '/_developer/developer/schema/$model'
     | '/_doctor/doctor/admin/appointments'
     | '/_doctor/doctor/admin/prescriptions'
     | '/_doctor/doctor/prescriptions/new'
     | '/_receptionist/receptionist/appointments/new'
     | '/_receptionist/receptionist/prescriptions/new'
+    | '/_dashboard/_developer/developer/'
     | '/_dashboard/organisation/prescription-templates/'
-    | '/_developer/developer/schema/'
     | '/_doctor/doctor/prescriptions/'
     | '/_receptionist/receptionist/appointments/'
     | '/_receptionist/receptionist/prescriptions/'
     | '/_dashboard/organisation/prescription-templates/$templateId/edit'
     | '/_doctor/doctor/prescriptions/$prescriptionId/edit'
     | '/_receptionist/receptionist/prescriptions/$prescriptionId/edit'
+    | '/_dashboard/_developer/developer/schema/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
-  DeveloperRoute: typeof DeveloperRouteWithChildren
   DoctorRoute: typeof DoctorRouteWithChildren
   PatientRoute: typeof PatientRouteWithChildren
   PosRoute: typeof PosRouteWithChildren
@@ -1067,13 +1068,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_developer': {
-      id: '/_developer'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof DeveloperRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_doctor': {
@@ -1124,6 +1118,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard/_developer': {
+      id: '/_dashboard/_developer'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardDeveloperRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/_dashboard/addresses': {
       id: '/_dashboard/addresses'
@@ -1356,34 +1357,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardReportsRevenueCollectionRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_developer/developer/': {
-      id: '/_developer/developer/'
-      path: '/developer'
-      fullPath: '/developer/'
-      preLoaderRoute: typeof DeveloperDeveloperIndexRouteImport
-      parentRoute: typeof DeveloperRoute
-    }
-    '/_developer/developer/apis': {
-      id: '/_developer/developer/apis'
-      path: '/developer/apis'
-      fullPath: '/developer/apis'
-      preLoaderRoute: typeof DeveloperDeveloperApisRouteImport
-      parentRoute: typeof DeveloperRoute
-    }
-    '/_developer/developer/features': {
-      id: '/_developer/developer/features'
-      path: '/developer/features'
-      fullPath: '/developer/features'
-      preLoaderRoute: typeof DeveloperDeveloperFeaturesRouteImport
-      parentRoute: typeof DeveloperRoute
-    }
-    '/_developer/developer/modules': {
-      id: '/_developer/developer/modules'
-      path: '/developer/modules'
-      fullPath: '/developer/modules'
-      preLoaderRoute: typeof DeveloperDeveloperModulesRouteImport
-      parentRoute: typeof DeveloperRoute
-    }
     '/_doctor/doctor/': {
       id: '/_doctor/doctor/'
       path: '/doctor'
@@ -1503,6 +1476,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceptionistReceptionistProfileRouteImport
       parentRoute: typeof ReceptionistRoute
     }
+    '/_dashboard/_developer/developer/': {
+      id: '/_dashboard/_developer/developer/'
+      path: '/developer'
+      fullPath: '/developer/'
+      preLoaderRoute: typeof DashboardDeveloperDeveloperIndexRouteImport
+      parentRoute: typeof DashboardDeveloperRoute
+    }
+    '/_dashboard/_developer/developer/apis': {
+      id: '/_dashboard/_developer/developer/apis'
+      path: '/developer/apis'
+      fullPath: '/developer/apis'
+      preLoaderRoute: typeof DashboardDeveloperDeveloperApisRouteImport
+      parentRoute: typeof DashboardDeveloperRoute
+    }
+    '/_dashboard/_developer/developer/database-operations': {
+      id: '/_dashboard/_developer/developer/database-operations'
+      path: '/developer/database-operations'
+      fullPath: '/developer/database-operations'
+      preLoaderRoute: typeof DashboardDeveloperDeveloperDatabaseOperationsRouteImport
+      parentRoute: typeof DashboardDeveloperRoute
+    }
+    '/_dashboard/_developer/developer/features': {
+      id: '/_dashboard/_developer/developer/features'
+      path: '/developer/features'
+      fullPath: '/developer/features'
+      preLoaderRoute: typeof DashboardDeveloperDeveloperFeaturesRouteImport
+      parentRoute: typeof DashboardDeveloperRoute
+    }
+    '/_dashboard/_developer/developer/modules': {
+      id: '/_dashboard/_developer/developer/modules'
+      path: '/developer/modules'
+      fullPath: '/developer/modules'
+      preLoaderRoute: typeof DashboardDeveloperDeveloperModulesRouteImport
+      parentRoute: typeof DashboardDeveloperRoute
+    }
     '/_dashboard/accounting/ledger/$ledgerId': {
       id: '/_dashboard/accounting/ledger/$ledgerId'
       path: '/accounting/ledger/$ledgerId'
@@ -1544,20 +1552,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/prescriptions/$prescriptionId/edit'
       preLoaderRoute: typeof DashboardPrescriptionsPrescriptionIdEditRouteImport
       parentRoute: typeof DashboardRoute
-    }
-    '/_developer/developer/schema/': {
-      id: '/_developer/developer/schema/'
-      path: '/developer/schema'
-      fullPath: '/developer/schema/'
-      preLoaderRoute: typeof DeveloperDeveloperSchemaIndexRouteImport
-      parentRoute: typeof DeveloperRoute
-    }
-    '/_developer/developer/schema/$model': {
-      id: '/_developer/developer/schema/$model'
-      path: '/developer/schema/$model'
-      fullPath: '/developer/schema/$model'
-      preLoaderRoute: typeof DeveloperDeveloperSchemaModelRouteImport
-      parentRoute: typeof DeveloperRoute
     }
     '/_doctor/doctor/admin/appointments': {
       id: '/_doctor/doctor/admin/appointments'
@@ -1615,6 +1609,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceptionistReceptionistPrescriptionsNewRouteImport
       parentRoute: typeof ReceptionistRoute
     }
+    '/_dashboard/_developer/developer/schema/': {
+      id: '/_dashboard/_developer/developer/schema/'
+      path: '/developer/schema'
+      fullPath: '/developer/schema/'
+      preLoaderRoute: typeof DashboardDeveloperDeveloperSchemaIndexRouteImport
+      parentRoute: typeof DashboardDeveloperRoute
+    }
     '/_dashboard/organisation/prescription-templates/$templateId/edit': {
       id: '/_dashboard/organisation/prescription-templates/$templateId/edit'
       path: '/organisation/prescription-templates/$templateId/edit'
@@ -1639,7 +1640,33 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DashboardDeveloperRouteChildren {
+  DashboardDeveloperDeveloperApisRoute: typeof DashboardDeveloperDeveloperApisRoute
+  DashboardDeveloperDeveloperDatabaseOperationsRoute: typeof DashboardDeveloperDeveloperDatabaseOperationsRoute
+  DashboardDeveloperDeveloperFeaturesRoute: typeof DashboardDeveloperDeveloperFeaturesRoute
+  DashboardDeveloperDeveloperModulesRoute: typeof DashboardDeveloperDeveloperModulesRoute
+  DashboardDeveloperDeveloperIndexRoute: typeof DashboardDeveloperDeveloperIndexRoute
+  DashboardDeveloperDeveloperSchemaIndexRoute: typeof DashboardDeveloperDeveloperSchemaIndexRoute
+}
+
+const DashboardDeveloperRouteChildren: DashboardDeveloperRouteChildren = {
+  DashboardDeveloperDeveloperApisRoute: DashboardDeveloperDeveloperApisRoute,
+  DashboardDeveloperDeveloperDatabaseOperationsRoute:
+    DashboardDeveloperDeveloperDatabaseOperationsRoute,
+  DashboardDeveloperDeveloperFeaturesRoute:
+    DashboardDeveloperDeveloperFeaturesRoute,
+  DashboardDeveloperDeveloperModulesRoute:
+    DashboardDeveloperDeveloperModulesRoute,
+  DashboardDeveloperDeveloperIndexRoute: DashboardDeveloperDeveloperIndexRoute,
+  DashboardDeveloperDeveloperSchemaIndexRoute:
+    DashboardDeveloperDeveloperSchemaIndexRoute,
+}
+
+const DashboardDeveloperRouteWithChildren =
+  DashboardDeveloperRoute._addFileChildren(DashboardDeveloperRouteChildren)
+
 interface DashboardRouteChildren {
+  DashboardDeveloperRoute: typeof DashboardDeveloperRouteWithChildren
   DashboardAddressesRoute: typeof DashboardAddressesRoute
   DashboardAllergiesRoute: typeof DashboardAllergiesRoute
   DashboardBillingRoute: typeof DashboardBillingRoute
@@ -1683,6 +1710,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardDeveloperRoute: DashboardDeveloperRouteWithChildren,
   DashboardAddressesRoute: DashboardAddressesRoute,
   DashboardAllergiesRoute: DashboardAllergiesRoute,
   DashboardBillingRoute: DashboardBillingRoute,
@@ -1739,28 +1767,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
   DashboardRouteChildren,
-)
-
-interface DeveloperRouteChildren {
-  DeveloperDeveloperApisRoute: typeof DeveloperDeveloperApisRoute
-  DeveloperDeveloperFeaturesRoute: typeof DeveloperDeveloperFeaturesRoute
-  DeveloperDeveloperModulesRoute: typeof DeveloperDeveloperModulesRoute
-  DeveloperDeveloperIndexRoute: typeof DeveloperDeveloperIndexRoute
-  DeveloperDeveloperSchemaModelRoute: typeof DeveloperDeveloperSchemaModelRoute
-  DeveloperDeveloperSchemaIndexRoute: typeof DeveloperDeveloperSchemaIndexRoute
-}
-
-const DeveloperRouteChildren: DeveloperRouteChildren = {
-  DeveloperDeveloperApisRoute: DeveloperDeveloperApisRoute,
-  DeveloperDeveloperFeaturesRoute: DeveloperDeveloperFeaturesRoute,
-  DeveloperDeveloperModulesRoute: DeveloperDeveloperModulesRoute,
-  DeveloperDeveloperIndexRoute: DeveloperDeveloperIndexRoute,
-  DeveloperDeveloperSchemaModelRoute: DeveloperDeveloperSchemaModelRoute,
-  DeveloperDeveloperSchemaIndexRoute: DeveloperDeveloperSchemaIndexRoute,
-}
-
-const DeveloperRouteWithChildren = DeveloperRoute._addFileChildren(
-  DeveloperRouteChildren,
 )
 
 interface DoctorDoctorAdminRouteChildren {
@@ -1871,7 +1877,6 @@ const ReceptionistRouteWithChildren = ReceptionistRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
-  DeveloperRoute: DeveloperRouteWithChildren,
   DoctorRoute: DoctorRouteWithChildren,
   PatientRoute: PatientRouteWithChildren,
   PosRoute: PosRouteWithChildren,

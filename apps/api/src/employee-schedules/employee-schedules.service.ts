@@ -41,7 +41,7 @@ export class EmployeeSchedulesService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateEmployeeScheduleDto) {
+  async create(dto: CreateEmployeeScheduleDto, organizationId?: string) {
     // Auto-upsert — but keyed to THIS shift, not to the whole day. A schedule
     // row is only "the same shift being re-saved" when its time range overlaps
     // the incoming range (e.g. the frontend re-POSTs a CREATE for a block that
@@ -88,12 +88,13 @@ export class EmployeeSchedulesService
     return this.prisma.employeeSchedule.create({ data: dto });
   }
 
-  async findAll(query: FindEmployeeSchedulesQueryDto): Promise<PaginatedResult<EmployeeSchedule>> {
+  async findAll(query: FindEmployeeSchedulesQueryDto, organizationId?: string): Promise<PaginatedResult<EmployeeSchedule>> {
     const where: Record<string, unknown> = {};
     if (query.employeeSchedulableType) where.employeeSchedulableType = query.employeeSchedulableType;
     if (query.employeeSchedulableId) where.employeeSchedulableId = query.employeeSchedulableId;
     if (query.shiftId) where.shiftId = query.shiftId;
     if (query.dayOfWeek !== undefined) where.dayOfWeek = parseInt(query.dayOfWeek, 10);
+    if (organizationId) where.organizationId = organizationId;
 
     return paginate(
       () => this.prisma.employeeSchedule.count({ where }),
@@ -118,17 +119,17 @@ export class EmployeeSchedulesService
     });
   }
 
-  async findOne(id: string) {
-    const schedule = await this.prisma.employeeSchedule.findUnique({
-      where: { id },
+  async findOne(id: string, organizationId?: string) {
+    const schedule = await this.prisma.employeeSchedule.findFirst({
+      where: organizationId ? { id, organizationId } : { id },
       include: { shift: true },
     });
     if (!schedule) throw new NotFoundException(`EmployeeSchedule ${id} not found`);
     return schedule;
   }
 
-  async update(id: string, dto: UpdateEmployeeScheduleDto) {
-    const existing = await this.findOne(id);
+  async update(id: string, dto: UpdateEmployeeScheduleDto, organizationId?: string) {
+    const existing = await this.findOne(id, organizationId);
 
     await this.validateNoOverlap(
       dto.employeeSchedulableType ?? existing.employeeSchedulableType,
@@ -142,9 +143,13 @@ export class EmployeeSchedulesService
     return this.prisma.employeeSchedule.update({ where: { id }, data: dto });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.employeeSchedule.delete({ where: { id } });
+  async remove(id: string, organizationId?: string) {
+    const schedule = await this.findOne(id, organizationId);
+    const result = await this.prisma.employeeSchedule.deleteMany({
+      where: organizationId ? { id, organizationId } : { id },
+    });
+    if (result.count === 0) throw new NotFoundException(`EmployeeSchedule ${id} not found`);
+    return schedule;
   }
 
   /**

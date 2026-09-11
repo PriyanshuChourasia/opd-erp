@@ -27,7 +27,7 @@ export class FinancialYearsService
     return company?.id ?? null;
   }
 
-  async create(dto: CreateFinancialYearDto, userId?: string) {
+  async create(dto: CreateFinancialYearDto, userId?: string, organizationId?: string) {
     const existing = await this.prisma.financialYear.findUnique({ where: { name: dto.name } });
     if (existing) throw new ConflictException(`Financial year "${dto.name}" already exists`);
 
@@ -45,13 +45,14 @@ export class FinancialYearsService
           isCurrent: dto.isCurrent ?? false,
           isActive: dto.isActive ?? true,
           companyId,
+          organizationId: organizationId ?? null,
           createdById: userId ?? null,
         },
       });
     });
   }
 
-  async findAll(query: FindFinancialYearsQueryDto): Promise<PaginatedResult<FinancialYear>> {
+  async findAll(query: FindFinancialYearsQueryDto, organizationId?: string): Promise<PaginatedResult<FinancialYear>> {
     const searchWhere = SearchQueryBuilder.search(query.search, ['name']);
 
     // Resolve companyId filter: if not provided, default to single Company
@@ -70,6 +71,7 @@ export class FinancialYearsService
       ...(query.isCurrent !== undefined ? { isCurrent: query.isCurrent === 'true' } : {}),
       ...(companyIdFilter !== undefined ? { companyId: companyIdFilter } : {}),
     };
+    if (organizationId) where.OR = [{ organizationId }, { organizationId: null }]; // own org + shared global defaults
 
     return paginate(
       () => this.prisma.financialYear.count({ where }),
@@ -79,14 +81,18 @@ export class FinancialYearsService
     );
   }
 
-  async findOne(id: string) {
-    const fy = await this.prisma.financialYear.findUnique({ where: { id, deletedAt: null } });
+  async findOne(id: string, organizationId?: string) {
+    const fy = await this.prisma.financialYear.findFirst({
+      where: organizationId
+        ? { id, deletedAt: null, OR: [{ organizationId }, { organizationId: null }] }
+        : { id, deletedAt: null },
+    });
     if (!fy) throw new NotFoundException(`Financial year ${id} not found`);
     return fy;
   }
 
-  async update(id: string, dto: UpdateFinancialYearDto, userId?: string) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateFinancialYearDto, userId?: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
     if (dto.name) {
       const existing = await this.prisma.financialYear.findFirst({ where: { name: dto.name, NOT: { id } } });
       if (existing) throw new ConflictException(`Financial year "${dto.name}" already exists`);
@@ -96,15 +102,22 @@ export class FinancialYearsService
       if (dto.isCurrent) {
         await tx.financialYear.updateMany({ where: { isCurrent: true, NOT: { id } }, data: { isCurrent: false } });
       }
-      return tx.financialYear.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
+      const result = await tx.financialYear.updateMany({
+        where: organizationId ? { id, organizationId } : { id },
+        data: { ...dto, updatedById: userId ?? null },
+      });
+      if (result.count === 0) throw new NotFoundException(`Financial year ${id} not found`);
+      return this.findOne(id, organizationId);
     });
   }
 
-  async remove(id: string, deletedById?: string) {
-    await this.findOne(id);
-    return this.prisma.financialYear.update({
-      where: { id },
+  async remove(id: string, deletedById?: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
+    const result = await this.prisma.financialYear.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
       data: { deletedAt: new Date(), deletedById: deletedById ?? null },
     });
+    if (result.count === 0) throw new NotFoundException(`Financial year ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 }

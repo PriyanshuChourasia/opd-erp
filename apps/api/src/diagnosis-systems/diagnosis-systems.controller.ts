@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DiagnosisSystemsService } from './diagnosis-systems.service';
@@ -7,7 +8,7 @@ import { CreateDiagnosisSystemDto } from './dto/create-diagnosis-system.dto';
 import { UpdateDiagnosisSystemDto } from './dto/update-diagnosis-system.dto';
 import { FindDiagnosisSystemsQueryDto } from './dto/find-diagnosis-systems-query.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('diagnosis-systems')
 export class DiagnosisSystemsController {
   constructor(private readonly service: DiagnosisSystemsService) {}

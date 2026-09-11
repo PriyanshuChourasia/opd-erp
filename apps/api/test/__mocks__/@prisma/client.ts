@@ -46,6 +46,23 @@ export class PrismaClient {
   medicine = createMockChain();
   doctor = createMockChain();
   prescription = createMockChain();
+  organization = createMockChain();
+  customer = createMockChain();
+  license = createMockChain();
+  licensePlan = createMockChain();
+  licenseFeature = createMockChain();
+  licenseFeatureMapping = createMockChain();
+  licenseRenewal = createMockChain();
+  applicationModule = createMockChain();
+  applicationFeature = createMockChain();
+  permissionModule = createMockChain();
+  userRole = createMockChain();
+  userPermission = createMockChain();
+  department = createMockChain();
+  designation = createMockChain();
+  shift = createMockChain();
+  company = createMockChain();
+  specialization = createMockChain();
 
   $transaction = jest.fn().mockImplementation(async (fn: (tx: PrismaClient) => Promise<unknown>) => {
     const txClient = new PrismaClient();

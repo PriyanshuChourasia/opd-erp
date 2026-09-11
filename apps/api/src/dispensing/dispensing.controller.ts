@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DispensingService } from './dispensing.service';
@@ -7,7 +8,7 @@ import { CreateDispensingDto } from './dto/create-dispensing.dto';
 import { UpdateDispensingDto } from './dto/update-dispensing.dto';
 import { FindDispensingQueryDto } from './dto/find-dispensing-query.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('dispensing')
 export class DispensingController {
   constructor(private readonly service: DispensingService) {}

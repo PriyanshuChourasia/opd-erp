@@ -32,7 +32,7 @@ export class DoctorsService
     private readonly accountingService: AccountingService,
   ) {}
 
-  async create(dto: CreateDoctorDto, userId?: string) {
+  async create(dto: CreateDoctorDto, userId?: string, organizationId?: string) {
     return this.prisma.$transaction(async (tx) => {
       const doctor = await tx.doctor.create({
         data: {
@@ -49,6 +49,7 @@ export class DoctorsService
           degreeCertificateUrl: dto.degreeCertificateUrl,
           governmentIdUrl: dto.governmentIdUrl,
           isActive: dto.isActive ?? true,
+          organizationId: organizationId ?? null,
           createdById: userId ?? null,
         },
       });
@@ -81,7 +82,7 @@ export class DoctorsService
     });
   }
 
-  async findAll(query: FindDoctorsQueryDto): Promise<PaginatedResult<Doctor>> {
+  async findAll(query: FindDoctorsQueryDto, organizationId?: string): Promise<PaginatedResult<Doctor>> {
     const searchFilter = SearchQueryBuilder.search(query.search, [
       'specialization',
       'medicalRegistrationNo',
@@ -97,6 +98,7 @@ export class DoctorsService
     } else {
       where.isActive = true;
     }
+    if (organizationId) where.OR = [{ organizationId }, { organizationId: null }]; // own org + shared global defaults
     const result = await paginate(
       () => this.prisma.doctor.count({ where }),
       ({ skip, take }) => this.prisma.doctor.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip, take }),
@@ -106,16 +108,25 @@ export class DoctorsService
     return { ...result, data: result.data.map((d) => ({ ...d, name: nameMap.get(d.id) ?? null })) };
   }
 
-  async findOne(id: string) {
-    const doctor = await this.prisma.doctor.findUnique({ where: { id } });
+  async findOne(id: string, organizationId?: string) {
+    const doctor = await this.prisma.doctor.findFirst({
+      where: organizationId
+        ? { id, OR: [{ organizationId }, { organizationId: null }] }
+        : { id },
+    });
     if (!doctor) throw new NotFoundException(`Doctor ${id} not found`);
     const nameMap = await getDoctorNameMap(this.prisma, [doctor.id]);
     return { ...doctor, name: nameMap.get(doctor.id) ?? null };
   }
 
-  async update(id: string, dto: UpdateDoctorDto, userId?: string) {
-    await this.findOne(id);
-    return this.prisma.doctor.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
+  async update(id: string, dto: UpdateDoctorDto, userId?: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
+    const result = await this.prisma.doctor.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
+      data: { ...dto, updatedById: userId ?? null },
+    });
+    if (result.count === 0) throw new NotFoundException(`Doctor ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 
 
@@ -400,20 +411,27 @@ export class DoctorsService
     };
   }
 
-  async remove(id: string) {
-    const doctor = await this.findOne(id);
+  async remove(id: string, organizationId?: string) {
+    const doctor = await this.findOne(id, organizationId);
     return this.prisma.$transaction(async (tx) => {
       // Deactivate the linked user login too
       await tx.user.updateMany({
         where: { userableType: 'Doctor', userableId: id },
         data: { isActive: false },
       });
-      return tx.doctor.update({ where: { id }, data: { isActive: false } });
+      const result = await tx.doctor.updateMany({
+        where: organizationId ? { id, organizationId } : { id },
+        data: { isActive: false },
+      });
+      if (result.count === 0) throw new NotFoundException(`Doctor ${id} not found`);
+      return this.findOne(id, organizationId);
     });
   }
 
-  async restore(id: string) {
-    const doctor = await this.prisma.doctor.findUnique({ where: { id } });
+  async restore(id: string, organizationId?: string) {
+    const doctor = await this.prisma.doctor.findFirst({
+      where: organizationId ? { id, organizationId } : { id },
+    });
     if (!doctor) throw new NotFoundException(`Doctor ${id} not found`);
     return this.prisma.$transaction(async (tx) => {
       // Re-activate the linked user login too
@@ -421,7 +439,10 @@ export class DoctorsService
         where: { userableType: 'Doctor', userableId: id },
         data: { isActive: true },
       });
-      return tx.doctor.update({ where: { id }, data: { isActive: true } });
+      return tx.doctor.updateMany({
+        where: organizationId ? { id, organizationId } : { id },
+        data: { isActive: true },
+      }).then(() => this.findOne(id, organizationId));
     });
   }
 }

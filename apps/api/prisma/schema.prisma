@@ -23,12 +23,16 @@ model User {
   password        String
   isActive        Boolean        @default(true)
   roleId          String
+  organizationId  String? // tenant boundary; null => platform-scoped user (e.g. Platform Admin)
   userableType    String? // "Doctor" | "Patient" | "Nurse" | "Receptionist" | "Pharmacist" | "LabStaff"
   userableId      String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   role            Role           @relation(fields: [roleId], references: [id])
+  organization    Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   refreshTokens   RefreshToken[]
+  userRoles       UserRole[]
+  userPermissions UserPermission[]
 
   // Audit relations — Created by
   createdRoles                 Role[]                 @relation("RoleCreated")
@@ -150,6 +154,25 @@ model User {
   updatedJournals              Journal[]              @relation("JournalUpdated")
   deletedJournals              Journal[]              @relation("JournalDeleted")
 
+  // Multi-tenant / platform relations
+  createdOrganizations         Organization[]         @relation("OrganizationCreated")
+  updatedOrganizations         Organization[]         @relation("OrganizationUpdated")
+  createdCustomers             Customer[]             @relation("CustomerCreated")
+  updatedCustomers             Customer[]             @relation("CustomerUpdated")
+  createdLicensePlans          LicensePlan[]          @relation("LicensePlanCreated")
+  updatedLicensePlans          LicensePlan[]          @relation("LicensePlanUpdated")
+  createdLicenseFeatures       LicenseFeature[]       @relation("LicenseFeatureCreated")
+  updatedLicenseFeatures       LicenseFeature[]       @relation("LicenseFeatureUpdated")
+  createdLicenses              License[]              @relation("LicenseCreated")
+  updatedLicenses              License[]              @relation("LicenseUpdated")
+  createdLicenseRenewals       LicenseRenewal[]       @relation("LicenseRenewalCreated")
+  createdApplicationModules    ApplicationModule[]    @relation("ApplicationModuleCreated")
+  updatedApplicationModules    ApplicationModule[]    @relation("ApplicationModuleUpdated")
+  createdApplicationFeatures   ApplicationFeature[]   @relation("ApplicationFeatureCreated")
+  updatedApplicationFeatures   ApplicationFeature[]   @relation("ApplicationFeatureUpdated")
+  assignedUserRoles            UserRole[]              @relation("UserRoleAssigned")
+  grantedUserPermissions       UserPermission[]        @relation("UserPermissionGranted")
+
   @@index([userableType, userableId])
 }
 
@@ -158,13 +181,16 @@ model Role {
   name            String           @unique
   description     String?
   isSystem        Boolean          @default(false)
+  organizationId  String? // null => platform/global role (e.g. Platform Admin, Developer)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   createdById     String?
   updatedById     String?
   createdBy       User?            @relation("RoleCreated", fields: [createdById], references: [id])
   updatedBy       User?            @relation("RoleUpdated", fields: [updatedById], references: [id])
+  organization    Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   users           User[]
+  userRoles       UserRole[]
   rolePermissions RolePermission[]
   roleMenus       RoleSidebarMenu[]
 }
@@ -173,6 +199,7 @@ model Permission {
   id              String           @id @default(uuid())
   resource        String
   action          String // "read" | "create" | "update" | "delete" | "manage"
+  slug            String?          @unique // canonical <module>.<action> e.g. "financial_year.view"
   name            String // Display name e.g. "Read Patients"
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -181,6 +208,8 @@ model Permission {
   createdBy       User?            @relation("PermissionCreated", fields: [createdById], references: [id])
   updatedBy       User?            @relation("PermissionUpdated", fields: [updatedById], references: [id])
   rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+  moduleLinks     PermissionModule[]
 
   @@unique([resource, action])
 }
@@ -384,6 +413,7 @@ model Specialization {
   isActive    Boolean  @default(true)
   deletedAt   DateTime?
   deletedById String?
+  organizationId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
@@ -391,83 +421,94 @@ model Specialization {
   createdBy   User?    @relation("SpecializationCreated", fields: [createdById], references: [id])
   updatedBy   User?    @relation("SpecializationUpdated", fields: [updatedById], references: [id])
   deletedBy   User?    @relation("SpecializationDeleted", fields: [deletedById], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   doctorSpecializations DoctorSpecialization[]
 
   @@index([createdById])
   @@index([updatedById])
+  @@index([organizationId])
 }
 
 // ─── Department ──────────────────────────────────────────────
 
 model Department {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  deletedAt   DateTime?
-  deletedById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById String?
-  updatedById String?
-  createdBy   User?    @relation("DepartmentCreated", fields: [createdById], references: [id])
-  updatedBy   User?    @relation("DepartmentUpdated", fields: [updatedById], references: [id])
-  deletedBy   User?    @relation("DepartmentDeleted", fields: [deletedById], references: [id])
+  id             String   @id @default(uuid())
+  name           String   @unique
+  description    String?
+  isActive       Boolean  @default(true)
+  deletedAt      DateTime?
+  deletedById    String?
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdById    String?
+  updatedById    String?
+  createdBy      User?    @relation("DepartmentCreated", fields: [createdById], references: [id])
+  updatedBy      User?    @relation("DepartmentUpdated", fields: [updatedById], references: [id])
+  deletedBy      User?    @relation("DepartmentDeleted", fields: [deletedById], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   doctorDepartments DoctorDepartment[]
 
   @@index([createdById])
   @@index([updatedById])
+  @@index([organizationId])
 }
 
 // ─── Designation ─────────────────────────────────────────────
 
 model Designation {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  deletedAt   DateTime?
-  deletedById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById String?
-  updatedById String?
-  createdBy   User?    @relation("DesignationCreated", fields: [createdById], references: [id])
-  updatedBy   User?    @relation("DesignationUpdated", fields: [updatedById], references: [id])
-  deletedBy   User?    @relation("DesignationDeleted", fields: [deletedById], references: [id])
+  id             String   @id @default(uuid())
+  name           String   @unique
+  description    String?
+  isActive       Boolean  @default(true)
+  deletedAt      DateTime?
+  deletedById    String?
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdById    String?
+  updatedById    String?
+  createdBy      User?    @relation("DesignationCreated", fields: [createdById], references: [id])
+  updatedBy      User?    @relation("DesignationUpdated", fields: [updatedById], references: [id])
+  deletedBy      User?    @relation("DesignationDeleted", fields: [deletedById], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([createdById])
   @@index([updatedById])
+  @@index([organizationId])
 }
 
 // ─── Financial Year ──────────────────────────────────────────
 
 model FinancialYear {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  startDate   DateTime
-  endDate     DateTime
-  isCurrent   Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  deletedAt   DateTime?
-  deletedById String?
-  deletedBy   User?    @relation("FinancialYearDeleted", fields: [deletedById], references: [id])
-  companyId   String?
-  company     Company? @relation(fields: [companyId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById String?
-  updatedById String?
-  createdBy   User?    @relation("FinancialYearCreated", fields: [createdById], references: [id])
-  updatedBy   User?    @relation("FinancialYearUpdated", fields: [updatedById], references: [id])
+  id             String    @id @default(uuid())
+  name           String    @unique
+  startDate      DateTime
+  endDate        DateTime
+  isCurrent      Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  deletedAt      DateTime?
+  deletedById    String?
+  deletedBy      User?     @relation("FinancialYearDeleted", fields: [deletedById], references: [id])
+  companyId      String?
+  company        Company?  @relation(fields: [companyId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?
+  updatedById    String?
+  createdBy      User?     @relation("FinancialYearCreated", fields: [createdById], references: [id])
+  updatedBy      User?     @relation("FinancialYearUpdated", fields: [updatedById], references: [id])
 
-  vouchers    Voucher[]
-  bills       Bill[]
+  vouchers       Voucher[]
+  bills          Bill[]
 
   @@index([createdById])
   @@index([updatedById])
   @@index([isCurrent])
   @@index([companyId])
+  @@index([organizationId])
 }
 
 // ─── Doctor–Department join ──────────────────────────────────
@@ -591,6 +632,8 @@ model Patient {
   isActive         Boolean   @default(true)
   deletedAt        DateTime?
   deletedById      String?
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   createdById      String?
@@ -635,6 +678,7 @@ model Doctor {
   isActive                   Boolean  @default(true)
   deletedAt                  DateTime?
   deletedById                String?
+  organizationId             String?
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
   createdById                String?
@@ -642,6 +686,7 @@ model Doctor {
   createdBy                  User?    @relation("DoctorCreated", fields: [createdById], references: [id])
   updatedBy                  User?    @relation("DoctorUpdated", fields: [updatedById], references: [id])
   deletedBy                  User?    @relation("DoctorDeleted", fields: [deletedById], references: [id])
+  organization               Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   appointments    Appointment[]
   queueEntries    QueueEntry[]
@@ -1034,6 +1079,8 @@ model Shift {
   deletedAt   DateTime?
   deletedById String?
   deletedBy   User?    @relation("ShiftDeleted", fields: [deletedById], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   createdById    String?
@@ -1063,10 +1110,13 @@ model EmployeeSchedule {
   deletedAt   DateTime?
   deletedById String?
   deletedBy   User?    @relation("EmployeeScheduleDeleted", fields: [deletedById], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   @@index([employeeSchedulableType, employeeSchedulableId, dayOfWeek], map: "emp_sched_type_id_dow")
   @@index([employeeSchedulableType, employeeSchedulableId], map: "emp_sched_type_id")
   @@index([createdById])
   @@index([updatedById])
+  @@index([organizationId])
 }
 
 enum EmployeeScheduleExceptionType {
@@ -1169,11 +1219,14 @@ model Document {
   updatedById      String?
   createdBy        User?    @relation("DocumentCreated", fields: [createdById], references: [id])
   updatedBy        User?    @relation("DocumentUpdated", fields: [updatedById], references: [id])
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([documentableType, documentableId])
   @@index([documentableType, documentableId, isPrimary])
   @@index([createdById])
   @@index([updatedById])
+  @@index([organizationId])
 }
 
 model Company {
@@ -1205,6 +1258,8 @@ model Company {
   updatedById           String?
   createdBy             User?           @relation("CompanyCreated", fields: [createdById], references: [id])
   updatedBy             User?           @relation("CompanyUpdated", fields: [updatedById], references: [id])
+  organizationId        String?
+  organization          Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   financialYears        FinancialYear[]
   ledgers               Ledger[]
 }
@@ -1650,4 +1705,252 @@ model StockLedgerEntry {
   @@index([batchId])
   @@index([voucherId])
   @@index([movementType])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MULTI-TENANT & LICENSING PLATFORM
+// ═══════════════════════════════════════════════════════════════════
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  EXPIRED
+}
+
+/// The tenant boundary. Every tenant-scoped table carries organizationId.
+/// Platform admins (customers, licenses, etc.) live in Organization-scope less
+/// tables and their User record has organizationId = null.
+model Organization {
+  id          String            @id @default(uuid())
+  name        String            @unique
+  code        String            @unique
+  status      OrganizationStatus @default(TRIAL)
+  domain      String?
+  address     String?
+  phone       String?
+  email       String?
+  industry    String?
+  size        String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?             @relation("OrganizationCreated", fields: [createdById], references: [id])
+  updatedBy   User?             @relation("OrganizationUpdated", fields: [updatedById], references: [id])
+
+  users                   User[]
+  roles                   Role[]
+  departments             Department[]
+  designations            Designation[]
+  financialYears          FinancialYear[]
+  shifts                  Shift[]
+  employeeSchedules       EmployeeSchedule[]
+  specializations         Specialization[]
+  patients                Patient[]
+  doctors                 Doctor[]
+  documents               Document[]
+  companies               Company[]
+  licenses                License[]
+  customers               Customer[]
+
+  @@index([status])
+  @@index([code])
+}
+
+/// Paying customer (platform scope). A customer may subscribe multiple
+/// organizations. Owned by the platform operator, never by a tenant.
+model Customer {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  phone          String?
+  address        String?
+  status         String   @default("ACTIVE") // ACTIVE | INACTIVE | DELETED
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdById    String?
+  updatedById    String?
+  createdBy      User?    @relation("CustomerCreated", fields: [createdById], references: [id])
+  updatedBy      User?    @relation("CustomerUpdated", fields: [updatedById], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  licenses       License[]
+}
+
+/// Catalog of purchasable plans (platform scope).
+model LicensePlan {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  price       Int      @default(0) // in paise
+  currency    String   @default("INR")
+  billingPeriod String @default("MONTHLY") // MONTHLY | QUARTERLY | YEARLY | ONE_TIME
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("LicensePlanCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("LicensePlanUpdated", fields: [updatedById], references: [id])
+  licenses    License[]
+  features    LicenseFeature[]
+}
+
+/// Feature entitlement flag usable by feature toggles (platform scope).
+model LicenseFeature {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  planId      String?
+  plan        LicensePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("LicenseFeatureCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("LicenseFeatureUpdated", fields: [updatedById], references: [id])
+  mappings    LicenseFeatureMapping[]
+}
+
+/// Active entitlement for an organization (platform scope).
+model License {
+  id             String   @id @default(uuid())
+  licenseNumber  String   @unique
+  organizationId String
+  customerId     String?
+  planId         String
+  status         String   @default("ACTIVE") // ACTIVE | SUSPENDED | EXPIRED | CANCELLED
+  startsAt       DateTime @default(now())
+  expiresAt      DateTime
+  maxUsers       Int      @default(10)
+  maxDevices     Int      @default(5)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdById    String?
+  updatedById    String?
+  createdBy      User?    @relation("LicenseCreated", fields: [createdById], references: [id])
+  updatedBy      User?    @relation("LicenseUpdated", fields: [updatedById], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  plan           LicensePlan  @relation(fields: [planId], references: [id])
+  mappings       LicenseFeatureMapping[]
+  renewals       LicenseRenewal[]
+
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([planId])
+}
+
+/// join License ↔ LicenseFeature (platform scope; stores per-feature limits).
+model LicenseFeatureMapping {
+  id        String   @id @default(uuid())
+  licenseId String
+  featureId String
+  value     String?  // e.g. "unlimited", "1000"
+  createdAt DateTime @default(now())
+  license   License       @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  feature   LicenseFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([licenseId, featureId])
+  @@index([featureId])
+}
+
+/// Immutable renewal history (platform scope).
+model LicenseRenewal {
+  id        String   @id @default(uuid())
+  licenseId String
+  previousExpiry DateTime?
+  newExpiry      DateTime
+  amountPaid     Int      @default(0)
+  createdAt      DateTime @default(now())
+  createdById    String?
+  license        License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  createdBy      User?    @relation("LicenseRenewalCreated", fields: [createdById], references: [id])
+
+  @@index([licenseId])
+}
+
+/// Registry of application modules (GLOBAL scope — shared across all tenants).
+model ApplicationModule {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("ApplicationModuleCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("ApplicationModuleUpdated", fields: [updatedById], references: [id])
+  features    ApplicationFeature[]
+  permissionLinks PermissionModule[]
+}
+
+/// Registry of application features per module (GLOBAL scope).
+model ApplicationFeature {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  moduleId    String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+  createdBy   User?    @relation("ApplicationFeatureCreated", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("ApplicationFeatureUpdated", fields: [updatedById], references: [id])
+  module      ApplicationModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId])
+}
+
+/// Permission → ApplicationModule link (GLOBAL scope). A permission's module
+/// is resolved from `resource`, populated during seeding.
+model PermissionModule {
+  id           String   @id @default(uuid())
+  permissionId String   @unique
+  moduleId     String
+  permission   Permission        @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  module       ApplicationModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId])
+}
+
+/// User ↔ Role many-to-many (TENANT scope). Kept alongside User.roleId as the
+/// flexible extension for multi-role grants.
+model UserRole {
+  id         String   @id @default(uuid())
+  userId     String
+  roleId     String
+  assignedById String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy User?    @relation("UserRoleAssigned", fields: [assignedById], references: [id])
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@index([assignedById])
+}
+
+/// Direct user-level permission grant (TENANT scope; optional override layer).
+model UserPermission {
+  id          String   @id @default(uuid())
+  userId      String
+  permissionId String
+  grantedById String?
+  isAllowed   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission  Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy   User?     @relation("UserPermissionGranted", fields: [grantedById], references: [id])
+
+  @@unique([userId, permissionId])
+  @@index([permissionId])
+  @@index([grantedById])
 }

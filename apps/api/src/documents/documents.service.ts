@@ -20,7 +20,7 @@ export class DocumentsService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateDocumentDto, userId?: string) {
+  async create(dto: CreateDocumentDto, userId?: string, organizationId?: string) {
     // If marking as primary, unset existing primary for the same entity
     if (dto.isPrimary) {
       await this.prisma.document.updateMany({
@@ -33,15 +33,16 @@ export class DocumentsService
       });
     }
 
-    return this.prisma.document.create({ data: { ...dto, createdById: userId ?? null } });
+    return this.prisma.document.create({ data: { ...dto, organizationId: organizationId ?? null, createdById: userId ?? null } });
   }
 
-  async findAll(query: FindDocumentsQueryDto): Promise<PaginatedResult<Document>> {
+  async findAll(query: FindDocumentsQueryDto, organizationId?: string): Promise<PaginatedResult<Document>> {
     const where: Record<string, unknown> = { deletedAt: null };
     if (query.documentableType) where.documentableType = query.documentableType;
     if (query.documentableId) where.documentableId = query.documentableId;
     if (query.documentType) where.documentType = query.documentType;
     if (query.isPrimary !== undefined) where.isPrimary = query.isPrimary === 'true';
+    if (organizationId) where.organizationId = organizationId;
 
     return paginate(
       () => this.prisma.document.count({ where }),
@@ -97,8 +98,10 @@ export class DocumentsService
     });
   }
 
-  async findOne(id: string) {
-    const doc = await this.prisma.document.findUnique({ where: { id, deletedAt: null } });
+  async findOne(id: string, organizationId?: string) {
+    const doc = await this.prisma.document.findFirst({
+      where: organizationId ? { id, organizationId, deletedAt: null } : { id, deletedAt: null },
+    });
     if (!doc) throw new NotFoundException(`Document ${id} not found`);
     return doc;
   }
@@ -109,8 +112,8 @@ export class DocumentsService
     return doc;
   }
 
-  async update(id: string, dto: UpdateDocumentDto, userId?: string) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateDocumentDto, userId?: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
 
     // If promoting to primary, unset existing primary for the entity
     if (dto.isPrimary) {
@@ -131,11 +134,13 @@ export class DocumentsService
     return this.prisma.document.update({ where: { id }, data: { ...dto, updatedById: userId ?? null } });
   }
 
-  async remove(id: string, deletedById?: string) {
-    await this.findOne(id);
-    return this.prisma.document.update({
-      where: { id },
+  async remove(id: string, deletedById?: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
+    const result = await this.prisma.document.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
       data: { deletedAt: new Date(), deletedById: deletedById ?? null },
     });
+    if (result.count === 0) throw new NotFoundException(`Document ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 }

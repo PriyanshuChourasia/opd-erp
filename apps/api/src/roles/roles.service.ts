@@ -22,11 +22,12 @@ export class RolesService
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateRoleDto, userId?: string) {
+  async create(dto: CreateRoleDto, userId?: string, organizationId?: string) {
     const { permissionIds, ...data } = dto;
     return this.prisma.role.create({
       data: {
         ...data,
+        organizationId: organizationId ?? null,
         createdById: userId ?? null,
         rolePermissions: permissionIds?.length
           ? { create: permissionIds.map((permissionId) => ({ permissionId })) }
@@ -36,11 +37,17 @@ export class RolesService
     });
   }
 
-  async findAll(query: FindRolesQueryDto): Promise<PaginatedResult<Role>> {
+  async findAll(query: FindRolesQueryDto, organizationId?: string): Promise<PaginatedResult<Role>> {
+    const where: Record<string, unknown> = {};
+    // Tenant isolation. System/global role templates (organizationId=null) are
+    // still visible to the org so seeded roles keep working after scoping.
+    if (organizationId) where.OR = [{ organizationId }, { organizationId: null }];
+
     return paginate(
-      () => this.prisma.role.count(),
+      () => this.prisma.role.count({ where }),
       ({ skip, take }) =>
         this.prisma.role.findMany({
+          where,
           include: {
             _count: { select: { users: true } },
             rolePermissions: { include: { permission: true } },
@@ -53,9 +60,11 @@ export class RolesService
     );
   }
 
-  async findOne(id: string) {
-    const role = await this.prisma.role.findUnique({
-      where: { id },
+  async findOne(id: string, organizationId?: string) {
+    const role = await this.prisma.role.findFirst({
+      where: organizationId
+        ? { id, OR: [{ organizationId }, { organizationId: null }] }
+        : { id },
       include: {
         _count: { select: { users: true } },
         rolePermissions: { include: { permission: true } },
@@ -65,8 +74,16 @@ export class RolesService
     return role;
   }
 
-  async update(id: string, dto: UpdateRoleDto, userId?: string) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateRoleDto, userId?: string, organizationId?: string) {
+    // Mutations may ONLY target org-owned roles (or global templates when the
+    // caller is platform-scoped) — global role templates are read-only for
+    // tenant accounts. Enforced BEFORE any side-effects (permission rewrites).
+    const owned = await this.prisma.role.findFirst({
+      where: organizationId ? { id, organizationId } : { id, organizationId: null },
+    });
+    if (!owned) throw new NotFoundException(`Role ${id} not found`);
+    await this.findOne(id, organizationId);
+
     const { permissionIds, ...data } = dto;
     const updateData: Record<string, unknown> = { ...data, updatedById: userId ?? null };
 
@@ -80,17 +97,20 @@ export class RolesService
     }
 
     if (Object.keys(updateData).length > 0) {
-      await this.prisma.role.update({ where: { id }, data: updateData });
+      await this.prisma.role.update({
+        where: { id },
+        data: updateData,
+      });
     }
 
-    return this.findOne(id);
+    return this.findOne(id, organizationId);
   }
 
   /** List all users assigned to a specific role */
-  async findUsersByRole(roleId: string) {
-    await this.findOne(roleId);
+  async findUsersByRole(roleId: string, organizationId?: string) {
+    await this.findOne(roleId, organizationId);
     return this.prisma.user.findMany({
-      where: { roleId, isActive: true },
+      where: organizationId ? { roleId, organizationId, isActive: true } : { roleId, isActive: true },
       select: {
         id: true,
         firstName: true,
@@ -105,8 +125,15 @@ export class RolesService
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.role.delete({ where: { id } });
+  async remove(id: string, organizationId?: string) {
+    const owned = await this.prisma.role.findFirst({
+      where: organizationId ? { id, organizationId } : { id, organizationId: null },
+    });
+    if (!owned) throw new NotFoundException(`Role ${id} not found`);
+    const result = await this.prisma.role.deleteMany({
+      where: { id },
+    });
+    if (result.count === 0) throw new NotFoundException(`Role ${id} not found`);
+    return owned;
   }
 }

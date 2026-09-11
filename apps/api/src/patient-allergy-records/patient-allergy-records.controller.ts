@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { PatientAllergyRecordsService } from './patient-allergy-records.service';
@@ -10,7 +11,7 @@ import { UpdatePatientAllergyRecordDto } from './dto/update-patient-allergy-reco
  * Patient allergy records — tracks what a patient is allergic to.
  * Full CRUD: create, read, update, soft-delete.
  */
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('patient-allergy-records')
 export class PatientAllergyRecordsController {
   constructor(private readonly allergyRecordsService: PatientAllergyRecordsService) {}

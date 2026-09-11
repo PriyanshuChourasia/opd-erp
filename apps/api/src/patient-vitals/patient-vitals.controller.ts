@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { PatientVitalsService } from './patient-vitals.service';
@@ -10,7 +11,7 @@ import { CreatePatientVitalsDto } from './dto/create-patient-vitals.dto';
  *
  * No PATCH or DELETE endpoints — vitals are never modified after creation.
  */
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('patient-vitals')
 export class PatientVitalsController {
   constructor(private readonly vitalsService: PatientVitalsService) {}

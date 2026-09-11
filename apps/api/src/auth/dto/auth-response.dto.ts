@@ -9,6 +9,8 @@ export class AuthUserDto {
   roleId!: string;
   roleName!: string;
   permissions!: string[];
+  permissionSlugs?: string[];
+  organizationId?: string | null;
   userableType?: UserableType | null;
   userableId?: string | null;
   createdAt?: string;

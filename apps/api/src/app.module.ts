@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { CommonModule } from './common/common.module';
+import { TenantModule } from './tenant/tenant.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { DoctorsModule } from './doctors/doctors.module';
@@ -32,6 +33,7 @@ import { PatientVitalsModule } from './patient-vitals/patient-vitals.module';
 import { PatientAllergyRecordsModule } from './patient-allergy-records/patient-allergy-records.module';
 import { DiagnosisSystemsModule } from './diagnosis-systems/diagnosis-systems.module';
 import { DatabaseSchemaModule } from './database-schema/database-schema.module';
+import { DatabaseOperationsModule } from './database-operations/database-operations.module';
 import { PrescriptionTemplateModule } from './prescription-template/prescription-template.module';
 import { SpecializationsModule } from './specializations/specializations.module';
 import { SidebarConfigModule } from './sidebar-config/sidebar-config.module';
@@ -50,12 +52,20 @@ import { AccountNatureModule } from './accounting/account-nature/account-nature.
 import { LedgerModule } from './accounting/ledger/ledger.module';
 import { VoucherModule } from './accounting/voucher/voucher.module';
 import { JournalModule } from './accounting/journal/journal.module';
+import { OrganizationsModule } from './platform/organizations/organizations.module';
+import { CustomersModule } from './platform/customers/customers.module';
+import { LicensesModule } from './platform/licenses/licenses.module';
+import { LicensePlansModule } from './platform/license-plans/license-plans.module';
+import { ApplicationModulesModule } from './platform/application-modules/application-modules.module';
+import { ApplicationFeaturesModule } from './platform/application-features/application-features.module';
+
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     CommonModule,
+    TenantModule,
     HealthModule,
     AuthModule,
     DashboardModule,
@@ -86,6 +96,7 @@ import { JournalModule } from './accounting/journal/journal.module';
     PatientVitalsModule,
     PatientAllergyRecordsModule,
     DatabaseSchemaModule,
+    DatabaseOperationsModule,
     PrescriptionTemplateModule,
     SpecializationsModule,
     SidebarConfigModule,
@@ -104,6 +115,12 @@ import { JournalModule } from './accounting/journal/journal.module';
     LedgerModule,
     VoucherModule,
     JournalModule,
+    OrganizationsModule,
+    CustomersModule,
+    LicensesModule,
+    LicensePlansModule,
+    ApplicationModulesModule,
+    ApplicationFeaturesModule,
   ],
 })
 export class AppModule {}

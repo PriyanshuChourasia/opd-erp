@@ -1,11 +1,12 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { JournalService } from './journal.service';
 import { FindJournalsQueryDto } from './dto/find-journals-query.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('accounting/journals')
 export class JournalController {
   constructor(private readonly service: JournalService) {}

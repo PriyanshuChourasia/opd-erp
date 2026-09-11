@@ -16,6 +16,7 @@ import type { AuthResponseDto, UserableType } from './dto/auth-response.dto';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
 import type { ChangePasswordDto } from './dto/change-password.dto';
 import { AccountingService } from '../accounting/accounting.service';
+import { permissionSlug } from '../tenant/permission.util';
 
 function asUserableType(val: string | null): UserableType | null {
   const allowed: UserableType[] = ['Doctor', 'Patient', 'Nurse', 'Receptionist', 'Pharmacist', 'LabStaff'];
@@ -53,6 +54,24 @@ export class AuthService {
       throw new ConflictException('A user with this username already exists');
     }
 
+    // Resolve the tenant. A registration NEVER trusts a raw organization_id
+    // from the client for authorization — it either joins an existing org via
+    // its public invite code (organizationCode) or provisions a fresh org.
+    let organizationId: string | null = null;
+    if (dto.organizationCode) {
+      const org = await this.prisma.organization.findUnique({
+        where: { code: dto.organizationCode.trim() },
+      });
+      if (!org) {
+        throw new BadRequestException('No organization found for this code.');
+      }
+      organizationId = org.id;
+    } else {
+      organizationId = await this.provisionOrganization(
+        dto.organizationName?.trim() || `${dto.firstName}'s Clinic`,
+      );
+    }
+
     // Find or create the default ADMIN role for newly registered users
     let role = await this.prisma.role.findFirst({
       where: { name: 'ADMIN' },
@@ -83,6 +102,7 @@ export class AuthService {
           qualification: dto.qualification,
           password: hashedPassword,
           roleId: role.id,
+          organizationId,
         },
         include: {
           role: {
@@ -120,7 +140,11 @@ export class AuthService {
         permissions: user.role.rolePermissions.map(
           (rp) => `${rp.permission.action}:${rp.permission.resource}`,
         ),
+        permissionSlugs: user.role.rolePermissions.map((rp) =>
+          permissionSlug(rp.permission.resource, rp.permission.action),
+        ),
         username: user.username,
+        organizationId: user.organizationId,
         userableType: asUserableType(user.userableType),
         userableId: user.userableId,
       },
@@ -182,22 +206,55 @@ export class AuthService {
         permissions: user.role.rolePermissions.map(
           (rp) => `${rp.permission.action}:${rp.permission.resource}`,
         ),
+        permissionSlugs: user.role.rolePermissions.map((rp) =>
+          permissionSlug(rp.permission.resource, rp.permission.action),
+        ),
         username: user.username,
+        organizationId: user.organizationId,
         userableType: asUserableType(user.userableType),
         userableId: user.userableId,
       },
     };
   }
 
+  /**
+   * Provision a brand-new tenant Organization for self-registration. The org
+   * code is derived and uniquified so it doubles as a public invite handle.
+   */
+  private async provisionOrganization(organizationName: string): Promise<string> {
+    const base = organizationName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 24) || 'clinic';
+
+    let code = base.slice(0, 16).toUpperCase();
+    let org = await this.prisma.organization.findUnique({ where: { code } });
+    if (org) {
+      code = `${base.slice(0, 12)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
+      org = await this.prisma.organization.findUnique({ where: { code } });
+      if (org) {
+        throw new ConflictException('Could not provision a unique organization code.');
+      }
+    }
+
+    const created = await this.prisma.organization.create({
+      data: { name: organizationName, code },
+    });
+    return created.id;
+  }
+
   private generateAccessToken(user: {
     id: string;
     email: string;
     role: { name: string };
+    organizationId?: string | null;
   }): string {
     const payload = {
       sub: user.id,
       email: user.email,
       role: user.role.name,
+      organizationId: user.organizationId ?? null,
     };
     return this.jwtService.sign(payload);
   }

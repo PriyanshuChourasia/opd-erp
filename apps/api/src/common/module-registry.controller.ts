@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ModuleRegistryService } from './services/module-registry.service';
@@ -26,7 +27,7 @@ import { UpsertModuleDto, toRegistry } from './dto/upsert-module.dto';
  * # SOLID
  * - **Interface Segregation** — focused controller endpoints.
  */
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('modules')
 export class ModuleRegistryController {
   constructor(

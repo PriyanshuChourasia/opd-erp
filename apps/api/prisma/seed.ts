@@ -7,6 +7,15 @@ const prisma = new PrismaClient();
 const FRESH = process.argv.includes('--fresh');
 const DAY = 24 * 60 * 60 * 1000; // ms in a day
 
+/**
+ * The tenant every demo row (staff users, doctors, patients, company) belongs
+ * to. Set by seedDemoTenant(). Non-null so all tenant-scoped tables remain
+ * readable by the org-bound demo logins (Super Admin / Admin / Doctor).
+ * The Developer login stays org-null → platform scope (organizations,
+ * customers, licenses).
+ */
+let DEMO_ORG_ID: string | null = null;
+
 const doctorData = [
   { firstName: 'Rajesh', lastName: 'Sharma', specialization: 'General Medicine', medicalRegistrationNo: 'MCI-10001', consultationFee: 500, qualification: 'MBBS, MD', yearsOfExperience: 15 },
 ];
@@ -49,13 +58,22 @@ const RESOURCES = [
   'organisation', 'company', 'prescription-templates',
   'users', 'roles', 'permissions', 'shifts', 'employee-schedules',
   // System
-  'documents', 'settings', 'dashboard', 'reports', 'developer', 'health',
+  'documents', 'settings', 'dashboard', 'reports', 'developer', 'database-operations', 'health',
+  // Multi-tenant platform (platform-admin scope)
+  'organizations', 'customers', 'licenses', 'license-plans', 'application-modules', 'application-features',
 ];
 const ACTIONS = ['read', 'create', 'update', 'delete', 'manage', 'refund'];
 
 function permissionName(action: string, resource: string) {
   const label = resource.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return `${action.charAt(0).toUpperCase() + action.slice(1)} ${label}`;
+}
+
+/** Canonical "module.action" slug — MUST mirror src/tenant/permission.util.ts. */
+function permissionSlug(resource: string, action: string) {
+  const moduleKey = resource.replace(/-/g, '_');
+  const actionKey = action === 'read' ? 'view' : action;
+  return `${moduleKey}.${actionKey}`;
 }
 
 // ─── Fresh mode: wipe all tables in FK-safe order ──────────
@@ -132,6 +150,63 @@ async function seedOrganisation() {
     },
   });
   console.log('Seeded company.');
+}
+
+/**
+ * Provision the demo tenant Organization + an ACTIVE license with features.
+ * Every subsequent demo row (users, doctors, patients) is bound to this org,
+ * so the seeded Super Admin / Admin / Doctor logins remain tenant-scoped.
+ */
+async function seedDemoTenant() {
+  const org = await prisma.organization.upsert({
+    where: { code: 'DEMO' },
+    update: { status: 'ACTIVE' },
+    create: {
+      name: 'City Clinic — Demo Tenant',
+      code: 'DEMO',
+      status: 'ACTIVE',
+    },
+  });
+  DEMO_ORG_ID = org.id;
+
+  const plan = await prisma.licensePlan.upsert({
+    where: { code: 'PRO' },
+    update: {},
+    create: {
+      code: 'PRO',
+      name: 'Pro Monthly',
+      price: 499900,
+      billingPeriod: 'MONTHLY',
+    },
+  });
+
+  const accounting = await prisma.licenseFeature.upsert({
+    where: { code: 'ACCOUNTING' },
+    update: { planId: plan.id },
+    create: { code: 'ACCOUNTING', name: 'Advanced Accounting', planId: plan.id },
+  });
+  await prisma.licenseFeature.upsert({
+    where: { code: 'TELEMEDICINE' },
+    update: { planId: plan.id },
+    create: { code: 'TELEMEDICINE', name: 'Telemedicine', planId: plan.id },
+  });
+
+  const existingLicense = await prisma.license.findFirst({ where: { organizationId: org.id } });
+  if (!existingLicense) {
+    await prisma.license.create({
+      data: {
+        licenseNumber: 'LIC-DEMO-0001',
+        organizationId: org.id,
+        planId: plan.id,
+        status: 'ACTIVE',
+        startsAt: new Date(),
+        expiresAt: new Date(Date.now() + 365 * DAY),
+        mappings: { create: [{ featureId: accounting.id }] },
+      },
+    });
+  }
+
+  console.log(`Seeded demo tenant: ${org.name} (${org.code}) with ${plan.name} license.`);
 }
 
 async function seedShifts() {
@@ -375,6 +450,7 @@ async function seedDoctors(): Promise<Doctor[]> {
           consultationFee: doc.consultationFee,
           qualification: doc.qualification,
           yearsOfExperience: doc.yearsOfExperience,
+          organizationId: DEMO_ORG_ID,
         },
       }),
     );
@@ -453,8 +529,8 @@ async function seedStarterPatients() {
   for (const p of STARTER_PATIENTS) {
     await prisma.patient.upsert({
       where: { patientCode: p.patientCode },
-      update: {},
-      create: p,
+      update: { organizationId: DEMO_ORG_ID },
+      create: { ...p, organizationId: DEMO_ORG_ID },
     });
     count++;
   }
@@ -465,16 +541,96 @@ async function seedPermissions(): Promise<Permission[]> {
   const permissions: Permission[] = [];
   for (const resource of RESOURCES) {
     for (const action of ACTIONS) {
+      const slug = permissionSlug(resource, action);
       const perm = await prisma.permission.upsert({
         where: { resource_action: { resource, action } },
-        update: {},
-        create: { resource, action, name: permissionName(action, resource) },
+        update: { slug },
+        create: { resource, action, slug, name: permissionName(action, resource) },
       });
       permissions.push(perm);
     }
   }
   console.log(`Seeded ${permissions.length} permissions.`);
   return permissions;
+}
+
+/**
+ * Seed the GLOBAL module/feature catalog (ApplicationModule/ApplicationFeature)
+ * and map every permission to its module via PermissionModule. Tenants share
+ * this catalog; only platform operators maintain it.
+ */
+async function seedApplicationModuleRegistry(permissions: Permission[]) {
+  const modules = [
+    {
+      code: 'clinic',
+      name: 'Clinic Management',
+      features: ['appointments', 'queue', 'token', 'bills', 'dispensing', 'prescriptions', 'patients', 'doctors'],
+    },
+    {
+      code: 'rbac',
+      name: 'Roles & Permissions',
+      features: ['roles', 'permissions', 'users', 'user_roles', 'user_permissions'],
+    },
+    {
+      code: 'hr',
+      name: 'HR & Shifts',
+      features: ['shifts', 'employee_schedules', 'departments', 'designations'],
+    },
+    {
+      code: 'lib',
+      name: 'Reference Catalogs',
+      features: ['medicines', 'allergies', 'diagnoses', 'specializations', 'blood_groups'],
+    },
+    {
+      code: 'platform',
+      name: 'Multi-Tenant Platform',
+      features: ['organizations', 'customers', 'licenses', 'license_plans', 'modules', 'features'],
+    },
+    {
+      code: 'developer',
+      name: 'Developer Platform',
+      features: ['registry', 'schema_explorer'],
+    },
+  ];
+
+  const moduleById = new Map<string, string>();
+  for (const m of modules) {
+    const created = await prisma.applicationModule.upsert({
+      where: { code: m.code },
+      update: { name: m.name },
+      create: { code: m.code, name: m.name },
+    });
+    moduleById.set(m.code, created.id);
+    for (const featureCode of m.features) {
+      await prisma.applicationFeature.upsert({
+        where: { code: featureCode },
+        update: { moduleId: created.id },
+        create: { code: featureCode, name: featureCode.replace(/_/g, ' '), moduleId: created.id },
+      });
+    }
+  }
+
+  // Map every seeded permission onto its module (module-key = first segment of the slug).
+  const permissionModule: { permissionId: string; moduleId: string }[] = [];
+  for (const perm of permissions) {
+    const key = perm.slug?.split('.')[0] ?? perm.resource.replace(/-/g, '_');
+    const moduleId = resolveModuleForResource(key, moduleById);
+    if (moduleId) permissionModule.push({ permissionId: perm.id, moduleId });
+  }
+  await prisma.permissionModule.deleteMany();
+  await prisma.permissionModule.createMany({ data: permissionModule, skipDuplicates: true });
+  console.log(`Seeded ${modules.length} application modules (${permissionModule.length} permissions mapped).`);
+}
+
+function resolveModuleForResource(
+  key: string,
+  moduleById: Map<string, string>,
+): string | null {
+  if (moduleById.has(key)) return moduleById.get(key)!;
+  for (const code of ['clinic', 'rbac', 'hr', 'lib', 'platform']) {
+    if (moduleById.has(code)) return moduleById.get(code)!;
+  }
+  return null;
 }async function seedRoles(permissions: Permission[]) {
   async function upsertRoleWithPermissions(name: string, description: string, perms: Permission[]) {
     const role = await prisma.role.upsert({
@@ -495,7 +651,7 @@ async function seedPermissions(): Promise<Permission[]> {
 
   // ── Super Admin: every permission EXCEPT the `developer` resource ──
   // Developer tooling stays exclusive to the Developer role.
-  const superAdminRolePerms = permissions.filter((p) => p.resource !== 'developer');
+  const superAdminRolePerms = permissions.filter((p) => p.resource !== 'developer' && p.resource !== 'database-operations');
 
   // ── Admin: full operational access, minus Developer tools ──
   // Explicit resource:action list (not a Set-of-resources pattern like the
@@ -623,7 +779,7 @@ async function seedPermissions(): Promise<Permission[]> {
   );
 
   const EMPLOYEE_EXCLUDED_RESOURCES = new Set([
-    'roles', 'permissions', 'users', 'settings', 'financial-years', 'company', 'developer',
+    'roles', 'permissions', 'users', 'settings', 'financial-years', 'company', 'developer', 'database-operations',
   ]);
   const employeePerms = [...new Set([
     ...receptionistPerms, ...nursePerms, ...assistantPerms, ...pharmacistPerms, ...labTechPerms,
@@ -702,7 +858,7 @@ async function seedUsers(
   const superAdminPassword = await bcrypt.hash('SuperAdmin@123', 10);
   await prisma.user.upsert({
     where: { email: 'superadmin@clinic.com' },
-    update: {},
+    update: { organizationId: DEMO_ORG_ID },
     create: {
       username: 'superadmin',
       firstName: 'Super',
@@ -710,6 +866,7 @@ async function seedUsers(
       email: 'superadmin@clinic.com',
       password: superAdminPassword,
       roleId: superAdminRoleId,
+      organizationId: DEMO_ORG_ID,
     },
   });
 
@@ -717,7 +874,7 @@ async function seedUsers(
   const adminPassword = await bcrypt.hash('Admin@123', 10);
   await prisma.user.upsert({
     where: { email: 'admin@clinic.com' },
-    update: {},
+    update: { organizationId: DEMO_ORG_ID },
     create: {
       username: 'admin',
       firstName: 'Admin',
@@ -725,6 +882,7 @@ async function seedUsers(
       email: 'admin@clinic.com',
       password: adminPassword,
       roleId: adminRoleId,
+      organizationId: DEMO_ORG_ID,
     },
   });
 
@@ -735,7 +893,7 @@ async function seedUsers(
   const doctorPassword = await bcrypt.hash('Doctor@123', 10);
   await prisma.user.upsert({
     where: { email: 'rajesh.sharma@clinic.com' },
-    update: {},
+    update: { organizationId: DEMO_ORG_ID },
     create: {
       username: 'rajeshsharma',
       firstName: 'Rajesh',
@@ -743,6 +901,7 @@ async function seedUsers(
       email: 'rajesh.sharma@clinic.com',
       password: doctorPassword,
       roleId: doctorRoleId,
+      organizationId: DEMO_ORG_ID,
       userableType: 'Doctor',
       userableId: demoDoctorId,
     },
@@ -2176,6 +2335,7 @@ async function main() {
   console.log('🌱 Seeding login-essential data...');
 
   await seedOrganisation();
+  await seedDemoTenant();
   await seedShifts();
   await seedAllergies();
   await seedDiagnosisSystems();
@@ -2217,7 +2377,7 @@ async function main() {
   // await seedPrescriptionTemplates();
   // await backfillMissingLedgers();
   // await seedAccountingDemoData();
-  // await seedSidebarConfig();
+  await seedSidebarConfig();
 
   console.log('✅ Seed complete.');
 }
@@ -2765,6 +2925,9 @@ async function seedSidebarConfig() {
     { label: 'Overview', path: '/developer', icon: 'Cpu', group: 'Developer', sortOrder: 0, roleIds: [developerId].filter(Boolean) },
     { label: 'Modules', path: '/developer/modules', icon: 'Box', group: 'Developer', sortOrder: 1, roleIds: [developerId].filter(Boolean) },
     { label: 'Features', path: '/developer/features', icon: 'Zap', group: 'Developer', sortOrder: 2, roleIds: [developerId].filter(Boolean) },
+    { label: 'Schema', path: '/developer/schema', icon: 'Database', group: 'Developer', sortOrder: 3, roleIds: [developerId].filter(Boolean) },
+    { label: 'Database Operations', path: '/developer/database-operations', icon: 'HardDrive', group: 'Developer', sortOrder: 4, roleIds: [developerId].filter(Boolean) },
+    { label: 'APIs', path: '/developer/apis', icon: 'Terminal', group: 'Developer', sortOrder: 5, roleIds: [developerId].filter(Boolean) },
 
     // Patient Portal group
     { label: 'Dashboard', path: '/patient', icon: 'LayoutDashboard', group: 'Patient Portal', sortOrder: 0, roleIds: [patientRoleId].filter(Boolean) },

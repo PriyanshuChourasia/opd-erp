@@ -44,9 +44,15 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
     private readonly accountingService: AccountingService,
   ) {}
 
-  async findAll(query: FindUsersQueryDto): Promise<PaginatedResult<UserListItem>> {
+  async findAll(
+    query: FindUsersQueryDto,
+    organizationId?: string,
+  ): Promise<PaginatedResult<UserListItem>> {
     const searchFilter = SearchQueryBuilder.search(query.search, ['firstName', 'lastName', 'email', 'mobileNumber']);
     const where: Record<string, unknown> = { ...searchFilter };
+
+    // Tenant isolation: when the caller is organization-bound, only their org's rows.
+    if (organizationId) where.organizationId = organizationId;
 
     // Filter by isActive: default to only active users, unless explicitly requested
     if (query.isActive !== undefined) {
@@ -69,9 +75,11 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
     );
   }
 
-  async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+  async findOne(id: string, organizationId?: string) {
+    // id + organizationId together prevent cross-tenant reads. When the caller
+    // is platform-scoped (no org) we still never leak a row they cannot see.
+    const user = await this.prisma.user.findFirst({
+      where: organizationId ? { id, organizationId } : { id },
       select: {
         ...userListSelect,
         roleId: true,
@@ -82,7 +90,7 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
     return user;
   }
 
-  async create(dto: CreateUserDto, userId?: string) {
+  async create(dto: CreateUserDto, userId?: string, organizationId?: string) {
     // Check email uniqueness
     const existingEmail = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existingEmail) {
@@ -113,6 +121,7 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
           qualification: dto.qualification,
           password: hashedPassword,
           roleId: dto.roleId,
+          organizationId: organizationId ?? null,
         },
         select: userListSelect,
       });
@@ -128,8 +137,8 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
     });
   }
 
-  async update(id: string, dto: UpdateUserDto, userId?: string) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateUserDto, userId?: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
 
     // Check email uniqueness if changing
     if (dto.email) {
@@ -154,32 +163,38 @@ export class UsersService implements IPaginatable<UserListItem, FindUsersQueryDt
     if (dto.roleId !== undefined) data.roleId = dto.roleId;
     if (dto.password) data.password = await bcrypt.hash(dto.password, 10);
 
-    return this.prisma.user.update({
-      where: { id },
+    // updateMany with id+organizationId fails (0 rows) for cross-tenant deletes
+    const result = await this.prisma.user.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
       data,
-      select: userListSelect,
     });
+    if (result.count === 0) throw new NotFoundException(`User ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 
   /** Soft-delete: set isActive = false */
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.user.update({
-      where: { id },
+  async remove(id: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
+    const result = await this.prisma.user.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
       data: { isActive: false },
-      select: userListSelect,
     });
+    if (result.count === 0) throw new NotFoundException(`User ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 
   /** Restore a previously soft-deleted user */
-  async restore(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException(`User ${id} not found`);
-    return this.prisma.user.update({
-      where: { id },
-      data: { isActive: true },
-      select: userListSelect,
+  async restore(id: string, organizationId?: string) {
+    const user = await this.prisma.user.findFirst({
+      where: organizationId ? { id, organizationId } : { id },
     });
+    if (!user) throw new NotFoundException(`User ${id} not found`);
+    const result = await this.prisma.user.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
+      data: { isActive: true },
+    });
+    if (result.count === 0) throw new NotFoundException(`User ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 
   /** List all available roles for the user creation/edit form */

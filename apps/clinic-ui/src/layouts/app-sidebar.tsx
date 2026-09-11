@@ -13,7 +13,9 @@ import {
   ClipboardList,
   Clock,
   Cpu,
+  Database,
   FileText,
+  HardDrive,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
@@ -24,6 +26,7 @@ import {
   Settings,
   ShieldCheck,
   Stethoscope,
+  Terminal,
   User,
   UserCog,
   Users,
@@ -62,8 +65,8 @@ import { fetchMySidebarConfig } from "@/lib/api";
 /** Map of icon name strings → Lucide components. */
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Activity, AlertCircle, BadgePercent, BarChart3, Box, Building2, CalendarClock, ClipboardList,
-  Clock, Cpu, FileText, LayoutDashboard, LifeBuoy, MapPin, Package,
-  Pill, Receipt, Settings, ShieldCheck, Stethoscope, User, UserCog, Users, Wallet, Zap,
+  Clock, Cpu, Database, FileText, HardDrive, LayoutDashboard, LifeBuoy, MapPin, Package,
+  Pill, Receipt, Settings, ShieldCheck, Stethoscope, Terminal, User, UserCog, Users, Wallet, Zap,
 };
 
 /** Hardcoded fallback menu (used when sidebar config is empty / not seeded yet). */
@@ -106,6 +109,9 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
     { to: "/developer", label: "Overview", icon: "Cpu" },
     { to: "/developer/modules", label: "Modules", icon: "Box" },
     { to: "/developer/features", label: "Features", icon: "Zap" },
+    { to: "/developer/schema", label: "Schema", icon: "Database" },
+    { to: "/developer/database-operations", label: "Database Operations", icon: "HardDrive" },
+    { to: "/developer/apis", label: "APIs", icon: "Terminal" },
   ],
   Account: [
     { to: "/profile", label: "Profile", icon: "User" },

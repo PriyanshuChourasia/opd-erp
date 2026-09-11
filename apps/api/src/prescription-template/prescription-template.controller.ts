@@ -2,10 +2,11 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } fro
 import { PrescriptionTemplateService } from './prescription-template.service';
 import { CreatePrescriptionTemplateDto, UpdatePrescriptionTemplateDto, AssignDoctorDto } from './dto/prescription-template.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('prescription-templates')
 export class PrescriptionTemplateController {
   constructor(private readonly service: PrescriptionTemplateService) {}

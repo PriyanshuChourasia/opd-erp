@@ -27,7 +27,7 @@ export class PatientsService
     private readonly accountingService: AccountingService,
   ) {}
 
-  async create(dto: CreatePatientDto, userId?: string) {
+  async create(dto: CreatePatientDto, userId?: string, organizationId?: string) {
     // Generate patientCode: FIRSTNAMELASTNAME-YYMMDD
     const patientCode = await this.generatePatientCode(dto.firstName, dto.lastName, dto.dateOfBirth);
 
@@ -53,6 +53,7 @@ export class PatientsService
           emergencyContact: dto.emergencyContact,
           allergies: dto.allergies ?? [],
           isFollowUp: dto.isFollowUp ?? false,
+          organizationId: organizationId ?? null,
           createdById: userId ?? null,
         },
       });
@@ -83,8 +84,13 @@ export class PatientsService
     return { ...patient, portalLogin };
   }
 
-  async findAll(query: FindPatientsQueryDto): Promise<PaginatedResult<Patient & { hasPortalLogin: boolean }>> {
-    const where: Record<string, unknown> = { ...SearchQueryBuilder.search(query.search, ['firstName', 'lastName', 'contactNo', 'email', 'patientCode']), deletedAt: null };
+  async findAll(query: FindPatientsQueryDto, organizationId?: string): Promise<PaginatedResult<Patient & { hasPortalLogin: boolean }>> {
+    const where: Record<string, unknown> = {
+      ...SearchQueryBuilder.search(query.search, ['firstName', 'lastName', 'contactNo', 'email', 'patientCode']),
+      deletedAt: null,
+    };
+    // Tenant isolation: organization-bound callers only ever see their org's patients.
+    if (organizationId) where.organizationId = organizationId;
     const result = await paginate(
       () => this.prisma.patient.count({ where }),
       ({ skip, take }) => this.prisma.patient.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip, take }),
@@ -105,9 +111,9 @@ export class PatientsService
     return { ...result, data: result.data.map((p) => ({ ...p, hasPortalLogin: portalSet.has(p.id) })) };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, organizationId?: string) {
     const patient = await this.prisma.patient.findFirst({
-      where: { id, deletedAt: null },
+      where: organizationId ? { id, organizationId, deletedAt: null } : { id, deletedAt: null },
       include: {
         patientAllergies: {
           include: { allergy: true },
@@ -118,33 +124,42 @@ export class PatientsService
     return patient;
   }
 
-  async update(id: string, dto: UpdatePatientDto, userId?: string) {
-    await this.findOne(id);
-    return this.prisma.patient.update({
-      where: { id },
+  async update(id: string, dto: UpdatePatientDto, userId?: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
+    const result = await this.prisma.patient.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
       data: {
         ...dto,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
         updatedById: userId ?? null,
       },
     });
+    if (result.count === 0) throw new NotFoundException(`Patient ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 
-  async remove(id: string, deletedById?: string) {
-    await this.findOne(id);
-    return this.prisma.patient.update({
-      where: { id },
+  async remove(id: string, deletedById?: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
+    const result = await this.prisma.patient.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
       data: {
         isActive: false,
         deletedAt: new Date(),
         deletedById: deletedById ?? null,
       },
     });
+    if (result.count === 0) throw new NotFoundException(`Patient ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 
-  async restore(id: string) {
-    await this.findOne(id);
-    return this.prisma.patient.update({ where: { id }, data: { isActive: true } });
+  async restore(id: string, organizationId?: string) {
+    await this.findOne(id, organizationId);
+    const result = await this.prisma.patient.updateMany({
+      where: organizationId ? { id, organizationId } : { id },
+      data: { isActive: true },
+    });
+    if (result.count === 0) throw new NotFoundException(`Patient ${id} not found`);
+    return this.findOne(id, organizationId);
   }
 
   /**
@@ -155,8 +170,9 @@ export class PatientsService
     patientId: string,
     dto: { password?: string },
     createdById?: string,
+    organizationId?: string,
   ) {
-    const patient = await this.findOne(patientId);
+    const patient = await this.findOne(patientId, organizationId);
 
     // Check if patient already has a linked User
     const existingUser = await this.prisma.user.findFirst({
@@ -238,6 +254,7 @@ export class PatientsService
         roleId: patientRole.id,
         userableType: 'Patient',
         userableId: patient.id,
+        organizationId: patient.organizationId,
       },
     });
 

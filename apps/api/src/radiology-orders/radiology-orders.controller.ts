@@ -1,12 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { RadiologyOrdersService } from './radiology-orders.service';
 import { CreateRadiologyOrderDto } from './dto/create-radiology-order.dto';
 import { UpdateRadiologyOrderDto } from './dto/update-radiology-order.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('radiology-orders')
 export class RadiologyOrdersController {
   constructor(private readonly service: RadiologyOrdersService) {}

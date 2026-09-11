@@ -45,6 +45,17 @@ export class RegisterDto {
   @IsString()
   qualification?: string;
 
+  /** Join an existing tenant by its organization code (invite-style join). */
+  @IsOptional()
+  @IsString()
+  organizationCode?: string;
+
+  /** When no organizationCode is given, the registration provisions a new
+   *  tenant Organization named here (defaults to "<firstName>'s Clinic"). */
+  @IsOptional()
+  @IsString()
+  organizationName?: string;
+
   @IsString()
   @MinLength(8)
   password!: string;

@@ -1,11 +1,12 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { LedgerService } from './ledger.service';
 import { FindLedgersQueryDto } from './dto/find-ledgers-query.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('accounting/ledgers')
 export class LedgerController {
   constructor(private readonly service: LedgerService) {}

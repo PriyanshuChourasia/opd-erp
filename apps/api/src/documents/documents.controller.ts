@@ -21,6 +21,10 @@ import { extname, join } from 'path';
 import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
+import { TenantContextService, AuthUser } from '../tenant/tenant-context.service';
+import { RequireScope } from '../tenant/decorators/require-scope.decorator';
+import { TenantScope } from '../tenant/scope.enum';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DocumentsService } from './documents.service';
@@ -35,10 +39,14 @@ const ALLOWED_MIMES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
+@RequireScope(TenantScope.TENANT)
 @Controller('documents')
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(
+    private readonly documentsService: DocumentsService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   @Post()
   @Permissions('create:documents')
@@ -66,6 +74,7 @@ export class DocumentsController {
     @Body('documentType') documentType: string,
     @Body('documentableType') documentableType: string,
     @Body('documentableId') documentableId: string,
+    @Req() req: { user: AuthUser },
     @Body('caption') caption?: string,
     @Body('isPrimary') isPrimary?: string,
   ) {
@@ -84,13 +93,13 @@ export class DocumentsController {
       documentableId,
     };
 
-    return this.documentsService.create(dto);
+    return this.documentsService.create(dto, undefined, this.tenantContext.requireOrganization(req));
   }
 
   @Get()
   @Permissions('read:documents')
-  findAll(@Query() query: FindDocumentsQueryDto) {
-    return this.documentsService.findAll(query);
+  findAll(@Query() query: FindDocumentsQueryDto, @Req() req: { user: AuthUser }) {
+    return this.documentsService.findAll(query, this.tenantContext.requireOrganization(req));
   }
 
   @Get('by-entity')
@@ -120,16 +129,16 @@ export class DocumentsController {
 
   @Get(':id/download')
   @Permissions('read:documents')
-  async download(@Param('id') id: string, @Res() res: Response) {
-    const doc = await this.documentsService.findOne(id);
+  async download(@Param('id') id: string, @Res() res: Response, @Req() req: { user: AuthUser }) {
+    const doc = await this.documentsService.findOne(id, this.tenantContext.requireOrganization(req));
     const absolutePath = doc.filePath.startsWith('/') ? doc.filePath : join(process.cwd(), doc.filePath.replace(/^\//, ''));
     res.download(absolutePath, doc.originalName);
   }
 
   /** Serve image inline by ID — works through /api prefix even without /uploads proxy */
   @Get(':id/image')
-  async serveImage(@Param('id') id: string, @Res() res: Response) {
-    const doc = await this.documentsService.findOne(id);
+  async serveImage(@Param('id') id: string, @Res() res: Response, @Req() req: { user: AuthUser }) {
+    const doc = await this.documentsService.findOne(id, this.tenantContext.requireOrganization(req));
     const absolutePath = doc.filePath.startsWith('/') ? doc.filePath : join(process.cwd(), doc.filePath.replace(/^\//, ''));
     if (!existsSync(absolutePath)) throw new BadRequestException('File not found');
     res.set({ 'Content-Type': doc.mimeType, 'Cache-Control': 'public, max-age=86400' });
@@ -148,19 +157,19 @@ export class DocumentsController {
 
   @Get(':id')
   @Permissions('read:documents')
-  findOne(@Param('id') id: string) {
-    return this.documentsService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    return this.documentsService.findOne(id, this.tenantContext.requireOrganization(req));
   }
 
   @Patch(':id')
   @Permissions('update:documents')
-  update(@Param('id') id: string, @Body() dto: UpdateDocumentDto, @Req() req: { user: { id: string } }) {
-    return this.documentsService.update(id, dto, req.user.id);
+  update(@Param('id') id: string, @Body() dto: UpdateDocumentDto, @Req() req: { user: AuthUser }) {
+    return this.documentsService.update(id, dto, req.user.id, this.tenantContext.requireOrganization(req));
   }
 
   @Delete(':id')
   @Permissions('delete:documents')
-  remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
-    return this.documentsService.remove(id, req.user.id);
+  remove(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    return this.documentsService.remove(id, req.user.id, this.tenantContext.requireOrganization(req));
   }
 }

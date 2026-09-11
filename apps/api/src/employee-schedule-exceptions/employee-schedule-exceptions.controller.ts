@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { EmployeeScheduleExceptionsService } from './employee-schedule-exceptions.service';
@@ -13,7 +14,7 @@ import { FindEmployeeScheduleExceptionsQueryDto } from './dto/find-employee-sche
  * swallowing it. Permissions reuse the employee-schedules resource — managing
  * a doctor's exceptions is the same capability as managing their schedule.
  */
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
 @Controller('employee-schedule-exceptions')
 export class EmployeeScheduleExceptionsController {
   constructor(private readonly exceptionsService: EmployeeScheduleExceptionsService) {}

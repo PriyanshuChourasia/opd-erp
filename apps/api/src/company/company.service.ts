@@ -13,12 +13,20 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 export class CompanyService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findOne(): Promise<Company | null> {
-    return this.prisma.company.findFirst();
+  async findOne(organizationId?: string): Promise<Company | null> {
+    return this.prisma.company.findFirst({
+      where: organizationId
+        ? { OR: [{ organizationId }, { organizationId: null }] } // own org + shared global default
+        : undefined,
+    });
   }
 
-  async upsert(dto: UpdateCompanyDto, userId?: string): Promise<Company> {
-    const existing = await this.prisma.company.findFirst();
+  async upsert(dto: UpdateCompanyDto, userId?: string, organizationId?: string): Promise<Company> {
+    const existing = await this.prisma.company.findFirst({
+      where: organizationId
+        ? { OR: [{ organizationId }, { organizationId: null }] }
+        : undefined,
+    });
 
     if (!existing) {
       return this.prisma.company.create({
@@ -33,6 +41,7 @@ export class CompanyService {
           discountEnabled: dto.discountEnabled ?? true,
           maxDiscountPercent: dto.maxDiscountPercent ?? 50,
           defaultDiscountType: dto.defaultDiscountType ?? 'percent',
+          organizationId: organizationId ?? null,
           createdById: userId ?? null,
         },
       });

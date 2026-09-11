@@ -11,6 +11,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantContextGuard } from '../tenant/tenant-context.guard';
+import { TenantContextService, AuthUser } from '../tenant/tenant-context.service';
+import { RequireScope } from '../tenant/decorators/require-scope.decorator';
+import { TenantScope } from '../tenant/scope.enum';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DoctorsService } from './doctors.service';
@@ -20,15 +24,19 @@ import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { UpdateDoctorWithUserDto } from './dto/update-doctor-with-user.dto';
 import { FindDoctorsQueryDto } from './dto/find-doctors-query.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard, PermissionsGuard)
+@RequireScope(TenantScope.TENANT)
 @Controller('doctors')
 export class DoctorsController {
-  constructor(private readonly doctorsService: DoctorsService) {}
+  constructor(
+    private readonly doctorsService: DoctorsService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   @Post()
   @Permissions('create:doctors')
-  create(@Body() dto: CreateDoctorDto, @Req() req: { user: { id: string } }) {
-    return this.doctorsService.create(dto, req.user.id);
+  create(@Body() dto: CreateDoctorDto, @Req() req: { user: AuthUser }) {
+    return this.doctorsService.create(dto, req.user.id, this.tenantContext.requireOrganization(req));
   }
 
   @Post('with-user')
@@ -39,20 +47,20 @@ export class DoctorsController {
 
   @Get()
   @Permissions('read:doctors')
-  findAll(@Query() query: FindDoctorsQueryDto) {
-    return this.doctorsService.findAll(query);
+  findAll(@Query() query: FindDoctorsQueryDto, @Req() req: { user: AuthUser }) {
+    return this.doctorsService.findAll(query, this.tenantContext.requireOrganization(req));
   }
 
   @Get(':id')
   @Permissions('read:doctors')
-  findOne(@Param('id') id: string) {
-    return this.doctorsService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    return this.doctorsService.findOne(id, this.tenantContext.requireOrganization(req));
   }
 
   @Patch(':id')
   @Permissions('update:doctors')
-  update(@Param('id') id: string, @Body() dto: UpdateDoctorDto, @Req() req: { user: { id: string } }) {
-    return this.doctorsService.update(id, dto, req.user.id);
+  update(@Param('id') id: string, @Body() dto: UpdateDoctorDto, @Req() req: { user: AuthUser }) {
+    return this.doctorsService.update(id, dto, req.user.id, this.tenantContext.requireOrganization(req));
   }
 
   @Get(':id/user')
@@ -69,13 +77,13 @@ export class DoctorsController {
 
   @Patch(':id/restore')
   @Permissions('update:doctors')
-  restore(@Param('id') id: string) {
-    return this.doctorsService.restore(id);
+  restore(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    return this.doctorsService.restore(id, this.tenantContext.requireOrganization(req));
   }
 
   @Delete(':id')
   @Permissions('delete:doctors')
-  remove(@Param('id') id: string) {
-    return this.doctorsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    return this.doctorsService.remove(id, this.tenantContext.requireOrganization(req));
   }
 }

@@ -211,36 +211,41 @@ input[type="number"] {
     width: 100%;
   }
   /* While the appointment slip is the print target, pin the root boxes to
-     the A5-landscape sheet so nothing outside #print-area can influence
-     pagination or margins. Scoped with :has() so prescription/invoice
-     prints (same stylesheet, different #print-area classes) are untouched. */
+     the full A4 sheet (the paper) so nothing outside #print-area can
+     influence pagination or margins. The slip content itself stays the
+     smaller 210mm x 148.5mm box below, positioned at the top of this A4
+     page by normal block flow — it must NOT fill this box. Scoped with
+     :has() so prescription/invoice prints (same stylesheet, different
+     #print-area classes) are untouched. */
   html:has(#print-area.slip-print-area),
   html:has(#print-area.slip-print-area) body {
     width: 210mm !important;
-    height: 148mm !important;
+    height: 297mm !important;
     margin: 0 !important;
     padding: 0 !important;
   }
-  /* .slip-print-area (the appointment slip) is the ENTIRE A5-landscape page:
-     210mm x 148mm with a 6mm border-box padding (see @page appointment-slip
-     and .slip-print-area below), so its content box is exactly the 198mm x
-     136mm printable area. The generic #print-area{width:100%} rule above is
+  /* .slip-print-area (the appointment slip) is a 210mm x 148.5mm block
+     sitting at the top of the full A4 page (see the html/body rule above
+     and @page appointment-slip below) with a 6mm border-box padding, so its
+     content box is exactly the 198mm x 136.5mm printable area. The rest of
+     the A4 sheet below it is intentionally left blank — do not stretch this
+     box to fill the page. The generic #print-area{width:100%} rule above is
      an ID selector and would otherwise stretch the slip to the print-layout
-     viewport; this higher-specificity rule re-pins the slip to the physical
-     sheet with !important so the page geometry is identical in every build
-     — no Tailwind arbitrary-mm utilities involved, so there is nothing for
-     dev/prod CSS ordering to disagree about. The overflow: hidden is NOT a
-     content-clipping crutch: the compacted content genuinely fits the 136mm
-     content height (~128mm worst case); it only guarantees that mm/px
-     rounding can never spill a hair's width onto a second page. */
+     viewport; this higher-specificity rule re-pins the slip to its own
+     physical size with !important so the page geometry is identical in
+     every build — no Tailwind arbitrary-mm utilities involved, so there is
+     nothing for dev/prod CSS ordering to disagree about. The overflow:
+     hidden is NOT a content-clipping crutch: the compacted content
+     genuinely fits the 136.5mm content height; it only guarantees that
+     mm/px rounding can never spill a hair's width onto a second page. */
   #print-area.slip-print-area {
     display: block !important;
     width: 210mm !important;
     min-width: 210mm !important;
     max-width: 210mm !important;
-    height: 148mm !important;
-    min-height: 148mm !important;
-    max-height: 148mm !important;
+    height: 148.5mm !important;
+    min-height: 148.5mm !important;
+    max-height: 148.5mm !important;
     margin: 0 !important;
     padding: 6mm !important;
     box-sizing: border-box !important;
@@ -328,41 +333,47 @@ input[type="number"] {
   margin: 0;
 }
 
-/* Appointment slip prints on A5 landscape instead of the browser default.
-   Explicit mm dimensions (width first) instead of `size: A5 landscape` —
-   Chrome's support for the named-size + orientation keyword combination is
-   unreliable for named @page rules: it can silently fail to resolve and
-   fall back to the default page size while still hiding the print dialog's
-   Layout/Paper-size pickers (since it did see *a* `size` declaration),
-   leaving no way to fix it from the dialog. Explicit dimensions are
-   unambiguous. */
+/* Appointment slip prints on the full A4 sheet (210mm x 297mm) — the paper
+   — with the slip itself rendered as a smaller 210mm x 148.5mm block
+   positioned at the top of that page; the remaining ~148.5mm of the A4
+   sheet is intentionally left blank (not a second slip, not a stretched
+   slip). Explicit mm dimensions (width first) instead of `size: A4` —
+   Chrome's support for the named-size keyword is unreliable for named
+   @page rules: it can silently fail to resolve and fall back to the
+   default page size while still hiding the print dialog's Layout/
+   Paper-size pickers (since it did see *a* `size` declaration), leaving no
+   way to fix it from the dialog. Explicit dimensions are unambiguous. */
 @page appointment-slip {
-  size: 210mm 148mm;
+  size: 210mm 297mm;
   margin: 0;
 }
 .slip-print-area {
   page: appointment-slip;
-  /* The slip IS the full A5-landscape sheet (210mm x 148mm), and the 6mm
-     gutter is its own border-box padding — so the printable content area
-     comes out to exactly 198mm x 136mm with nothing but plain CSS involved.
-     Sizing the element instead of splitting the page geometry between @page
-     margins (margin: 6mm) and Tailwind w-[198mm]/h-[136mm] utilities on the
-     element keeps dev and production builds identical: physical geometry
-     can't drift when Tailwind's arbitrary-class emission or CSS order
-     changes between builds. Applies on screen too, so the preview dialog
-     shows the true sheet with its gutter. */
+  /* The slip is a 210mm x 148.5mm block (NOT the full A4 page — see @page
+     appointment-slip above), with the 6mm gutter as its own border-box
+     padding — so the printable content area comes out to exactly 198mm x
+     136.5mm with nothing but plain CSS involved. Sizing the element instead
+     of splitting the page geometry between @page margins (margin: 6mm) and
+     Tailwind w-[198mm]/h-[136.5mm] utilities on the element keeps dev and
+     production builds identical: physical geometry can't drift when
+     Tailwind's arbitrary-class emission or CSS order changes between
+     builds. Applies on screen too, so the preview dialog shows the true
+     sheet with its gutter. Do NOT give this height: 100%/min-height: 100vh/
+     height: 297mm — it must stay 148.5mm and sit at the top of the A4 page,
+     not fill it. */
   width: 210mm;
-  height: 148mm;
+  height: 148.5mm;
   padding: 6mm;
   box-sizing: border-box;
 }
 
-/* Dedicated print layout for the appointment slip (A5 landscape). The exact
-   sheet geometry and 6mm gutter are re-pinned with !important inside the
-   @media print block above, so dev/prod CSS ordering can't shift them and
-   pagination can never add a second page. What remains here: forbid section
-   splitting (esp. the MONEY RECEIPT — see the break-inside-avoid wrapper in
-   appointments-page.tsx) and drop the screen-only border/rounding. */
+/* Dedicated print layout for the appointment slip: a 210mm x 148.5mm slip
+   at the top of a full A4 page. The exact sheet geometry and 6mm gutter are
+   re-pinned with !important inside the @media print block above, so
+   dev/prod CSS ordering can't shift them and pagination can never add a
+   second page. What remains here: forbid section splitting (esp. the MONEY
+   RECEIPT — see the break-inside-avoid wrapper in appointments-page.tsx)
+   and drop the screen-only border/rounding. */
 @media print {
   /* Keep each section/table on one page when possible */
   #print-area.slip-print-area,

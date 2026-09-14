@@ -18,17 +18,19 @@ export function AppointmentSlipPreviewDialog({ appointment, onOpenChange, organi
           <DialogTitle>Appointment Slip Preview</DialogTitle>
         </DialogHeader>
 
-        {/* The slip renders as a full A5-landscape sheet: 210mm x 148mm,
-            with the 6mm gutter applied as the sheet's own border-box
+        {/* Paper is a full A4 sheet (210mm x 297mm). The slip itself renders
+            as a smaller 210mm x 148.5mm block positioned at the top of that
+            page, with the 6mm gutter applied as the slip's own border-box
             padding (see @page appointment-slip and .slip-print-area in
-            index.css), leaving a 198mm x 136mm content area. The physical
-            page geometry deliberately lives in plain CSS, NOT in Tailwind
-            arbitrary-mm utilities like w-[198mm]/min-h-[136mm]: those
-            resolved differently in the production build than in dev (class
-            emission/CSS order differs), which let the printed sheet shrink
-            below the printable width and left large horizontal gaps. Only
-            screen cosmetics (border, rounding, centering) remain as
-            utilities here — print overrides them via #print-area rules. */}
+            index.css), leaving a 198mm x 136.5mm content area — the rest of
+            the A4 sheet stays blank. The physical page geometry deliberately
+            lives in plain CSS, NOT in Tailwind arbitrary-mm utilities like
+            w-[198mm]/min-h-[136mm]: those resolved differently in the
+            production build than in dev (class emission/CSS order differs),
+            which let the printed sheet shrink below the printable width and
+            left large horizontal gaps. Only screen cosmetics (border,
+            rounding, centering) remain as utilities here — print overrides
+            them via #print-area rules. */}
         <div id="print-area" className="slip-print-area mx-auto my-4 bg-white text-black rounded border border-gray-200 font-[Arial,Helvetica,sans-serif] text-[10px]">
           {appointment && (() => {
             const aptDate = new Date(appointment.date);

@@ -264,17 +264,26 @@ input[type="number"] {
      via the transform/clipping, cut it off — e.g. a Sheet's fixed right
      column would print showing only that column's slice of the content
      with the rest of the page blank.
-     `translate: none` (in addition to `transform: none`) matters here:
-     Tailwind v4 compiles `-translate-x-1/2 -translate-y-1/2` (how these
-     on-screen-centered Dialogs are positioned) to the standalone CSS
-     `translate` property, not `transform: translate(...)`. It applies
-     independently of `position`, so without resetting it too, the element
-     stays shifted by -50%/-50% of its own size even once `position` is
-     back to `static` — shoving the printed content up and to the left,
-     off the page, which is what produced the clipped/split PDF output. */
+     Resetting `translate` (NOT `transform`) matters here: Tailwind v4
+     compiles `-translate-x-1/2 -translate-y-1/2` (how these on-screen-
+     centered Dialogs are positioned) to the standalone CSS `translate`
+     property, not `transform: translate(...)`. It applies independently of
+     `position`, so without resetting it too, the element stays shifted by
+     -50%/-50% of its own size even once `position` is back to `static` —
+     shoving the printed content up and to the left, off the page.
+     Deliberately NOT also setting `transform: none` alongside it: this
+     component never sets a `transform: fn()` value itself, and pairing the
+     two adjacent same-selector resets gave Chrome's production build (which
+     runs the CSS through Lightning CSS's minifier, unlike the dev server)
+     an opening to "optimize" them into a single `transform: translate(0)`
+     declaration — silently dropping the actual `translate` property reset,
+     since `transform` and `translate` are independent CSS properties, not
+     shorthand/longhand of each other. That merge only happens in the
+     minified production bundle, which is exactly why this broke prod prints
+     while dev printing worked fine. Keeping only the one property here
+     removes the adjacent declaration the minifier was combining. */
   [data-slot="dialog-content"] {
     position: static !important;
-    transform: none !important;
     translate: none !important;
     overflow: visible !important;
     max-height: none !important;
@@ -290,7 +299,6 @@ input[type="number"] {
     position: static !important;
     inset: auto !important;
     right: auto !important;
-    transform: none !important;
     translate: none !important;
     width: 100% !important;
     max-width: none !important;

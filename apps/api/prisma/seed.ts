@@ -10,9 +10,10 @@ const DAY = 24 * 60 * 60 * 1000; // ms in a day
 /**
  * The tenant every demo row (staff users, doctors, patients, company) belongs
  * to. Set by seedDemoTenant(). Non-null so all tenant-scoped tables remain
- * readable by the org-bound demo logins (Super Admin / Admin / Doctor).
- * The Developer login stays org-null → platform scope (organizations,
- * customers, licenses).
+ * readable by the org-bound demo logins (Developer / Super Admin / Admin /
+ * Doctor). Developer is also bound here (not left platform-scoped) so the
+ * full clinic app — doctors, patients, appointments, company, etc. — works
+ * normally for it, on top of its platform + Developer-only tooling access.
  */
 let DEMO_ORG_ID: string | null = null;
 
@@ -62,7 +63,7 @@ const RESOURCES = [
   // Multi-tenant platform (platform-admin scope)
   'organizations', 'customers', 'licenses', 'license-plans', 'application-modules', 'application-features',
 ];
-const ACTIONS = ['read', 'create', 'update', 'delete', 'manage', 'refund', 'write']};
+const ACTIONS = ['read', 'create', 'update', 'delete', 'manage', 'refund', 'write'];
 
 function permissionName(action: string, resource: string) {
   const label = resource.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -670,6 +671,8 @@ function resolveModuleForResource(
     'billing:create', 'billing:delete', 'billing:manage', 'billing:read', 'billing:refund', 'billing:update',
     'company:create', 'company:delete', 'company:manage', 'company:read', 'company:update',
     'dashboard:read', 'dashboard:update',
+    'departments:create', 'departments:delete', 'departments:manage', 'departments:read', 'departments:update',
+    'designations:create', 'designations:delete', 'designations:manage', 'designations:read', 'designations:update',
     'diagnoses:read', 'diagnoses:update',
     'diagnosis-systems:read', 'diagnosis-systems:update',
     'discounts:create', 'discounts:delete', 'discounts:manage', 'discounts:read', 'discounts:update',
@@ -840,7 +843,7 @@ async function seedUsers(
   const developerPassword = await bcrypt.hash('Developer@123', 10);
   await prisma.user.upsert({
     where: { email: 'developer@clinic.com' },
-    update: {},
+    update: { organizationId: DEMO_ORG_ID },
     create: {
       username: 'developer',
       firstName: 'Developer',
@@ -848,6 +851,7 @@ async function seedUsers(
       email: 'developer@clinic.com',
       password: developerPassword,
       roleId: developerRoleId,
+      organizationId: DEMO_ORG_ID,
     },
   });
 

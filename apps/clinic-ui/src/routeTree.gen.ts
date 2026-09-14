@@ -89,6 +89,7 @@ import { Route as ReceptionistReceptionistAppointmentsNewRouteImport } from './r
 import { Route as ReceptionistReceptionistPrescriptionsIndexRouteImport } from './routes/_receptionist/receptionist/prescriptions/index'
 import { Route as ReceptionistReceptionistPrescriptionsNewRouteImport } from './routes/_receptionist/receptionist/prescriptions/new'
 import { Route as DashboardDeveloperDeveloperSchemaIndexRouteImport } from './routes/_dashboard/_developer/developer/schema/index'
+import { Route as DashboardDeveloperDeveloperSchemaModelRouteImport } from './routes/_dashboard/_developer/developer/schema/$model'
 import { Route as DashboardOrganisationPrescriptionTemplatesTemplateIdEditRouteImport } from './routes/_dashboard/organisation/prescription-templates/$templateId.edit'
 import { Route as DoctorDoctorPrescriptionsPrescriptionIdEditRouteImport } from './routes/_doctor/doctor/prescriptions/$prescriptionId.edit'
 import { Route as ReceptionistReceptionistPrescriptionsPrescriptionIdEditRouteImport } from './routes/_receptionist/receptionist/prescriptions/$prescriptionId.edit'
@@ -533,6 +534,12 @@ const DashboardDeveloperDeveloperSchemaIndexRoute =
     path: '/developer/schema/',
     getParentRoute: () => DashboardDeveloperRoute,
   } as any)
+const DashboardDeveloperDeveloperSchemaModelRoute =
+  DashboardDeveloperDeveloperSchemaModelRouteImport.update({
+    id: '/developer/schema/$model',
+    path: '/developer/schema/$model',
+    getParentRoute: () => DashboardDeveloperRoute,
+  } as any)
 const DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute =
   DashboardOrganisationPrescriptionTemplatesTemplateIdEditRouteImport.update({
     id: '/organisation/prescription-templates/$templateId/edit',
@@ -626,6 +633,7 @@ export interface FileRoutesByFullPath {
   '/doctor/prescriptions/': typeof DoctorDoctorPrescriptionsIndexRoute
   '/receptionist/appointments/': typeof ReceptionistReceptionistAppointmentsIndexRoute
   '/receptionist/prescriptions/': typeof ReceptionistReceptionistPrescriptionsIndexRoute
+  '/developer/schema/$model': typeof DashboardDeveloperDeveloperSchemaModelRoute
   '/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
   '/doctor/prescriptions/$prescriptionId/edit': typeof DoctorDoctorPrescriptionsPrescriptionIdEditRoute
   '/receptionist/prescriptions/$prescriptionId/edit': typeof ReceptionistReceptionistPrescriptionsPrescriptionIdEditRoute
@@ -705,6 +713,7 @@ export interface FileRoutesByTo {
   '/doctor/prescriptions': typeof DoctorDoctorPrescriptionsIndexRoute
   '/receptionist/appointments': typeof ReceptionistReceptionistAppointmentsIndexRoute
   '/receptionist/prescriptions': typeof ReceptionistReceptionistPrescriptionsIndexRoute
+  '/developer/schema/$model': typeof DashboardDeveloperDeveloperSchemaModelRoute
   '/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
   '/doctor/prescriptions/$prescriptionId/edit': typeof DoctorDoctorPrescriptionsPrescriptionIdEditRoute
   '/receptionist/prescriptions/$prescriptionId/edit': typeof ReceptionistReceptionistPrescriptionsPrescriptionIdEditRoute
@@ -791,6 +800,7 @@ export interface FileRoutesById {
   '/_doctor/doctor/prescriptions/': typeof DoctorDoctorPrescriptionsIndexRoute
   '/_receptionist/receptionist/appointments/': typeof ReceptionistReceptionistAppointmentsIndexRoute
   '/_receptionist/receptionist/prescriptions/': typeof ReceptionistReceptionistPrescriptionsIndexRoute
+  '/_dashboard/_developer/developer/schema/$model': typeof DashboardDeveloperDeveloperSchemaModelRoute
   '/_dashboard/organisation/prescription-templates/$templateId/edit': typeof DashboardOrganisationPrescriptionTemplatesTemplateIdEditRoute
   '/_doctor/doctor/prescriptions/$prescriptionId/edit': typeof DoctorDoctorPrescriptionsPrescriptionIdEditRoute
   '/_receptionist/receptionist/prescriptions/$prescriptionId/edit': typeof ReceptionistReceptionistPrescriptionsPrescriptionIdEditRoute
@@ -872,6 +882,7 @@ export interface FileRouteTypes {
     | '/doctor/prescriptions/'
     | '/receptionist/appointments/'
     | '/receptionist/prescriptions/'
+    | '/developer/schema/$model'
     | '/organisation/prescription-templates/$templateId/edit'
     | '/doctor/prescriptions/$prescriptionId/edit'
     | '/receptionist/prescriptions/$prescriptionId/edit'
@@ -951,6 +962,7 @@ export interface FileRouteTypes {
     | '/doctor/prescriptions'
     | '/receptionist/appointments'
     | '/receptionist/prescriptions'
+    | '/developer/schema/$model'
     | '/organisation/prescription-templates/$templateId/edit'
     | '/doctor/prescriptions/$prescriptionId/edit'
     | '/receptionist/prescriptions/$prescriptionId/edit'
@@ -1036,6 +1048,7 @@ export interface FileRouteTypes {
     | '/_doctor/doctor/prescriptions/'
     | '/_receptionist/receptionist/appointments/'
     | '/_receptionist/receptionist/prescriptions/'
+    | '/_dashboard/_developer/developer/schema/$model'
     | '/_dashboard/organisation/prescription-templates/$templateId/edit'
     | '/_doctor/doctor/prescriptions/$prescriptionId/edit'
     | '/_receptionist/receptionist/prescriptions/$prescriptionId/edit'
@@ -1616,6 +1629,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardDeveloperDeveloperSchemaIndexRouteImport
       parentRoute: typeof DashboardDeveloperRoute
     }
+    '/_dashboard/_developer/developer/schema/$model': {
+      id: '/_dashboard/_developer/developer/schema/$model'
+      path: '/developer/schema/$model'
+      fullPath: '/developer/schema/$model'
+      preLoaderRoute: typeof DashboardDeveloperDeveloperSchemaModelRouteImport
+      parentRoute: typeof DashboardDeveloperRoute
+    }
     '/_dashboard/organisation/prescription-templates/$templateId/edit': {
       id: '/_dashboard/organisation/prescription-templates/$templateId/edit'
       path: '/organisation/prescription-templates/$templateId/edit'
@@ -1646,6 +1666,7 @@ interface DashboardDeveloperRouteChildren {
   DashboardDeveloperDeveloperFeaturesRoute: typeof DashboardDeveloperDeveloperFeaturesRoute
   DashboardDeveloperDeveloperModulesRoute: typeof DashboardDeveloperDeveloperModulesRoute
   DashboardDeveloperDeveloperIndexRoute: typeof DashboardDeveloperDeveloperIndexRoute
+  DashboardDeveloperDeveloperSchemaModelRoute: typeof DashboardDeveloperDeveloperSchemaModelRoute
   DashboardDeveloperDeveloperSchemaIndexRoute: typeof DashboardDeveloperDeveloperSchemaIndexRoute
 }
 
@@ -1658,6 +1679,8 @@ const DashboardDeveloperRouteChildren: DashboardDeveloperRouteChildren = {
   DashboardDeveloperDeveloperModulesRoute:
     DashboardDeveloperDeveloperModulesRoute,
   DashboardDeveloperDeveloperIndexRoute: DashboardDeveloperDeveloperIndexRoute,
+  DashboardDeveloperDeveloperSchemaModelRoute:
+    DashboardDeveloperDeveloperSchemaModelRoute,
   DashboardDeveloperDeveloperSchemaIndexRoute:
     DashboardDeveloperDeveloperSchemaIndexRoute,
 }

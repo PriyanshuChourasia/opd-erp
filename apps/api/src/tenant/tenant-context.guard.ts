@@ -40,7 +40,15 @@ export class TenantContextGuard implements CanActivate {
             [context.getHandler(), context.getClass()],
         );
 
-        if (requiredScope === TenantScope.PLATFORM && tenantContext.organizationId) {
+        // Developer is deliberately org-bound (so the full clinic app works for
+        // it) while also retaining platform-level tooling access — exempt it
+        // from the "tenant accounts can't reach platform endpoints" rule that
+        // every other org-bound role is still subject to.
+        if (
+            requiredScope === TenantScope.PLATFORM &&
+            tenantContext.organizationId &&
+            tenantContext.roleName !== 'Developer'
+        ) {
             throw new ForbiddenException(
                 'This is a platform-level operation. Tenant accounts cannot access it.',
             );

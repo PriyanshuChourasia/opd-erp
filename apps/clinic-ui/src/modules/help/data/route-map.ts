@@ -118,6 +118,7 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   "/developer/modules": { module: "development-modules" },
   "/developer/features": { module: "development-features" },
   "/developer/apis": { module: "development-apis" },
+  "/developer/database-operations": { module: "development-database" },
   "/developer/schema": { module: "development-modules" },
   "/developer/schema/$model": { module: "development-modules" },
 };

@@ -112,7 +112,7 @@ const KIND_STYLES: Record<string, string> = {
 
 export function SchemaModelDetailPage() {
   const { model: modelName } = useParams({
-    from: "/_developer/developer/schema/$model",
+    from: "/_dashboard/_developer/developer/schema/$model",
   });
 
   const modelQuery = useQuery({

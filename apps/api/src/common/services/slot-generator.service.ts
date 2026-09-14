@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { EmployeeScheduleExceptionType } from '@prisma/client';
 
@@ -102,7 +102,11 @@ export class SlotGeneratorService {
     dateStr: string,
     options?: { slotDuration?: number; maxPatients?: number },
   ): Promise<SlotResult> {
-    const date = startOfDay(new Date(dateStr));
+    const parsedDate = new Date(dateStr);
+    if (!dateStr || Number.isNaN(parsedDate.getTime())) {
+      throw new BadRequestException('A valid date query parameter is required.');
+    }
+    const date = startOfDay(parsedDate);
     // Convert JS getDay() (0=Sunday) to DayOfWeek (0=Monday)
     const dayOfWeek = (date.getDay() + 6) % 7;
 

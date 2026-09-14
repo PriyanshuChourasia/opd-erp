@@ -117,7 +117,7 @@ export class DocumentsController {
     @Query('documentableType') documentableType: string,
     @Query('ids') ids: string,
   ) {
-    const idList = ids.split(',').filter(Boolean);
+    const idList = (ids ?? '').split(',').filter(Boolean);
     return this.documentsService.findProfilePhotosByEntityIds(documentableType, idList);
   }
 

@@ -6,8 +6,8 @@ export { ApiError } from "./axios-client";export { extractApiError, toApiError }
 /** Blob download helper following the existing document-download pattern. */
 export async function downloadBlob(
   path: string,
-  params?: Record<string, string>,
   fallbackName: string,
+  params?: Record<string, string>,
 ): Promise<void> {
   const res = await apiClient.get(path, {
     responseType: 'blob',
@@ -17,7 +17,7 @@ export async function downloadBlob(
   let filename: string | null = null;
   if (typeof raw === 'string') {
     const m = raw.match(/filename="([^"]+)"/);
-    filename = m ? m[1] : null;
+    filename = m?.[1] ?? null;
   }
   const name = filename ?? fallbackName;
   const url = URL.createObjectURL(res.data as Blob);
@@ -36,19 +36,19 @@ export function fetchDatabaseTables() {
 }
 
 export async function downloadTableBackup(model: string) {
-  await downloadBlob(`/database-operations/tables/${model}/backup`, undefined, `${model.toLowerCase()}_backup.json`);
+  await downloadBlob(`/database-operations/tables/${model}/backup`, `${model.toLowerCase()}_backup.json`);
 }
 
 export async function downloadDocumentBackup(model: string, id: string) {
-  await downloadBlob(`/database-operations/tables/${model}/records/${id}/backup`, undefined, `${model.toLowerCase()}_${id}_backup.json`);
+  await downloadBlob(`/database-operations/tables/${model}/records/${id}/backup`, `${model.toLowerCase()}_${id}_backup.json`);
 }
 
 export async function downloadFullSnapshot() {
-  await downloadBlob('/database-operations/snapshot/full', undefined, 'database_full_snapshot.dump');
+  await downloadBlob('/database-operations/snapshot/full', 'database_full_snapshot.dump');
 }
 
 export async function downloadRangeSnapshot(params: { table?: string; startDate: string; endDate: string }) {
-  await downloadBlob('/database-operations/snapshot/range', params, 'database_range_snapshot.json');
+  await downloadBlob('/database-operations/snapshot/range', 'database_range_snapshot.json', params);
 }
 
 export async function restoreTable(model: string, rows: unknown) {

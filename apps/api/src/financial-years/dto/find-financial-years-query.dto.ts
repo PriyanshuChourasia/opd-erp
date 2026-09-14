@@ -17,4 +17,8 @@ export class FindFinancialYearsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   companyId?: string;
+
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
 }

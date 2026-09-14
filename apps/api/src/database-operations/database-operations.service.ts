@@ -208,11 +208,8 @@ export class DatabaseOperationsService {
     });
   }
 }
-    });
-  }
-}
 
-type PrismaclientModel = { findMany(opts?: any): Promise<any[]>; findUnique(opts?: any): Promise<any>; create(opts?: any): Promise<any>; update(opts?: any): Promise<any>; delete(opts?: any): Promise<any> };
+type PrismaclientModel = { findMany(opts?: any): Promise<any[]>; findUnique(opts?: any): Promise<any>; create(opts?: any): Promise<any>; update(opts?: any): Promise<any>; delete(opts?: any): Promise<any>; upsert(opts?: any): Promise<any> };
 
 function isRecord(x: unknown): x is Record<string, unknown> { return typeof x === 'object' && x !== null && !Array.isArray(x); }
 

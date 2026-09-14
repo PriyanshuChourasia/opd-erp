@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Param, Query, UseGuards, Res, NotFoundException, BadRequestException,
+  Controller, Get, Post, Param, Query, UseGuards, Res, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -68,7 +68,7 @@ export class DatabaseOperationsController {
   @Post('tables/:model/restore')
   @Permissions('write:database-operations')
   async restoreTable(@Param('model') model: string, @Res() res: Response) {
-    const body = await this.readBody(res);
+    const body = await this.readBody(res) as unknown[];
     const { filename, restored } = await this.service.restoreTable(model, body);
     this.sendJson(res, filename, { restored });
   }

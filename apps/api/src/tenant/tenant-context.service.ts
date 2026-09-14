@@ -1,11 +1,14 @@
 import {
+    BadRequestException,
     ForbiddenException,
     Injectable,
+    NotFoundException,
     UnauthorizedException,
 } from '@nestjs/common';
 import { TenantScope } from './scope.enum';
 import type { TenantContext } from './tenant-context.interface';
 import { normalizePermissionToDot } from './permission.util';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Request-scoped symbol under which the resolved TenantContext is cached.
@@ -43,6 +46,8 @@ export interface RequestLike {
  */
 @Injectable()
 export class TenantContextService {
+    constructor(private readonly prisma: PrismaService) {}
+
     /**
      * Build (or retrieve the cached) TenantContext for a request whose
      * `request.user` was produced by JwtStrategy.
@@ -103,6 +108,32 @@ export class TenantContextService {
             );
         }
         return context.organizationId;
+    }
+
+    /**
+     * Like requireOrganization, but lets a platform-scoped caller holding the
+     * `organizations.manage` permission (e.g. Developer) explicitly target one
+     * organization via `requestedOrganizationId`. Tenant-bound callers are
+     * unaffected — their organization always comes from the JWT, never from
+     * client input. Used only by Company and Financial Years so far.
+     */
+    async resolveOrganizationScope(request: RequestLike, requestedOrganizationId?: string): Promise<string> {
+        const context = this.resolveFromRequest(request);
+        if (context.organizationId) return context.organizationId;
+
+        if (!context.permissionSlugs.includes('organizations.manage')) {
+            throw new ForbiddenException(
+                'This operation requires an organization scope. Your account is not bound to any tenant.',
+            );
+        }
+        if (!requestedOrganizationId) {
+            throw new BadRequestException('organizationId query parameter is required for platform-scoped accounts.');
+        }
+        const org = await this.prisma.organization.findUnique({ where: { id: requestedOrganizationId } });
+        if (!org) {
+            throw new NotFoundException(`Organization ${requestedOrganizationId} not found`);
+        }
+        return requestedOrganizationId;
     }
 
     /** Convenience: whether the authenticated caller is tenant-scoped. */

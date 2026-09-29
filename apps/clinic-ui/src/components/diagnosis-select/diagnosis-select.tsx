@@ -110,7 +110,7 @@ export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelec
                 >
                   <Stethoscope className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex-1">{d.name}</span>
-                  {d.code && <span className="text-[10px] text-muted-foreground">{d.code}</span>}
+                  {d.code && <span className="text-2xs text-muted-foreground">{d.code}</span>}
                 </button>
               ))}
             </div>

@@ -85,7 +85,7 @@ export function PatientAppointmentsPage() {
                   </div>
                   <Badge
                     variant="outline"
-                    className={`text-[10px] ${APPT_STATUS_STYLES[appt.status] ?? ""}`}
+                    className={`text-2xs ${APPT_STATUS_STYLES[appt.status] ?? ""}`}
                   >
                     {appt.status.replace("_", " ")}
                   </Badge>

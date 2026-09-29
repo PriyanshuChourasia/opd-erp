@@ -170,7 +170,7 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium capitalize">{address.addressType.toLowerCase()}</p>
-                    {address.isPrimary && <Badge variant="default" className="text-[9px] h-4 bg-primary/10 text-primary border-primary/20"><Star className="mr-0.5 size-2.5" />Primary</Badge>}
+                    {address.isPrimary && <Badge variant="default" className="text-2xs h-4 bg-primary/10 text-primary border-primary/20"><Star className="mr-0.5 size-2.5" />Primary</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground">{address.addressLine1}{address.addressLine2 ? `, ${address.addressLine2}` : ''}</p>
                   <p className="text-xs text-muted-foreground">{[address.city, address.district, address.state, address.postalCode].filter(Boolean).join(', ')}</p>

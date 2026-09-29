@@ -260,14 +260,14 @@ export function PrescriptionsPage() {
       header: () => <div className="text-center">Ver</div>,
       cell: ({ row }) => (
         <div className="text-center">
-          <Badge variant="outline" className="text-[10px] font-mono">v{row.original.version}</Badge>
+          <Badge variant="outline" className="text-2xs font-mono">v{row.original.version}</Badge>
         </div>
       ),
     },
     {
       accessorKey: "createdAt",
       header: "Created",
-      cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString(),
+      cell: ({ row }) => <span className="tabular">{new Date(row.original.createdAt).toLocaleDateString()}</span>,
     },
     {
       id: "actions",
@@ -460,7 +460,7 @@ export function PrescriptionsPage() {
                         <Receipt className="size-4 text-muted-foreground" />
                         <span className="text-sm font-medium">{bill.invoiceNo}</span>
                       </div>
-                      <Badge variant="outline" className={`text-[10px] ${BILL_STATUS_STYLES[bill.status] ?? ""}`}>
+                      <Badge variant="outline" className={`text-2xs ${BILL_STATUS_STYLES[bill.status] ?? ""}`}>
                         {bill.status}
                       </Badge>
                     </div>
@@ -563,11 +563,11 @@ export function PrescriptionsPage() {
                 <div key={entry.id} className="rounded-none border p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] font-mono">v{entry.version}</Badge>
-                      <Badge variant="outline" className={`text-[10px] ${entry.changeType === "CREATE" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                      <Badge variant="outline" className="text-2xs font-mono">v{entry.version}</Badge>
+                      <Badge variant="outline" className={`text-2xs ${entry.changeType === "CREATE" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
                         {entry.changeType}
                       </Badge>
-                      <Badge variant="outline" className={`text-[10px] ${RX_STATUS_STYLES[entry.status] ?? ""}`}>
+                      <Badge variant="outline" className={`text-2xs ${RX_STATUS_STYLES[entry.status] ?? ""}`}>
                         {entry.status}
                       </Badge>
                     </div>

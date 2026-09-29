@@ -201,7 +201,7 @@ export function RolesPage() {
                 </span>
               );
             })()}
-            {role.isSystem && <Badge variant="outline" className="text-[10px]">System</Badge>}
+            {role.isSystem && <Badge variant="outline" className="text-2xs">System</Badge>}
           </div>
         );
       },
@@ -214,7 +214,7 @@ export function RolesPage() {
     {
       id: "permissionCount",
       header: "Permissions",
-      cell: ({ row }) => <Badge variant="secondary" className="text-[10px]">{row.original.rolePermissions.length}</Badge>,
+      cell: ({ row }) => <Badge variant="secondary" className="text-2xs">{row.original.rolePermissions.length}</Badge>,
     },
     {
       id: "userCount",
@@ -224,7 +224,7 @@ export function RolesPage() {
         return (
           <button
             onClick={() => openUsersForRole(row.original.id)}
-            className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-2xs font-medium bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
           >
             <Users className="size-2.5" />{count}
             {count > 0 && <ChevronRight className="size-2.5" />}
@@ -273,12 +273,12 @@ export function RolesPage() {
     {
       accessorKey: "resource",
       header: "Resource",
-      cell: ({ row }) => <Badge variant="outline" className="text-[10px]">{row.original.resource}</Badge>,
+      cell: ({ row }) => <Badge variant="outline" className="text-2xs">{row.original.resource}</Badge>,
     },
     {
       accessorKey: "action",
       header: "Description",
-      cell: ({ row }) => <Badge variant="secondary" className="text-[10px]">{row.original.action}</Badge>,
+      cell: ({ row }) => <Badge variant="secondary" className="text-2xs">{row.original.action}</Badge>,
     },
     {
       id: "actions",
@@ -338,7 +338,7 @@ export function RolesPage() {
                     {missingResources.length > 0 && (
                       <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3">
                         <p className="text-xs font-medium text-amber-700">Missing permissions for: {missingResources.map((r) => resourceLabels[r] ?? r).join(", ")}</p>
-                        <p className="text-[10px] text-amber-600 mt-1">Run the seed command to create them.</p>
+                        <p className="text-2xs text-amber-600 mt-1">Run the seed command to create them.</p>
                       </div>
                     )}
                     {resourceCategories.map((category) => (
@@ -349,13 +349,13 @@ export function RolesPage() {
                             const perms = groupedPermissions[resource]!;
                             return (
                               <div key={resource} className="rounded-lg border p-2">
-                                <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{resourceLabels[resource] ?? resource}</p>
+                                <p className="mb-1.5 text-xs font-medium text-muted-foreground">{resourceLabels[resource] ?? resource}</p>
                                 <div className="flex flex-wrap gap-1">
                                   {perms.map((perm) => {
                                     const selected = formPermissions.includes(perm.id);
                                     return (
                                       <button key={perm.id} type="button" onClick={() => togglePermission(perm.id)}
-                                        className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors ${selected ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground hover:bg-muted"}`}>
+                                        className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-2xs font-medium transition-colors ${selected ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground hover:bg-muted"}`}>
                                         {selected && <Check className="size-2.5" />}{perm.action}
                                       </button>
                                     );
@@ -415,7 +415,7 @@ export function RolesPage() {
                       onClick={() => openUsersForRole(role.id)}
                       className="hover:underline underline-offset-2 cursor-pointer"
                     >
-                      <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${roleColors[role.name] ?? "bg-muted text-muted-foreground"}`}>
+                      <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium ${roleColors[role.name] ?? "bg-muted text-muted-foreground"}`}>
                         {role.name}
                       </span>
                     </button>
@@ -436,11 +436,11 @@ export function RolesPage() {
                     <TableCell className="sticky left-0 bg-background">
                       <div className="flex items-center gap-2">
                         <Avatar className="size-6">
-                          <AvatarFallback className="text-[10px]">{initials(u.firstName)}</AvatarFallback>
+                          <AvatarFallback className="text-2xs">{initials(u.firstName)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{u.firstName} {u.lastName}</p>
-                          <p className="truncate text-[10px] text-muted-foreground">{u.email}</p>
+                          <p className="truncate text-2xs text-muted-foreground">{u.email}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -526,7 +526,7 @@ export function RolesPage() {
                 <TableHead className="sticky left-0 bg-background min-w-[140px]">Resource</TableHead>
                 {allRoles.map((role) => (
                   <TableHead key={role.id} className="text-center min-w-[100px]">
-                    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${roleColors[role.name] ?? "bg-muted text-muted-foreground"}`}>
+                    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium ${roleColors[role.name] ?? "bg-muted text-muted-foreground"}`}>
                       {role.name}
                     </span>
                   </TableHead>

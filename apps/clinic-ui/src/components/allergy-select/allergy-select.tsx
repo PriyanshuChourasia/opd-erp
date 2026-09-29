@@ -201,11 +201,11 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-medium truncate">{allergy.name}</span>
-                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                    <span className="shrink-0 text-2xs text-muted-foreground">
                       {allergy.category}
                     </span>
                   </div>
-                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                  <span className="shrink-0 text-2xs font-medium text-muted-foreground">
                     {allergy.severity}
                   </span>
                 </button>

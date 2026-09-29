@@ -222,11 +222,11 @@ export function AdminAppointments() {
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-[10px] uppercase text-muted-foreground">Gender</p>
+                    <p className="text-2xs uppercase text-muted-foreground">Gender</p>
                     <p>{selectedPatient.gender || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase text-muted-foreground">Blood Group</p>
+                    <p className="text-2xs uppercase text-muted-foreground">Blood Group</p>
                     <p>{selectedPatient.bloodGroup || "—"}</p>
                   </div>
                 </div>
@@ -274,7 +274,7 @@ export function AdminAppointments() {
                       <p className="text-lg font-bold text-primary">
                         {new Date(appt.date).toLocaleDateString('en-IN', { day: '2-digit' })}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-2xs text-muted-foreground">
                         {new Date(appt.date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
                       </p>
                     </div>
@@ -299,7 +299,7 @@ export function AdminAppointments() {
                         Start Consultation
                       </Button>
                     ) : (
-                      <Badge variant="outline" className={cn('text-[10px]', APPT_STATUS_STYLES[appt.status] ?? '')}>
+                      <Badge variant="outline" className={cn('text-2xs', APPT_STATUS_STYLES[appt.status] ?? '')}>
                         {appt.status === 'IN_PROGRESS' ? 'In Progress' : appt.status.replace('_', ' ')}
                       </Badge>
                     )}

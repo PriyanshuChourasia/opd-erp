@@ -165,7 +165,7 @@ export function DiagnosesPage() {
         accessorKey: "code",
         header: "Code",
         cell: ({ row }) => (
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-2xs">
             {row.original.code}
           </Badge>
         ),
@@ -175,7 +175,7 @@ export function DiagnosesPage() {
         header: "System",
         cell: ({ row }) =>
           row.original.diagnosisSystem ? (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-2xs">
               {row.original.diagnosisSystem.name}
             </Badge>
           ) : (
@@ -188,14 +188,14 @@ export function DiagnosesPage() {
         cell: ({ row }) =>
           row.original.status === "ACTIVE" ? (
             <Badge
-              className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]"
+              className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-2xs"
               variant="outline"
             >
               Active
             </Badge>
           ) : (
             <Badge
-              className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-[10px]"
+              className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-2xs"
               variant="outline"
             >
               Inactive

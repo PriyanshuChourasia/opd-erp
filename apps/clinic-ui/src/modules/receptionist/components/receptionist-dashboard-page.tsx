@@ -451,7 +451,7 @@ export function ReceptionistDashboardPage() {
                     </select>
                   </div>
                   <div className="flex items-center justify-between border-t border-teal-200 pt-3">
-                    <p className="text-[11px] text-teal-600">
+                    <p className="text-xs text-teal-600">
                       First name, last name, and phone are required. Email is optional.
                     </p>
                     <div className="flex gap-2">
@@ -493,7 +493,7 @@ export function ReceptionistDashboardPage() {
                       type="button"
                       onClick={() => setForm((p) => ({ ...p, date: value, doctorId: "" }))}
                       className={cn(
-                        "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                        "rounded-none border px-2.5 py-1 text-xs font-medium transition-colors",
                         form.date === value
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -532,7 +532,7 @@ export function ReceptionistDashboardPage() {
                     <>
                       <div className="flex flex-wrap gap-1.5">
                         {pastAppointments.slice(0, 5).map((appt) => (
-                          <div key={appt.id} className="flex items-center gap-1.5 rounded-none border px-2 py-1 text-[10px]">
+                          <div key={appt.id} className="flex items-center gap-1.5 rounded-none border px-2 py-1 text-2xs">
                             <span className="font-medium">{appt.type.replace("_", " ")}</span>
                             <span className="text-muted-foreground">·</span>
                             <span>{appt.doctor?.name ?? appt.doctor?.medicalRegistrationNo}</span>
@@ -541,7 +541,7 @@ export function ReceptionistDashboardPage() {
                           </div>
                         ))}
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {pastAppointments.length} completed visit{pastAppointments.length !== 1 ? "s" : ""} — if this is a continuation, select <span className="font-medium">Follow-up</span>.
                       </p>
                     </>
@@ -642,7 +642,7 @@ export function ReceptionistDashboardPage() {
                     ))}
                   </div>
                   {selectedType && (
-                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    <p className="mt-1.5 text-xs text-muted-foreground">
                       Priority: <span className="font-medium text-foreground">{selectedType.label}</span> — Standard appointment
                     </p>
                   )}
@@ -685,7 +685,7 @@ export function ReceptionistDashboardPage() {
                           type="button"
                           onClick={() => setForm((p) => ({ ...p, registrationFee: val }))}
                           className={cn(
-                            "rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                            "rounded-none border px-2.5 py-1 text-xs font-medium transition-colors",
                             regFeeAmount === val
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -697,7 +697,7 @@ export function ReceptionistDashboardPage() {
                     </div>
                   </Field>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {form.registrationFee !== null
                     ? "Manually overridden — edit again or reselect the patient to reset to default."
                     : `Default from clinic settings: ${currency(defaultRegistrationFee)}. Editable above.`}
@@ -737,7 +737,7 @@ export function ReceptionistDashboardPage() {
                   ) : (
                     <>
                       Book &amp; Pay
-                      <span className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">
+                      <span className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-xs font-semibold">
                         {currency(form.amount + regFeeAmount)}
                       </span>
                     </>
@@ -880,7 +880,7 @@ export function ReceptionistDashboardPage() {
               <div className="divide-y">
                 {displayAppts.map((appt) => (
                   <div key={appt.id} className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/30">
-                    <span className={`flex w-14 shrink-0 items-center justify-center rounded-md px-2 py-1 text-[10px] font-mono font-bold ${
+                    <span className={`flex w-14 shrink-0 items-center justify-center rounded-md px-2 py-1 text-2xs font-mono font-bold ${
                       appt.status === "COMPLETED"
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                         : appt.status === "IN_PROGRESS" || appt.status === "CHECKED_IN"
@@ -898,15 +898,15 @@ export function ReceptionistDashboardPage() {
                     <div className="flex flex-col items-end gap-1">
                       <div className="flex items-center gap-1.5">
                         {appt.bill ? (
-                          <Badge variant="outline" className="text-[9px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                          <Badge variant="outline" className="text-2xs bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                             Paid
                           </Badge>
                         ) : appt.status === "COMPLETED" ? (
-                          <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                          <Badge variant="outline" className="text-2xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                             Unpaid
                           </Badge>
                         ) : null}
-                        <Badge variant="outline" className={`text-[9px] ${APPT_STATUS_STYLES[appt.status] ?? ""}`}>
+                        <Badge variant="outline" className={`text-2xs ${APPT_STATUS_STYLES[appt.status] ?? ""}`}>
                           {appt.status.replace("_", " ")}
                         </Badge>
                       </div>
@@ -963,7 +963,7 @@ export function ReceptionistDashboardPage() {
               <div className="divide-y">
                 {displayQueue.map((entry) => (
                   <div key={entry.id} className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/30">
-                    <span className="flex w-14 shrink-0 items-center justify-center rounded-md px-2 py-0.5 text-[10px] font-mono font-bold">
+                    <span className="flex w-14 shrink-0 items-center justify-center rounded-md px-2 py-0.5 text-2xs font-mono font-bold">
                       {entry.tokenNumber}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -972,7 +972,7 @@ export function ReceptionistDashboardPage() {
                         {entry.doctor?.name ?? entry.doctor?.medicalRegistrationNo ?? "Doctor"}
                       </p>
                     </div>
-                    <Badge variant="outline" className={`text-[9px] ${STATUS_STYLES[entry.status] ?? ""}`}>
+                    <Badge variant="outline" className={`text-2xs ${STATUS_STYLES[entry.status] ?? ""}`}>
                       {entry.status.replace("_", " ")}
                     </Badge>
                   </div>

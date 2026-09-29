@@ -90,9 +90,9 @@ export function DesignationsPage() {
       header: "Status",
       cell: ({ row }) =>
         row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]" variant="outline">Active</Badge>
+          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-2xs" variant="outline">Active</Badge>
         ) : (
-          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-[10px]" variant="outline">Inactive</Badge>
+          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-2xs" variant="outline">Inactive</Badge>
         ),
     },
     {

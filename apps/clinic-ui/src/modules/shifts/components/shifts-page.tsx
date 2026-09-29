@@ -142,7 +142,7 @@ export function ShiftsPage() {
       cell: ({ row }) => {
         const { breakStartTime, breakEndTime } = row.original;
         if (!breakStartTime || !breakEndTime) return <span className="text-muted-foreground text-xs">—</span>;
-        return <span className="text-xs text-muted-foreground">{breakStartTime}–{breakEndTime}</span>;
+        return <span className="tabular text-xs text-muted-foreground">{breakStartTime}–{breakEndTime}</span>;
       },
     },
     {
@@ -150,11 +150,11 @@ export function ShiftsPage() {
       header: "Type",
       cell: ({ row }) =>
         row.original.isOvernight ? (
-          <Badge variant="outline" className="text-[10px] border-indigo-300 text-indigo-600 dark:border-indigo-700 dark:text-indigo-400">
+          <Badge variant="outline" className="text-2xs border-indigo-300 text-indigo-600 dark:border-indigo-700 dark:text-indigo-400">
             <Moon className="mr-1 size-2.5" />Overnight
           </Badge>
         ) : (
-          <Badge variant="outline" className="text-[10px]">Day</Badge>
+          <Badge variant="outline" className="text-2xs">Day</Badge>
         ),
     },
     {
@@ -162,9 +162,9 @@ export function ShiftsPage() {
       header: "Status",
       cell: ({ row }) =>
         row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]" variant="outline">Active</Badge>
+          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-2xs" variant="outline">Active</Badge>
         ) : (
-          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-[10px]" variant="outline">Inactive</Badge>
+          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-2xs" variant="outline">Inactive</Badge>
         ),
     },
     {

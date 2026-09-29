@@ -18,6 +18,7 @@ import { Route as ReceptionistRouteImport } from './routes/_receptionist'
 import { Route as DisplayRouteImport } from './routes/display'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as DashboardDeveloperRouteImport } from './routes/_dashboard/_developer'
 import { Route as DashboardAddressesRouteImport } from './routes/_dashboard/addresses'
 import { Route as DashboardAllergiesRouteImport } from './routes/_dashboard/allergies'
@@ -132,6 +133,11 @@ const HelpRoute = HelpRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardDeveloperRoute = DashboardDeveloperRouteImport.update({
@@ -564,6 +570,7 @@ export interface FileRoutesByFullPath {
   '/display': typeof DisplayRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/addresses': typeof DashboardAddressesRoute
   '/allergies': typeof DashboardAllergiesRoute
   '/billing': typeof DashboardBillingRoute
@@ -644,6 +651,7 @@ export interface FileRoutesByTo {
   '/display': typeof DisplayRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/addresses': typeof DashboardAddressesRoute
   '/allergies': typeof DashboardAllergiesRoute
   '/billing': typeof DashboardBillingRoute
@@ -730,6 +738,7 @@ export interface FileRoutesById {
   '/display': typeof DisplayRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/_dashboard/_developer': typeof DashboardDeveloperRouteWithChildren
   '/_dashboard/addresses': typeof DashboardAddressesRoute
   '/_dashboard/allergies': typeof DashboardAllergiesRoute
@@ -813,6 +822,7 @@ export interface FileRouteTypes {
     | '/display'
     | '/help'
     | '/login'
+    | '/register'
     | '/addresses'
     | '/allergies'
     | '/billing'
@@ -893,6 +903,7 @@ export interface FileRouteTypes {
     | '/display'
     | '/help'
     | '/login'
+    | '/register'
     | '/addresses'
     | '/allergies'
     | '/billing'
@@ -978,6 +989,7 @@ export interface FileRouteTypes {
     | '/display'
     | '/help'
     | '/login'
+    | '/register'
     | '/_dashboard/_developer'
     | '/_dashboard/addresses'
     | '/_dashboard/allergies'
@@ -1065,6 +1077,7 @@ export interface RootRouteChildren {
   DisplayRoute: typeof DisplayRoute
   HelpRoute: typeof HelpRoute
   LoginRoute: typeof LoginRoute
+  RegisterRoute: typeof RegisterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1130,6 +1143,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/_developer': {
@@ -1907,6 +1927,7 @@ const rootRouteChildren: RootRouteChildren = {
   DisplayRoute: DisplayRoute,
   HelpRoute: HelpRoute,
   LoginRoute: LoginRoute,
+  RegisterRoute: RegisterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

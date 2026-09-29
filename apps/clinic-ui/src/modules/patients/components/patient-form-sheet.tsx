@@ -376,31 +376,31 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                   <div className="mt-3 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <Field>
-                        <FieldLabel className="text-[10px]">Address Line 1 *</FieldLabel>
+                        <FieldLabel className="text-2xs">Address Line 1 *</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="123 Main Street" value={newPatientAddress.addressLine1} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, addressLine1: e.target.value })} />
                       </Field>
                       <Field>
-                        <FieldLabel className="text-[10px]">Address Line 2</FieldLabel>
+                        <FieldLabel className="text-2xs">Address Line 2</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="Suite 100" value={newPatientAddress.addressLine2} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, addressLine2: e.target.value })} />
                       </Field>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <Field>
-                        <FieldLabel className="text-[10px]">Landmark</FieldLabel>
+                        <FieldLabel className="text-2xs">Landmark</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="Near City Hospital" value={newPatientAddress.landmark} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, landmark: e.target.value })} />
                       </Field>
                       <Field>
-                        <FieldLabel className="text-[10px]">City</FieldLabel>
+                        <FieldLabel className="text-2xs">City</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="Mumbai" value={newPatientAddress.city} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, city: e.target.value })} />
                       </Field>
                       <Field>
-                        <FieldLabel className="text-[10px]">District</FieldLabel>
+                        <FieldLabel className="text-2xs">District</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="Mumbai City" value={newPatientAddress.district} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, district: e.target.value })} />
                       </Field>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <Field>
-                        <FieldLabel className="text-[10px]">State</FieldLabel>
+                        <FieldLabel className="text-2xs">State</FieldLabel>
                         <select
                           className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
                           value={newPatientAddress.state}
@@ -413,11 +413,11 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                         </select>
                       </Field>
                       <Field>
-                        <FieldLabel className="text-[10px]">Country</FieldLabel>
+                        <FieldLabel className="text-2xs">Country</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="India" value={newPatientAddress.country} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, country: e.target.value })} />
                       </Field>
                       <Field>
-                        <FieldLabel className="text-[10px]">Postal Code *</FieldLabel>
+                        <FieldLabel className="text-2xs">Postal Code *</FieldLabel>
                         <Input className="h-8 text-xs" placeholder="400001" value={newPatientAddress.postalCode} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, postalCode: e.target.value })} />
                       </Field>
                     </div>
@@ -431,7 +431,7 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
             <div className="border-t pt-3 mt-2">
               <p className="text-base font-semibold mb-3">Patient Vitals {!editingPatient && <span className="text-xs font-normal text-muted-foreground">(optional)</span>}</p>
               <div className="grid grid-cols-2 gap-3">
-                <Field>                  <FieldLabel htmlFor="v-height">Height (cm) <span className="text-[10px] font-normal text-muted-foreground">(1 ft = 30.48 cm)</span></FieldLabel>
+                <Field>                  <FieldLabel htmlFor="v-height">Height (cm) <span className="text-2xs font-normal text-muted-foreground">(1 ft = 30.48 cm)</span></FieldLabel>
                    <Input id="v-height" type="number" step="0.1" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals({ ...vitals, heightCm: e.target.value })} />
                 </Field>
                 <Field>
@@ -447,11 +447,11 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                   <Input id="v-pulse" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals({ ...vitals, pulseBpm: e.target.value })} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="v-systolic">Systolic BP <span className="text-[10px] font-normal text-muted-foreground">(heart contracts)</span></FieldLabel>
+                  <FieldLabel htmlFor="v-systolic">Systolic BP <span className="text-2xs font-normal text-muted-foreground">(heart contracts)</span></FieldLabel>
                   <Input id="v-systolic" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals({ ...vitals, systolicBp: e.target.value })} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="v-diastolic">Diastolic BP <span className="text-[10px] font-normal text-muted-foreground">(heart relaxes)</span></FieldLabel>
+                  <FieldLabel htmlFor="v-diastolic">Diastolic BP <span className="text-2xs font-normal text-muted-foreground">(heart relaxes)</span></FieldLabel>
                   <Input id="v-diastolic" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals({ ...vitals, diastolicBp: e.target.value })} />
                 </Field>
                 <Field>

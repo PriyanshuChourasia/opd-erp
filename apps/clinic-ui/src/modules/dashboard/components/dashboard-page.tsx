@@ -61,7 +61,7 @@ const STATUS_STYLES: Record<string, { icon: typeof Clock; badge: string }> = {
 function StatusBadge({ status }: { status: string }) {
   const style = STATUS_STYLES[status] ?? { icon: Clock, badge: "bg-gray-50 text-gray-700 border-gray-200" };
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${style.badge}`}>
+    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-2xs font-medium ${style.badge}`}>
       {status.replace(/_/g, " ")}
     </span>
   );
@@ -98,12 +98,12 @@ function SummaryCard({ title, value, subtitle, icon: Icon, loading }: {
   return (
     <Card className="py-2">
       <CardHeader className="flex flex-row items-center justify-between gap-1 pb-0.5 px-3">
-        <CardTitle className="text-[11px] font-medium text-muted-foreground">{title}</CardTitle>
+        <CardTitle className="text-xs font-medium text-muted-foreground">{title}</CardTitle>
         <Icon className="size-3 text-muted-foreground" />
       </CardHeader>
       <CardContent className="px-3 pt-0">
         {loading ? <Skeleton className="h-5 w-12" /> : <p className="text-lg font-semibold tabular-nums">{value}</p>}
-        {subtitle && <p className="mt-0.5 text-[10px] text-muted-foreground leading-tight">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 text-2xs text-muted-foreground leading-tight">{subtitle}</p>}
       </CardContent>
     </Card>
   );
@@ -281,13 +281,13 @@ export function DashboardPage() {
                   {loading ? <LoadingRows count={3} /> : (
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-none border p-3"><p className="text-[11px] text-muted-foreground">Today's OPD</p><p className="text-lg font-semibold">{stats?.opdTotal ?? 0}</p></div>
-                        <div className="rounded-none border p-3"><p className="text-[11px] text-muted-foreground">Completed</p><p className="text-lg font-semibold text-green-600">{stats?.opdCompleted ?? 0}</p></div>
-                        <div className="rounded-none border p-3"><p className="text-[11px] text-muted-foreground">Waiting</p><p className="text-lg font-semibold text-amber-600">{stats?.opdWaiting ?? 0}</p></div>
-                        <div className="rounded-none border p-3"><p className="text-[11px] text-muted-foreground">Avg Wait</p><p className="text-lg font-semibold">~15m</p></div>
+                        <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Today's OPD</p><p className="text-lg font-semibold">{stats?.opdTotal ?? 0}</p></div>
+                        <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Completed</p><p className="text-lg font-semibold text-green-600">{stats?.opdCompleted ?? 0}</p></div>
+                        <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Waiting</p><p className="text-lg font-semibold text-amber-600">{stats?.opdWaiting ?? 0}</p></div>
+                        <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Avg Wait</p><p className="text-lg font-semibold">~15m</p></div>
                       </div>
                       <div>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                           <span>Completion Rate</span>
                           <span>{stats?.opdTotal ? Math.round(((stats.opdCompleted ?? 0) / stats.opdTotal) * 100) : 0}%</span>
                         </div>
@@ -307,7 +307,7 @@ export function DashboardPage() {
                     <SectionHeader title="Revenue Overview" icon={DollarSign} />
                     <div className="flex items-center gap-0.5 rounded-none border p-0.5">
                       {(["today", "week", "month"] as const).map((period) => (
-                        <button key={period} type="button" className={`rounded-none px-2 py-0.5 text-[11px] font-medium transition-colors ${revenuePeriod === period ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`} onClick={() => setRevenuePeriod(period)}>
+                        <button key={period} type="button" className={`rounded-none px-2 py-0.5 text-xs font-medium transition-colors ${revenuePeriod === period ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`} onClick={() => setRevenuePeriod(period)}>
                           {period === "today" ? "Today" : period === "week" ? "Week" : "Month"}
                         </button>
                       ))}
@@ -318,8 +318,8 @@ export function DashboardPage() {
                   {chartsLoading ? <Skeleton className="h-36 w-full" /> : (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
-                        <div><p className="text-[11px] text-muted-foreground">Today's Revenue</p><p className="text-lg font-semibold">{currency(stats?.todayRevenue ?? 0)}</p></div>
-                        <div><p className="text-[11px] text-muted-foreground">Outstanding</p><p className="text-lg font-semibold text-amber-600">{currency(stats?.outstandingAmount ?? 0)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Today's Revenue</p><p className="text-lg font-semibold">{currency(stats?.todayRevenue ?? 0)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Outstanding</p><p className="text-lg font-semibold text-amber-600">{currency(stats?.outstandingAmount ?? 0)}</p></div>
                       </div>
                       {filteredRevenueTrend.length > 0 && (
                         <div className="h-36"><ResponsiveContainer width="100%" height="100%">
@@ -353,9 +353,9 @@ export function DashboardPage() {
                         <div key={doc.doctorId} className="flex items-center justify-between gap-3 px-4 py-2.5">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium truncate">{doc.name}</p>
-                            <p className="text-[11px] text-muted-foreground">{doc.appointmentCount} appointments today</p>
+                            <p className="text-xs text-muted-foreground">{doc.appointmentCount} appointments today</p>
                           </div>
-                          <Badge variant="outline" className={`text-[10px] ${doc.available ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-500 border-gray-200"}`}>{doc.available ? "Available" : "Busy"}</Badge>
+                          <Badge variant="outline" className={`text-2xs ${doc.available ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-500 border-gray-200"}`}>{doc.available ? "Available" : "Busy"}</Badge>
                         </div>
                       ))}
                     </div>
@@ -383,18 +383,18 @@ export function DashboardPage() {
                 {loading ? <LoadingRows /> : !(stats?.recentPatients ?? charts?.recentPatients)?.length ? <EmptyState message="No recent patients." /> : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-muted/50 text-left text-[11px] font-medium text-muted-foreground">
+                      <thead><tr className="border-b bg-muted/50 text-left text-xs font-medium text-muted-foreground">
                         <th className="px-4 py-2">ID</th><th className="px-4 py-2">Name</th><th className="px-4 py-2">Age</th><th className="px-4 py-2">Gender</th><th className="px-4 py-2">Blood</th><th className="px-4 py-2">Registered</th>
                       </tr></thead>
                       <tbody className="divide-y">
                         {(stats?.recentPatients ?? charts?.recentPatients ?? []).slice(0, 5).map((p) => (
                           <tr key={p.id} className="hover:bg-muted/50">
-                            <td className="px-4 py-2 text-[11px] font-mono text-muted-foreground">{p.patientCode}</td>
+                            <td className="px-4 py-2 text-xs font-mono text-muted-foreground">{p.patientCode}</td>
                             <td className="px-4 py-2 font-medium">{p.firstName} {p.lastName}</td>
                             <td className="px-4 py-2 text-muted-foreground">{calculateAge(p.dateOfBirth)}</td>
                             <td className="px-4 py-2 text-muted-foreground">{p.gender ?? "—"}</td>
-                            <td className="px-4 py-2">{p.bloodGroup ? <Badge variant="outline" className="text-[10px]">{p.bloodGroup}</Badge> : "—"}</td>
-                            <td className="px-4 py-2 text-[11px] text-muted-foreground">{timeAgo(p.createdAt)}</td>
+                            <td className="px-4 py-2">{p.bloodGroup ? <Badge variant="outline" className="text-2xs">{p.bloodGroup}</Badge> : "—"}</td>
+                            <td className="px-4 py-2 text-xs text-muted-foreground">{timeAgo(p.createdAt)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -419,7 +419,7 @@ export function DashboardPage() {
                   ].map((action) => (
                     <Link key={action.to} to={action.to} className="flex flex-col items-center gap-1.5 rounded-none border p-3 text-center transition-colors hover:bg-muted/50">
                       <div className={`flex size-8 items-center justify-center rounded-full ${action.color}`}><action.icon className="size-4" /></div>
-                      <span className="text-[11px] font-medium">{action.label}</span>
+                      <span className="text-xs font-medium">{action.label}</span>
                     </Link>
                   ))}
                 </div>
@@ -447,7 +447,7 @@ export function DashboardPage() {
                     ].map((item) => (
                       <div key={item.label} className="flex items-center gap-2.5 rounded-none border p-2.5">
                         <div className="flex size-8 items-center justify-center rounded-full bg-muted"><item.icon className="size-3.5 text-muted-foreground" /></div>
-                        <div><p className="text-[11px] text-muted-foreground">{item.label}</p><p className="text-base font-semibold tabular-nums">{item.value}</p></div>
+                        <div><p className="text-xs text-muted-foreground">{item.label}</p><p className="text-base font-semibold tabular-nums">{item.value}</p></div>
                       </div>
                     ))}
                   </div>
@@ -468,7 +468,7 @@ export function DashboardPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm">{item.description}</p>
-                          <p className="text-[11px] text-muted-foreground">{timeAgo(item.timestamp)}</p>
+                          <p className="text-xs text-muted-foreground">{timeAgo(item.timestamp)}</p>
                         </div>
                       </div>
                     ))}

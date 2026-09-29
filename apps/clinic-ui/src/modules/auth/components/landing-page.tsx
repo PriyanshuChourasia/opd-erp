@@ -1,8 +1,5 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
-import { useDispatch } from "react-redux";
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   Activity,
   ArrowRight,
@@ -17,11 +14,7 @@ import {
   Stethoscope,
   Users,
 } from "lucide-react";
-import { setCredentials } from "@/store/auth-slice";
-import { getHomeRoute } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
 import {
   Card,
   CardContent,
@@ -29,17 +22,84 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { registerSchema } from "../data/schema";
-import type { RegisterResponse } from "../data/interface";
-import { apiFetch } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 // ─── Data ──────────────────────────────────────────────────────
+
+const navLinks = [
+  { label: "Home", href: "#top" },
+  { label: "About", href: "#about" },
+  { label: "Contact", href: "#contact" },
+] as const;
+
+const calendarWeekdays = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+] as const;
+
+/** Demo month only — a static visual for the landing page, not a live calendar. */
+const calendarBookings: Record<number, number> = {
+  2: 3,
+  3: 5,
+  4: 2,
+  6: 4,
+  9: 3,
+  10: 6,
+  11: 2,
+  12: 4,
+  16: 3,
+  17: 5,
+  18: 2,
+  19: 3,
+  23: 4,
+  24: 2,
+  25: 3,
+  26: 5,
+  30: 2,
+  31: 3,
+};
+const calendarClosedDays = new Set([1, 8, 15, 22, 29]);
+const calendarSelectedDay = 12;
+
+type CalendarCellState = "idle" | "booked" | "closed" | "selected" | "empty";
+
+/** March 2026 starts on a Sunday and has 31 days — five full rows of seven. */
+const calendarWeeks: (number | null)[][] = [
+  [1, 2, 3, 4, 5, 6, 7],
+  [8, 9, 10, 11, 12, 13, 14],
+  [15, 16, 17, 18, 19, 20, 21],
+  [22, 23, 24, 25, 26, 27, 28],
+  [29, 30, 31, null, null, null, null],
+];
+
+function calendarCellState(day: number | null): CalendarCellState {
+  if (day === null) return "empty";
+  if (day === calendarSelectedDay) return "selected";
+  if (calendarClosedDays.has(day)) return "closed";
+  if (day in calendarBookings) return "booked";
+  return "idle";
+}
+
+/** Label shown in the hover tooltip — answers "is this day booked?". */
+function calendarDayStatus(day: number | null): string {
+  if (day === null) return "";
+  if (calendarClosedDays.has(day)) return "Clinic closed";
+  const count = calendarBookings[day];
+  if (count === undefined) return "No appointments";
+  return count === 1 ? "1 appointment" : `${count} appointments`;
+}
+
+const calendarAppointments = [
+  { time: "09:00", patient: "A. Sharma", state: "seen" },
+  { time: "09:30", patient: "R. Menon", state: "seen" },
+  { time: "10:15", patient: "S. Iyer", state: "waiting" },
+  { time: "11:00", patient: "K. Nair", state: "upcoming" },
+] as const;
 
 const trustMarkers = [
   { icon: ShieldCheck, label: "Role-based access control" },
@@ -168,13 +228,14 @@ const capabilities = [
 
 export function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div id="top" className="flex min-h-screen scroll-mt-16 flex-col">
       <Navbar />
       <HeroSection />
       <FeaturesSection />
       <WorkflowSection />
       <AboutSection />
       <CapabilitiesSection />
+      <ContactSection />
       <Footer />
     </div>
   );
@@ -184,34 +245,42 @@ export function LandingPage() {
 
 function Navbar() {
   return (
-    <header className="fixed top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-lg">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center bg-primary text-primary-foreground">
+    <header className="fixed top-0 z-50 w-full bg-background/90 backdrop-blur-lg">
+      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+        <Link to="/" className="flex min-w-0 items-center gap-2.5">
+          <span className="flex size-9 shrink-0 items-center justify-center bg-primary text-primary-foreground">
             <Hospital className="size-5" />
           </span>
-          <span className="text-lg font-semibold tracking-tight">MyClinic</span>
+          <span className="truncate text-lg font-semibold tracking-tight">
+            MyOPD
+          </span>
         </Link>
-        <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
-          <a href="#features" className="transition-colors hover:text-foreground">
-            Features
-          </a>
-          <a href="#workflow" className="transition-colors hover:text-foreground">
-            Workflow
-          </a>
-          <a href="#about" className="transition-colors hover:text-foreground">
-            About
-          </a>
-        </nav>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/login">Sign in</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <a href="#get-started">
+
+        <div className="flex items-center justify-end gap-3 sm:gap-6">
+          <nav className="grid grid-cols-3 items-center gap-3 text-sm text-muted-foreground sm:gap-6">
+            {navLinks.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="group relative whitespace-nowrap py-2 transition-colors duration-300 hover:text-foreground"
+              >
+                {item.label}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0 bottom-0 h-px origin-left scale-x-0 bg-primary transition-transform duration-300 ease-out group-hover:scale-x-100"
+                />
+              </a>
+            ))}
+          </nav>
+          <Button
+            size="lg"
+            asChild
+            className="h-10 gap-2 px-5 text-base shadow-sm transition-shadow hover:shadow-md"
+          >
+            <Link to="/register">
               Get started
-              <ArrowRight className="size-3.5" />
-            </a>
+              <ArrowRight className="size-4" />
+            </Link>
           </Button>
         </div>
       </div>
@@ -222,38 +291,12 @@ function Navbar() {
 // ─── Hero ──────────────────────────────────────────────────────
 
 function HeroSection() {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-
-  const form = useForm<import("../data/schema").RegisterValues>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: { username: "", firstName: "", lastName: "", email: "", password: "", confirmPassword: "" },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: (values: import("../data/schema").RegisterValues) =>
-      apiFetch<RegisterResponse>("/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-          username: values.username,
-          firstName: values.firstName,
-          lastName: values.lastName,
-          email: values.email,
-          password: values.password,
-        }),
-      }),
-    onSuccess: (data) => {
-      dispatch(setCredentials(data));
-      navigate({ to: getHomeRoute(data.user.roleName) });
-    },
-  });
-
   return (
-    <section className="relative overflow-hidden pt-16">
+    <section className="relative flex min-h-screen flex-col overflow-hidden pt-16">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,color-mix(in_oklch,var(--color-primary)_7%,transparent),transparent)]" />
 
-      <div className="relative mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
-        <div className="grid items-start gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-1 items-center px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+        <div className="grid w-full items-center gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
           {/* ─── Left: copy ──────────────────────────────────── */}
           <div className="max-w-xl">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
@@ -278,7 +321,7 @@ function HeroSection() {
                 </Link>
               </Button>
               <Button variant="outline" size="lg" className="text-base" asChild>
-                <a href="#get-started">Set up your clinic</a>
+                <Link to="/register">Set up your clinic</Link>
               </Button>
             </div>
 
@@ -295,158 +338,9 @@ function HeroSection() {
             </ul>
           </div>
 
-          {/* ─── Right: registration ─────────────────────────── */}
-          <div id="get-started" className="mx-auto w-full max-w-md scroll-mt-24 lg:mx-0">
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl">Set up your clinic's workspace</CardTitle>
-                <CardDescription>
-                  Create the first administrator account for your organisation.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form
-                  onSubmit={form.handleSubmit((values) =>
-                    registerMutation.mutate(values),
-                  )}
-                >
-                  <FieldGroup>
-                    <Field>
-                      <FieldLabel htmlFor="hero-username">Username</FieldLabel>
-                      <Input
-                        id="hero-username"
-                        placeholder="johndoe"
-                        autoComplete="username"
-                        {...form.register("username")}
-                      />
-                      <FieldError
-                        errors={
-                          form.formState.errors.username
-                            ? [form.formState.errors.username]
-                            : undefined
-                        }
-                      />
-                    </Field>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field>
-                        <FieldLabel htmlFor="hero-firstName">First name</FieldLabel>
-                        <Input
-                          id="hero-firstName"
-                          placeholder="John"
-                          autoComplete="given-name"
-                          {...form.register("firstName")}
-                        />
-                        <FieldError
-                          errors={
-                            form.formState.errors.firstName
-                              ? [form.formState.errors.firstName]
-                              : undefined
-                          }
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="hero-lastName">Last name</FieldLabel>
-                        <Input
-                          id="hero-lastName"
-                          placeholder="Doe"
-                          autoComplete="family-name"
-                          {...form.register("lastName")}
-                        />
-                        <FieldError
-                          errors={
-                            form.formState.errors.lastName
-                              ? [form.formState.errors.lastName]
-                              : undefined
-                          }
-                        />
-                      </Field>
-                    </div>
-                    <Field>
-                      <FieldLabel htmlFor="hero-email">
-                        Email address
-                      </FieldLabel>
-                      <Input
-                        id="hero-email"
-                        type="email"
-                        placeholder="john@clinic.com"
-                        autoComplete="email"
-                        {...form.register("email")}
-                      />
-                      <FieldError
-                        errors={
-                          form.formState.errors.email
-                            ? [form.formState.errors.email]
-                            : undefined
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="hero-password">Password</FieldLabel>
-                      <PasswordInput
-                        id="hero-password"
-                        placeholder="At least 8 characters"
-                        autoComplete="new-password"
-                        {...form.register("password")}
-                      />
-                      <FieldError
-                        errors={
-                          form.formState.errors.password
-                            ? [form.formState.errors.password]
-                            : undefined
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="hero-confirm-password">
-                        Confirm password
-                      </FieldLabel>
-                      <PasswordInput
-                        id="hero-confirm-password"
-                        placeholder="Repeat your password"
-                        autoComplete="new-password"
-                        {...form.register("confirmPassword")}
-                      />
-                      <FieldError
-                        errors={
-                          form.formState.errors.confirmPassword
-                            ? [form.formState.errors.confirmPassword]
-                            : undefined
-                        }
-                      />
-                    </Field>
-                    {registerMutation.isError && (
-                      <FieldError>
-                        {(registerMutation.error as Error).message}
-                      </FieldError>
-                    )}
-                  </FieldGroup>
-
-                  <Button
-                    type="submit"
-                    className="mt-6 w-full gap-2 text-base"
-                    size="lg"
-                    disabled={registerMutation.isPending}
-                  >
-                    {registerMutation.isPending
-                      ? "Creating account..."
-                      : "Create account"}
-                    {!registerMutation.isPending && (
-                      <ArrowRight className="size-4" />
-                    )}
-                  </Button>
-                </form>
-
-                <p className="mt-4 text-center text-sm text-muted-foreground">
-                  Already have an account?{" "}
-                  <Link
-                    to="/login"
-                    className="font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    Sign in
-                  </Link>
-                </p>
-              </CardContent>
-            </Card>
+          {/* ─── Right: schedule ─────────────────────────────── */}
+          <div className="w-full max-w-lg">
+            <ScheduleCalendar />
           </div>
         </div>
       </div>
@@ -454,11 +348,174 @@ function HeroSection() {
   );
 }
 
+// ─── Schedule calendar ─────────────────────────────────────────
+
+function ScheduleCalendar() {
+  const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+
+  // March 2026 begins on a Sunday, so day N sits at row (N-1)/7, col (N-1)%7.
+  // That lets the tooltip anchor with percentages instead of measuring the DOM.
+  const hoveredIndex = hoveredDay === null ? -1 : hoveredDay - 1;
+  const tooltipRow = hoveredIndex >= 0 ? Math.floor(hoveredIndex / 7) : -1;
+  const tooltipCol = hoveredIndex >= 0 ? hoveredIndex % 7 : -1;
+  const tooltipBelow = tooltipRow >= 0 && tooltipRow < 3;
+
+  return (
+    <Card className="gap-0 rounded-2xl border border-border/70 bg-card/70 shadow-lg shadow-foreground/5 backdrop-blur-sm">
+      <CardHeader className="rounded-t-2xl">
+        <div className="flex items-center justify-between gap-4">
+          <div className="grid gap-1">
+            <CardTitle className="text-xl">Today&rsquo;s schedule</CardTitle>
+            <CardDescription>
+              March 2026 &middot; hover a date for details
+            </CardDescription>
+          </div>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <CalendarClock className="size-4" />
+          </span>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        <div className="relative rounded-xl border border-border bg-border">
+          <div className="grid grid-cols-7 gap-px text-center text-[0.7rem] font-medium uppercase tracking-wide">
+            {calendarWeekdays.map((day, index) => (
+              <div
+                key={day}
+                className={cn(
+                  "bg-card/80 py-2",
+                  index === 0 && "rounded-tl-xl",
+                  index === calendarWeekdays.length - 1 && "rounded-tr-xl",
+                )}
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Positioning context covers only the day rows, so the row/5
+              percentages below land on the correct cell. */}
+          <div className="relative mt-px flex flex-col gap-px text-center text-sm">
+            {calendarWeeks.map((week, weekIndex) => {
+              const isLastRow = weekIndex === calendarWeeks.length - 1;
+              return (
+                <div key={weekIndex} className="grid grid-cols-7 gap-px">
+                  {week.map((day, dayIndex) => {
+                    const state = calendarCellState(day);
+                    const isHovered = day !== null && day === hoveredDay;
+                    return (
+                      <div
+                        key={day ?? `${weekIndex}-${dayIndex}`}
+                        onMouseEnter={() => day !== null && setHoveredDay(day)}
+                        onMouseLeave={() => setHoveredDay(null)}
+                        className={cn(
+                          "flex h-9 cursor-default flex-col items-center justify-center gap-1 bg-card/80 sm:h-10 lg:h-11",
+                          isLastRow && dayIndex === 0 && "rounded-bl-xl",
+                          isLastRow && dayIndex === 6 && "rounded-br-xl",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex size-6 items-center justify-center rounded-full text-sm tabular-nums transition-colors sm:size-7",
+                            state === "selected" &&
+                              "font-semibold text-primary ring-2 ring-primary",
+                            state === "booked" && "font-medium text-foreground",
+                            state === "closed" &&
+                              "text-muted-foreground/50 line-through",
+                            state === "empty" && "text-transparent",
+                            isHovered &&
+                              state !== "selected" &&
+                              "ring-2 ring-primary/45",
+                          )}
+                        >
+                          {day}
+                        </span>
+                        {(state === "booked" || state === "selected") && (
+                          <span
+                            aria-hidden="true"
+                            className="size-1 rounded-full bg-primary/70"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+
+            {/* Hover readout — anchored to the cell, flipped above on the last rows
+              so it never spills past the bottom of the card. */}
+            {hoveredDay !== null && (
+              <div
+                role="status"
+                className={cn(
+                  "pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-popover px-2.5 py-1 text-xs text-popover-foreground shadow-md",
+                  tooltipBelow ? "translate-y-0" : "-translate-y-full",
+                )}
+                style={{
+                  left: `${((tooltipCol + 0.5) / 7) * 100}%`,
+                  top: `${((tooltipRow + (tooltipBelow ? 1 : 0)) / 5) * 100}%`,
+                  marginTop: tooltipBelow ? 6 : -6,
+                }}
+              >
+                {hoveredDay} Mar &middot; {calendarDayStatus(hoveredDay)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-border pt-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Thu, 12 March</h3>
+            <span className="text-xs text-muted-foreground">
+              2 seen &middot; 1 in queue
+            </span>
+          </div>
+
+          <ul className="mt-4 flex flex-col gap-2">
+            {calendarAppointments.map((slot) => (
+              <li
+                key={`${slot.time}-${slot.patient}`}
+                className="flex items-center gap-3 rounded-full border border-border/70 px-3 py-2.5"
+              >
+                <span className="w-12 shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {slot.time}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {slot.patient}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 text-xs",
+                    slot.state === "waiting" &&
+                      "text-amber-600 dark:text-amber-500",
+                    slot.state === "seen" && "text-muted-foreground",
+                    slot.state === "upcoming" && "text-primary",
+                  )}
+                >
+                  {slot.state === "waiting"
+                    ? "In queue"
+                    : slot.state === "seen"
+                      ? "Seen"
+                      : "Upcoming"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Features ──────────────────────────────────────────────────
 
 function FeaturesSection() {
   return (
-    <section id="features" className="scroll-mt-16 border-t border-border py-24">
+    <section
+      id="features"
+      className="scroll-mt-16 border-t border-border py-24"
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
@@ -494,7 +551,10 @@ function FeaturesSection() {
 
 function WorkflowSection() {
   return (
-    <section id="workflow" className="scroll-mt-16 border-t border-border py-24">
+    <section
+      id="workflow"
+      className="scroll-mt-16 border-t border-border py-24"
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
@@ -504,14 +564,17 @@ function WorkflowSection() {
             One visit, one record, six steps
           </h2>
           <p className="mt-4 text-muted-foreground">
-            A patient moves through the same six stages every visit. MyClinic
-            keeps them attached to a single record the whole way through.
+            A patient moves through the same six stages every visit. MyOPD keeps
+            them attached to a single record the whole way through.
           </p>
         </div>
 
         <div className="mt-14 flex flex-col divide-y divide-border border-y border-border lg:flex-row lg:divide-x lg:divide-y-0">
           {workflowSteps.map((step, index) => (
-            <div key={step.label} className="flex flex-1 gap-4 py-6 lg:flex-col lg:gap-3 lg:px-6 lg:py-8">
+            <div
+              key={step.label}
+              className="flex flex-1 gap-4 py-6 lg:flex-col lg:gap-3 lg:px-6 lg:py-8"
+            >
               <div className="flex shrink-0 items-center gap-3 lg:flex-col lg:items-start lg:gap-4">
                 <span className="font-mono text-xs text-muted-foreground">
                   {String(index + 1).padStart(2, "0")}
@@ -536,7 +599,10 @@ function WorkflowSection() {
 
 function AboutSection() {
   return (
-    <section id="about" className="scroll-mt-16 border-t border-border bg-muted/30 py-24">
+    <section
+      id="about"
+      className="scroll-mt-16 border-t border-border bg-muted/30 py-24"
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-start gap-12 lg:grid-cols-2">
           <div>
@@ -548,15 +614,15 @@ function AboutSection() {
             </h2>
             <div className="mt-6 space-y-4 leading-relaxed text-muted-foreground">
               <p>
-                MyClinic replaces the patchwork most clinics run on — paper
-                registers, a separate billing tool, and prescriptions that
-                never make it into a searchable record — with a single
-                system built around the actual sequence of a visit.
+                MyOPD replaces the patchwork most clinics run on — paper
+                registers, a separate billing tool, and prescriptions that never
+                make it into a searchable record — with a single system built
+                around the actual sequence of a visit.
               </p>
               <p>
                 Registration, the appointment queue, consultation, orders,
-                billing, and pharmacy dispensing are modules of one
-                application, not integrations bolted onto each other.
+                billing, and pharmacy dispensing are modules of one application,
+                not integrations bolted onto each other.
               </p>
             </div>
           </div>
@@ -630,11 +696,75 @@ function CapabilitiesSection() {
             </p>
           </div>
           <Button size="lg" className="shrink-0 text-base" asChild>
-            <a href="#get-started">
+            <Link to="/register">
               Get started
               <ArrowRight className="size-4" />
-            </a>
+            </Link>
           </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Contact ───────────────────────────────────────────────────
+
+const contactChannels = [
+  {
+    icon: Stethoscope,
+    title: "Sales enquiries",
+    description:
+      "Tell us how your clinic runs today and we'll map the rollout.",
+    action: "sales@myopd.com",
+    href: "mailto:sales@myopd.com",
+  },
+  {
+    icon: Activity,
+    title: "Support",
+    description: "Existing customers get a reply within one business day.",
+    action: "support@myopd.com",
+    href: "mailto:support@myopd.com",
+  },
+] as const;
+
+function ContactSection() {
+  return (
+    <section id="contact" className="scroll-mt-16 border-t border-border py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            Contact
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            Talk to someone who knows the workflow
+          </h2>
+          <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+            Questions about migration, pricing, or how a specific module fits
+            your clinic — reach out and we will walk through it.
+          </p>
+        </div>
+
+        <div className="mt-14 grid gap-8 sm:grid-cols-2">
+          {contactChannels.map((channel) => (
+            <div
+              key={channel.title}
+              className="flex flex-col border border-border p-8"
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center bg-primary/10 text-primary">
+                <channel.icon className="size-5" />
+              </span>
+              <h3 className="mt-6 text-sm font-semibold">{channel.title}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                {channel.description}
+              </p>
+              <a
+                href={channel.href}
+                className="mt-6 text-sm font-medium text-primary transition-colors hover:underline"
+              >
+                {channel.action}
+              </a>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -653,7 +783,7 @@ function Footer() {
               <span className="flex size-8 items-center justify-center bg-primary text-primary-foreground">
                 <Hospital className="size-4" />
               </span>
-              <span className="text-sm font-semibold">MyClinic</span>
+              <span className="text-sm font-semibold">MyOPD</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
               A unified clinic management system — registration to pharmacy
@@ -694,17 +824,21 @@ function Footer() {
           <div>
             <h4 className="text-sm font-semibold">Modules</h4>
             <ul className="mt-4 space-y-2">
-              {["Patients", "Appointments", "Billing", "Pharmacy"].map((item) => (
-                <li key={item}>
-                  <span className="text-sm text-muted-foreground">{item}</span>
-                </li>
-              ))}
+              {["Patients", "Appointments", "Billing", "Pharmacy"].map(
+                (item) => (
+                  <li key={item}>
+                    <span className="text-sm text-muted-foreground">
+                      {item}
+                    </span>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} MyClinic.
+          &copy; {new Date().getFullYear()} MyOPD.
         </div>
       </div>
     </footer>

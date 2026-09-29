@@ -178,7 +178,7 @@ export function AllergiesPage() {
         cell: ({ row }) => (
           <Badge
             variant="outline"
-            className={`text-[10px] ${CATEGORY_COLORS[row.original.category]}`}
+            className={`text-2xs ${CATEGORY_COLORS[row.original.category]}`}
           >
             {row.original.category}
           </Badge>
@@ -190,7 +190,7 @@ export function AllergiesPage() {
         cell: ({ row }) => (
           <Badge
             variant="outline"
-            className={`text-[10px] ${SEVERITY_COLORS[row.original.severity]}`}
+            className={`text-2xs ${SEVERITY_COLORS[row.original.severity]}`}
           >
             <ShieldAlert className="mr-1 size-2.5" />
             {row.original.severity.replace("_", " ")}
@@ -203,14 +203,14 @@ export function AllergiesPage() {
         cell: ({ row }) =>
           row.original.isActive ? (
             <Badge
-              className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]"
+              className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-2xs"
               variant="outline"
             >
               Active
             </Badge>
           ) : (
             <Badge
-              className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-[10px]"
+              className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-2xs"
               variant="outline"
             >
               Inactive

@@ -175,7 +175,7 @@ export function QueuePage() {
       cell: ({ row }) => {
         const entry = row.original;
         return (
-          <span className={`flex shrink-0 items-center justify-center rounded-md px-2 py-0.5 text-[10px] font-mono font-bold ${
+          <span className={`tabular flex shrink-0 items-center justify-center rounded-md px-2 py-0.5 text-2xs font-mono font-bold ${
             entry.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
             entry.status === "COMPLETED" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
             "bg-muted text-muted-foreground"
@@ -193,7 +193,7 @@ export function QueuePage() {
       header: "Status",
       cell: ({ row }) => {
         const entry = row.original;
-        return <Badge variant="outline" className={`text-[10px] ${STATUS_STYLES[entry.status] ?? ""}`}>{entry.status.replace("_", " ")}</Badge>;
+        return <Badge variant="outline" className={`text-2xs ${STATUS_STYLES[entry.status] ?? ""}`}>{entry.status.replace("_", " ")}</Badge>;
       },
     },
     {
@@ -237,7 +237,7 @@ export function QueuePage() {
           <div className="flex items-center gap-1">
             {entry.status === "COMPLETED" && entry.appointment && (
               entry.appointment.bill ? (
-                <Badge variant="outline" className="text-[10px]">{entry.appointment.bill.invoiceNo}</Badge>
+                <Badge variant="outline" className="text-2xs">{entry.appointment.bill.invoiceNo}</Badge>
               ) : (
                 <div className="flex items-center gap-1">
                   <Tooltip>
@@ -410,39 +410,39 @@ export function QueuePage() {
             )}
             <div className="grid grid-cols-2 gap-3">
               <Field>
-                <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
+                <FieldLabel className="text-2xs">Height (cm)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals((v) => ({ ...v, heightCm: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Weight (kg)</FieldLabel>
+                <FieldLabel className="text-2xs">Weight (kg)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="70" value={vitals.weightCm} onChange={(e) => setVitals((v) => ({ ...v, weightCm: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Temperature (°F)</FieldLabel>
+                <FieldLabel className="text-2xs">Temperature (°F)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Pulse (bpm)</FieldLabel>
+                <FieldLabel className="text-2xs">Pulse (bpm)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals((v) => ({ ...v, pulseBpm: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Systolic BP</FieldLabel>
+                <FieldLabel className="text-2xs">Systolic BP</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals((v) => ({ ...v, systolicBp: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Diastolic BP</FieldLabel>
+                <FieldLabel className="text-2xs">Diastolic BP</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals((v) => ({ ...v, diastolicBp: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">SpO₂ (%)</FieldLabel>
+                <FieldLabel className="text-2xs">SpO₂ (%)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals((v) => ({ ...v, spo2Percent: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Resp. Rate (/min)</FieldLabel>
+                <FieldLabel className="text-2xs">Resp. Rate (/min)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals((v) => ({ ...v, respiratoryRate: e.target.value }))} />
               </Field>
               <Field className="col-span-2">
-                <FieldLabel className="text-[10px]">Medical Status</FieldLabel>
+                <FieldLabel className="text-2xs">Medical Status</FieldLabel>
                 <select
                   className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
                   value={vitals.medicalStatus}

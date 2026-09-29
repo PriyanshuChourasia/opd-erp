@@ -104,7 +104,7 @@ export function DevelopmentModulesPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium">{mod.name}</p>
-                          <Badge variant="outline" className="font-mono text-[10px]">
+                          <Badge variant="outline" className="font-mono text-2xs">
                             {mod.id}
                           </Badge>
                         </div>
@@ -125,7 +125,7 @@ export function DevelopmentModulesPage() {
                           {actionCount !== 1 ? "s" : ""}
                         </span>
                         {mod.routePrefix && (
-                          <Badge variant="secondary" className="font-mono text-[10px]">
+                          <Badge variant="secondary" className="font-mono text-2xs">
                             /{mod.routePrefix}
                           </Badge>
                         )}
@@ -166,7 +166,7 @@ export function DevelopmentModulesPage() {
                                               <Badge
                                                 key={action.id}
                                                 variant="outline"
-                                                className="font-mono text-[10px]"
+                                                className="font-mono text-2xs"
                                               >
                                                 {action.method} {action.path}
                                               </Badge>
@@ -193,7 +193,7 @@ export function DevelopmentModulesPage() {
                                   <Badge
                                     key={dep.name}
                                     variant="secondary"
-                                    className="text-[10px]"
+                                    className="text-2xs"
                                   >
                                     {dep.name}
                                     {dep.version ? ` v${dep.version}` : ""}

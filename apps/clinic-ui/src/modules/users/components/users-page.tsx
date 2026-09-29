@@ -201,8 +201,8 @@ export function UsersPage() {
       cell: ({ row }) => {
         const active = row.original.isActive;
         return active
-          ? <Badge variant="default" className="bg-green-600/10 text-green-600 text-[10px]">Active</Badge>
-          : <Badge variant="outline" className="text-[10px] text-muted-foreground border-dashed">Inactive</Badge>;
+          ? <Badge variant="default" className="bg-green-600/10 text-green-600 text-2xs">Active</Badge>
+          : <Badge variant="outline" className="text-2xs text-muted-foreground border-dashed">Inactive</Badge>;
       },
     },
     {
@@ -252,7 +252,7 @@ export function UsersPage() {
                 <Button variant="ghost" size="icon" className="size-8" title="Restore" onClick={() => restoreMutation.mutate(user.id)}>
                   <RotateCcw className="size-3.5" />
                 </Button>
-                <span className="text-[10px] text-muted-foreground italic">Deactivated</span>
+                <span className="text-2xs text-muted-foreground italic">Deactivated</span>
               </>
             )}
           </div>

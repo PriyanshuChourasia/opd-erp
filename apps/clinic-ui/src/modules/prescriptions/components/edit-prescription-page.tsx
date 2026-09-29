@@ -336,13 +336,13 @@ export function EditPrescriptionPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                  {vitals.heightCm != null && <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{vitals.heightCm} cm</p></div>}
-                  {vitals.weightKg != null && <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{vitals.weightKg} kg</p></div>}
-                  {vitals.bmi != null && <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{vitals.bmi}</p></div>}
-                  {vitals.temperatureC != null && <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{vitals.temperatureC}°F</p></div>}
-                  {vitals.pulseBpm != null && <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{vitals.pulseBpm} bpm</p></div>}
-                  {vitals.systolicBp != null && vitals.diastolicBp != null && <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{vitals.systolicBp}/{vitals.diastolicBp}</p></div>}
-                  {vitals.spo2Percent != null && <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{vitals.spo2Percent}%</p></div>}
+                  {vitals.heightCm != null && <div><span className="text-2xs text-muted-foreground">Height</span><p className="font-medium">{vitals.heightCm} cm</p></div>}
+                  {vitals.weightKg != null && <div><span className="text-2xs text-muted-foreground">Weight</span><p className="font-medium">{vitals.weightKg} kg</p></div>}
+                  {vitals.bmi != null && <div><span className="text-2xs text-muted-foreground">BMI</span><p className="font-medium">{vitals.bmi}</p></div>}
+                  {vitals.temperatureC != null && <div><span className="text-2xs text-muted-foreground">Temp</span><p className="font-medium">{vitals.temperatureC}°F</p></div>}
+                  {vitals.pulseBpm != null && <div><span className="text-2xs text-muted-foreground">Pulse</span><p className="font-medium">{vitals.pulseBpm} bpm</p></div>}
+                  {vitals.systolicBp != null && vitals.diastolicBp != null && <div><span className="text-2xs text-muted-foreground">BP</span><p className="font-medium">{vitals.systolicBp}/{vitals.diastolicBp}</p></div>}
+                  {vitals.spo2Percent != null && <div><span className="text-2xs text-muted-foreground">SpO₂</span><p className="font-medium">{vitals.spo2Percent}%</p></div>}
                 </div>
               </CardContent>
             </Card>
@@ -354,7 +354,7 @@ export function EditPrescriptionPage() {
               <CardTitle className="text-sm flex items-center gap-1.5">
                 <Activity className="size-4 text-amber-600" />
                 Procedures
-                {procedureOrders.length > 0 && <Badge variant="outline" className="text-[10px]">{procedureOrders.length}</Badge>}
+                {procedureOrders.length > 0 && <Badge variant="outline" className="text-2xs">{procedureOrders.length}</Badge>}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -363,7 +363,7 @@ export function EditPrescriptionPage() {
                   <div key={p.id} className="rounded-none border-l-2 border-amber-400/50 bg-muted/20 px-3 py-2 space-y-1.5">
                     <Input className="h-7 text-xs" value={editProcedureName} onChange={(e) => setEditProcedureName(e.target.value)} placeholder="Procedure name" />
                     <select
-                      className="flex h-7 w-full rounded-none border border-input bg-background px-2 text-[11px]"
+                      className="flex h-7 w-full rounded-none border border-input bg-background px-2 text-xs"
                       value={editProcedureCategory}
                       onChange={(e) => setEditProcedureCategory(e.target.value)}
                     >
@@ -390,7 +390,7 @@ export function EditPrescriptionPage() {
                     <div className="flex items-center justify-between mb-0.5 gap-1">
                       <span className="font-medium">{p.procedureName}</span>
                       <div className="flex items-center gap-1 shrink-0">
-                        <Badge variant="outline" className="text-[10px]">{p.status.replace("_", " ")}</Badge>
+                        <Badge variant="outline" className="text-2xs">{p.status.replace("_", " ")}</Badge>
                         <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100" onClick={() => startEditProcedure(p)}>
                           <Pencil className="size-3" />
                         </Button>
@@ -404,8 +404,8 @@ export function EditPrescriptionPage() {
                         </Button>
                       </div>
                     </div>
-                    {p.category && <p className="text-[10px] text-muted-foreground">{p.category}</p>}
-                    {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
+                    {p.category && <p className="text-2xs text-muted-foreground">{p.category}</p>}
+                    {p.notes && <p className="text-xs text-muted-foreground italic">{p.notes}</p>}
                   </div>
                 )
               ))}
@@ -421,7 +421,7 @@ export function EditPrescriptionPage() {
                   onKeyDown={(e) => { if (e.key === "Enter" && newProcedureName.trim()) createProcedureMutation.mutate(); }}
                 />
                 <select
-                  className="flex h-8 w-28 shrink-0 rounded-none border border-input bg-background px-1.5 text-[11px]"
+                  className="flex h-8 w-28 shrink-0 rounded-none border border-input bg-background px-1.5 text-xs"
                   value={newProcedureCategory}
                   onChange={(e) => setNewProcedureCategory(e.target.value)}
                 >
@@ -456,9 +456,9 @@ export function EditPrescriptionPage() {
                       <div key={rx.id} className="rounded-none border-l-2 border-primary/30 bg-muted/20 px-3 py-2 text-xs">
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-medium">{rx.diagnosis || "No diagnosis"}</span>
-                          <span className="text-[10px] text-muted-foreground">{new Date(rx.createdAt).toLocaleDateString()}</span>
+                          <span className="text-2xs text-muted-foreground">{new Date(rx.createdAt).toLocaleDateString()}</span>
                         </div>
-                        {rx.notes && <p className="text-[11px] text-muted-foreground line-clamp-2">{rx.notes}</p>}
+                        {rx.notes && <p className="text-xs text-muted-foreground line-clamp-2">{rx.notes}</p>}
                       </div>
                     ))}
                   </div>
@@ -536,7 +536,7 @@ export function EditPrescriptionPage() {
                               }}
                             >
                               <span className="font-medium">{med.name}</span>
-                              {med.genericName && <span className="text-[10px] text-muted-foreground">{med.genericName}</span>}
+                              {med.genericName && <span className="text-2xs text-muted-foreground">{med.genericName}</span>}
                             </button>
                           ))}
                         </div>

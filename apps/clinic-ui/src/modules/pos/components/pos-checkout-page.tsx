@@ -177,7 +177,7 @@ export function PosCheckoutPage() {
                   <TableCell><Input value={item.description} placeholder="Description" onChange={(e) => updateCartItem(item.id, { description: e.target.value })} /></TableCell>
                   <TableCell><div className="flex items-center justify-center gap-1"><Button type="button" variant="outline" size="icon-sm" onClick={() => updateCartItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}><Minus /></Button><span className="w-6 text-center text-sm">{item.quantity}</span><Button type="button" variant="outline" size="icon-sm" onClick={() => updateCartItem(item.id, { quantity: item.quantity + 1 })}><Plus /></Button></div></TableCell>
                   <TableCell><Input type="number" min={0} className="text-right" value={item.unitPrice} onChange={(e) => updateCartItem(item.id, { unitPrice: Number(e.target.value) || 0 })} /></TableCell>
-                  <TableCell className="text-right text-sm font-medium">{currency(item.quantity * item.unitPrice)}</TableCell>
+                  <TableCell className="tabular text-right text-sm font-medium">{currency(item.quantity * item.unitPrice)}</TableCell>
                   <TableCell><Button type="button" variant="ghost" size="icon-sm" title="Remove item" onClick={() => removeCartItem(item.id)}><Trash2 className="text-destructive" /></Button></TableCell>
                 </TableRow>))}
               </TableBody>
@@ -189,7 +189,7 @@ export function PosCheckoutPage() {
       <Card className="h-fit lg:sticky lg:top-6">
         <CardHeader><CardTitle className="text-sm">Order summary</CardTitle></CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span>{currency(subtotal)}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span className="tabular">{currency(subtotal)}</span></div>
           <div className="flex flex-col gap-2"><span className="text-sm text-muted-foreground">Discount</span>
             <Select value={discountRuleId ?? "none"} onValueChange={(v) => setDiscountRuleId(v === "none" ? null : v)}>
               <SelectTrigger><SelectValue placeholder="No discount" /></SelectTrigger>
@@ -203,7 +203,7 @@ export function PosCheckoutPage() {
               </SelectContent>
             </Select>
             {discountAmount > 0 && (
-              <p className="text-[11px] text-green-600">−{currency(discountAmount)} applied</p>
+              <p className="tabular text-xs text-green-600">−{currency(discountAmount)} applied</p>
             )}
           </div>
           <div className="flex flex-col gap-2"><span className="text-sm text-muted-foreground">Payment method</span>
@@ -223,7 +223,7 @@ export function PosCheckoutPage() {
               <Input placeholder="UTR Number" value={utrNumber} onChange={(e) => setUtrNumber(e.target.value)} />
             )}
           </div>
-          <div className="flex items-center justify-between border-t pt-4 text-base font-semibold"><span>Total</span><span>{currency(total)}</span></div>
+          <div className="flex items-center justify-between border-t pt-4 text-base font-semibold"><span>Total</span><span className="tabular">{currency(total)}</span></div>
           {selectedPatient ? <Badge variant="outline" className="w-fit">{getPatientName(selectedPatient)}</Badge> : <Badge variant="outline" className="w-fit text-muted-foreground">Walk-in customer</Badge>}
           {checkoutMutation.isError && <p className="text-sm text-destructive">{(checkoutMutation.error as Error).message}</p>}
           {checkoutMutation.isSuccess && <p className="text-sm text-primary">Sale completed.</p>}

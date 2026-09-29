@@ -49,7 +49,7 @@ export function VoucherListPage() {
     {
       accessorKey: "voucherType.name",
       header: "Type",
-      cell: ({ row }) => <Badge variant="outline" className="text-[10px]">{row.original.voucherType.name}</Badge>,
+      cell: ({ row }) => <Badge variant="outline" className="text-2xs">{row.original.voucherType.name}</Badge>,
     },
     {
       accessorKey: "voucherDate",
@@ -63,13 +63,13 @@ export function VoucherListPage() {
     {
       accessorKey: "totalAmount",
       header: "Amount",
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{currency(row.original.totalAmount)}</span>,
+      cell: ({ row }) => <span className="tabular font-mono text-sm font-medium">{currency(row.original.totalAmount)}</span>,
     },
     {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant="outline" className={`text-[10px] ${STATUS_STYLES[row.original.status] ?? ""}`}>
+        <Badge variant="outline" className={`text-2xs ${STATUS_STYLES[row.original.status] ?? ""}`}>
           {row.original.status}
         </Badge>
       ),

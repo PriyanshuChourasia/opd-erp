@@ -77,7 +77,7 @@ export function PatientPrescriptionsPage() {
                   </div>
                   <Badge
                     variant="outline"
-                    className={`shrink-0 text-[10px] ${RX_STATUS_STYLES[rx.status] ?? ""}`}
+                    className={`shrink-0 text-2xs ${RX_STATUS_STYLES[rx.status] ?? ""}`}
                   >
                     {rx.status}
                   </Badge>

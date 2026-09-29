@@ -97,32 +97,32 @@ export function AppointmentVitalsSheet({ appointment, open, onOpenChange }: Appo
             <div className="rounded-none border p-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-foreground">Last recorded vitals</span>
-                <span className="text-[10px] text-muted-foreground">{new Date(latestVitals.recordedAt).toLocaleString()}</span>
+                <span className="text-2xs text-muted-foreground">{new Date(latestVitals.recordedAt).toLocaleString()}</span>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
                 {latestVitals.heightCm != null && (
-                  <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{latestVitals.heightCm} cm</p></div>
+                  <div><span className="text-2xs text-muted-foreground">Height</span><p className="font-medium">{latestVitals.heightCm} cm</p></div>
                 )}
                 {latestVitals.weightKg != null && (
-                  <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{latestVitals.weightKg} kg</p></div>
+                  <div><span className="text-2xs text-muted-foreground">Weight</span><p className="font-medium">{latestVitals.weightKg} kg</p></div>
                 )}
                 {latestVitals.bmi != null && (
-                  <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{latestVitals.bmi}</p></div>
+                  <div><span className="text-2xs text-muted-foreground">BMI</span><p className="font-medium">{latestVitals.bmi}</p></div>
                 )}
                 {latestVitals.temperatureC != null && (
-                  <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{latestVitals.temperatureC}°F</p></div>
+                  <div><span className="text-2xs text-muted-foreground">Temp</span><p className="font-medium">{latestVitals.temperatureC}°F</p></div>
                 )}
                 {latestVitals.pulseBpm != null && (
-                  <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{latestVitals.pulseBpm} bpm</p></div>
+                  <div><span className="text-2xs text-muted-foreground">Pulse</span><p className="font-medium">{latestVitals.pulseBpm} bpm</p></div>
                 )}
                 {latestVitals.systolicBp != null && latestVitals.diastolicBp != null && (
-                  <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{latestVitals.systolicBp}/{latestVitals.diastolicBp} mmHg</p></div>
+                  <div><span className="text-2xs text-muted-foreground">BP</span><p className="font-medium">{latestVitals.systolicBp}/{latestVitals.diastolicBp} mmHg</p></div>
                 )}
                 {latestVitals.spo2Percent != null && (
-                  <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{latestVitals.spo2Percent}%</p></div>
+                  <div><span className="text-2xs text-muted-foreground">SpO₂</span><p className="font-medium">{latestVitals.spo2Percent}%</p></div>
                 )}
                 {latestVitals.respiratoryRate != null && (
-                  <div><span className="text-[10px] text-muted-foreground">Resp Rate</span><p className="font-medium">{latestVitals.respiratoryRate}/min</p></div>
+                  <div><span className="text-2xs text-muted-foreground">Resp Rate</span><p className="font-medium">{latestVitals.respiratoryRate}/min</p></div>
                 )}
               </div>
               <Button
@@ -139,39 +139,39 @@ export function AppointmentVitalsSheet({ appointment, open, onOpenChange }: Appo
           {showVitalsForm && (
           <div className="grid grid-cols-2 gap-3">
             <Field>
-              <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
+              <FieldLabel className="text-2xs">Height (cm)</FieldLabel>
               <Input className="h-8 text-xs" type="number" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals((v) => ({ ...v, heightCm: e.target.value }))} />
             </Field>
             <Field>
-              <FieldLabel className="text-[10px]">Weight (kg)</FieldLabel>
+              <FieldLabel className="text-2xs">Weight (kg)</FieldLabel>
               <Input className="h-8 text-xs" type="number" placeholder="70" value={vitals.weightCm} onChange={(e) => setVitals((v) => ({ ...v, weightCm: e.target.value }))} />
             </Field>
             <Field>
-              <FieldLabel className="text-[10px]">Temperature (°F)</FieldLabel>
+              <FieldLabel className="text-2xs">Temperature (°F)</FieldLabel>
               <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
             </Field>
             <Field>
-              <FieldLabel className="text-[10px]">Pulse (bpm)</FieldLabel>
+              <FieldLabel className="text-2xs">Pulse (bpm)</FieldLabel>
               <Input className="h-8 text-xs" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals((v) => ({ ...v, pulseBpm: e.target.value }))} />
             </Field>
             <Field>
-              <FieldLabel className="text-[10px]">Systolic BP</FieldLabel>
+              <FieldLabel className="text-2xs">Systolic BP</FieldLabel>
               <Input className="h-8 text-xs" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals((v) => ({ ...v, systolicBp: e.target.value }))} />
             </Field>
             <Field>
-              <FieldLabel className="text-[10px]">Diastolic BP</FieldLabel>
+              <FieldLabel className="text-2xs">Diastolic BP</FieldLabel>
               <Input className="h-8 text-xs" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals((v) => ({ ...v, diastolicBp: e.target.value }))} />
             </Field>
             <Field>
-              <FieldLabel className="text-[10px]">SpO₂ (%)</FieldLabel>
+              <FieldLabel className="text-2xs">SpO₂ (%)</FieldLabel>
               <Input className="h-8 text-xs" type="number" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals((v) => ({ ...v, spo2Percent: e.target.value }))} />
             </Field>
             <Field>
-              <FieldLabel className="text-[10px]">Resp. Rate (/min)</FieldLabel>
+              <FieldLabel className="text-2xs">Resp. Rate (/min)</FieldLabel>
               <Input className="h-8 text-xs" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals((v) => ({ ...v, respiratoryRate: e.target.value }))} />
             </Field>
             <Field className="col-span-2">
-              <FieldLabel className="text-[10px]">Medical Status</FieldLabel>
+              <FieldLabel className="text-2xs">Medical Status</FieldLabel>
               <select
                 className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
                 value={vitals.medicalStatus}

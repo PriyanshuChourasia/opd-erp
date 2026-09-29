@@ -88,7 +88,7 @@ export function AppointmentPrescriptionSheet({ appointment, open, onOpenChange }
           {/* Appointment Notes */}
           {appointment?.notes && (
             <div className="rounded-none border border-primary/20 bg-primary/5 p-3">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-primary/80">Appointment Notes</span>
+              <span className="text-2xs font-medium uppercase tracking-wider text-primary/80">Appointment Notes</span>
               <p className="mt-1 text-sm text-foreground/80 whitespace-pre-wrap">{appointment.notes}</p>
             </div>
           )}
@@ -128,7 +128,7 @@ export function AppointmentPrescriptionSheet({ appointment, open, onOpenChange }
           {/* ── Patient Documents (collapsible) ── */}
           {rxShowDocs && appointment && (
             <div className="rounded-none border p-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Patient Documents</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Patient Documents</p>
               <DocumentGallery documentableType="Patient" documentableId={appointment.patientId} />
             </div>
           )}
@@ -136,7 +136,7 @@ export function AppointmentPrescriptionSheet({ appointment, open, onOpenChange }
           {/* ── Prescription History (collapsible) ── */}
           {rxShowHistory && (
             <div className="rounded-none border p-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Prescription History
                 <span className="ml-1.5 text-xs font-normal text-muted-foreground">{rxPastPrescriptions.length} records</span>
               </p>
@@ -150,12 +150,12 @@ export function AppointmentPrescriptionSheet({ appointment, open, onOpenChange }
                     <div key={rx.id} className="rounded-none border-l-2 border-primary/30 bg-muted/20 px-3 py-2 text-xs">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="font-medium">{rx.diagnosis || "No diagnosis"}</span>
-                        <span className="text-[10px] text-muted-foreground">{new Date(rx.createdAt).toLocaleDateString()}</span>
+                        <span className="text-2xs text-muted-foreground">{new Date(rx.createdAt).toLocaleDateString()}</span>
                       </div>
                       {rx.notes && (
-                        <p className="text-[11px] text-muted-foreground line-clamp-2">{rx.notes}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{rx.notes}</p>
                       )}
-                      <p className="mt-1 text-[10px] text-muted-foreground">
+                      <p className="mt-1 text-2xs text-muted-foreground">
                         {rx.items.length} medicine{rx.items.length !== 1 ? "s" : ""} · Dr. {rx.doctor?.name ?? rx.doctor?.medicalRegistrationNo ?? "Unknown"}
                       </p>
                     </div>

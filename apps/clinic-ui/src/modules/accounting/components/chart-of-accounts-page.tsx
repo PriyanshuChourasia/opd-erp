@@ -25,9 +25,9 @@ function LedgerRow({ ledger }: { ledger: Ledger }) {
       <div className="flex items-center gap-2">
         <BookOpen className="size-3 text-muted-foreground" />
         <span className="font-medium">{ledger.name}</span>
-        {ledger.isCashAccount && <Badge variant="outline" className="text-[9px]">Cash</Badge>}
-        {ledger.isBankAccount && <Badge variant="outline" className="text-[9px]">Bank</Badge>}
-        {ledger.patientId && <Badge variant="outline" className="text-[9px]">Patient</Badge>}
+        {ledger.isCashAccount && <Badge variant="outline" className="text-2xs">Cash</Badge>}
+        {ledger.isBankAccount && <Badge variant="outline" className="text-2xs">Bank</Badge>}
+        {ledger.patientId && <Badge variant="outline" className="text-2xs">Patient</Badge>}
       </div>
       <span className={cn("font-mono font-medium", ledger.currentBalance >= 0 ? "text-green-600" : "text-red-600")}>
         {currency(ledger.currentBalance)}
@@ -58,7 +58,7 @@ function GroupNode({ group, depth = 0 }: { group: AccountGroup; depth?: number }
         {hasLedgers && (
           <span className="ml-1 text-xs text-muted-foreground">({group.ledgers!.length})</span>
         )}
-        {group.isReserved && <Badge variant="outline" className="ml-1 text-[9px]">Reserved</Badge>}
+        {group.isReserved && <Badge variant="outline" className="ml-1 text-2xs">Reserved</Badge>}
       </button>
       {expanded && (
         <div>
@@ -98,7 +98,7 @@ export function ChartOfAccountsPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">{nature.name}</CardTitle>
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline" className="text-2xs">
                     Normal: {nature.normalBalance}
                   </Badge>
                 </div>

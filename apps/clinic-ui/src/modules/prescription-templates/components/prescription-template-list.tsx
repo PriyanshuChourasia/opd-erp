@@ -136,7 +136,7 @@ export function PrescriptionTemplateList() {
                 )}
               >
                 {tpl.isDefault && (
-                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-2 py-0.5 text-[10px] font-semibold rounded-bl">
+                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-2 py-0.5 text-2xs font-semibold rounded-bl">
                     DEFAULT
                   </div>
                 )}
@@ -192,14 +192,14 @@ export function PrescriptionTemplateList() {
                           const tc = TYPE_CONFIG[tpl.type ?? "prescription"];
                           const Icon = tc.icon;
                           return (
-                            <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium", tc.color)}>
+                            <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-2xs font-medium", tc.color)}>
                               <Icon className="size-2.5" />
                               {tc.label}
                             </span>
                           );
                         })()}
                         {(tpl.isDefault || tpl.doctorId) && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-2xs font-medium text-emerald-700">
                             <span className="size-1.5 rounded-full bg-emerald-500" />
                             ACTIVE
                           </span>
@@ -209,7 +209,7 @@ export function PrescriptionTemplateList() {
                         <p className="text-xs text-muted-foreground mt-0.5">{tpl.description}</p>
                       )}
                       {tpl.doctorId && (
-                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-700">
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-2xs font-medium text-violet-700">
                           <UserRound className="size-2.5" />
                           {doctorName(tpl.doctorId)}
                         </span>
@@ -225,7 +225,7 @@ export function PrescriptionTemplateList() {
                         else assignDoctorMutation.mutate({ id: tpl.id, doctorId: value });
                       }}
                     >
-                      <SelectTrigger className="h-7 flex-1 text-[11px]">
+                      <SelectTrigger className="h-7 flex-1 text-xs">
                         <SelectValue placeholder="Assign to doctor..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -249,7 +249,7 @@ export function PrescriptionTemplateList() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="gap-1 h-7 text-[11px]"
+                      className="gap-1 h-7 text-xs"
                       onClick={() => setPreviewTemplate(tpl)}
                     >
                       <Eye className="size-3" />
@@ -258,7 +258,7 @@ export function PrescriptionTemplateList() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="gap-1 h-7 text-[11px]"
+                      className="gap-1 h-7 text-xs"
                       onClick={() => openEdit(tpl)}
                     >
                       <Pencil className="size-3" />
@@ -268,7 +268,7 @@ export function PrescriptionTemplateList() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="gap-1 h-7 text-[11px]"
+                        className="gap-1 h-7 text-xs"
                         onClick={() => setDefaultMutation.mutate(tpl.id)}
                         disabled={setDefaultMutation.isPending}
                       >

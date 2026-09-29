@@ -70,7 +70,7 @@ export function AddressesPage() {
       accessorKey: "addressableType",
       header: "Entity",
       cell: ({ row }) => (
-        <Badge variant="outline" className="text-[10px]">{row.original.addressableType}</Badge>
+        <Badge variant="outline" className="text-2xs">{row.original.addressableType}</Badge>
       ),
     },
     {
@@ -85,7 +85,7 @@ export function AddressesPage() {
       header: "Primary",
       cell: ({ row }) =>
         row.original.isPrimary ? (
-          <Badge variant="default" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px]">Primary</Badge>
+          <Badge variant="default" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-2xs">Primary</Badge>
         ) : (
           <span className="text-muted-foreground text-xs">—</span>
         ),
@@ -95,9 +95,9 @@ export function AddressesPage() {
       header: "Status",
       cell: ({ row }) =>
         row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]" variant="outline">Active</Badge>
+          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-2xs" variant="outline">Active</Badge>
         ) : (
-          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-[10px]" variant="outline">Inactive</Badge>
+          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-2xs" variant="outline">Inactive</Badge>
         ),
     },
   ], []);

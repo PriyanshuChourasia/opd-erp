@@ -201,7 +201,7 @@ export function PatientDashboardPage() {
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${APPT_STATUS_STYLES[appt.status] ?? ""}`}
+                      className={`text-2xs ${APPT_STATUS_STYLES[appt.status] ?? ""}`}
                     >
                       {appt.status.replace("_", " ")}
                     </Badge>
@@ -237,7 +237,7 @@ export function PatientDashboardPage() {
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${APPT_STATUS_STYLES[appt.status] ?? ""}`}
+                      className={`text-2xs ${APPT_STATUS_STYLES[appt.status] ?? ""}`}
                     >
                       {appt.status.replace("_", " ")}
                     </Badge>
@@ -273,7 +273,7 @@ export function PatientDashboardPage() {
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${
+                      className={`text-2xs ${
                         rx.status === "DISPENSED"
                           ? "bg-green-100 text-green-700"
                           : rx.status === "ACTIVE"
@@ -315,7 +315,7 @@ export function PatientDashboardPage() {
                       <span className="text-sm font-medium tabular-nums">{currency(bill.total)}</span>
                       <Badge
                         variant="outline"
-                        className={`text-[10px] ${BILL_STATUS_STYLES[bill.status] ?? ""}`}
+                        className={`text-2xs ${BILL_STATUS_STYLES[bill.status] ?? ""}`}
                       >
                         {bill.status}
                       </Badge>

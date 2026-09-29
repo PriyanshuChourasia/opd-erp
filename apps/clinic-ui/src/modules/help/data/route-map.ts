@@ -23,6 +23,7 @@ export const ROUTE_HELP_MAP: Record<AppRoutePath, HelpRouteMapEntry> = {
   // Auth / landing
   "/": { module: "auth" },
   "/login": { module: "auth" },
+  "/register": { module: "auth" },
 
   // Public display
   "/display": { module: "queue-display" },

@@ -168,7 +168,7 @@ export function PatientHistorySheet({
                   {prescriptions.length} prescription{prescriptions.length !== 1 ? "s" : ""} total
                 </span>
                 {filterDate && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-2xs text-muted-foreground">
                     Filtered by date
                   </span>
                 )}
@@ -185,7 +185,7 @@ export function PatientHistorySheet({
                       {month}
                     </span>
                     <span className="h-px flex-1 bg-border" />
-                    <span className="text-[10px] text-muted-foreground/50">
+                    <span className="text-2xs text-muted-foreground/50">
                       {rxs.length}
                     </span>
                   </div>
@@ -207,7 +207,7 @@ export function PatientHistorySheet({
                           >
                             {/* Date indicator */}
                             <div className="flex shrink-0 flex-col items-center pt-0.5">
-                              <span className="text-[11px] font-bold leading-tight tabular-nums">
+                              <span className="text-xs font-bold leading-tight tabular-nums">
                                 {rxDate.getDate()}
                               </span>
                               <span className="text-[8px] font-medium uppercase text-muted-foreground/60 leading-tight">
@@ -228,14 +228,14 @@ export function PatientHistorySheet({
                                 <Badge
                                   variant="outline"
                                   className={cn(
-                                    "shrink-0 text-[9px] uppercase",
+                                    "shrink-0 text-2xs uppercase",
                                     RX_STATUS_STYLES[rx.status] ?? ""
                                   )}
                                 >
                                   {rx.status}
                                 </Badge>
                               </div>
-                              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Pill className="size-2.5 text-violet-500" />
                                   {rx.items.length} item{rx.items.length !== 1 ? "s" : ""}
@@ -265,7 +265,7 @@ export function PatientHistorySheet({
                               {/* Diagnosis */}
                               {rx.diagnosis && (
                                 <div>
-                                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground/60">
                                     Diagnosis
                                   </span>
                                   <p className="mt-0.5 text-sm">{rx.diagnosis}</p>
@@ -275,7 +275,7 @@ export function PatientHistorySheet({
                               {/* Prescribed by */}
                               {rx.doctor?.name && (
                                 <div>
-                                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground/60">
                                     Prescribed by
                                   </span>
                                   <p className="mt-0.5 text-sm">
@@ -291,7 +291,7 @@ export function PatientHistorySheet({
 
                               {/* Medicines */}
                               <div>
-                                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                                <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground/60">
                                   Medicines
                                 </span>
                                 <div className="mt-1 space-y-1.5">
@@ -304,15 +304,15 @@ export function PatientHistorySheet({
                                       <span className="min-w-0 flex-1 text-xs font-medium">
                                         {item.medicineName}
                                       </span>
-                                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                                      <span className="shrink-0 text-2xs text-muted-foreground">
                                         {item.dosage}
                                       </span>
                                       {item.duration && (
-                                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                                        <span className="shrink-0 text-2xs text-muted-foreground">
                                           &middot; {item.duration}
                                         </span>
                                       )}
-                                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                                      <span className="shrink-0 text-2xs text-muted-foreground">
                                         &middot; Qty: {item.quantity}
                                       </span>
                                     </div>
@@ -323,7 +323,7 @@ export function PatientHistorySheet({
                               {/* Notes */}
                               {rx.notes && (
                                 <div>
-                                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground/60">
                                     Doctor's Notes
                                   </span>
                                   <p className="mt-0.5 rounded-sm border bg-background px-2.5 py-1.5 text-xs italic text-muted-foreground">
@@ -333,7 +333,7 @@ export function PatientHistorySheet({
                               )}
 
                               {/* Footer */}
-                              <div className="flex items-center justify-between text-[10px] text-muted-foreground/50">
+                              <div className="flex items-center justify-between text-2xs text-muted-foreground/50">
                                 <span>
                                   Created{" "}
                                   {rxDate.toLocaleString("en-IN", {

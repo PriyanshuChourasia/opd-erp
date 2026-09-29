@@ -125,7 +125,7 @@ export function DevelopmentFeaturesPage() {
                 </button>
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-none bg-primary/10"><Zap className="size-4 text-primary" /></span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2"><p className="text-sm font-medium">{feature.name}</p><Badge variant="secondary" className="text-[10px]">{getModuleName(feature.moduleId)}</Badge><Badge variant="outline" className={typeClass[feature.type]}>{feature.type}</Badge></div>
+                  <div className="flex items-center gap-2"><p className="text-sm font-medium">{feature.name}</p><Badge variant="secondary" className="text-2xs">{getModuleName(feature.moduleId)}</Badge><Badge variant="outline" className={typeClass[feature.type]}>{feature.type}</Badge></div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{feature.description}</p>
                 </div>
                 <div className="flex items-center gap-2"><Badge variant={feature.status === "enabled" ? "default" : feature.status === "beta" ? "secondary" : "outline"} className={feature.status === "enabled" ? "bg-green-600/10 text-green-600" : feature.status === "beta" ? "bg-amber-600/10 text-amber-600" : ""}>{feature.status}</Badge></div>

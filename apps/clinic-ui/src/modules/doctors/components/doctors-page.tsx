@@ -1060,7 +1060,7 @@ export function DoctorsPage() {
                         {day.blocks.map((block, blockIdx) => (
                           <div key={blockIdx} className="rounded-md border border-dashed p-2.5 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-semibold text-muted-foreground">Shift {blockIdx + 1}</span>
+                              <span className="text-xs font-semibold text-muted-foreground">Shift {blockIdx + 1}</span>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1124,7 +1124,7 @@ export function DoctorsPage() {
             {/* ─── One-time schedule changes (date-specific) ─── */}
             <div className="rounded-lg border border-dashed border-amber-300/70 bg-amber-50/40 p-3">
               <p className="mb-1 text-xs font-semibold text-amber-800">One-time schedule changes</p>
-              <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+              <p className="mb-3 text-xs leading-snug text-muted-foreground">
                 Apply to a single calendar date only — recurring weekly shifts above are never touched.
               </p>
 
@@ -1364,7 +1364,7 @@ function DoctorDocUploader({ doctorId }: { doctorId: string }) {
           )}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium truncate">{doc.originalName}</p>
-            <p className="text-[10px] text-muted-foreground">{doc.caption || doc.documentType} · {(doc.fileSize / 1024).toFixed(0)} KB</p>
+            <p className="text-2xs text-muted-foreground">{doc.caption || doc.documentType} · {(doc.fileSize / 1024).toFixed(0)} KB</p>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>

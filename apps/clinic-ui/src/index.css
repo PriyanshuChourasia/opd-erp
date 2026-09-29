@@ -7,7 +7,6 @@
 
 body {
   margin: 0;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
 }
 
 /* Remove up/down arrows from number inputs */
@@ -23,6 +22,9 @@ input[type="number"] {
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
+  /* Smallest step, for badges and meta labels only — never body copy. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -66,7 +68,7 @@ input[type="number"] {
 
 :root {
   --font-scale: 1;
-  --background: oklch(1 0 0);
+  --background: oklch(0.985 0.003 168);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -574,6 +576,14 @@ input[type="number"] {
 }
 [data-slot="sidebar-menu-button"][data-active="true"]:hover svg {
   color: var(--primary-foreground) !important;
+}
+
+/* Fixed-width figures for columns of numbers — money, token numbers, times.
+   Without this, digits are proportional and values visibly jitter as the
+   underlying data updates. Shorthand for Tailwind's `tabular-nums` so table
+   cells read as one idiom. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Dashboard tabs — active tab solid color */

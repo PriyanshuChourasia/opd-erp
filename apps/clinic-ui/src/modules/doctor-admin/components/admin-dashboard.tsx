@@ -92,7 +92,7 @@ export function AdminDashboard() {
                 <span className={`flex size-9 items-center justify-center rounded-lg ${color}`}>
                   <Icon className="size-4" />
                 </span>
-                <span className="text-[11px] font-medium text-muted-foreground leading-tight">{label}</span>
+                <span className="text-xs font-medium text-muted-foreground leading-tight">{label}</span>
               </Link>
             ))}
           </div>
@@ -119,7 +119,7 @@ export function AdminDashboard() {
                     <p className="text-xs leading-relaxed text-muted-foreground">
                       {appt.patient.firstName} {appt.patient.lastName} — {appt.status.replace(/_/g, " ")}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground/70">
+                    <p className="mt-0.5 text-2xs text-muted-foreground/70">
                       {appt.doctor.specialization ?? "General"} · {appt.type}
                     </p>
                   </div>

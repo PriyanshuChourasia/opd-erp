@@ -52,31 +52,31 @@ function ExpiryBadge({ dateStr }: { dateStr: string | null }) {
   const days = daysUntilExpiry(dateStr);
   if (days === null)
     return (
-      <Badge variant="outline" className="text-[10px]">
+      <Badge variant="outline" className="text-2xs">
         No expiry
       </Badge>
     );
   if (days < 0)
     return (
-      <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px]">
+      <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-2xs">
         Expired
       </Badge>
     );
   if (days <= 30)
     return (
-      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px]">
+      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-2xs">
         <AlertTriangle className="mr-1 size-3" />
         {days}d left
       </Badge>
     );
   if (days <= 90)
     return (
-      <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-[10px]">
+      <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-2xs">
         {days}d left
       </Badge>
     );
   return (
-    <Badge variant="outline" className="text-[10px]">
+    <Badge variant="outline" className="text-2xs">
       {days}d left
     </Badge>
   );
@@ -363,7 +363,7 @@ export function StockInquiryPage() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Medicine Stock</CardTitle>
             {summaryFetching && (
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-2xs">
                 Loading stock data…
               </Badge>
             )}

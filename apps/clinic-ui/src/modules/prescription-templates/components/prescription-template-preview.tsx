@@ -95,7 +95,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
     return (
       <div className={side === "right" ? "text-right" : "text-left"}>
         {fields.map((f, i) => (
-          <p key={i} className="text-[10px] text-muted-foreground">
+          <p key={i} className="text-2xs text-muted-foreground">
             <span className="font-medium">{f.label}:</span> {f.value}
           </p>
         ))}
@@ -277,7 +277,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
   const Footer = () => (
     showFooter ? (
       <div
-        className="px-4 py-2.5 flex items-center justify-between text-[10px] text-muted-foreground"
+        className="px-4 py-2.5 flex items-center justify-between text-2xs text-muted-foreground"
         style={{ borderTop: `2px solid ${primaryColor}20`, background: `${primaryColor}08` }}
       >
         <div>
@@ -306,7 +306,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
         <div className="space-y-1.5">
           {["General Appearance", "Vital Signs", "Systemic Examination"].map((field) => (
             <div key={field} className="flex items-baseline gap-2">
-              <span className="text-[10px] text-muted-foreground shrink-0 w-28">{field}:</span>
+              <span className="text-2xs text-muted-foreground shrink-0 w-28">{field}:</span>
               <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
             </div>
           ))}
@@ -369,7 +369,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
           <p className="text-xs font-semibold mb-1.5" style={{ color: primaryColor }}>{cat.category}</p>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1">
             {cat.tests.map((test) => (
-              <label key={test} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <label key={test} className="flex items-center gap-1.5 text-2xs text-muted-foreground">
                 <span className="size-3 border rounded-sm shrink-0" />
                 {test}
               </label>
@@ -382,7 +382,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
         <p className="text-xs font-semibold mb-1" style={{ color: primaryColor }}>Special Instructions</p>
         <div className="space-y-1">
           {["Fasting required (8-12 hours)", "Morning sample preferred", "No medication before test"].map((instr) => (
-            <label key={instr} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <label key={instr} className="flex items-center gap-1.5 text-2xs text-muted-foreground">
               <span className="size-3 border rounded-sm shrink-0" />
               {instr}
             </label>
@@ -406,7 +406,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           {["Appointment ID", "Department", "Appointment Date", "Appointment Time", "Token / Queue No.", "Status"].map((field) => (
             <div key={field} className="flex items-baseline gap-2">
-              <span className="text-[10px] text-muted-foreground shrink-0 w-28">{field}:</span>
+              <span className="text-2xs text-muted-foreground shrink-0 w-28">{field}:</span>
               <span className="border-b border-dashed border-muted-foreground/30 flex-1">&nbsp;</span>
             </div>
           ))}
@@ -416,7 +416,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
       <div>
         <p className="text-xs font-semibold mb-1" style={{ color: primaryColor }}>Consulting Doctor</p>
         <div className="flex items-baseline gap-2">
-          <span className="text-[10px] text-muted-foreground shrink-0 w-28">Doctor:</span>
+          <span className="text-2xs text-muted-foreground shrink-0 w-28">Doctor:</span>
           <span className="border-b border-dashed border-muted-foreground/30 flex-1">
             {template.doctorName ? template.doctorName : <>&nbsp;</>}
           </span>
@@ -432,7 +432,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
         <p className="text-xs font-semibold mb-1" style={{ color: primaryColor }}>Instructions</p>
         <div className="space-y-1">
           {["Please arrive 15 minutes before your scheduled time", "Carry a valid ID and previous medical records", "Bring this slip for reception check-in"].map((instr) => (
-            <label key={instr} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <label key={instr} className="flex items-center gap-1.5 text-2xs text-muted-foreground">
               <span className="size-3 border rounded-sm shrink-0" />
               {instr}
             </label>
@@ -545,7 +545,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${primaryColor}30` }}>
                 <div>
                   {template.clinicName && <p className="text-sm font-semibold" style={{ color: primaryColor }}>{template.clinicName}</p>}
-                  {template.doctorName && <p className="text-[10px] text-muted-foreground">{template.doctorName}</p>}
+                  {template.doctorName && <p className="text-2xs text-muted-foreground">{template.doctorName}</p>}
                 </div>
                 {showRxSymbol && <span className="text-2xl font-bold italic" style={{ color: primaryColor }}>℞</span>}
               </div>
@@ -554,7 +554,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               <DiagnosisNotes />
               <Recommendations />
               {showFooter && (
-                <div className="px-4 py-2 text-[9px] text-muted-foreground text-center" style={{ borderTop: `1px solid ${primaryColor}15` }}>
+                <div className="px-4 py-2 text-2xs text-muted-foreground text-center" style={{ borderTop: `1px solid ${primaryColor}15` }}>
                   {template.doctorRegNo && <span>Reg: {template.doctorRegNo}</span>}
                   {footerText && <span> · {footerText}</span>}
                 </div>
@@ -578,7 +578,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                 {template.logoUrl && <img src={template.logoUrl} alt="Logo" className="h-10 w-10 object-contain rounded" />}
                 <div className="flex-1">
                   <p className="text-sm font-bold" style={{ color: primaryColor }}>{template.clinicName || "Clinic Name"}</p>
-                  {template.doctorName && <p className="text-[10px] text-muted-foreground">{template.doctorName}</p>}
+                  {template.doctorName && <p className="text-2xs text-muted-foreground">{template.doctorName}</p>}
                 </div>
                 {showRxSymbol && <span className="text-3xl font-bold italic" style={{ color: primaryColor, opacity: 0.4 }}>℞</span>}
               </div>
@@ -619,7 +619,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                       <p className="font-semibold text-xs mb-1" style={{ color: primaryColor }}>Recommendations</p>
                       <div className="space-y-1">
                         {recommendations.map((r, i) => (
-                          <label key={i} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <label key={i} className="flex items-center gap-1.5 text-2xs text-muted-foreground">
                             <span className="size-2.5 border rounded-sm shrink-0" />{r}
                           </label>
                         ))}
@@ -630,7 +630,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                 {/* Right Column — Medicines */}
                 <div className="w-1/2 p-4">
                   <p className="font-semibold text-xs mb-2" style={{ color: primaryColor }}>Medicines</p>
-                  <table className="w-full text-[10px]">
+                  <table className="w-full text-2xs">
                     <thead>
                       <tr style={{ borderBottom: `1px solid ${primaryColor}30` }}>
                         {["#", "Medicine", "Dosage", "Duration"].map((col) => (
@@ -664,9 +664,9 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                     <div className="mt-3">
                       <p className="font-semibold text-xs mb-1" style={{ color: primaryColor }}>Notes</p>
                       {data ? (
-                        <p className="min-h-10 text-[10px] whitespace-pre-wrap">{data.notes || "—"}</p>
+                        <p className="min-h-10 text-xs whitespace-pre-wrap">{data.notes || "—"}</p>
                       ) : (
-                        <div className="border border-dashed border-muted-foreground/20 rounded h-10 text-[10px]">&nbsp;</div>
+                        <div className="border border-dashed border-muted-foreground/20 rounded h-10 text-2xs">&nbsp;</div>
                       )}
                     </div>
                   )}
@@ -712,7 +712,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               {/* Compact Medicine List */}
               {showMedicineTable && (
                 <div className="px-3 py-2">
-                  <table className="w-full text-[10px]">
+                  <table className="w-full text-2xs">
                     <thead>
                       <tr style={{ borderBottom: `1px solid ${primaryColor}30` }}>
                         {["#", "Medicine", "Dosage", "Duration"].map((col) => (
@@ -737,7 +737,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               <Recommendations />
               {/* Compact Footer */}
               {showFooter && (
-                <div className="px-3 py-1.5 flex items-center justify-between text-[9px] text-muted-foreground" style={{ borderTop: `1px solid ${primaryColor}20`, background: `${primaryColor}03` }}>
+                <div className="px-3 py-1.5 flex items-center justify-between text-2xs text-muted-foreground" style={{ borderTop: `1px solid ${primaryColor}20`, background: `${primaryColor}03` }}>
                   <span>{showClinicAddress && template.clinicAddress}{showRegistrationNo && template.doctorRegNo && ` · Reg: ${template.doctorRegNo}`}</span>
                   {footerText && <span>{footerText}</span>}
                 </div>
@@ -768,14 +768,14 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                   <div>
                     {template.doctorName && <p className="text-sm font-bold" style={{ color: primaryColor }}>{template.doctorName}</p>}
                     {template.doctorSpecialization && <p className="text-xs text-muted-foreground">Specialist in {template.doctorSpecialization}</p>}
-                    {template.doctorQualification && <p className="text-[10px] text-muted-foreground">{template.doctorQualification}</p>}
+                    {template.doctorQualification && <p className="text-2xs text-muted-foreground">{template.doctorQualification}</p>}
                   </div>
                 </div>
                 {/* Right: Hospital info */}
                 <div className="text-right">
                   {template.clinicName && <p className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryColor }}>{template.clinicName}</p>}
                   {showClinicAddress && template.clinicAddress && (
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                    <div className="text-2xs text-muted-foreground mt-0.5">
                       {template.clinicAddress.split(',').map((line: string, i: number) => (
                         <p key={i}>{line.trim()}</p>
                       ))}
@@ -789,7 +789,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               {/* Body */}
               <BodyContent />
               {showFooter && (
-                <div className="px-4 py-2 text-[9px] text-muted-foreground" style={{ borderTop: `1px solid ${primaryColor}15` }}>
+                <div className="px-4 py-2 text-2xs text-muted-foreground" style={{ borderTop: `1px solid ${primaryColor}15` }}>
                   {showRegistrationNo && template.doctorRegNo && <span>Reg: {template.doctorRegNo}</span>}
                   {footerText && <span className="ml-2">{footerText}</span>}
                 </div>
@@ -815,7 +815,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                   {template.logoUrl && <img src={template.logoUrl} alt="Logo" className="h-8 w-8 object-contain rounded" />}
                   <div>
                     {template.clinicName && <p className="text-xs font-bold" style={{ color: primaryColor }}>{template.clinicName}</p>}
-                    {template.doctorName && <p className="text-[10px] text-muted-foreground">{template.doctorName}</p>}
+                    {template.doctorName && <p className="text-2xs text-muted-foreground">{template.doctorName}</p>}
                   </div>
                 </div>
                 {showRxSymbol && <span className="text-3xl font-bold italic" style={{ color: primaryColor, opacity: 0.5 }}>℞</span>}
@@ -831,7 +831,7 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
               <SignatureLine />
               {/* Minimal footer */}
               {showFooter && (
-                <div className="px-4 py-1.5 text-[9px] text-muted-foreground text-center" style={{ borderTop: `1px solid ${primaryColor}10` }}>
+                <div className="px-4 py-1.5 text-2xs text-muted-foreground text-center" style={{ borderTop: `1px solid ${primaryColor}10` }}>
                   {showRegistrationNo && template.doctorRegNo && <span>Reg: {template.doctorRegNo}</span>}
                   {footerText && <span className="ml-2">{footerText}</span>}
                 </div>
@@ -858,12 +858,12 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
                   {template.logoUrl && <img src={template.logoUrl} alt="Logo" className="h-12 w-12 object-contain rounded" />}
                   <div>
                     {template.doctorName && <p className="text-sm font-bold italic" style={{ color: primaryColor }}>{template.doctorName}</p>}
-                    {template.doctorSpecialization && <p className="text-[10px] text-muted-foreground">Specialist in {template.doctorSpecialization}</p>}
+                    {template.doctorSpecialization && <p className="text-2xs text-muted-foreground">Specialist in {template.doctorSpecialization}</p>}
                   </div>
                 </div>
                 <div className="text-right">
                   {template.clinicName && <p className="text-sm font-bold uppercase" style={{ color: primaryColor }}>{template.clinicName}</p>}
-                  {showClinicAddress && template.clinicAddress && <p className="text-[10px] text-muted-foreground">{template.clinicAddress}</p>}
+                  {showClinicAddress && template.clinicAddress && <p className="text-2xs text-muted-foreground">{template.clinicAddress}</p>}
                 </div>
               </div>
               <HeaderLine />

@@ -79,7 +79,7 @@ export function PatientBillsPage() {
                     </span>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${BILL_STATUS_STYLES[bill.status] ?? ""}`}
+                      className={`text-2xs ${BILL_STATUS_STYLES[bill.status] ?? ""}`}
                     >
                       {bill.status}
                     </Badge>

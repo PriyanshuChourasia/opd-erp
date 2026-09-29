@@ -48,13 +48,13 @@ export function LedgerListPage() {
     {
       accessorKey: "accountGroup.nature.name",
       header: "Nature",
-      cell: ({ row }) => <Badge variant="outline" className="text-[10px]">{row.original.accountGroup.nature.name}</Badge>,
+      cell: ({ row }) => <Badge variant="outline" className="text-2xs">{row.original.accountGroup.nature.name}</Badge>,
     },
     {
       accessorKey: "currentBalance",
       header: "Balance",
       cell: ({ row }) => (
-        <span className={cn("font-mono text-sm font-medium", row.original.currentBalance >= 0 ? "text-green-600" : "text-red-600")}>
+        <span className={cn("tabular font-mono text-sm font-medium", row.original.currentBalance >= 0 ? "text-green-600" : "text-red-600")}>
           {currency(row.original.currentBalance)}
         </span>
       ),
@@ -64,9 +64,9 @@ export function LedgerListPage() {
       header: "Type",
       cell: ({ row }) => (
         <div className="flex gap-1">
-          {row.original.isCashAccount && <Badge variant="outline" className="text-[9px]">Cash</Badge>}
-          {row.original.isBankAccount && <Badge variant="outline" className="text-[9px]">Bank</Badge>}
-          {row.original.patientId && <Badge variant="outline" className="text-[9px]">Patient</Badge>}
+          {row.original.isCashAccount && <Badge variant="outline" className="text-2xs">Cash</Badge>}
+          {row.original.isBankAccount && <Badge variant="outline" className="text-2xs">Bank</Badge>}
+          {row.original.patientId && <Badge variant="outline" className="text-2xs">Patient</Badge>}
         </div>
       ),
     },

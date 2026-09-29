@@ -476,17 +476,17 @@ export function SchemaModelDetailPage() {
                     Fields ({displayRows.length})
                   </CardTitle>
                   {markCounts.edited > 0 && (
-                    <Badge variant="outline" className="bg-blue-600/10 text-[10px] text-blue-600">
+                    <Badge variant="outline" className="bg-blue-600/10 text-2xs text-blue-600">
                       {markCounts.edited} edited
                     </Badge>
                   )}
                   {markCounts.remove > 0 && (
-                    <Badge variant="outline" className="bg-red-600/10 text-[10px] text-red-600">
+                    <Badge variant="outline" className="bg-red-600/10 text-2xs text-red-600">
                       {markCounts.remove} marked for removal
                     </Badge>
                   )}
                   {markCounts.remarks > 0 && (
-                    <Badge variant="outline" className="bg-amber-600/10 text-[10px] text-amber-600">
+                    <Badge variant="outline" className="bg-amber-600/10 text-2xs text-amber-600">
                       {markCounts.remarks} remark{markCounts.remarks !== 1 ? "s" : ""}
                     </Badge>
                   )}
@@ -630,7 +630,7 @@ export function SchemaModelDetailPage() {
                             {row.proposed && row.targetModel && (
                               <Badge
                                 variant="outline"
-                                className="border-purple-400 font-mono text-[10px] text-purple-600"
+                                className="border-purple-400 font-mono text-2xs text-purple-600"
                               >
                                 FK → {row.targetModel}
                               </Badge>
@@ -647,13 +647,13 @@ export function SchemaModelDetailPage() {
                             )}
                             <Badge
                               variant="outline"
-                              className={`shrink-0 font-mono text-[11px] ${KIND_STYLES[row.kind] ?? ""}`}
+                              className={`shrink-0 font-mono text-xs ${KIND_STYLES[row.kind] ?? ""}`}
                             >
                               {displayType}
                               {row.isList ? "[]" : ""}
                               {!row.isRequired ? "?" : ""}
                             </Badge>
-                            <Badge variant="secondary" className="shrink-0 text-[10px] uppercase">
+                            <Badge variant="secondary" className="shrink-0 text-2xs uppercase">
                               {row.kind}
                             </Badge>
                           </>
@@ -752,7 +752,7 @@ export function SchemaModelDetailPage() {
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2">
                 {model.uniqueFields.map((fields, index) => (
-                  <Badge key={index} variant="outline" className="font-mono text-[11px]">
+                  <Badge key={index} variant="outline" className="font-mono text-xs">
                     ({fields.join(", ")})
                   </Badge>
                 ))}
@@ -774,7 +774,7 @@ export function SchemaModelDetailPage() {
                     <p className="font-mono text-sm font-medium">{enumeration.name}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {enumeration.values.map((value) => (
-                        <Badge key={value} variant="secondary" className="font-mono text-[10px]">
+                        <Badge key={value} variant="secondary" className="font-mono text-2xs">
                           {value}
                         </Badge>
                       ))}
@@ -822,7 +822,7 @@ export function SchemaModelDetailPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
                       {mod.name}
-                      <Badge variant="outline" className="font-mono text-[10px]">
+                      <Badge variant="outline" className="font-mono text-2xs">
                         {mod.id}
                       </Badge>
                       <span className="text-xs font-normal text-muted-foreground">
@@ -838,7 +838,7 @@ export function SchemaModelDetailPage() {
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <Badge
                               variant="outline"
-                              className={`w-[4.5rem] shrink-0 justify-center font-mono text-[10px] ${METHOD_STYLES[action.method ?? ""] ?? ""}`}
+                              className={`w-[4.5rem] shrink-0 justify-center font-mono text-2xs ${METHOD_STYLES[action.method ?? ""] ?? ""}`}
                             >
                               {action.method ?? "—"}
                             </Badge>
@@ -850,7 +850,7 @@ export function SchemaModelDetailPage() {
                             </span>
                           </div>
                           {(action.request || action.response) && (
-                            <div className="mt-1.5 grid gap-x-3 gap-y-0.5 pl-1 text-[11px] leading-relaxed md:grid-cols-[4.5rem_1fr]">
+                            <div className="mt-1.5 grid gap-x-3 gap-y-0.5 pl-1 text-xs leading-relaxed md:grid-cols-[4.5rem_1fr]">
                               <span className="font-medium uppercase tracking-wide text-muted-foreground/70">
                                 Request
                               </span>
@@ -1110,18 +1110,18 @@ function RelationGraph({
             <CardContent className="p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 truncate font-mono text-sm font-semibold">{target}</p>
-                <Badge variant="outline" className="font-mono text-[10px]">
+                <Badge variant="outline" className="font-mono text-2xs">
                   {fields.some((f) => f.isList) ? "1..*" : "1..1"}
                 </Badge>
               </div>
               <div className="mt-2 flex flex-wrap gap-1">
                 {fields.map((field) => (
-                  <Badge key={field.name} variant="secondary" className="font-mono text-[10px]">
+                  <Badge key={field.name} variant="secondary" className="font-mono text-2xs">
                     {field.name}
                   </Badge>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {explainEdge(modelName, fields)}
               </p>
             </CardContent>
@@ -1139,7 +1139,7 @@ function RelationGraph({
           </CardHeader>
           <CardContent className="flex flex-wrap gap-1">
             {selfRelations.map((field) => (
-              <Badge key={field.name} variant="outline" className="font-mono text-[10px]">
+              <Badge key={field.name} variant="outline" className="font-mono text-2xs">
                 {field.name} → {modelName}
                 {field.isList ? "[]" : ""}
               </Badge>

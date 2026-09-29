@@ -82,11 +82,11 @@ function ModuleHeader({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium">{mod.name}</p>
-          <Badge variant="outline" className="font-mono text-[10px]">
+          <Badge variant="outline" className="font-mono text-2xs">
             {mod.id}
           </Badge>
           {mod.routePrefix && (
-            <Badge variant="secondary" className="font-mono text-[10px]">
+            <Badge variant="secondary" className="font-mono text-2xs">
               /{mod.routePrefix}
             </Badge>
           )}
@@ -123,7 +123,7 @@ function EndpointRow({
         <Badge
           variant="outline"
           className={cn(
-            "w-[4.5rem] shrink-0 justify-center font-mono text-[10px]",
+            "w-[4.5rem] shrink-0 justify-center font-mono text-2xs",
             METHOD_STYLES[action.method ?? ""] ?? "",
           )}
         >
@@ -135,7 +135,7 @@ function EndpointRow({
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {action.name} — {action.description}
         </span>
-        <Badge variant="secondary" className="shrink-0 text-[10px]">
+        <Badge variant="secondary" className="shrink-0 text-2xs">
           {action.featureName}
         </Badge>
         {(action.request || action.response) && (
@@ -148,7 +148,7 @@ function EndpointRow({
         )}
       </div>
       {isExpanded && (action.request || action.response) && (
-        <div className="grid gap-x-4 gap-y-0.5 px-6 py-2 pl-28 text-[11px] leading-relaxed md:grid-cols-[4.5rem_1fr]">
+        <div className="grid gap-x-4 gap-y-0.5 px-6 py-2 pl-28 text-xs leading-relaxed md:grid-cols-[4.5rem_1fr]">
           <span className="font-medium uppercase tracking-wide text-muted-foreground/70">
             Request
           </span>
@@ -321,7 +321,7 @@ export function DevelopmentApisPage() {
                   {method}
                   <Badge
                     variant="secondary"
-                    className="ml-1 h-4 min-w-4 px-1 text-[10px]"
+                    className="ml-1 h-4 min-w-4 px-1 text-2xs"
                   >
                     {methodCounts[method]}
                   </Badge>

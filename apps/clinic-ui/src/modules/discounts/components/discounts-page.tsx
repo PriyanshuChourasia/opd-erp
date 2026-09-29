@@ -128,9 +128,9 @@ export function DiscountsPage() {
       header: "Status",
       cell: ({ row }) =>
         row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]" variant="outline">Active</Badge>
+          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-2xs" variant="outline">Active</Badge>
         ) : (
-          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-[10px]" variant="outline">Inactive</Badge>
+          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-2xs" variant="outline">Inactive</Badge>
         ),
     },
     {
@@ -199,7 +199,7 @@ export function DiscountsPage() {
                   <Field><FieldLabel htmlFor="dr-from">Valid From (optional)</FieldLabel><Input id="dr-from" type="date" value={form.validFrom ?? ""} onChange={(e) => setForm({ ...form, validFrom: e.target.value })} /></Field>
                   <Field><FieldLabel htmlFor="dr-to">Valid To (optional)</FieldLabel><Input id="dr-to" type="date" value={form.validTo ?? ""} onChange={(e) => setForm({ ...form, validTo: e.target.value })} /></Field>
                 </div>
-                <p className="text-[11px] text-muted-foreground">Leave both blank for an ongoing discount (e.g. a loyalty discount). Set both for a time-boxed offer (e.g. a New Year sale).</p>
+                <p className="text-xs text-muted-foreground">Leave both blank for an ongoing discount (e.g. a loyalty discount). Set both for a time-boxed offer (e.g. a New Year sale).</p>
 
                 <Field><FieldLabel htmlFor="dr-desc">Description (optional)</FieldLabel><Input id="dr-desc" placeholder="Internal note" value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
 

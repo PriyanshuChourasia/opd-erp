@@ -64,7 +64,7 @@ export function DocumentGallery({ documentableType, documentableId }: DocumentGa
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end">
                 <div className="w-full p-2 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-xs text-white font-medium">{photo.originalName}</p>
-                  <p className="text-[10px] text-white/70">{(photo.fileSize / 1024).toFixed(0)} KB</p>
+                  <p className="text-2xs text-white/70">{(photo.fileSize / 1024).toFixed(0)} KB</p>
                 </div>
               </div>
             </button>
@@ -99,7 +99,7 @@ export function DocumentGallery({ documentableType, documentableId }: DocumentGa
                 )}
                 <div className="p-2">
                   <p className="text-xs font-medium truncate">{doc.originalName}</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     {doc.caption || doc.documentType.replace(/_/g, " ")} · {(doc.fileSize / 1024).toFixed(0)} KB
                   </p>
                 </div>

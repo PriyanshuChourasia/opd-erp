@@ -356,7 +356,7 @@ export function PatientsPage() {
         const bloodGroup = row.original.bloodGroup;
         if (!bloodGroup) return <span className="text-muted-foreground">—</span>;
         return (
-          <Badge variant="outline" className={`text-[10px] uppercase ${bloodGroupColors[bloodGroup] ?? ""}`}>
+          <Badge variant="outline" className={`text-2xs uppercase ${bloodGroupColors[bloodGroup] ?? ""}`}>
             <Droplets className="mr-1 size-2.5" />{bloodGroup}
           </Badge>
         );
@@ -371,7 +371,7 @@ export function PatientsPage() {
         return (
           <div className="flex flex-wrap gap-1">
             {allergies.map((a) => (
-              <span key={a} className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">{a}</span>
+              <span key={a} className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-2xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">{a}</span>
             ))}
           </div>
         );
@@ -579,10 +579,10 @@ export function PatientsPage() {
                 <div className="border-t pt-3 mt-2">
                   <p className="text-base font-semibold mb-3">Patient Vitals <span className="text-xs font-normal text-muted-foreground">(optional)</span></p>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field><FieldLabel htmlFor="v-height">Height (cm) <span className="text-[10px] font-normal text-muted-foreground">(1 ft = 30.48 cm)</span></FieldLabel><Input id="v-height" type="number" step="0.1" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals({ ...vitals, heightCm: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="v-height">Height (cm) <span className="text-2xs font-normal text-muted-foreground">(1 ft = 30.48 cm)</span></FieldLabel><Input id="v-height" type="number" step="0.1" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals({ ...vitals, heightCm: e.target.value })} /></Field>
                     <Field><FieldLabel htmlFor="v-weight">Weight (kg)</FieldLabel><Input id="v-weight" type="number" step="0.1" placeholder="65" value={vitals.weightKg} onChange={(e) => setVitals({ ...vitals, weightKg: e.target.value })} /></Field>
                     <Field><FieldLabel htmlFor="v-temp">Temperature (°F)</FieldLabel><Input id="v-temp" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals({ ...vitals, temperatureC: e.target.value })} /></Field>
-                    <Field><FieldLabel htmlFor="v-pulse">Pulse (bpm)</FieldLabel><Input id="v-pulse" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals({ ...vitals, pulseBpm: e.target.value })} /></Field><Field><FieldLabel htmlFor="v-systolic">Systolic BP <span className="text-[10px] font-normal text-muted-foreground">(heart contracts)</span></FieldLabel><Input id="v-systolic" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals({ ...vitals, systolicBp: e.target.value })} /></Field><Field><FieldLabel htmlFor="v-diastolic">Diastolic BP <span className="text-[10px] font-normal text-muted-foreground">(heart relaxes)</span></FieldLabel><Input id="v-diastolic" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals({ ...vitals, diastolicBp: e.target.value })} /></Field>
+                    <Field><FieldLabel htmlFor="v-pulse">Pulse (bpm)</FieldLabel><Input id="v-pulse" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals({ ...vitals, pulseBpm: e.target.value })} /></Field><Field><FieldLabel htmlFor="v-systolic">Systolic BP <span className="text-2xs font-normal text-muted-foreground">(heart contracts)</span></FieldLabel><Input id="v-systolic" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals({ ...vitals, systolicBp: e.target.value })} /></Field><Field><FieldLabel htmlFor="v-diastolic">Diastolic BP <span className="text-2xs font-normal text-muted-foreground">(heart relaxes)</span></FieldLabel><Input id="v-diastolic" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals({ ...vitals, diastolicBp: e.target.value })} /></Field>
                     <Field><FieldLabel htmlFor="v-spo2">SpO₂ (%)</FieldLabel><Input id="v-spo2" type="number" step="0.1" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals({ ...vitals, spo2Percent: e.target.value })} /></Field>
                     <Field><FieldLabel htmlFor="v-rr">Respiratory Rate</FieldLabel><Input id="v-rr" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })} /></Field>
                   </div>
@@ -781,7 +781,7 @@ function DocumentUploaderInline({ patientId }: { patientId: string }) {
           )}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium truncate">{doc.originalName}</p>
-            <p className="text-[10px] text-muted-foreground">{doc.caption || doc.documentType} · {(doc.fileSize / 1024).toFixed(0)} KB</p>
+            <p className="text-2xs text-muted-foreground">{doc.caption || doc.documentType} · {(doc.fileSize / 1024).toFixed(0)} KB</p>
           </div>
           {canDelete && (
             <Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" title="Delete document" onClick={() => deleteMutation.mutate(doc.id)}>

@@ -134,7 +134,7 @@ function PrescriptionRow({ rx }: { rx: Prescription }) {
       <span className="truncate">
         {rx.diagnosis || <span className="text-muted-foreground">—</span>}
       </span>
-      <Badge variant="outline" className={`text-[10px] uppercase ${RX_STATUS_STYLES[rx.status] ?? ""}`}>
+      <Badge variant="outline" className={`text-2xs uppercase ${RX_STATUS_STYLES[rx.status] ?? ""}`}>
         {rx.status}
       </Badge>
       <span className="flex items-center gap-1">

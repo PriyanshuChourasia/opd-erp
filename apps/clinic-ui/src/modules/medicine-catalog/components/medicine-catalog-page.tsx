@@ -150,7 +150,7 @@ export function MedicineCatalogPage() {
       cell: ({ row }) => {
         const category = row.original.category;
         if (!category) return <span className="text-muted-foreground">—</span>;
-        return <Badge variant="outline" className="text-[10px] uppercase">{category}</Badge>;
+        return <Badge variant="outline" className="text-2xs uppercase">{category}</Badge>;
       },
     },
     {
@@ -165,7 +165,7 @@ export function MedicineCatalogPage() {
     {
       accessorKey: "price",
       header: "Price",
-      cell: ({ row }) => <span className="font-medium">{currency(row.original.price)}</span>,
+      cell: ({ row }) => <span className="tabular font-medium">{currency(row.original.price)}</span>,
     },
     {
       accessorKey: "currentStock",

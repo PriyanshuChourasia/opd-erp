@@ -187,7 +187,7 @@ export function SidebarConfigPage() {
             <IconBadge name={item.icon} />
             <span className="font-medium text-sm">{item.label}</span>
             {item.isHidden && (
-              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+              <Badge variant="outline" className="text-2xs text-muted-foreground">
                 <EyeOff className="mr-1 size-2.5" />Hidden
               </Badge>
             )}
@@ -203,7 +203,7 @@ export function SidebarConfigPage() {
     {
       accessorKey: "group",
       header: "Group",
-      cell: ({ row }) => <Badge variant="secondary" className="text-[10px]">{row.original.group}</Badge>,
+      cell: ({ row }) => <Badge variant="secondary" className="text-2xs">{row.original.group}</Badge>,
     },
     {
       accessorKey: "sortOrder",
@@ -219,10 +219,10 @@ export function SidebarConfigPage() {
         return (
           <div className="flex flex-wrap gap-1">
             {roles.length === 0 ? (
-              <span className="text-[10px] text-muted-foreground italic">No roles</span>
+              <span className="text-2xs text-muted-foreground italic">No roles</span>
             ) : (
               roles.map((r) => (
-                <span key={r} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${roleColors[r] ?? "bg-muted text-muted-foreground"}`}>
+                <span key={r} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium ${roleColors[r] ?? "bg-muted text-muted-foreground"}`}>
                   {r}
                 </span>
               ))
@@ -292,7 +292,7 @@ export function SidebarConfigPage() {
             <Card key={group}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">{group}</CardTitle>
-                <CardDescription className="text-[10px]">{items.length} item{items.length !== 1 ? "s" : ""}</CardDescription>
+                <CardDescription className="text-2xs">{items.length} item{items.length !== 1 ? "s" : ""}</CardDescription>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="space-y-1">
@@ -409,7 +409,7 @@ export function SidebarConfigPage() {
               <Field>
                 <FieldLabel htmlFor="m-icon">Icon Name</FieldLabel>
                 <Input id="m-icon" placeholder="e.g. CalendarClock" value={formIcon} onChange={(e) => setFormIcon(e.target.value)} />
-                <p className="text-[10px] text-muted-foreground mt-1">Lucide icon name (optional)</p>
+                <p className="text-2xs text-muted-foreground mt-1">Lucide icon name (optional)</p>
               </Field>
               <Field>
                 <FieldLabel htmlFor="m-group">Group *</FieldLabel>
@@ -443,7 +443,7 @@ export function SidebarConfigPage() {
                   <button
                     type="button"
                     onClick={() => setFormRoleIds(allRoles.map((r) => r.id))}
-                    className="text-[10px] text-primary hover:underline"
+                    className="text-2xs text-primary hover:underline"
                   >
                     All
                   </button>
@@ -451,7 +451,7 @@ export function SidebarConfigPage() {
                   <button
                     type="button"
                     onClick={() => setFormRoleIds([])}
-                    className="text-[10px] text-muted-foreground hover:underline"
+                    className="text-2xs text-muted-foreground hover:underline"
                   >
                     None
                   </button>

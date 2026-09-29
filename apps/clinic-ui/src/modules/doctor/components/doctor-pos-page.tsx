@@ -123,7 +123,7 @@ function DetailRow({ label, value, capitalize, fullWidth }: {
 }) {
   return (
     <div className={cn("flex items-start gap-3 py-2.5", fullWidth ? "flex-col" : "flex-row")}>
-      <span className={cn("shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70", fullWidth ? "" : "w-[88px]")}>
+      <span className={cn("shrink-0 text-2xs font-medium uppercase tracking-wider text-muted-foreground/70", fullWidth ? "" : "w-[88px]")}>
         {label}
       </span>
       <div className={cn("min-w-0", fullWidth ? "w-full" : "flex-1")}>
@@ -458,7 +458,7 @@ export function DoctorPosPage() {
                 Today's Queue
               </CardTitle>
               {active.length > 0 && (
-                <Badge variant="outline" className="text-[10px]">{active.length}</Badge>
+                <Badge variant="outline" className="text-2xs">{active.length}</Badge>
               )}
             </CardHeader>
             <CardContent className="p-0">
@@ -483,12 +483,12 @@ export function DoctorPosPage() {
                         )}
                         onClick={() => selectPatient(entry)}
                       >
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-none border border-primary/20 bg-primary/5 text-[9px] font-bold font-mono text-primary truncate overflow-hidden px-1">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-none border border-primary/20 bg-primary/5 text-2xs font-bold font-mono text-primary truncate overflow-hidden px-1">
                           {entry.tokenNumber}
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{getPatientName(entry.patient)}</p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
                             <span>{entry.patient?.contactNo}</span>
                             {entry.patient.bloodGroup && (
                               <>
@@ -524,7 +524,7 @@ export function DoctorPosPage() {
                           >
                             <HeartPulse className="size-4.5 text-rose-500" />
                           </Button>
-                          <Badge variant="outline" className={`text-[9px] ${QUEUE_STATUS_STYLES[entry.status] ?? ""}`}>
+                          <Badge variant="outline" className={`text-2xs ${QUEUE_STATUS_STYLES[entry.status] ?? ""}`}>
                             {entry.status.replace("_", " ")}
                           </Badge>
                           {entry.status === "WAITING" && (
@@ -593,7 +593,7 @@ export function DoctorPosPage() {
                 <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3.5">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex shrink-0 flex-col items-center justify-center border-2 border-primary/15 bg-primary/[0.06] px-2.5 py-1.5">
-                      <span className="text-[10px] font-bold font-mono text-primary tracking-wider leading-none">
+                      <span className="text-2xs font-bold font-mono text-primary tracking-wider leading-none">
                         {selectedEntry.tokenNumber}
                       </span>
                       <span className="mt-0.5 font-mono text-[8px] tracking-wider text-muted-foreground/50 leading-none">
@@ -624,11 +624,11 @@ export function DoctorPosPage() {
                           Vitals
                         </Button>
                       </div>
-                      <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground/70">{selectedEntry.patient?.contactNo}</p>
+                      <p className="mt-0.5 text-xs leading-tight text-muted-foreground/70">{selectedEntry.patient?.contactNo}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className={`text-[10px] ${QUEUE_STATUS_STYLES[selectedEntry.status] ?? ""}`}>
+                    <Badge variant="outline" className={`text-2xs ${QUEUE_STATUS_STYLES[selectedEntry.status] ?? ""}`}>
                       {selectedEntry.status.replace("_", " ")}
                     </Badge>
                     <Button variant="ghost" size="icon" className="size-9 text-muted-foreground hover:text-foreground" title="Clear form" onClick={clearForm}>
@@ -640,7 +640,7 @@ export function DoctorPosPage() {
                 {/* Row 2: clinical facts, fixed grid so height never grows */}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 px-4 py-3.5 sm:grid-cols-5">
                   <div className="min-w-0">
-                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">DOB/Age</span>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">DOB/Age</span>
                     <p className="truncate text-xs font-medium">
                       {selectedEntry.patient.dateOfBirth
                         ? `${new Date(selectedEntry.patient.dateOfBirth).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (${calculateAge(selectedEntry.patient.dateOfBirth)})`
@@ -649,17 +649,17 @@ export function DoctorPosPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Gender</span>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">Gender</span>
                     <p className="truncate text-xs font-medium capitalize">
                       {selectedEntry.patient.gender ? selectedEntry.patient.gender.toLowerCase() : <span className="italic text-muted-foreground/50 normal-case">—</span>}
                     </p>
                   </div>
 
                   <div className="min-w-0">
-                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Blood Group</span>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">Blood Group</span>
                     <p className="mt-0.5 truncate">
                       {selectedEntry.patient.bloodGroup ? (
-                        <span className="inline-flex items-center rounded-sm border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+                        <span className="inline-flex items-center rounded-sm border border-red-200 bg-red-50 px-1.5 py-0.5 text-2xs font-bold text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
                           {selectedEntry.patient.bloodGroup}
                         </span>
                       ) : (
@@ -669,7 +669,7 @@ export function DoctorPosPage() {
                   </div>
 
                   <div className="min-w-0 col-span-2 sm:col-span-1">
-                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Allergies</span>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">Allergies</span>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
                       {selectedEntry.patient.allergies && selectedEntry.patient.allergies.length > 0 ? (
                         <>
@@ -679,7 +679,7 @@ export function DoctorPosPage() {
                               <span
                                 key={i}
                                 className={cn(
-                                  "inline-flex items-center whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[10px] font-medium",
+                                  "inline-flex items-center whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-2xs font-medium",
                                   allergyInfo?.severity === "SEVERE" || allergyInfo?.severity === "LIFE_THREATENING"
                                     ? "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
                                     : allergyInfo?.severity === "MODERATE"
@@ -699,10 +699,10 @@ export function DoctorPosPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Visit Type</span>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">Visit Type</span>
                     <p className="mt-0.5 truncate">
                       {selectedEntry.patient.isFollowUp ? (
-                        <span className="inline-flex items-center rounded-sm border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400">
+                        <span className="inline-flex items-center rounded-sm border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-2xs font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400">
                           Follow-up
                         </span>
                       ) : (
@@ -715,34 +715,34 @@ export function DoctorPosPage() {
                 {/* Patient Vitals */}
                 {patientVitals && (
                   <div className="border-t border-border/50 px-4 py-3">
-                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Patient Vitals</span>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">Patient Vitals</span>
                     <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5">
                       {patientVitals.heightCm != null && (
-                        <div><span className="text-[9px] text-muted-foreground">Height</span><p className="text-xs font-medium">{patientVitals.heightCm} cm</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Height</span><p className="text-xs font-medium">{patientVitals.heightCm} cm</p></div>
                       )}
                       {patientVitals.weightKg != null && (
-                        <div><span className="text-[9px] text-muted-foreground">Weight</span><p className="text-xs font-medium">{patientVitals.weightKg} kg</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Weight</span><p className="text-xs font-medium">{patientVitals.weightKg} kg</p></div>
                       )}
                       {patientVitals.bmi != null && (
-                        <div><span className="text-[9px] text-muted-foreground">BMI</span><p className="text-xs font-medium">{patientVitals.bmi}</p></div>
+                        <div><span className="text-2xs text-muted-foreground">BMI</span><p className="text-xs font-medium">{patientVitals.bmi}</p></div>
                       )}
                       {patientVitals.temperatureC != null && (
-                        <div><span className="text-[9px] text-muted-foreground">Temp</span><p className="text-xs font-medium">{patientVitals.temperatureC}°F</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Temp</span><p className="text-xs font-medium">{patientVitals.temperatureC}°F</p></div>
                       )}
                       {patientVitals.pulseBpm != null && (
-                        <div><span className="text-[9px] text-muted-foreground">Pulse</span><p className="text-xs font-medium">{patientVitals.pulseBpm} bpm</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Pulse</span><p className="text-xs font-medium">{patientVitals.pulseBpm} bpm</p></div>
                       )}
                       {patientVitals.systolicBp != null && patientVitals.diastolicBp != null && (
-                        <div><span className="text-[9px] text-muted-foreground">BP</span><p className="text-xs font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
+                        <div><span className="text-2xs text-muted-foreground">BP</span><p className="text-xs font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
                       )}
                       {patientVitals.spo2Percent != null && (
-                        <div><span className="text-[9px] text-muted-foreground">SpO₂</span><p className="text-xs font-medium">{patientVitals.spo2Percent}%</p></div>
+                        <div><span className="text-2xs text-muted-foreground">SpO₂</span><p className="text-xs font-medium">{patientVitals.spo2Percent}%</p></div>
                       )}
                       {patientVitals.respiratoryRate != null && (
-                        <div><span className="text-[9px] text-muted-foreground">Resp Rate</span><p className="text-xs font-medium">{patientVitals.respiratoryRate}/min</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Resp Rate</span><p className="text-xs font-medium">{patientVitals.respiratoryRate}/min</p></div>
                       )}
                       {patientVitals.medicalStatus && (
-                        <div className="col-span-4"><span className="text-[9px] text-muted-foreground">Status</span><p className="text-xs font-medium text-amber-600">{patientVitals.medicalStatus}</p></div>
+                        <div className="col-span-4"><span className="text-2xs text-muted-foreground">Status</span><p className="text-xs font-medium text-amber-600">{patientVitals.medicalStatus}</p></div>
                       )}
                     </div>
                   </div>
@@ -773,7 +773,7 @@ export function DoctorPosPage() {
                     </span>
                     Prescribed Medicines
                     {rxItems.length > 0 && (
-                      <Badge variant="outline" className="text-[10px]">{rxItems.length}</Badge>
+                      <Badge variant="outline" className="text-2xs">{rxItems.length}</Badge>
                     )}
                   </CardTitle>
                 </CardHeader>
@@ -837,7 +837,7 @@ export function DoctorPosPage() {
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             <Field>
-                              <FieldLabel className="text-[10px]">Dosage (daily)</FieldLabel>
+                              <FieldLabel className="text-2xs">Dosage (daily)</FieldLabel>
                               <Input
                                 className="h-8 text-xs"
                                 placeholder="1-0-1"
@@ -846,7 +846,7 @@ export function DoctorPosPage() {
                               />
                             </Field>
                             <Field>
-                              <FieldLabel className="text-[10px]">Duration (days)</FieldLabel>
+                              <FieldLabel className="text-2xs">Duration (days)</FieldLabel>
                               <Input
                                 className="h-8 text-xs"
                                 placeholder="7 days"
@@ -855,7 +855,7 @@ export function DoctorPosPage() {
                               />
                             </Field>
                             <Field>
-                              <FieldLabel className="text-[10px]">Tablets</FieldLabel>
+                              <FieldLabel className="text-2xs">Tablets</FieldLabel>
                               <div className="flex items-center gap-1">
                                 <Button
                                   type="button"
@@ -879,7 +879,7 @@ export function DoctorPosPage() {
                               </div>
                             </Field>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <div className="flex items-center gap-2 text-2xs text-muted-foreground">
                             <span>{parseDailyTablets(item.dosage)} tab/day</span>
                             <span>&middot;</span>
                             <span>{parseDays(item.duration)} days</span>
@@ -887,7 +887,7 @@ export function DoctorPosPage() {
                             <span className="font-medium text-foreground">{totalTablets(item.dosage, item.duration, item.quantity)} tablets total</span>
                           </div>
                           <Field>
-                            <FieldLabel className="text-[10px]">Instructions</FieldLabel>
+                            <FieldLabel className="text-2xs">Instructions</FieldLabel>
                             <Input
                               className="h-8 text-xs"
                               placeholder="e.g. After meals, Before bed..."
@@ -926,7 +926,7 @@ export function DoctorPosPage() {
                     </span>
                     Procedures
                     {procedureOrders.length > 0 && (
-                      <Badge variant="outline" className="text-[10px]">{procedureOrders.length}</Badge>
+                      <Badge variant="outline" className="text-2xs">{procedureOrders.length}</Badge>
                     )}
                   </CardTitle>
                 </CardHeader>
@@ -966,8 +966,8 @@ export function DoctorPosPage() {
                         <div key={p.tempId} className="flex items-center justify-between rounded-none border p-2">
                           <div>
                             <p className="text-sm font-medium">{p.procedureName}</p>
-                            <p className="text-[10px] text-muted-foreground">{p.category}</p>
-                            {p.notes && <p className="text-[10px] text-muted-foreground italic">{p.notes}</p>}
+                            <p className="text-2xs text-muted-foreground">{p.category}</p>
+                            {p.notes && <p className="text-xs text-muted-foreground italic">{p.notes}</p>}
                           </div>
                           <Button variant="ghost" size="icon" className="size-8" title="Remove procedure" onClick={() => removeProcedureOrder(p.tempId)}>
                             <Trash2 className="size-4 text-destructive" />
@@ -1065,7 +1065,7 @@ export function DoctorPosPage() {
                     <div key={v.id} className="rounded-none border p-2.5 text-xs">
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="font-medium">{new Date(v.recordedAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                        {v.medicalStatus && <span className="text-[10px] text-muted-foreground">{v.medicalStatus}</span>}
+                        {v.medicalStatus && <span className="text-2xs text-muted-foreground">{v.medicalStatus}</span>}
                       </div>
                       <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-muted-foreground">
                         {v.heightCm != null && <span>Ht <span className="font-medium text-foreground">{v.heightCm}cm</span></span>}
@@ -1086,39 +1086,39 @@ export function DoctorPosPage() {
             <span className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Record New Vitals</span>
             <div className="grid grid-cols-2 gap-3">
               <Field>
-                <FieldLabel className="text-[10px]">Height (cm)</FieldLabel>
+                <FieldLabel className="text-2xs">Height (cm)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="170" value={vitals.heightCm} onChange={(e) => setVitals((v) => ({ ...v, heightCm: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Weight (kg)</FieldLabel>
+                <FieldLabel className="text-2xs">Weight (kg)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="70" value={vitals.weightCm} onChange={(e) => setVitals((v) => ({ ...v, weightCm: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Temperature (°F)</FieldLabel>
+                <FieldLabel className="text-2xs">Temperature (°F)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" step="0.1" placeholder="98.6" value={vitals.temperatureC} onChange={(e) => setVitals((v) => ({ ...v, temperatureC: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Pulse (bpm)</FieldLabel>
+                <FieldLabel className="text-2xs">Pulse (bpm)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="72" value={vitals.pulseBpm} onChange={(e) => setVitals((v) => ({ ...v, pulseBpm: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Systolic BP</FieldLabel>
+                <FieldLabel className="text-2xs">Systolic BP</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="120" value={vitals.systolicBp} onChange={(e) => setVitals((v) => ({ ...v, systolicBp: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Diastolic BP</FieldLabel>
+                <FieldLabel className="text-2xs">Diastolic BP</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="80" value={vitals.diastolicBp} onChange={(e) => setVitals((v) => ({ ...v, diastolicBp: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">SpO₂ (%)</FieldLabel>
+                <FieldLabel className="text-2xs">SpO₂ (%)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="98" value={vitals.spo2Percent} onChange={(e) => setVitals((v) => ({ ...v, spo2Percent: e.target.value }))} />
               </Field>
               <Field>
-                <FieldLabel className="text-[10px]">Resp. Rate (/min)</FieldLabel>
+                <FieldLabel className="text-2xs">Resp. Rate (/min)</FieldLabel>
                 <Input className="h-8 text-xs" type="number" placeholder="16" value={vitals.respiratoryRate} onChange={(e) => setVitals((v) => ({ ...v, respiratoryRate: e.target.value }))} />
               </Field>
               <Field className="col-span-2">
-                <FieldLabel className="text-[10px]">Medical Status</FieldLabel>
+                <FieldLabel className="text-2xs">Medical Status</FieldLabel>
                 <select
                   className="flex h-8 w-full rounded-none border border-input bg-background px-2 text-xs"
                   value={vitals.medicalStatus}

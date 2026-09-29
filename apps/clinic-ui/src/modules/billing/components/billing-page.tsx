@@ -107,7 +107,7 @@ export function BillingPage() {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant="outline" className={`text-[10px] ${STATUS_STYLES[row.original.status] ?? ""}`}>
+        <Badge variant="outline" className={`text-2xs ${STATUS_STYLES[row.original.status] ?? ""}`}>
           {row.original.status}
         </Badge>
       ),
@@ -124,7 +124,7 @@ export function BillingPage() {
     {
       accessorKey: "total",
       header: "Total",
-      cell: ({ row }) => <span className="text-sm font-semibold">{currency(row.original.total)}</span>,
+      cell: ({ row }) => <span className="tabular text-sm font-semibold">{currency(row.original.total)}</span>,
     },
     {
       id: "actions",

@@ -282,11 +282,11 @@ export function NewPrescriptionPage() {
                       </Button>
                     </div>
                     <div className="grid grid-cols-3 gap-1.5">
-                      <Input className="h-7 text-[11px]" placeholder="Dosage" value={item.dosage} onChange={(e) => updateItem(item.tempId, { dosage: e.target.value })} />
-                      <Input className="h-7 text-[11px]" placeholder="Duration" value={item.duration} onChange={(e) => updateItem(item.tempId, { duration: e.target.value })} />
-                      <Input className="h-7 text-[11px]" type="number" min={1} placeholder="Qty" value={item.quantity} onChange={(e) => updateItem(item.tempId, { quantity: Number(e.target.value) || 1 })} />
+                      <Input className="h-7 text-xs" placeholder="Dosage" value={item.dosage} onChange={(e) => updateItem(item.tempId, { dosage: e.target.value })} />
+                      <Input className="h-7 text-xs" placeholder="Duration" value={item.duration} onChange={(e) => updateItem(item.tempId, { duration: e.target.value })} />
+                      <Input className="h-7 text-xs" type="number" min={1} placeholder="Qty" value={item.quantity} onChange={(e) => updateItem(item.tempId, { quantity: Number(e.target.value) || 1 })} />
                     </div>
-                    <Input className="h-7 text-[11px]" placeholder="Instructions (optional)" value={item.instructions} onChange={(e) => updateItem(item.tempId, { instructions: e.target.value })} />
+                    <Input className="h-7 text-xs" placeholder="Instructions (optional)" value={item.instructions} onChange={(e) => updateItem(item.tempId, { instructions: e.target.value })} />
                   </div>
                 ))
               )}

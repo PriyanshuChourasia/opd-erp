@@ -382,7 +382,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                       <span className="text-lg">{t.icon}</span>
                       <p className="text-sm font-medium">{t.label}</p>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">{t.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t.description}</p>
                   </button>
                 ))}
               </div>
@@ -414,10 +414,10 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
             {/* Header — clinic identity, printed at the top of the document */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold">Header</h3>
-              <p className="-mt-2 text-[11px] text-muted-foreground">Clinic identity shown in the document's header banner — laid out as left/right halves.</p>
+              <p className="-mt-2 text-xs text-muted-foreground">Clinic identity shown in the document's header banner — laid out as left/right halves.</p>
               <div className="grid grid-cols-2 gap-4 rounded-lg border p-3">
                 <div className="space-y-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Left</p>
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Left</p>
                   <Field>
                     <FieldLabel>Clinic Name</FieldLabel>
                     <Input
@@ -457,7 +457,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                   </Field>
                 </div>
                 <div className="space-y-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Right</p>
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Right</p>
                   <Field>
                     <FieldLabel>Clinic Address</FieldLabel>
                     <Input
@@ -525,7 +525,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                   <div className="grid grid-cols-2 gap-4">
                     {(["left", "right"] as const).map((side) => (
                       <div key={side} className="space-y-1.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{side}</p>
+                        <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{side}</p>
                         <div className="flex flex-wrap gap-1.5">
                           {layout.headerFields
                             .map((f, i) => ({ ...f, i }))
@@ -556,10 +556,10 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
             {/* Body — prescriber details, printed in the document body */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold">Body</h3>
-              <p className="-mt-2 text-[11px] text-muted-foreground">{BODY_SECTION_COPY[form.type ?? "prescription"]}</p>
+              <p className="-mt-2 text-xs text-muted-foreground">{BODY_SECTION_COPY[form.type ?? "prescription"]}</p>
               <div className="grid grid-cols-2 gap-4 rounded-lg border p-3">
                 <div className="space-y-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Left</p>
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Left</p>
                   <Field>
                     <FieldLabel>Doctor Name</FieldLabel>
                     <Input
@@ -578,7 +578,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                   </Field>
                 </div>
                 <div className="space-y-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Right</p>
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Right</p>
                   <Field>
                     <FieldLabel>Qualification</FieldLabel>
                     <Input
@@ -604,7 +604,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
               <div className="flex items-center justify-between gap-3 rounded-lg border p-3 bg-muted/30">
                 <div>
                   <h3 className="text-sm font-semibold">Footer</h3>
-                  <p className="text-[11px] text-muted-foreground">Secondary contact details shown in the document's footer bar.</p>
+                  <p className="text-xs text-muted-foreground">Secondary contact details shown in the document's footer bar.</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs text-muted-foreground">{layout.showFooter ? "Active" : "Inactive"}</span>
@@ -656,7 +656,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                     }`}
                   >
                     <p className="text-sm font-medium">{style.label}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{style.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{style.description}</p>
                   </button>
                 ))}
               </div>
@@ -697,7 +697,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                     }`}
                   >
                     <p className="text-sm" style={{ fontFamily: font.css }}>Aa Bb Cc</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{font.label}</p>
+                    <p className="text-2xs text-muted-foreground mt-0.5">{font.label}</p>
                   </button>
                 ))}
               </div>
@@ -766,7 +766,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                       <div className="size-4 rounded-full" style={{ background: preset.primary }} />
                       <div className="size-4 rounded-full" style={{ background: preset.secondary }} />
                     </div>
-                    <p className="text-[9px] text-muted-foreground">{preset.label}</p>
+                    <p className="text-2xs text-muted-foreground">{preset.label}</p>
                   </button>
                 ))}
               </div>
@@ -785,7 +785,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                       onChange={(e) => setLayout({ ...layout, primaryColor: e.target.value })}
                       className="size-8 cursor-pointer rounded border"
                     />
-                    <span className="text-[10px] font-mono text-muted-foreground">{layout.primaryColor}</span>
+                    <span className="text-2xs font-mono text-muted-foreground">{layout.primaryColor}</span>
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -797,7 +797,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                       onChange={(e) => setLayout({ ...layout, secondaryColor: e.target.value })}
                       className="size-8 cursor-pointer rounded border"
                     />
-                    <span className="text-[10px] font-mono text-muted-foreground">{layout.secondaryColor}</span>
+                    <span className="text-2xs font-mono text-muted-foreground">{layout.secondaryColor}</span>
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -809,7 +809,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                       onChange={(e) => setLayout({ ...layout, headerBgColor: e.target.value })}
                       className="size-8 cursor-pointer rounded border"
                     />
-                    <span className="text-[10px] font-mono text-muted-foreground">{layout.headerBgColor}</span>
+                    <span className="text-2xs font-mono text-muted-foreground">{layout.headerBgColor}</span>
                   </div>
                 </div>
               </div>
@@ -827,7 +827,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm">Free-Form Writing</label>
-                    <p className="text-[10px] text-muted-foreground">Replace medicine table with lined writing space</p>
+                    <p className="text-2xs text-muted-foreground">Replace medicine table with lined writing space</p>
                   </div>
                   <Switch
                     checked={layout.freeFormMode}
@@ -839,7 +839,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                     <div className="flex items-center justify-between">
                       <div>
                         <label className="text-sm">Show Writing Lines</label>
-                        <p className="text-[10px] text-muted-foreground">Horizontal lines for handwriting</p>
+                        <p className="text-2xs text-muted-foreground">Horizontal lines for handwriting</p>
                       </div>
                       <Switch
                         checked={layout.showWritingLines}
@@ -868,7 +868,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm">Show Signature Line</label>
-                    <p className="text-[10px] text-muted-foreground">Signature area at bottom of prescription</p>
+                    <p className="text-2xs text-muted-foreground">Signature area at bottom of prescription</p>
                   </div>
                   <Switch
                     checked={layout.showSignatureLine}
@@ -895,7 +895,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm">Show Header Line</label>
-                    <p className="text-[10px] text-muted-foreground">Colored line below header</p>
+                    <p className="text-2xs text-muted-foreground">Colored line below header</p>
                   </div>
                   <Switch
                     checked={layout.showHeaderLine}
@@ -912,7 +912,7 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
                         onChange={(e) => setLayout({ ...layout, headerLineColor: e.target.value })}
                         className="size-8 cursor-pointer rounded border"
                       />
-                      <span className="text-[10px] font-mono text-muted-foreground">{layout.headerLineColor}</span>
+                      <span className="text-2xs font-mono text-muted-foreground">{layout.headerLineColor}</span>
                     </div>
                   </div>
                 )}
@@ -957,14 +957,14 @@ function TemplateEditorForm({ template, onSaved, onCancel }: EditorFormProps) {
               <div key={section.group} className="space-y-3">
                 <div>
                   <h3 className="text-sm font-semibold">{section.group}</h3>
-                  <p className="text-[10px] text-muted-foreground">{section.desc}</p>
+                  <p className="text-xs text-muted-foreground">{section.desc}</p>
                 </div>
                 <div className="space-y-2.5 rounded-lg border p-4">
                   {section.items.map((item) => (
                     <div key={item.key} className="flex items-center justify-between">
                       <div>
                         <label className="text-sm">{item.label}</label>
-                        <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                        <p className="text-xs text-muted-foreground">{item.desc}</p>
                       </div>
                       <Switch
                         checked={item.key === "showMedicineTable" ? (layout.freeFormMode ? false : layout[item.key]) : layout[item.key]}

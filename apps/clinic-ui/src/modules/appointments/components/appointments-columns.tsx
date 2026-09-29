@@ -95,14 +95,14 @@ function InvoiceActionCell({ appt, onOpenInvoice }: InvoiceActionCellProps) {
         <TooltipContent>{appt.bill ? (appt.bill.status === "PAID" ? "View Receipt" : "View Invoice") : "No invoice yet"}</TooltipContent>
       </Tooltip>
       {appt.bill ? (
-        <Badge variant="outline" className={cn("text-[10px]",
+        <Badge variant="outline" className={cn("text-2xs",
           appt.bill.status === "PAID" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
             : "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
         )}>
           {appt.bill.status === "PAID" ? "Paid" : "Due"}
         </Badge>
       ) : (
-        <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+        <Badge variant="outline" className="text-2xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
           Due
         </Badge>
       )}
@@ -127,7 +127,7 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
       id: "token",
       header: () => <div className="text-center">Token #</div>,
       cell: ({ row }) => (
-        <div className="text-center text-sm font-semibold text-muted-foreground">
+        <div className="tabular text-center text-sm font-semibold text-muted-foreground">
           {row.original.tokenNumber ? `#${row.original.tokenNumber}` : "—"}
         </div>
       ),
@@ -150,7 +150,7 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
       header: () => <div className="text-center">Status</div>,
       cell: ({ row }) => (
         <div className="flex justify-center">
-          <Badge variant="outline" className={`text-[10px] ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
+          <Badge variant="outline" className={`text-2xs ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
             {apptStatusLabel(row.original.status)}
           </Badge>
         </div>
@@ -163,7 +163,7 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
         const ps = paymentStatus(row.original);
         return (
           <div className="flex justify-center">
-            <Badge variant="outline" className={`text-[10px] ${ps.className}`}>{ps.label}</Badge>
+            <Badge variant="outline" className={`text-2xs ${ps.className}`}>{ps.label}</Badge>
           </div>
         );
       },
@@ -192,7 +192,7 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
       // Once a bill exists its total is the source of truth (discount/tax may
       // have changed it at checkout); before that, fall back to consultation
       // + registration fee — the same total the Edit page shows.
-      cell: ({ row }) => <div className="text-center text-sm font-medium">{currency(row.original.bill ? row.original.bill.total : row.original.amount + row.original.registrationFee)}</div>,
+      cell: ({ row }) => <div className="tabular text-center text-sm font-medium">{currency(row.original.bill ? row.original.bill.total : row.original.amount + row.original.registrationFee)}</div>,
     },
     {
       id: "actions",

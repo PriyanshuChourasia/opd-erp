@@ -39,7 +39,7 @@ export function LedgerDetailPage() {
       accessorKey: "journal.journalType.name",
       header: "Type",
       cell: ({ row }) => (
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant="outline" className="text-2xs">
           {row.original.journal.journalType.name}
         </Badge>
       ),
@@ -57,7 +57,7 @@ export function LedgerDetailPage() {
       accessorKey: "debitAmount",
       header: "Debit",
       cell: ({ row }) => (
-        <span className="text-right font-mono text-xs">
+        <span className="tabular text-right font-mono text-xs">
           {row.original.debitAmount > 0 ? currency(row.original.debitAmount) : "—"}
         </span>
       ),
@@ -66,7 +66,7 @@ export function LedgerDetailPage() {
       accessorKey: "creditAmount",
       header: "Credit",
       cell: ({ row }) => (
-        <span className="text-right font-mono text-xs">
+        <span className="tabular text-right font-mono text-xs">
           {row.original.creditAmount > 0 ? currency(row.original.creditAmount) : "—"}
         </span>
       ),
@@ -119,11 +119,11 @@ export function LedgerDetailPage() {
           <CardContent className="py-4">
             <p className="text-xs text-muted-foreground">Account Type</p>
             <div className="flex gap-1 mt-1">
-              {ledger.isCashAccount && <Badge variant="outline" className="text-[10px]">Cash</Badge>}
-              {ledger.isBankAccount && <Badge variant="outline" className="text-[10px]">Bank</Badge>}
-              {ledger.isBillWiseTracking && <Badge variant="outline" className="text-[10px]">Bill-wise</Badge>}
+              {ledger.isCashAccount && <Badge variant="outline" className="text-2xs">Cash</Badge>}
+              {ledger.isBankAccount && <Badge variant="outline" className="text-2xs">Bank</Badge>}
+              {ledger.isBillWiseTracking && <Badge variant="outline" className="text-2xs">Bill-wise</Badge>}
               {!ledger.isCashAccount && !ledger.isBankAccount && !ledger.isBillWiseTracking && (
-                <Badge variant="outline" className="text-[10px]">General</Badge>
+                <Badge variant="outline" className="text-2xs">General</Badge>
               )}
             </div>
           </CardContent>

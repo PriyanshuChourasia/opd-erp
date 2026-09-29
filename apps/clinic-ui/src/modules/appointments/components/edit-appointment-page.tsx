@@ -45,7 +45,7 @@ function currency(value: number) { const n = Number(value) || 0; return `₹${n.
 function PlaceholderField({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
       <p className={cn("mt-0.5", value ? "font-medium" : "text-muted-foreground/50")}>
         {value || "—"}
       </p>
@@ -348,7 +348,7 @@ export function EditAppointmentPage() {
           </div>
           <div className="hidden self-start sm:block">
             <span className={cn(
-              "inline-flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider",
+              "inline-flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-xs font-medium uppercase tracking-wider",
               "border-primary/20 bg-primary/5 text-primary"
             )}>
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
@@ -374,7 +374,7 @@ export function EditAppointmentPage() {
                 type="button"
                 onClick={() => setForm((prev) => ({ ...prev, date: value }))}
                 className={cn(
-                  "shrink-0 rounded-none border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                  "shrink-0 rounded-none border px-2.5 py-1 text-xs font-medium transition-colors",
                   form.date === value
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -621,13 +621,13 @@ export function EditAppointmentPage() {
                   <PlaceholderField label="Email" value={selectedPatient?.email} />
                   <PlaceholderField label="Registered On" value={selectedPatient?.createdAt ? new Date(selectedPatient.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : undefined} />
                   <div>
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Address</span>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">Address</span>
                     <p className={cn("mt-0.5 text-xs", selectedPatient?.address ? "" : "text-muted-foreground/50")}>
                       {selectedPatient?.address || "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Emergency Contact</span>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">Emergency Contact</span>
                     <p className={cn("mt-0.5 text-xs", selectedPatient?.emergencyContact ? "font-medium" : "text-muted-foreground/50")}>
                       {selectedPatient?.emergencyContact || "—"}
                     </p>
@@ -641,7 +641,7 @@ export function EditAppointmentPage() {
                     {form.allergies.length > 0 ? form.allergies.map((allergy) => (
                       <span
                         key={allergy}
-                        className="inline-flex items-center gap-1 rounded-none border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+                        className="inline-flex items-center gap-1 rounded-none border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
                       >
                         <AlertTriangle className="size-3 text-amber-500" />
                         {allergy}
@@ -665,28 +665,28 @@ export function EditAppointmentPage() {
                     <span className="text-xs font-semibold text-foreground">Patient Vitals</span>
                     <div className="mt-1.5 grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
                       {patientVitals.heightCm != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Height</span><p className="font-medium">{patientVitals.heightCm} cm</p></div>
                       )}
                       {patientVitals.weightKg != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Weight</span><p className="font-medium">{patientVitals.weightKg} kg</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Weight</span><p className="font-medium">{patientVitals.weightKg} kg</p></div>
                       )}
                       {patientVitals.bmi != null && (
-                        <div><span className="text-[10px] text-muted-foreground">BMI</span><p className="font-medium">{patientVitals.bmi}</p></div>
+                        <div><span className="text-2xs text-muted-foreground">BMI</span><p className="font-medium">{patientVitals.bmi}</p></div>
                       )}
                       {patientVitals.temperatureC != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Temp</span><p className="font-medium">{patientVitals.temperatureC}°F</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Temp</span><p className="font-medium">{patientVitals.temperatureC}°F</p></div>
                       )}
                       {patientVitals.pulseBpm != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Pulse</span><p className="font-medium">{patientVitals.pulseBpm} bpm</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Pulse</span><p className="font-medium">{patientVitals.pulseBpm} bpm</p></div>
                       )}
                       {patientVitals.systolicBp != null && patientVitals.diastolicBp != null && (
-                        <div><span className="text-[10px] text-muted-foreground">BP</span><p className="font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
+                        <div><span className="text-2xs text-muted-foreground">BP</span><p className="font-medium">{patientVitals.systolicBp}/{patientVitals.diastolicBp} mmHg</p></div>
                       )}
                       {patientVitals.spo2Percent != null && (
-                        <div><span className="text-[10px] text-muted-foreground">SpO₂</span><p className="font-medium">{patientVitals.spo2Percent}%</p></div>
+                        <div><span className="text-2xs text-muted-foreground">SpO₂</span><p className="font-medium">{patientVitals.spo2Percent}%</p></div>
                       )}
                       {patientVitals.respiratoryRate != null && (
-                        <div><span className="text-[10px] text-muted-foreground">Resp Rate</span><p className="font-medium">{patientVitals.respiratoryRate}/min</p></div>
+                        <div><span className="text-2xs text-muted-foreground">Resp Rate</span><p className="font-medium">{patientVitals.respiratoryRate}/min</p></div>
                       )}
                     </div>
                   </div>
@@ -698,11 +698,11 @@ export function EditAppointmentPage() {
                     onClick={() => setPatientInfoOpen((v) => !v)}
                     className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <div className="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                       <History className="size-3" />
                       <span>Past visits</span>
                       {pastAppointments.length > 0 && (
-                        <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[9px]">{pastAppointments.length}</span>
+                        <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-2xs">{pastAppointments.length}</span>
                       )}
                     </div>
                     <ChevronDown className={cn(
@@ -729,7 +729,7 @@ export function EditAppointmentPage() {
                               key={appt.id}
                               className="flex items-center gap-2 rounded-none border px-3 py-1.5 text-xs"
                             >
-                              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-2xs font-medium text-primary">
                                 {appt.type.replace("_", " ")}
                               </span>
                               <span className="font-medium">{appt.doctor?.name ?? appt.doctor?.medicalRegistrationNo ?? "Doctor"}</span>
@@ -780,7 +780,7 @@ export function EditAppointmentPage() {
                           type="button"
                           onClick={() => setForm((prev) => ({ ...prev, registrationFee: val }))}
                           className={cn(
-                            "w-14 text-center rounded-none border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                            "w-14 text-center rounded-none border px-2 py-0.5 text-xs font-medium transition-colors",
                             form.registrationFee === val
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-input text-muted-foreground hover:border-primary/50 hover:text-foreground"

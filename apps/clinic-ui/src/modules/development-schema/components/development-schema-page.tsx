@@ -166,13 +166,13 @@ export function DevelopmentSchemaPage() {
                           <Badge
                             key={relation}
                             variant="outline"
-                            className="font-mono text-[10px]"
+                            className="font-mono text-2xs"
                           >
                             {relation}
                           </Badge>
                         ))}
                         {model.relations.length > 5 && (
-                          <Badge variant="outline" className="font-mono text-[10px]">
+                          <Badge variant="outline" className="font-mono text-2xs">
                             +{model.relations.length - 5}
                           </Badge>
                         )}
@@ -246,7 +246,7 @@ export function DevelopmentSchemaPage() {
                   <p className="font-mono text-sm font-medium">{enumeration.name}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {enumeration.values.map((value) => (
-                      <Badge key={value} variant="secondary" className="font-mono text-[10px]">
+                      <Badge key={value} variant="secondary" className="font-mono text-2xs">
                         {value}
                       </Badge>
                     ))}

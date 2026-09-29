@@ -147,8 +147,8 @@ export function DiagnosesPage() {
           const diagnosis = row.original;
           return (
             <div className="flex items-center gap-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950">
-                <Stethoscope className="size-4 text-blue-500" />
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent">
+                <Stethoscope className="size-4 text-primary" />
               </span>
               <div className="min-w-0">
                 <p className="truncate font-medium">{diagnosis.name}</p>

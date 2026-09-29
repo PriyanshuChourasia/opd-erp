@@ -79,7 +79,7 @@ function InvoiceActionCell({ appt, onOpenInvoice }: InvoiceActionCellProps) {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" className="size-9" aria-label="View invoice" onClick={handleClick}>
-            <FileText className="size-4.5 text-green-600" />
+            <FileText className="size-4.5 text-primary" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>{appt.bill ? (appt.bill.status === "PAID" ? "View Receipt" : "View Invoice") : "No invoice yet"}</TooltipContent>
@@ -205,7 +205,7 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" className="size-9" aria-label="Collect payment" onClick={() => onCollectPayment(appt)}>
-                    <Banknote className="size-4.5 text-emerald-600" />
+                    <Banknote className="size-4.5 text-primary" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Collect Payment</TooltipContent>
@@ -227,7 +227,7 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="size-9" aria-label="Edit prescription" onClick={() => navigate({ to: "/appointments/$appointmentId/prescription", params: { appointmentId: appt.id } })}>
-                      <Pencil className="size-4.5 text-indigo-600" />
+                      <Pencil className="size-4.5 text-primary" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Edit Prescription</TooltipContent>

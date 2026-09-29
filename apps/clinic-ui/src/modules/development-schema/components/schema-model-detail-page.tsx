@@ -45,8 +45,8 @@ import {
 } from "@/components/ui/select";
 
 const METHOD_STYLES: Record<string, string> = {
-  GET: "bg-blue-600/10 text-blue-600 hover:bg-blue-600/10",
-  POST: "bg-green-600/10 text-green-600 hover:bg-green-600/10",
+  GET: "bg-accent text-primary",
+  POST: "bg-success-soft text-success-foreground",
   PATCH: "bg-amber-600/10 text-amber-600 hover:bg-amber-600/10",
   DELETE: "bg-red-600/10 text-red-600 hover:bg-red-600/10",
 };
@@ -105,8 +105,8 @@ function downloadJson(filename: string, data: unknown) {
 }
 
 const KIND_STYLES: Record<string, string> = {
-  scalar: "bg-blue-600/10 text-blue-600 hover:bg-blue-600/10",
-  object: "bg-purple-600/10 text-purple-600 hover:bg-purple-600/10",
+  scalar: "bg-accent text-primary",
+  object: "bg-secondary text-secondary-foreground",
   enum: "bg-amber-600/10 text-amber-600 hover:bg-amber-600/10",
 };
 
@@ -476,7 +476,7 @@ export function SchemaModelDetailPage() {
                     Fields ({displayRows.length})
                   </CardTitle>
                   {markCounts.edited > 0 && (
-                    <Badge variant="outline" className="bg-blue-600/10 text-2xs text-blue-600">
+                    <Badge variant="outline" className="bg-accent text-2xs text-primary">
                       {markCounts.edited} edited
                     </Badge>
                   )}
@@ -577,7 +577,7 @@ export function SchemaModelDetailPage() {
                           {row.isId ? (
                             <KeyRound className="size-3.5 text-amber-500" />
                           ) : row.kind === "object" ? (
-                            <Link2 className="size-3.5 text-purple-500" />
+                            <Link2 className="size-3.5 text-primary" />
                           ) : null}
                         </span>
                         {isEditingThis ? (
@@ -623,20 +623,20 @@ export function SchemaModelDetailPage() {
                               {displayName}
                             </span>
                             {row.proposed && (
-                              <Badge className="bg-green-600/10 text-green-600 hover:bg-green-600/10">
+                              <Badge className="bg-success-soft text-success-foreground">
                                 new
                               </Badge>
                             )}
                             {row.proposed && row.targetModel && (
                               <Badge
                                 variant="outline"
-                                className="border-purple-400 font-mono text-2xs text-purple-600"
+                                className="border-primary/40 font-mono text-2xs text-primary"
                               >
                                 FK → {row.targetModel}
                               </Badge>
                             )}
                             {isEdited && !isRemoved && (
-                              <Badge className="bg-blue-600/10 text-blue-600 hover:bg-blue-600/10">
+                              <Badge className="bg-accent text-primary">
                                 edited
                               </Badge>
                             )}
@@ -666,7 +666,7 @@ export function SchemaModelDetailPage() {
                                 size="icon"
                                 aria-label={`Edit ${displayName}`}
                                 title="Edit field"
-                                className={cn("size-7", isEdited && "text-blue-600")}
+                                className={cn("size-7", isEdited && "text-primary")}
                                 onClick={() => openEdit(displayName, displayType)}
                               >
                                 <Pencil className="size-3.5" />
@@ -997,7 +997,7 @@ function RelationGraph({
                     stroke="currentColor"
                     strokeWidth={1.5}
                     strokeDasharray="6 6"
-                    className="schema-edge text-purple-400/60 dark:text-purple-500/50"
+                    className="schema-edge text-primary/50"
                     style={{
                       animation: `schema-edge-draw 0.7s ease ${index * 0.12}s both, schema-dash-march 1.2s linear infinite`,
                       animationDelay: `${index * 0.12}s, ${0.7 + index * 0.12}s`,
@@ -1071,7 +1071,7 @@ function RelationGraph({
                   width={NODE_W}
                   height={NODE_H}
                   rx={6}
-                  className="fill-background stroke-purple-400 dark:stroke-purple-500"
+                  className="fill-background stroke-primary/60"
                   strokeWidth={1.5}
                 />
                 <text

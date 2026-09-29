@@ -99,7 +99,7 @@ export function PaymentHistory({ appointmentId, billId, onViewReceipt }: Payment
                     className={cn(
                       "inline-flex items-center gap-1 rounded-none px-1.5 py-0.5 text-xs font-medium",
                       row.direction === "PAYMENT"
-                        ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+                        ? "bg-success-soft text-success-foreground"
                         : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
                     )}
                   >
@@ -114,7 +114,7 @@ export function PaymentHistory({ appointmentId, billId, onViewReceipt }: Payment
                 <td
                   className={cn(
                     "px-3 py-2 text-right font-medium",
-                    row.direction === "PAYMENT" ? "text-green-600" : "text-red-600",
+                    row.direction === "PAYMENT" ? "text-success" : "text-destructive",
                   )}
                 >
                   {row.direction === "PAYMENT" ? "+" : "−"}

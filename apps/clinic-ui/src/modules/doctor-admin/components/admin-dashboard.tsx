@@ -15,8 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 /* ─── Quick actions config ───────────────────────────────── */
 
 const quickActions = [
-  { to: "/patients", label: "Patients", icon: Users, color: "text-blue-600 bg-blue-50" },
-  { to: "/prescriptions", label: "Prescriptions", icon: ClipboardList, color: "text-purple-600 bg-purple-50" },
+  { to: "/patients", label: "Patients", icon: Users, color: "text-primary bg-accent" },
+  { to: "/prescriptions", label: "Prescriptions", icon: ClipboardList, color: "text-accent-foreground bg-secondary" },
 ];
 
 /* ─── Main Component ─────────────────────────────────────── */
@@ -54,7 +54,7 @@ export function AdminDashboard() {
           title="Today's Appointments"
           value={stats?.todayAppointments ?? 0}
           icon={CalendarClock}
-          iconColor="text-blue-600"
+          iconColor="text-primary"
           loading={loading}
         />
         <StatCard
@@ -68,7 +68,7 @@ export function AdminDashboard() {
           title="Pending Prescriptions"
           value={stats?.pendingPrescriptions ?? 0}
           icon={ClipboardList}
-          iconColor="text-purple-600"
+          iconColor="text-accent-foreground"
           loading={loading}
         />
       </div>

@@ -54,8 +54,8 @@ export function PrescriptionTemplatePreview({ template, onOpenChange, inline = f
 
   const templateType: TemplateType = template.type ?? "prescription";
   const layout = (template.layout as Record<string, any>) ?? {};
-  const primaryColor = layout.primaryColor ?? "#0ea5e9";
-  const secondaryColor = layout.secondaryColor ?? "#e0f2fe";
+  const primaryColor = layout.primaryColor ?? "#028390";
+  const secondaryColor = layout.secondaryColor ?? "#DFF2F0";
   const headerBgColor = layout.headerBgColor ?? primaryColor;
   const layoutStyle = layout.layoutStyle ?? "classic";
   const headerStyle = layout.headerStyle ?? "centered";

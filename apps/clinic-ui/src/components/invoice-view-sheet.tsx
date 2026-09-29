@@ -19,11 +19,11 @@ import { PaymentHistory } from "@/components/payment-history";
 import { ReceiptViewSheet } from "@/components/receipt-view-sheet";
 
 // ─── Palette (paired with @page invoice-a5 in index.css) ─────────────
-const ACCENT = "#0e7490"; // cyan-700 — section headings / accents
-const ACCENT_SOFT = "#e9f3f6"; // pale cyan — light panels
+const ACCENT = "#028390"; // Teal Deep — section headings / accents
+const ACCENT_SOFT = "#DFF2F0"; // Teal Wash — light panels
 const INK = "#0f172a"; // slate-900 — primary text
 const MUTED = "#64748b"; // slate-500 — secondary text
-const LINE = "#e2e8f0"; // slate-200 — thin separators
+const LINE = "#81CCC4"; // Teal Mist — thin separators
 
 const NO_BREAK = "break-inside:avoid;page-break-inside:avoid;";
 

@@ -105,7 +105,7 @@ export function LedgerDetailPage() {
         <Card>
           <CardContent className="py-4">
             <p className="text-xs text-muted-foreground">Current Balance</p>
-            <p className={cn("text-2xl font-bold", ledger.currentBalance >= 0 ? "text-green-600" : "text-red-600")}>
+            <p className={cn("text-2xl font-bold", ledger.currentBalance >= 0 ? "text-success" : "text-destructive")}>
               {currency(ledger.currentBalance)}
             </p>
           </CardContent>

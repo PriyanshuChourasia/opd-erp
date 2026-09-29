@@ -21,8 +21,8 @@ import {
 import { PrescriptionTemplatePreview } from "./prescription-template-preview";
 
 const TYPE_CONFIG: Record<TemplateType, { label: string; icon: typeof FileText; color: string }> = {
-  prescription: { label: "Prescription", icon: FileText, color: "bg-blue-100 text-blue-700" },
-  diagnosis: { label: "Diagnosis", icon: Stethoscope, color: "bg-green-100 text-green-700" },
+  prescription: { label: "Prescription", icon: FileText, color: "bg-accent text-accent-foreground" },
+  diagnosis: { label: "Diagnosis", icon: Stethoscope, color: "bg-secondary text-secondary-foreground" },
   test: { label: "Lab Test", icon: TestTube, color: "bg-red-100 text-red-700" },
   appointment_slip: { label: "Appointment Slip", icon: CalendarClock, color: "bg-amber-100 text-amber-700" },
 };
@@ -199,8 +199,8 @@ export function PrescriptionTemplateList() {
                           );
                         })()}
                         {(tpl.isDefault || tpl.doctorId) && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-2xs font-medium text-emerald-700">
-                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-1.5 py-0.5 text-2xs font-medium text-success-foreground">
+                            <span className="size-1.5 rounded-full bg-success" />
                             ACTIVE
                           </span>
                         )}
@@ -209,7 +209,7 @@ export function PrescriptionTemplateList() {
                         <p className="text-xs text-muted-foreground mt-0.5">{tpl.description}</p>
                       )}
                       {tpl.doctorId && (
-                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-2xs font-medium text-violet-700">
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent px-1.5 py-0.5 text-2xs font-medium text-primary">
                           <UserRound className="size-2.5" />
                           {doctorName(tpl.doctorId)}
                         </span>

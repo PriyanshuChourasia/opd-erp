@@ -221,7 +221,7 @@ export function PatientHistorySheet({
                               </div>
                               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
-                                  <Pill className="size-2.5 text-violet-500" />
+                                  <Pill className="size-2.5 text-primary" />
                                   {rx.items.length} item{rx.items.length !== 1 ? "s" : ""}
                                 </span>
                                 {rx.doctor?.name && (
@@ -284,7 +284,7 @@ export function PatientHistorySheet({
                                       key={item.id}
                                       className="flex items-center gap-2 rounded-sm border bg-background px-2.5 py-1.5"
                                     >
-                                      <Pill className="size-3 shrink-0 text-violet-500" />
+                                      <Pill className="size-3 shrink-0 text-primary" />
                                       <span className="min-w-0 flex-1 text-xs font-medium">
                                         {item.medicineName}
                                       </span>

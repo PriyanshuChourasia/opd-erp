@@ -77,20 +77,20 @@ input[type="number"] {
 
 :root {
   --font-scale: 1;
-  --background: oklch(0.985 0.003 168);
+  --background: #F7FBFB; /* Teal-tinted near-white */
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: #ffffff; /* white cards on the tinted background */
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --popover: #ffffff;
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.6557 0.1319 168.46); /* #01aa82 */
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --primary: #028390; /* Teal Deep */
+  --primary-foreground: #ffffff; /* white on Teal Deep ≈ 4.5:1 */
+  --secondary: #DFF2F0; /* Teal Wash */
+  --secondary-foreground: #015E67; /* dark teal, readable on Wash */
+  --muted: #DFF2F0; /* Teal Wash */
+  --muted-foreground: oklch(0.526 0.012 200); /* mid grey-teal, ≥4.5:1 on white and Wash */
+  --accent: #DFF2F0; /* Teal Wash */
+  --accent-foreground: #015E67; /* dark teal, readable on Wash */
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   /* Semantic status. `-soft` is the chip background, `-foreground` is text on
@@ -105,48 +105,49 @@ input[type="number"] {
   --info: oklch(0.428 0.13 252);
   --info-foreground: oklch(0.31 0.13 252);
   --info-soft: oklch(0.955 0.048 252);
-  --border: var(--primary);
-  --input: var(--primary);
-  --ring: oklch(0.6557 0.1319 168.46);
-  --chart-1: oklch(0.6557 0.1319 168.46);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Borders decoupled from --primary: they use Teal Mist, not the brand colour */
+  --border: #81CCC4; /* Teal Mist */
+  --input: #81CCC4; /* Teal Mist */
+  --ring: #028390; /* Teal Deep */
+  --chart-1: #028390; /* Teal Deep */
+  --chart-2: #26A69B; /* Teal */
+  --chart-3: #81CCC4; /* Teal Mist */
+  --chart-4: #015E67; /* darker teal */
+  --chart-5: oklch(0.556 0 0); /* neutral grey */
   /* Dataviz tokens — validated categorical/sequential/status palette (see dataviz skill) */
-  --viz-series: #1baf7a; /* single-hue bars: doctor load, top medicines, status breakdown */
-  --viz-sequential: #2a78d6; /* revenue trend line */
-  --viz-sequential-fill: #cde2fb; /* revenue trend area wash */
+  --viz-series: #028390; /* single-hue bars: doctor load, top medicines, status breakdown */
+  --viz-sequential: #26A69B; /* revenue trend line */
+  --viz-sequential-fill: #DFF2F0; /* revenue trend area wash */
   --viz-status-good: #0ca30c;
   --viz-status-warning: #fab219;
   --viz-status-serious: #ec835a;
   --viz-status-critical: #d03b3b;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: #ffffff; /* white sidebar on the tinted background */
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.6557 0.1319 168.46);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.6557 0.1319 168.46);
+  --sidebar-primary: #028390; /* Teal Deep */
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #DFF2F0; /* Teal Wash — sidebar hover/active bg */
+  --sidebar-accent-foreground: #015E67; /* dark teal, readable on Wash */
+  --sidebar-border: #81CCC4; /* Teal Mist */
+  --sidebar-ring: #028390; /* Teal Deep */
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #0B1D1F; /* deep teal-black */
+  --foreground: #E8F4F2; /* near-white with a teal cast */
+  --card: #112A2D; /* one step lighter than the background */
+  --card-foreground: #E8F4F2;
+  --popover: #112A2D;
+  --popover-foreground: #E8F4F2;
+  --primary: #26A69B; /* Teal — lighter for dark surfaces */
+  --primary-foreground: #0B1D1F; /* dark text on the lighter teal */
+  --secondary: #16383B; /* muted dark teal */
+  --secondary-foreground: #DFF2F0;
+  --muted: #16383B;
+  --muted-foreground: #9CC9C3; /* light teal-grey, ≥4.5:1 on card/background */
+  --accent: #16383B;
+  --accent-foreground: #DFF2F0;
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --success: oklch(0.729 0.115 155);
@@ -158,29 +159,29 @@ input[type="number"] {
   --info: oklch(0.724 0.13 252);
   --info-foreground: oklch(0.965 0.13 252);
   --info-soft: oklch(0.3 0.072 252);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --viz-series: #199e70;
-  --viz-sequential: #3987e5;
-  --viz-sequential-fill: #184f95;
+  --border: rgb(129 204 196 / 0.22); /* Teal Mist ~22% alpha */
+  --input: rgb(129 204 196 / 0.25); /* Teal Mist ~25% alpha */
+  --ring: #26A69B; /* Teal */
+  --chart-1: #26A69B; /* Teal */
+  --chart-2: #81CCC4; /* Teal Mist */
+  --chart-3: #028390; /* Teal Deep */
+  --chart-4: #015E67; /* darker teal */
+  --chart-5: oklch(0.556 0 0); /* neutral grey */
+  --viz-series: #26A69B;
+  --viz-sequential: #81CCC4;
+  --viz-sequential-fill: #16383B;
   --viz-status-good: #0ca30c;
   --viz-status-warning: #fab219;
   --viz-status-serious: #ec835a;
   --viz-status-critical: #d03b3b;
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: #112A2D; /* one step lighter than the background */
+  --sidebar-foreground: #E8F4F2;
+  --sidebar-primary: #26A69B; /* Teal */
+  --sidebar-primary-foreground: #0B1D1F;
+  --sidebar-accent: #16383B; /* muted dark teal */
+  --sidebar-accent-foreground: #DFF2F0;
+  --sidebar-border: rgb(129 204 196 / 0.22); /* Teal Mist ~22% alpha */
+  --sidebar-ring: #26A69B; /* Teal */
 }
 
 @layer base {
@@ -198,6 +199,8 @@ input[type="number"] {
 }
 
 /* ─── Landing-page animation utilities (lp-*) ────────────────────
+   Brand gradient anchor: Teal Deep #028390 → Teal #26A69B; soft
+   washes use Teal Wash #DFF2F0. */
    Tailwind v4 forbids `@utility` inside `@media`, so each utility is
    declared at the top level and gates its own animation declarations with
    prefers-reduced-motion: no-preference instead. Net effect is the same:

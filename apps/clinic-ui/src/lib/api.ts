@@ -946,6 +946,39 @@ export function deleteAddress(id: string) {
   return request<void>({ method: "DELETE", path: `/addresses/${id}` });
 }
 
+// ─── City Types ───────────────────────────────────────────────
+
+export interface City {
+  id: string;
+  name: string;
+  state: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── City API ─────────────────────────────────────────────────
+// The backend catalog grows by itself: GET /cities?name=X&state=Y returns
+// the row for that pair, creating it on first use. So a city typed into any
+// address form is remembered, and the next state-scoped city select lists it.
+
+export function fetchCities(params: { state?: string; search?: string } = {}) {
+  return request<City[]>({
+    method: "GET",
+    path: "/cities",
+    params: { state: params.state, search: params.search },
+  });
+}
+
+/** Returns (and on first use creates) the catalog row for a city name + state. */
+export function findOrCreateCity(name: string, state: string) {
+  return request<City>({
+    method: "POST",
+    path: "/cities/find-or-create",
+    body: { name, state },
+  });
+}
+
 // ─── Allergy Types ─────────────────────────────────────────
 
 export type AllergySeverity = "MILD" | "MODERATE" | "SEVERE" | "LIFE_THREATENING";

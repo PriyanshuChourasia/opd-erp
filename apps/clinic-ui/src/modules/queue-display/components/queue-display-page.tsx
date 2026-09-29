@@ -56,7 +56,7 @@ export function QueueDisplayPage() {
                 ) : (
                   <div className="space-y-2">
                     {group.nowServing.map((t) => (
-                      <p key={t} className="rounded-md bg-green-500/20 px-4 py-3 font-mono text-3xl font-bold text-green-400">{t}</p>
+                      <p key={t} className="rounded-md bg-success/20 px-4 py-3 font-mono text-3xl font-bold text-success">{t}</p>
                     ))}
                   </div>
                 )}

@@ -47,7 +47,7 @@ export function DocumentGallery({ documentableType, documentableId }: DocumentGa
   const others = activeDocs.filter((d) => d.documentType !== "PROFILE_PHOTO");
 
   function getFileIcon(mimeType: string) {
-    if (mimeType.startsWith("image/")) return <ImageIcon className="size-5 text-blue-500" />;
+    if (mimeType.startsWith("image/")) return <ImageIcon className="size-5 text-primary" />;
     if (mimeType === "application/pdf") return <FileText className="size-5 text-red-500" />;
     return <File className="size-5 text-muted-foreground" />;
   }

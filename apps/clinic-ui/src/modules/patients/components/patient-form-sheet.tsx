@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCreatePatient, useUpdatePatient } from "../data/hooks";
 import type { Patient } from "../data/interface";
-import { uploadDocument, createPatientVitals, fetchPatientVitalsLatest, createAddress, type CreateAddressInput, INDIAN_STATES } from "@/lib/api";
+import { createPatientVitals, fetchPatientVitalsLatest, createAddress, type CreateAddressInput, INDIAN_STATES } from "@/lib/api";
 import {
   Sheet,
   SheetContent,
@@ -15,16 +15,9 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AddressManager } from "@/modules/addresses/components/address-manager";
-import { DocumentManager } from "@/modules/documents/components/document-manager";
-import { Camera, FileUp, X, File, Image as ImageIcon, MapPin, Plus } from "lucide-react";
+import { CityInput } from "@/components/city-input/city-input";
+import { MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
-
-interface PendingFile {
-  file: File;
-  label: string;
-  documentType: string;
-  preview?: string;
-}
 
 const emptyForm = {
   firstName: "",
@@ -80,14 +73,10 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
   const [vitals, setVitals] = useState(emptyVitals);
   const [newPatientAddress, setNewPatientAddress] = useState(emptyNewPatientAddress);
   const [showNewPatientAddress, setShowNewPatientAddress] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const docInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!open) return;
-    setPendingFiles([]);
     setVitals(emptyVitals);
     setNewPatientAddress(emptyNewPatientAddress);
     setShowNewPatientAddress(false);
@@ -139,19 +128,6 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
       });
   }, [open, existingVitals?.id]);
 
-  const uploadPendingDocs = async (patientId: string) => {
-    for (const pf of pendingFiles) {
-      try {
-        await uploadDocument(pf.file, pf.documentType, "Patient", patientId, { caption: pf.label || undefined, isPrimary: pf.documentType === "PROFILE_PHOTO" });
-      } catch {
-        // errors shown per-file
-      }
-    }
-    if (pendingFiles.length > 0) {
-      queryClient.invalidateQueries({ queryKey: ["documents", "Patient", patientId] });
-    }
-  };
-
   async function submitAddress(patientId: string) {
     if (!showNewPatientAddress) return;
     if (!newPatientAddress.addressLine1.trim()) {
@@ -198,6 +174,8 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
 
   function handleSave() {
     if (!form.firstName.trim() || !form.lastName.trim() || !form.contactNo.trim()) return;
+    // Register any newly typed city in the catalog before saving.
+    void commitCity?.();
     if (editingPatient) {
       updateMutation.mutate(
         { id: editingPatient.id, data: form },
@@ -207,7 +185,6 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
       createMutation.mutate(form as any, {
         onSuccess: async (patient: any) => {
           const saved: Patient = patient?.data ?? patient;
-          await uploadPendingDocs(saved.id);
           await submitAddress(saved.id);
           await submitVitals(saved.id);
           onOpenChange(false);
@@ -217,39 +194,9 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
     }
   }
 
-  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error("File must be under 10 MB"); return; }
-    const preview = URL.createObjectURL(file);
-    setPendingFiles((prev) => [...prev, { file, label: "Profile Photo", documentType: "PROFILE_PHOTO", preview }]);
-    e.target.value = "";
-  }
-
-  function handleDocSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files) return;
-    for (const file of Array.from(files)) {
-      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name} is over 10 MB, skipped`); continue; }
-      const isImage = file.type.startsWith("image/");
-      setPendingFiles((prev) => [...prev, { file, label: "", documentType: isImage ? "OTHER" : "MEDICAL_RECORD" }]);
-    }
-    e.target.value = "";
-  }
-
-  function removePending(index: number) {
-    setPendingFiles((prev) => {
-      const removed = prev[index];
-      if (removed?.preview) URL.revokeObjectURL(removed.preview);
-      return prev.filter((_, i) => i !== index);
-    });
-  }
-
-  function updatePendingLabel(index: number, label: string) {
-    setPendingFiles((prev) => prev.map((f, i) => i === index ? { ...f, label } : f));
-  }
-
   const isPending = createMutation.isPending || updateMutation.isPending;
+  // Set by CityInput so handleSave can register newly typed cities before saving.
+  let commitCity: (() => Promise<void>) | null = null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -257,34 +204,14 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
         <SheetHeader>
           <SheetTitle>{editingPatient ? "Edit Patient" : "Register Patient"}</SheetTitle>
           <SheetDescription>
-            {editingPatient ? "Update patient details, photo, and documents below." : "Register a new patient. Add photo and documents below."}
+            {editingPatient ? "Update patient details and documents below." : "Register a new patient. Add documents below."}
           </SheetDescription>
         </SheetHeader>
         <div className="flex-1 space-y-4 px-4 pb-4">
           <FieldGroup>
-            {/* Profile Photo + Name in same row */}
-            <div className="flex gap-4 items-start border-t pt-3 mt-2">
-              <div className="shrink-0">
-                {editingPatient?.id ? (
-                  <DocumentManager
-                    documentableType="Patient"
-                    documentableId={editingPatient.id}
-                    documentType="PROFILE_PHOTO"
-                    label="Profile Photo"
-                  />
-                ) : (
-                  <PendingDocumentSection
-                    pendingFiles={pendingFiles}
-                    fileInputRef={fileInputRef}
-                    docInputRef={docInputRef}
-                    onPhotoSelect={handlePhotoSelect}
-                    onDocSelect={handleDocSelect}
-                    onRemove={removePending}
-                    onUpdateLabel={updatePendingLabel}
-                  />
-                )}
-              </div>
-              <div className="flex-1 grid grid-cols-3 gap-3">
+            {/* Names (profile photo field intentionally removed) */}
+            <div className="border-t pt-3 mt-2">
+              <div className="grid grid-cols-3 gap-3">
                 <Field>
                   <FieldLabel htmlFor="p-firstName">First Name *</FieldLabel>
                   <Input id="p-firstName" placeholder="Jane" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
@@ -391,7 +318,14 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
                       </Field>
                       <Field>
                         <FieldLabel className="text-2xs">City</FieldLabel>
-                        <Input className="h-8 text-xs" placeholder="Mumbai" value={newPatientAddress.city} onChange={(e) => setNewPatientAddress({ ...newPatientAddress, city: e.target.value })} />
+                        <CityInput
+                          className="h-8 text-xs"
+                          placeholder="Mumbai"
+                          state={newPatientAddress.state}
+                          value={newPatientAddress.city}
+                          onChange={(v) => setNewPatientAddress({ ...newPatientAddress, city: v })}
+                          exposeCommit={(fn) => { commitCity = fn; }}
+                        />
                       </Field>
                       <Field>
                         <FieldLabel className="text-2xs">District</FieldLabel>
@@ -504,66 +438,4 @@ export function PatientFormSheet({ open, onOpenChange, editingPatient, defaultFi
   );
 }
 
-// ─── Pending files section (add mode — no patient ID yet) ───
 
-
-function PendingDocumentSection({
-  pendingFiles,
-  fileInputRef,
-  docInputRef,
-  onPhotoSelect,
-  onDocSelect,
-  onRemove,
-  onUpdateLabel,
-}: {
-  pendingFiles: PendingFile[];
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-  docInputRef: React.RefObject<HTMLInputElement | null>;
-  onPhotoSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onDocSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemove: (index: number) => void;
-  onUpdateLabel: (index: number, label: string) => void;
-}) {
-  return (
-    <div className="border-t pt-3 mt-2 space-y-3">
-      <p className="text-xs font-medium text-muted-foreground">Profile Photo & Documents</p>
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()}>
-          <Camera className="size-3.5" /> Photo
-        </Button>
-        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => docInputRef.current?.click()}>
-          <FileUp className="size-3.5" /> Document
-        </Button>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPhotoSelect} />
-        <input ref={docInputRef} type="file" accept="image/*,.pdf,.doc,.docx" multiple className="hidden" onChange={onDocSelect} />
-      </div>
-      {pendingFiles.length > 0 && (
-        <div className="space-y-2">
-          {pendingFiles.map((pf, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-none border px-3 py-2 text-sm">
-              {pf.preview ? (
-                <img src={pf.preview} alt="" className="size-8 rounded object-cover" />
-              ) : pf.file.type.startsWith("image/") ? (
-                <ImageIcon className="size-4 text-muted-foreground" />
-              ) : (
-                <File className="size-4 text-muted-foreground" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-xs">{pf.file.name}</p>
-                <Input
-                  placeholder="Label (optional)"
-                  className="mt-1 h-7 text-xs"
-                  value={pf.label}
-                  onChange={(e) => onUpdateLabel(i, e.target.value)}
-                />
-              </div>
-              <button type="button" onClick={() => onRemove(i)} className="shrink-0 text-muted-foreground hover:text-foreground">
-                <X className="size-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}

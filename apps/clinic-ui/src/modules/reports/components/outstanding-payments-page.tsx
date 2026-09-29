@@ -154,11 +154,11 @@ export function OutstandingPaymentsPage() {
           h2 { text-align: center; margin-bottom: 12px; font-size: 12px; color: #666; }
           table { width: 100%; border-collapse: collapse; margin-top: 8px; }
           th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; }
-          th { background: #f3f4f6; font-weight: bold; font-size: 9px; }
+          th { background: #DFF2F0; color: #015E67; font-weight: bold; font-size: 9px; }
           td { font-size: 9px; }
           tr:nth-child(even) { background: #f9fafb; }
           .text-right { text-align: right; }
-          .totals-row { font-weight: bold; background: #e5e7eb; }
+          .totals-row { font-weight: bold; background: #DFF2F0; color: #015E67; }
         </style></head><body>
         <h1>Outstanding / Pending Payment Report</h1>
         <h2>${from} to ${to} (${rows.length} records)</h2>
@@ -357,7 +357,7 @@ export function OutstandingPaymentsPage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Paid</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                <div className="text-2xl font-bold tabular-nums text-success">
                   {formatCurrency(data.summary.totalPaidAmount)}
                 </div>
               </CardContent>
@@ -461,7 +461,7 @@ export function OutstandingPaymentsPage() {
                         <TableCell className="text-right tabular-nums font-medium">
                           {formatCurrency(row.totalAmount)}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                        <TableCell className="text-right tabular-nums text-success">
                           {formatCurrency(row.paidAmount)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">

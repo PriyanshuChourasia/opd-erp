@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { DataTable } from "@/components/data-table/data-table";
+import { CityInput } from "@/components/city-input/city-input";
 import { DAYS, SCHEDULE_TEMPLATES, type DayBlock, type DayForm, type ScheduleTemplate } from "../data/interface";
 import { type CreateEmployeeScheduleExceptionInput, type EmployeeScheduleExceptionType } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -120,6 +121,9 @@ export function DoctorsPage() {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+  // Per-address commit fns exposed by CityInput — handleSave registers newly
+  // typed cities in the catalog before saving the doctor.
+  const commitCityFns = useRef<Record<number, () => Promise<void>>>({});
   const [scheduleForm, setScheduleForm] = useState<DayForm[]>(emptyScheduleForm());
 
   const scheduleQuery = useQuery({
@@ -418,7 +422,7 @@ export function DoctorsPage() {
     setSheetOpen(true);
   }
 
-  function closeSheet() { setSheetOpen(false); setEditingId(null); setPendingFiles([]); setAddresses([]); }
+  function closeSheet() { setSheetOpen(false); setEditingId(null); setPendingFiles([]); setAddresses([]); commitCityFns.current = {}; }
 
   function openDocs(doctor: Doctor) { setDocSheetDoctor(doctor); setDocSheetOpen(true); }
 
@@ -461,6 +465,8 @@ export function DoctorsPage() {
 
   function handleSave() {
     if (!form.medicalRegistrationNo.trim()) return;
+    // Register any newly typed cities in the catalog before saving.
+    void Promise.all(Object.values(commitCityFns.current).map((fn) => fn()));
     if (editingId) {
       // Strip medicalRegistrationNo (immutable after creation) and address fields
       // (addresses are managed via AddressManager for editing)
@@ -626,7 +632,7 @@ export function DoctorsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8 text-green-600"
+                      className="size-8 text-success"
                       onClick={() => setConfirmDialog({ open: true, doctor, action: 'activate' })}
                     >
                       <UserCheck className="size-3.5" />
@@ -804,7 +810,13 @@ export function DoctorsPage() {
                     <div className="grid grid-cols-3 gap-3">
                       <Field>
                         <FieldLabel>City</FieldLabel>
-                        <Input placeholder="Mumbai" value={addr.city ?? ""} onChange={(e) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, city: e.target.value } : a))} />
+                        <CityInput
+                          placeholder="Mumbai"
+                          state={addr.state ?? ""}
+                          value={addr.city ?? ""}
+                          onChange={(v) => setAddresses((prev) => prev.map((a, i) => i === idx ? { ...a, city: v } : a))}
+                          exposeCommit={(fn) => { commitCityFns.current[idx] = fn; }}
+                        />
                       </Field>
                       <Field>
                         <FieldLabel>State</FieldLabel>

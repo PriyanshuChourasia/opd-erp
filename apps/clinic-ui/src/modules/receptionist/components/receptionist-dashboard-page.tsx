@@ -42,7 +42,7 @@ import { StatusBadge } from "@/components/status-badge";
 
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400" },
-  { value: "CONSULTATION", label: "Consultation", color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400" },
+  { value: "CONSULTATION", label: "Consultation", color: "bg-secondary text-secondary-foreground border-border" },
 ] as const;
 
 function todayStr() {
@@ -380,27 +380,27 @@ export function ReceptionistDashboardPage() {
 
               {/* ── Inline Register Patient ── */}
               {showRegisterForm && (
-                <div className="rounded-none border-2 border-teal-400 bg-teal-50 p-4 space-y-3">
+                <div className="rounded-none border-2 border-primary bg-accent p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-teal-800">+ Register New Patient</p>
+                    <p className="text-sm font-semibold text-primary">+ Register New Patient</p>
                     <Button variant="ghost" size="icon-sm" title="Close" onClick={() => setShowRegisterForm(false)}>
                       <X className="size-4" />
                     </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-medium text-teal-700">First Name *</label>
+                      <label className="text-xs font-medium text-accent-foreground">First Name *</label>
                       <Input
-                        className="border-teal-300 bg-white focus-visible:ring-teal-500"
+                        className="border-input bg-white focus-visible:ring-ring"
                         placeholder="Jane"
                         value={newPatientFirstName}
                         onChange={(e) => setNewPatientFirstName(e.target.value)}
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-teal-700">Last Name *</label>
+                      <label className="text-xs font-medium text-accent-foreground">Last Name *</label>
                       <Input
-                        className="border-teal-300 bg-white focus-visible:ring-teal-500"
+                        className="border-input bg-white focus-visible:ring-ring"
                         placeholder="Doe"
                         value={newPatientLastName}
                         onChange={(e) => setNewPatientLastName(e.target.value)}
@@ -409,17 +409,17 @@ export function ReceptionistDashboardPage() {
 
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-teal-700">Phone *</label>
+                    <label className="text-xs font-medium text-accent-foreground">Phone *</label>
                     <Input
-                      className="border-teal-300 bg-white focus-visible:ring-teal-500"
+                      className="border-input bg-white focus-visible:ring-ring"
                       placeholder="+1 555-000-0000"
                       value={newPatientPhone}
                       onChange={(e) => setNewPatientPhone(e.target.value)}
                     />
                   </div>                    <div>
-                    <label className="text-xs font-medium text-teal-700">Email</label>
+                    <label className="text-xs font-medium text-accent-foreground">Email</label>
                     <Input
-                      className="border-teal-300 bg-white focus-visible:ring-teal-500"
+                      className="border-input bg-white focus-visible:ring-ring"
                       type="email"
                       placeholder="jane@example.com"
                       value={registerEmail}
@@ -427,9 +427,9 @@ export function ReceptionistDashboardPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-teal-700">Blood Group</label>
+                    <label className="text-xs font-medium text-accent-foreground">Blood Group</label>
                     <select
-                      className="flex h-9 w-full rounded-none border border-teal-300 bg-white px-3 py-1 text-sm"
+                      className="flex h-9 w-full rounded-none border border-input bg-white px-3 py-1 text-sm"
                       value={registerBloodGroup}
                       onChange={(e) => setRegisterBloodGroup(e.target.value)}
                     >
@@ -439,8 +439,8 @@ export function ReceptionistDashboardPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="flex items-center justify-between border-t border-teal-200 pt-3">
-                    <p className="text-xs text-teal-600">
+                  <div className="flex items-center justify-between border-t border-border pt-3">
+                    <p className="text-xs text-muted-foreground">
                       First name, last name, and phone are required. Email is optional.
                     </p>
                     <div className="flex gap-2">
@@ -449,7 +449,7 @@ export function ReceptionistDashboardPage() {
                       </Button>
                       <Button
                         size="sm"
-                        className="bg-teal-600 text-white hover:bg-teal-700"
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
                         disabled={!newPatientFirstName.trim() || !newPatientLastName.trim() || !newPatientPhone.trim() || createPatientMutation.isPending}
                         onClick={() => createPatientMutation.mutate({ firstName: newPatientFirstName.trim(), lastName: newPatientLastName.trim(), contactNo: newPatientPhone.trim(), email: registerEmail.trim() || undefined, bloodGroup: registerBloodGroup || undefined })}
                       >

@@ -20,10 +20,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const METHOD_STYLES: Record<string, string> = {
-  GET: "bg-blue-600/10 text-blue-600 hover:bg-blue-600/10",
-  POST: "bg-green-600/10 text-green-600 hover:bg-green-600/10",
+  GET: "bg-accent text-primary",
+  POST: "bg-success-soft text-success-foreground",
   PATCH: "bg-amber-600/10 text-amber-600 hover:bg-amber-600/10",
-  PUT: "bg-violet-600/10 text-violet-600 hover:bg-violet-600/10",
+  PUT: "bg-secondary text-secondary-foreground",
   DELETE: "bg-red-600/10 text-red-600 hover:bg-red-600/10",
 };
 

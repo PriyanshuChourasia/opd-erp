@@ -112,16 +112,16 @@ export const PAPER_SIZES: { value: PaperSize; label: string; width: string }[] =
 ];
 
 export const COLOR_PRESETS: { label: string; primary: string; secondary: string; headerBg: string }[] = [
-  { label: "Ocean Blue", primary: "#0ea5e9", secondary: "#e0f2fe", headerBg: "#0ea5e9" },
+  { label: "Teal Deep", primary: "#028390", secondary: "#DFF2F0", headerBg: "#028390" },
   { label: "Forest Green", primary: "#16a34a", secondary: "#dcfce7", headerBg: "#16a34a" },
   { label: "Royal Purple", primary: "#7c3aed", secondary: "#ede9fe", headerBg: "#7c3aed" },
   { label: "Crimson Red", primary: "#dc2626", secondary: "#fef2f2", headerBg: "#dc2626" },
-  { label: "Teal", primary: "#0891b2", secondary: "#ecfeff", headerBg: "#0891b2" },
+  { label: "Teal Mist", primary: "#81CCC4", secondary: "#F7FBFB", headerBg: "#81CCC4" },
   { label: "Amber", primary: "#d97706", secondary: "#fef3c7", headerBg: "#d97706" },
   { label: "Slate", primary: "#475569", secondary: "#f1f5f9", headerBg: "#475569" },
   { label: "Rose", primary: "#e11d48", secondary: "#fff1f2", headerBg: "#e11d48" },
-  { label: "Emerald", primary: "#059669", secondary: "#d1fae5", headerBg: "#059669" },
-  { label: "Indigo", primary: "#4f46e5", secondary: "#e0e7ff", headerBg: "#4f46e5" },
+  { label: "Emerald", primary: "#26A69B", secondary: "#DFF2F0", headerBg: "#26A69B" },
+  { label: "Slate Teal", primary: "#015E67", secondary: "#DFF2F0", headerBg: "#015E67" },
   { label: "Black", primary: "#000000", secondary: "#f5f5f5", headerBg: "#000000" },
   { label: "White", primary: "#374151", secondary: "#ffffff", headerBg: "#ffffff" },
 ];
@@ -170,13 +170,13 @@ const defaultLayout: LayoutConfig = {
   signatureText: "Signature:",
 
   showHeaderLine: true,
-  headerLineColor: "#0ea5e9",
+  headerLineColor: "#028390",
 
   recommendations: [],
   headerFields: [],
-  primaryColor: "#0ea5e9",
-  secondaryColor: "#e0f2fe",
-  headerBgColor: "#0ea5e9",
+  primaryColor: "#028390",
+  secondaryColor: "#DFF2F0",
+  headerBgColor: "#028390",
   fontSize: "medium",
 
   footerText: "",

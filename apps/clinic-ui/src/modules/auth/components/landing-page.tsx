@@ -23,6 +23,7 @@ import {
   Mail,
   MapPin,
   Monitor,
+  Phone,
   Pill,
   Printer,
   Receipt,
@@ -348,10 +349,24 @@ const principles = [
 const contactChannels = [
   {
     icon: Mail,
-    title: "Sales enquiries",
+    title: "Email us",
     description: "Tell us how your clinic runs today and we'll map the rollout.",
-    action: "sales@myopd.com",
-    href: "mailto:sales@myopd.com",
+    action: "priyanshuchourasia916@gmail.com",
+    href: "mailto:priyanshuchourasia916@gmail.com",
+  },
+  {
+    icon: Phone,
+    title: "Call us",
+    description: "Talk to us about rollout, pricing and support.",
+    action: "+91 6203163193",
+    href: "tel:+916203163193",
+  },
+  {
+    icon: Mail,
+    title: "Support",
+    description: "Product help, onboarding and account questions.",
+    action: "samirram007@gmail.com",
+    href: "mailto:samirram007@gmail.com",
   },
   {
     icon: BedDouble,
@@ -633,11 +648,11 @@ function HeroSection() {
       />
       <div
         aria-hidden="true"
-        className="lp-blob pointer-events-none absolute top-1/3 -right-24 -z-10 size-[28rem] bg-emerald-400/30 opacity-30 blur-3xl [animation-delay:-6s]"
+        className="lp-blob pointer-events-none absolute top-1/3 -right-24 -z-10 size-[28rem] bg-primary/30 opacity-30 blur-3xl [animation-delay:-6s]"
       />
       <div
         aria-hidden="true"
-        className="lp-blob pointer-events-none absolute bottom-0 left-1/3 -z-10 size-80 bg-sky-400/20 opacity-30 blur-3xl [animation-delay:-12s]"
+        className="lp-blob pointer-events-none absolute bottom-0 left-1/3 -z-10 size-80 bg-primary/20 opacity-30 blur-3xl [animation-delay:-12s]"
       />
 
       {/* Faint grid, radially masked */}
@@ -656,7 +671,7 @@ function HeroSection() {
             <Reveal delay={0}>
               <h1 className="text-balance text-5xl font-semibold tracking-tight sm:text-6xl">
                 From walk-in to prescription —{" "}
-                <span className="lp-shimmer bg-gradient-to-r from-primary via-emerald-400 to-primary bg-clip-text text-transparent">
+                <span className="lp-shimmer bg-gradient-to-r from-[#028390] via-[#26A69B] to-[#028390] bg-clip-text text-transparent">
                   one calm flow
                 </span>
                 .
@@ -1646,7 +1661,7 @@ function CtaBand() {
     <section className="relative overflow-hidden py-6">
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <Reveal>
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary to-emerald-500 px-6 py-16 text-center sm:px-16">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#028390] to-[#26A69B] px-6 py-16 text-center sm:px-16">
             {/* animated grain/blob */}
             <div
               aria-hidden="true"
@@ -1654,7 +1669,7 @@ function CtaBand() {
             />
             <div
               aria-hidden="true"
-              className="lp-blob pointer-events-none absolute -bottom-20 -left-10 size-72 rounded-full bg-emerald-300/25 opacity-30 blur-2xl [animation-delay:-9s]"
+              className="lp-blob pointer-events-none absolute -bottom-20 -left-10 size-72 rounded-full bg-[#DFF2F0]/25 opacity-30 blur-2xl [animation-delay:-9s]"
             />
 
             <h2 className="relative text-balance text-3xl font-semibold tracking-tight text-white md:text-4xl">
@@ -1929,18 +1944,26 @@ function Footer() {
             <ul className="mt-4 space-y-2">
               <li>
                 <a
-                  href="mailto:sales@myopd.com"
+                  href="mailto:priyanshuchourasia916@gmail.com"
                   className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  sales@myopd.com
+                  priyanshuchourasia916@gmail.com
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:support@myopd.com"
+                  href="mailto:samirram007@gmail.com"
                   className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  support@myopd.com
+                  samirram007@gmail.com
+                </a>
+              </li>
+              <li>
+                <a
+                  href="tel:+916203163193"
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  +91 6203163193
                 </a>
               </li>
               <li>
@@ -1956,7 +1979,7 @@ function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-2 border-t border-border pt-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <span>&copy; {new Date().getFullYear()} MyOPD.</span>
+          <span>&copy; 2026 Priyanshu Chourasia · codymitra.com</span>
           <span>Made for clinics in India</span>
         </div>
       </div>

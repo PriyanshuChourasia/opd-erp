@@ -80,8 +80,8 @@ export function RefundDecisionModal({
               className={cn(
                 "flex flex-col items-center gap-2 rounded-none border px-4 py-4 text-sm font-medium transition-all",
                 decision === "REFUND"
-                  ? "border-green-500 bg-green-50 text-green-700 ring-1 ring-green-500 dark:bg-green-950 dark:text-green-300"
-                  : "border-input text-muted-foreground hover:border-green-500/50 hover:text-foreground",
+                  ? "border-success bg-success-soft text-success-foreground ring-1 ring-success"
+                  : "border-input text-muted-foreground hover:border-success/50 hover:text-foreground",
               )}
             >
               <Banknote className="size-5" />

@@ -58,6 +58,8 @@ model User {
   createdEmployeeSchedules     EmployeeSchedule[]     @relation("EmployeeScheduleCreated")
   createdEmployeeScheduleExceptions EmployeeScheduleException[] @relation("EmployeeScheduleExceptionCreated")
   createdAddresses             Address[]              @relation("AddressCreated")
+  createdCities                City[]                 @relation("CityCreated")
+  updatedCities                City[]                 @relation("CityUpdated")
   createdDocuments             Document[]             @relation("DocumentCreated")
   createdCompanies             Company[]              @relation("CompanyCreated")
   createdPatientVitals         PatientVitals[]        @relation("PatientVitalsCreated")
@@ -1193,6 +1195,27 @@ model Address {
 
   @@index([addressableType, addressableId])
   @@index([addressableType, addressableId, isPrimary])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+/// City catalog for the address forms. Rows are auto-created the first time
+/// someone types a city name against a state (see CitiesService.findOrCreate),
+/// so the state select can offer the accumulated city list next time.
+model City {
+  id          String   @id @default(uuid())
+  name        String
+  state       String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("CityCreated", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?    @relation("CityUpdated", fields: [updatedById], references: [id])
+
+  @@unique([name, state])
+  @@index([state])
   @@index([createdById])
   @@index([updatedById])
 }

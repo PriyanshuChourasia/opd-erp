@@ -183,7 +183,7 @@ function ReceiptDocument({ data }: { data: ReceiptData }) {
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">Amount</p>
-                <p className="text-base font-bold text-green-600">{currency(receipt.amount)}</p>
+                <p className="text-base font-bold text-success">{currency(receipt.amount)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Method</p>
@@ -233,7 +233,7 @@ function ReceiptDocument({ data }: { data: ReceiptData }) {
         <div className="flex flex-col gap-0.5 border-t pt-1.5 text-xs text-muted-foreground">
           <div className="flex justify-between"><span>Subtotal</span><span>{currency(bill.subtotal)}</span></div>
           {bill.discount > 0 && (
-            <div className="flex justify-between"><span>Less: Discount</span><span className="text-green-600">−{currency(bill.discount)}</span></div>
+            <div className="flex justify-between"><span>Less: Discount</span><span className="text-success">−{currency(bill.discount)}</span></div>
           )}
           {bill.tax > 0 && (
             <div className="flex justify-between"><span>GST</span><span>{currency(bill.tax)}</span></div>

@@ -13,7 +13,6 @@ import {
   Users,
   X,
   Droplets,
-  Camera,
   FileUp,
   FileText,
 } from "lucide-react";
@@ -40,12 +39,12 @@ import { hasPermission } from "@/lib/roles";
 const bloodGroupColors: Record<string, string> = {
   "A+": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   "A-": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  "B+": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  "B-": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  "O+": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  "O-": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  "AB+": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  "AB-": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  "B+": "bg-accent text-accent-foreground",
+  "B-": "bg-accent text-accent-foreground",
+  "O+": "bg-secondary text-secondary-foreground",
+  "O-": "bg-secondary text-secondary-foreground",
+  "AB+": "bg-accent text-primary",
+  "AB-": "bg-accent text-primary",
 };
 
 function PatientAvatar({ photoUrl, name }: { photoUrl?: string; name: string }) {
@@ -93,7 +92,6 @@ export function PatientsPage() {
 
   // Pending files for add mode
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<CreatePatientInput>({
@@ -271,15 +269,6 @@ export function PatientsPage() {
     }
   }
 
-  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error("File must be under 10 MB"); return; }
-    const preview = URL.createObjectURL(file);
-    setPendingFiles((prev) => [...prev, { file, label: "Profile Photo", documentType: "PROFILE_PHOTO", preview }]);
-    e.target.value = "";
-  }
-
   function handleDocSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files) return;
@@ -303,7 +292,6 @@ export function PatientsPage() {
     setPendingFiles((prev) => prev.map((f, i) => i === index ? { ...f, label } : f));
   }
 
-  const photoPending = pendingFiles.filter((f) => f.documentType === "PROFILE_PHOTO");
   const otherPending = pendingFiles.filter((f) => f.documentType !== "PROFILE_PHOTO");
 
   const columns = useMemo<ColumnDef<Patient>[]>(() => [
@@ -464,34 +452,12 @@ export function PatientsPage() {
           <SheetContent side="right" className="w-[90vw] max-w-[1200px] overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{editingId ? "Edit Patient" : "Add Patient"}</SheetTitle>
-              <SheetDescription>{editingId ? "Update patient details, photo, and documents." : "Register a new patient. Add photo and documents below (optional)."}</SheetDescription>
+              <SheetDescription>{editingId ? "Update patient details and documents." : "Register a new patient. Add documents below (optional)."}</SheetDescription>
             </SheetHeader>
             <div className="flex-1 space-y-4 px-4 pb-4">
               <FieldGroup>
-                {/* ── Photo & Names in same row ── */}
+                {/* ── Names (profile photo field intentionally removed) ── */}
                 <div className="flex gap-4 items-start border-t pt-3 mt-2">
-                  {/* Profile Photo */}
-                  <div className="shrink-0">
-                    {editingId ? (
-                      <DocumentManager documentableType="Patient" documentableId={editingId} documentType="PROFILE_PHOTO" label="Profile Photo" />
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <button type="button" onClick={() => photoInputRef.current?.click()}
-                          className="flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors hover:border-primary/50 hover:bg-muted shrink-0">
-                          {photoPending[0]?.preview ? (
-                            <img src={photoPending[0].preview} alt="Photo" className="size-full object-cover" />
-                          ) : (
-                            <Camera className="size-6 text-muted-foreground/50" />
-                          )}
-                        </button>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">Profile Photo</p>
-                          <p className="text-xs text-muted-foreground">{photoPending[0] ? photoPending[0].file.name : "Click to select a photo"}</p>
-                        </div>
-                        <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handlePhotoSelect} />
-                      </div>
-                    )}
-                  </div>
                   {/* Name fields */}
                   <div className="flex-1 grid grid-cols-3 gap-3">
                     <Field><FieldLabel htmlFor="p-firstName">First Name *</FieldLabel><Input id="p-firstName" placeholder="John" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></Field>

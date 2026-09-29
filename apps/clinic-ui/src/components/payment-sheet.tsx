@@ -177,8 +177,8 @@ export function PaymentSheet({
             </div>
             {discountAmount > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-green-600">Discount ({selectedRule?.name ?? ""})</span>
-                <span className="text-green-600">−{currency(discountAmount)}</span>
+                <span className="text-success">Discount ({selectedRule?.name ?? ""})</span>
+                <span className="text-success">−{currency(discountAmount)}</span>
               </div>
             )}
             <div className="border-t pt-1.5">
@@ -188,7 +188,7 @@ export function PaymentSheet({
               </div>
             </div>
             {alreadyPaid > 0 && (
-              <div className="flex items-center justify-between text-green-600">
+              <div className="flex items-center justify-between text-success">
                 <span>Already Paid (prior installments)</span>
                 <span>−{currency(alreadyPaid)}</span>
               </div>
@@ -208,7 +208,7 @@ export function PaymentSheet({
             </div>
             {/* <div className="flex items-center justify-between font-semibold">
               <span>Amount To Be Collected</span>
-              <span className="text-lg text-green-600">{currency(paidAmount)}</span>
+              <span className="text-lg text-success">{currency(paidAmount)}</span>
             </div> */}
             {paidAmount < amountDue && (
               <div className="flex items-center justify-between text-sm font-medium text-amber-600">

@@ -322,7 +322,7 @@ export function StockInquiryPage() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 py-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-primary">
               <Package className="size-5" />
             </span>
             <div>

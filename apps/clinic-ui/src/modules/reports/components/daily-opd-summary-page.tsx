@@ -31,7 +31,7 @@ interface KpiCardProps {
 function KpiCard({ title, value, subtitle, variant = "default", isCurrency = false }: KpiCardProps) {
   const variantStyles = {
     default: "bg-background",
-    success: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800",
+    success: "bg-success-soft border-success-soft",
     warning: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800",
     danger: "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800",
   };
@@ -179,7 +179,7 @@ export function DailyOpdSummaryPage() {
           h3 { margin-top: 16px; margin-bottom: 8px; font-size: 14px; }
           table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 12px; }
           th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
-          th { background: #f3f4f6; font-weight: bold; }
+          th { background: #DFF2F0; color: #015E67; font-weight: bold; }
           tr:nth-child(even) { background: #f9fafb; }
           .text-right { text-align: right; }
         </style></head><body>

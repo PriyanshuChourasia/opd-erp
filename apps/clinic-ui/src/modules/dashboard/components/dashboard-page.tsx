@@ -238,9 +238,9 @@ export function DashboardPage() {
                       <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }} />
-                      <Bar dataKey="total" fill="#3b82f6" radius={[2, 2, 0, 0]} name="Total" />
-                      <Bar dataKey="completed" fill="#10b981" radius={[2, 2, 0, 0]} name="Completed" />
-                      <Bar dataKey="cancelled" fill="#ef4444" radius={[2, 2, 0, 0]} name="Cancelled" />
+                      <Bar dataKey="total" fill="var(--chart-1)" radius={[2, 2, 0, 0]} name="Total" />
+                      <Bar dataKey="completed" fill="var(--chart-2)" radius={[2, 2, 0, 0]} name="Completed" />
+                      <Bar dataKey="cancelled" fill="var(--destructive)" radius={[2, 2, 0, 0]} name="Cancelled" />
                     </BarChart>
                   </ResponsiveContainer></div>
                 )}
@@ -256,7 +256,7 @@ export function DashboardPage() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Today's OPD</p><p className="text-lg font-semibold">{stats?.opdTotal ?? 0}</p></div>
-                        <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Completed</p><p className="text-lg font-semibold text-green-600">{stats?.opdCompleted ?? 0}</p></div>
+                        <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Completed</p><p className="text-lg font-semibold text-success">{stats?.opdCompleted ?? 0}</p></div>
                         <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Waiting</p><p className="text-lg font-semibold text-amber-600">{stats?.opdWaiting ?? 0}</p></div>
                         <div className="rounded-none border p-3"><p className="text-xs text-muted-foreground">Avg Wait</p><p className="text-lg font-semibold">~15m</p></div>
                       </div>
@@ -266,7 +266,7 @@ export function DashboardPage() {
                           <span>{stats?.opdTotal ? Math.round(((stats.opdCompleted ?? 0) / stats.opdTotal) * 100) : 0}%</span>
                         </div>
                         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full rounded-full bg-green-500" style={{ width: `${stats?.opdTotal ? ((stats.opdCompleted ?? 0) / stats.opdTotal) * 100 : 0}%` }} />
+                          <div className="h-full rounded-full bg-success" style={{ width: `${stats?.opdTotal ? ((stats.opdCompleted ?? 0) / stats.opdTotal) * 100 : 0}%` }} />
                         </div>
                       </div>
                     </div>
@@ -301,7 +301,7 @@ export function DashboardPage() {
                             <XAxis dataKey="date" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => v.slice(5)} />
                             <YAxis fontSize={10} tickLine={false} axisLine={false} />
                             <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }} formatter={(value: any) => [`₹${Number(value).toLocaleString("en-IN")}`, "Revenue"]} />
-                            <Bar dataKey="revenue" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                            <Bar dataKey="revenue" fill="var(--viz-sequential)" radius={[2, 2, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer></div>
                       )}
@@ -329,7 +329,7 @@ export function DashboardPage() {
                             <p className="text-sm font-medium truncate">{doc.name}</p>
                             <p className="text-xs text-muted-foreground">{doc.appointmentCount} appointments today</p>
                           </div>
-                          <Badge variant="outline" className={`text-2xs ${doc.available ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-500 border-gray-200"}`}>{doc.available ? "Available" : "Busy"}</Badge>
+                          <Badge variant="outline" className={`text-2xs ${doc.available ? "bg-success-soft text-success-foreground border-success-soft" : "bg-muted text-muted-foreground border-border"}`}>{doc.available ? "Available" : "Busy"}</Badge>
                         </div>
                       ))}
                     </div>
@@ -342,7 +342,7 @@ export function DashboardPage() {
                 <CardHeader className="pb-3"><SectionHeader title="Low Stock Medicines" icon={Pill} action={{ label: "View Catalog", to: "/medicine-catalog" }} /></CardHeader>
                 <CardContent>
                   {loading ? <LoadingRows count={3} /> : (stats?.lowStockMedicines ?? 0) === 0 ? (
-                    <div className="flex items-center gap-2 rounded-none border border-green-200 bg-green-50 p-2.5 text-sm text-green-700"><CheckCircle className="size-4" />All medicines adequately stocked.</div>
+                    <div className="flex items-center gap-2 rounded-none border border-success-soft bg-success-soft p-2.5 text-sm text-success-foreground"><CheckCircle className="size-4" />All medicines adequately stocked.</div>
                   ) : (
                     <div className="flex items-center gap-2 rounded-none border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-700"><AlertTriangle className="size-4" />{stats?.lowStockMedicines ?? 0} medicines need restocking.</div>
                   )}
@@ -384,12 +384,12 @@ export function DashboardPage() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                   {[
-                    { label: "Register Patient", to: "/patients", icon: UserPlus, color: "bg-blue-50 text-blue-600" },
-                    { label: "Book Appointment", to: "/appointments/new", icon: CalendarPlus, color: "bg-green-50 text-green-600" },
-                    { label: "View Doctors", to: "/doctors", icon: UserCheck, color: "bg-purple-50 text-purple-600" },
-                    { label: "Prescriptions", to: "/prescriptions", icon: FileText, color: "bg-amber-50 text-amber-600" },
-                    { label: "Medicine Catalog", to: "/medicine-catalog", icon: Pill, color: "bg-rose-50 text-rose-600" },
-                    { label: "Billing", to: "/billing", icon: Receipt, color: "bg-emerald-50 text-emerald-600" },
+                    { label: "Register Patient", to: "/patients", icon: UserPlus, color: "bg-accent text-primary" },
+                    { label: "Book Appointment", to: "/appointments/new", icon: CalendarPlus, color: "bg-accent text-accent-foreground" },
+                    { label: "View Doctors", to: "/doctors", icon: UserCheck, color: "bg-secondary text-secondary-foreground" },
+                    { label: "Prescriptions", to: "/prescriptions", icon: FileText, color: "bg-accent text-primary" },
+                    { label: "Medicine Catalog", to: "/medicine-catalog", icon: Pill, color: "bg-secondary text-secondary-foreground" },
+                    { label: "Billing", to: "/billing", icon: Receipt, color: "bg-accent text-accent-foreground" },
                   ].map((action) => (
                     <Link key={action.to} to={action.to} className="flex flex-col items-center gap-1.5 rounded-none border p-3 text-center transition-colors hover:bg-muted/50">
                       <div className={`flex size-8 items-center justify-center rounded-full ${action.color}`}><action.icon className="size-4" /></div>
@@ -437,7 +437,7 @@ export function DashboardPage() {
                   <div className="divide-y">
                     {charts.recentActivity.map((item) => (
                       <div key={item.id} className="flex items-start gap-2.5 px-4 py-2.5">
-                        <div className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${item.type === "appointment" ? "bg-blue-50 text-blue-600" : item.type === "billing" ? "bg-green-50 text-green-600" : "bg-purple-50 text-purple-600"}`}>
+                        <div className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${item.type === "appointment" ? "bg-accent text-primary" : item.type === "billing" ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}`}>
                           {item.type === "appointment" ? <CalendarClock className="size-3" /> : item.type === "billing" ? <Receipt className="size-3" /> : <FileText className="size-3" />}
                         </div>
                         <div className="min-w-0 flex-1">

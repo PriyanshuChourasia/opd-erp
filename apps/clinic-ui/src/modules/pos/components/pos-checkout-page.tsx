@@ -203,7 +203,7 @@ export function PosCheckoutPage() {
               </SelectContent>
             </Select>
             {discountAmount > 0 && (
-              <p className="tabular text-xs text-green-600">−{currency(discountAmount)} applied</p>
+              <p className="tabular text-xs text-success">−{currency(discountAmount)} applied</p>
             )}
           </div>
           <div className="flex flex-col gap-2"><span className="text-sm text-muted-foreground">Payment method</span>

@@ -18,7 +18,7 @@ export function rxAssetUrl(path: string): string {
 const wrap = "overflow-wrap:anywhere;word-break:break-word;";
 const cellPad = "padding:6px 8px;box-sizing:border-box;";
 const sectionHead =
-  "font-weight:bold;color:#1e3a5f;border-bottom:1px solid #ddd;margin-bottom:6px;font-size:11px;letter-spacing:1px;padding-bottom:4px;";
+  "font-weight:bold;color:#028390;border-bottom:1px solid #81CCC4;margin-bottom:6px;font-size:11px;letter-spacing:1px;padding-bottom:4px;";
 
 /** Full-bleed /header.png. */
 function headerHtml(): string {
@@ -34,7 +34,7 @@ function footerHtml(data: RxDocData): string {
     .filter(Boolean)
     .join(" | ");
   return `<div style="width:100%;flex-shrink:0;box-sizing:border-box;">
-  <div style="box-sizing:border-box;width:100%;background:#f0f2f5;padding:8px 24px;text-align:center;font-size:10px;color:#666;border-top:1px solid #ddd;border-bottom:none;">${esc(data.generatedLabel)}${extra ? ` | ${extra}` : ""}</div>
+  <div style="box-sizing:border-box;width:100%;background:#DFF2F0;padding:8px 24px;text-align:center;font-size:10px;color:#015E67;border-top:1px solid #81CCC4;border-bottom:none;">${esc(data.generatedLabel)}${extra ? ` | ${extra}` : ""}</div>
   <img src="${rxAssetUrl("/footer.png")}" alt="" style="width:100%;height:auto;display:block;margin:0;padding:0;border:0;"/>
 </div>`;
 }
@@ -52,14 +52,14 @@ function itemDurationLabel(item: RxDocItem): string {
  * html2canvas actually honours. */
 function medicineHeaderHtml(): string {
   const cell = (w: string, label: string) =>
-    `<div style="width:${w};flex-shrink:0;box-sizing:border-box;${cellPad}text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;border-right:1px solid #ccc;">${label}</div>`;
-  return `<div style="width:100%;box-sizing:border-box;display:flex;border:1px solid #ccc;background:#f0f2f5;">
+    `<div style="width:${w};flex-shrink:0;box-sizing:border-box;${cellPad}text-align:left;font-weight:bold;color:#028390;font-size:11px;letter-spacing:0.5px;border-right:1px solid #81CCC4;">${label}</div>`;
+  return `<div style="width:100%;box-sizing:border-box;display:flex;border:1px solid #81CCC4;background:#DFF2F0;">
   ${cell("8%", "SL.No.")}
   ${cell("30%", "MEDICINE")}
   ${cell("15%", "DOSAGE")}
   ${cell("15%", "DURATION")}
   ${cell("10%", "QTY")}
-  <div style="width:22%;flex-shrink:0;box-sizing:border-box;${cellPad}text-align:left;font-weight:bold;color:#1e3a5f;font-size:11px;letter-spacing:0.5px;">INSTRUCTIONS</div>
+  <div style="width:22%;flex-shrink:0;box-sizing:border-box;${cellPad}text-align:left;font-weight:bold;color:#028390;font-size:11px;letter-spacing:0.5px;">INSTRUCTIONS</div>
 </div>`;
 }
 
@@ -93,7 +93,7 @@ function signatureHtml(data: RxDocData): string {
 
 /** The disclaimer block — always directly ABOVE the signature area. */
 function disclaimerHtml(): string {
-  return `<div style="width:100%;box-sizing:border-box;margin-top:16px;padding:8px 12px;background:#f8f9fa;border:1px solid #ddd;font-size:9px;color:#888;line-height:1.4;">
+  return `<div style="width:100%;box-sizing:border-box;margin-top:16px;padding:8px 12px;background:#DFF2F0;border:1px solid #81CCC4;font-size:9px;color:#015E67;line-height:1.4;">
   This prescription is valid only for the patient named above. In case of any adverse reaction, please consult your doctor immediately. Keep this prescription for future reference.
 </div>`;
 }

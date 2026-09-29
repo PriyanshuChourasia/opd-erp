@@ -126,8 +126,8 @@ export function AppointmentsPage() {
         h2 { text-align: center; margin-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 5px 6px; text-align: left; }
-        th { background: #f3f4f6; font-weight: bold; }
-        tr:nth-child(even) { background: #f9fafb; }
+        th { background: #DFF2F0; color: #015E67; font-weight: bold; }
+        tr:nth-child(even) { background: #F7FBFB; }
       </style></head><body>
       <h2>Appointments Report — ${apptDateRange.from && apptDateRange.to ? (apptDateRange.from + ' to ' + apptDateRange.to) : 'All Dates'}</h2>
       <table>

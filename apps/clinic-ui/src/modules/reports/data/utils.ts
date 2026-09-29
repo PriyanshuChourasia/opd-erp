@@ -11,7 +11,7 @@ export function statusBadgeClass(status: string): string {
     case "PAID":
     case "COMPLETED":
     case "DISPENSED":
-      return "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+      return "border-transparent bg-success-soft text-success-foreground";
     case "PENDING":
     case "ACTIVE":
     case "SCHEDULED":
@@ -19,7 +19,7 @@ export function statusBadgeClass(status: string): string {
     case "PARTIAL":
     case "IN_PROGRESS":
     case "CHECKED_IN":
-      return "border-transparent bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+      return "border-transparent bg-info-soft text-info-foreground";
     case "CANCELLED":
     case "REFUNDED":
     case "NO_SHOW":

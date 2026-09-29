@@ -69,13 +69,13 @@ export async function generateRxPdf(data: RxDocData): Promise<{ pageCount: numbe
           style.textContent = `
             :root, .dark {
               --background:#ffffff; --foreground:#000000; --card:#ffffff; --card-foreground:#000000;
-              --popover:#ffffff; --popover-foreground:#000000; --primary:#01aa82; --primary-foreground:#ffffff;
+              --popover:#ffffff; --popover-foreground:#000000; --primary:#028390; --primary-foreground:#ffffff;
               --secondary:#f5f5f5; --secondary-foreground:#000000; --muted:#f5f5f5; --muted-foreground:#737373;
               --accent:#f5f5f5; --accent-foreground:#000000; --destructive:#dc2626; --destructive-foreground:#ffffff;
-              --border:#e5e5e5; --input:#e5e5e5; --ring:#01aa82;
-              --chart-1:#01aa82; --chart-2:#8e8e8e; --chart-3:#707070; --chart-4:#5e5e5e; --chart-5:#454545;
-              --sidebar:#fafafa; --sidebar-foreground:#000000; --sidebar-primary:#01aa82; --sidebar-primary-foreground:#ffffff;
-              --sidebar-accent:#f5f5f5; --sidebar-accent-foreground:#000000; --sidebar-border:#e5e5e5; --sidebar-ring:#01aa82;
+              --border:#81CCC4; --input:#81CCC4; --ring:#028390;
+              --chart-1:#028390; --chart-2:#26A69B; --chart-3:#81CCC4; --chart-4:#5e5e5e; --chart-5:#454545;
+              --sidebar:#fafafa; --sidebar-foreground:#000000; --sidebar-primary:#028390; --sidebar-primary-foreground:#ffffff;
+              --sidebar-accent:#DFF2F0; --sidebar-accent-foreground:#015E67; --sidebar-border:#81CCC4; --sidebar-ring:#028390;
             }
           `;
           clonedDoc.head.appendChild(style);

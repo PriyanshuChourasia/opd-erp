@@ -29,7 +29,7 @@ function LedgerRow({ ledger }: { ledger: Ledger }) {
         {ledger.isBankAccount && <Badge variant="outline" className="text-2xs">Bank</Badge>}
         {ledger.patientId && <Badge variant="outline" className="text-2xs">Patient</Badge>}
       </div>
-      <span className={cn("font-mono font-medium", ledger.currentBalance >= 0 ? "text-green-600" : "text-red-600")}>
+      <span className={cn("font-mono font-medium", ledger.currentBalance >= 0 ? "text-success" : "text-destructive")}>
         {currency(ledger.currentBalance)}
       </span>
     </div>

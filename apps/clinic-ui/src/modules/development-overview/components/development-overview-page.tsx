@@ -163,7 +163,7 @@ export function DevelopmentOverviewPage() {
               <span className="text-muted-foreground">API Status</span>
               <Badge
                 variant="default"
-                className="bg-green-600/10 text-green-600 hover:bg-green-600/10"
+                className="bg-success-soft text-success-foreground"
               >
                 {isLoading ? "Checking..." : "Healthy"}
               </Badge>

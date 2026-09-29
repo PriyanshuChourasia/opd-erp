@@ -243,7 +243,7 @@ export function QueuePage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="ghost" size="icon" className="size-9" aria-label="Generate invoice directly" onClick={() => checkoutMutation.mutate(entry.appointment!.id)}>
-                        <FileText className="size-4.5 text-green-600" />
+                        <FileText className="size-4.5 text-primary" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Generate Invoice</TooltipContent>

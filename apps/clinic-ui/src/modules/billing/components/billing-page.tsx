@@ -128,7 +128,7 @@ export function BillingPage() {
             </Button>
             {(bill.status === "PENDING" || bill.status === "PARTIAL") && (
               <Button variant="ghost" size="icon" className="size-8" title="Mark paid" onClick={() => statusMutation.mutate({ id: bill.id, status: "PAID" })}>
-                <CreditCard className="size-4 text-green-600" />
+                <CreditCard className="size-4 text-primary" />
               </Button>
             )}
             {bill.status === "PAID" && (

@@ -46,6 +46,7 @@ import { FinancialYearsModule } from './financial-years/financial-years.module';
 import { DoctorDepartmentsModule } from './doctor-departments/doctor-departments.module';
 import { DoctorSpecializationsModule } from './doctor-specializations/doctor-specializations.module';
 import { BloodGroupsModule } from './blood-groups/blood-groups.module';
+import { CitiesModule } from './cities/cities.module';
 import { StockModule } from './stock/stock.module';
 import { AccountGroupModule } from './accounting/account-group/account-group.module';
 import { AccountNatureModule } from './accounting/account-nature/account-nature.module';
@@ -109,6 +110,7 @@ import { ApplicationFeaturesModule } from './platform/application-features/appli
     DoctorDepartmentsModule,
     DoctorSpecializationsModule,
     BloodGroupsModule,
+    CitiesModule,
     StockModule,
     AccountGroupModule,
     AccountNatureModule,

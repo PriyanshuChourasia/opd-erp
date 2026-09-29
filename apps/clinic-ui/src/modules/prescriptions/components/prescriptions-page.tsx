@@ -549,7 +549,7 @@ export function PrescriptionsPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-2xs font-mono">v{entry.version}</Badge>
-                      <Badge variant="outline" className={`text-2xs ${entry.changeType === "CREATE" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                      <Badge variant="outline" className={`text-2xs ${entry.changeType === "CREATE" ? "bg-secondary text-secondary-foreground" : "bg-amber-100 text-amber-700"}`}>
                         {entry.changeType}
                       </Badge>
                       <StatusBadge status={entry.status} />

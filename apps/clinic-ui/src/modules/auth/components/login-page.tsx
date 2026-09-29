@@ -115,6 +115,31 @@ export function LoginPage() {
                   {loginMutation.isError && (
                     <FieldError>{(loginMutation.error as Error).message}</FieldError>
                   )}
+
+                  {/* Demo credentials (seeded accounts — see apps/api/prisma/seed.ts) */}
+                  <div className="rounded-none border border-border bg-accent px-3 py-2.5">
+                    <p className="text-2xs font-semibold uppercase tracking-wide text-accent-foreground">Demo logins</p>
+                    <div className="mt-1.5 space-y-1">
+                      {[
+                        { label: "Admin", email: "admin@clinic.com", password: "Admin@123" },
+                        { label: "Super Admin", email: "superadmin@clinic.com", password: "SuperAdmin@123" },
+                        { label: "Developer", email: "developer@clinic.com", password: "Developer@123" },
+                      ].map((account) => (
+                        <button
+                          key={account.email}
+                          type="button"
+                          className="flex w-full items-center justify-between gap-2 text-left text-2xs text-accent-foreground transition-colors hover:text-primary"
+                          onClick={() => form.setValue("email", account.email, { shouldValidate: true })}
+                        >
+                          <span>
+                            <span className="font-semibold">{account.label}:</span> {account.email}
+                          </span>
+                          <span className="font-mono">{account.password}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-2xs text-muted-foreground">Click a row to fill the email; the password is shown alongside.</p>
+                  </div>
                 </FieldGroup>
 
                 <Button

@@ -445,7 +445,7 @@ export function DoctorPosPage() {
           <Card className="flex flex-col">
             <CardHeader className="flex-row items-center justify-between border-b py-3 shrink-0">
               <CardTitle className="flex items-center gap-2 text-base">
-                <span className="flex size-6 items-center justify-center rounded-md bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400">
+                <span className="flex size-6 items-center justify-center rounded-md bg-accent text-primary">
                   <Clock className="size-3.5" />
                 </span>
                 Today's Queue
@@ -533,7 +533,7 @@ export function DoctorPosPage() {
                                 }
                               }}
                             >
-                              <UserCheck className="size-4 text-blue-600" />
+                              <UserCheck className="size-4 text-primary" />
                               Start Consultation
                             </Button>
                           )}
@@ -691,7 +691,7 @@ export function DoctorPosPage() {
                     <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">Visit Type</span>
                     <p className="mt-0.5 truncate">
                       {selectedEntry.patient.isFollowUp ? (
-                        <span className="inline-flex items-center rounded-sm border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-2xs font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400">
+                        <span className="inline-flex items-center rounded-sm border border-border bg-accent px-1.5 py-0.5 text-2xs font-medium text-accent-foreground">
                           Follow-up
                         </span>
                       ) : (
@@ -742,7 +742,7 @@ export function DoctorPosPage() {
               <Card className="overflow-visible">
                 <CardHeader className="flex flex-row items-center justify-between border-b py-3">
                   <CardTitle className="flex items-center gap-2 text-sm">
-                    <span className="flex size-6 items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span className="flex size-6 items-center justify-center rounded-md bg-accent text-primary">
                       <ClipboardList className="size-3.5" />
                     </span>
                     Diagnosis
@@ -757,7 +757,7 @@ export function DoctorPosPage() {
               <Card className="overflow-visible">
                 <CardHeader className="flex flex-row items-center justify-between border-b py-3">
                   <CardTitle className="flex items-center gap-2 text-sm">
-                    <span className="flex size-6 items-center justify-center rounded-md bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                    <span className="flex size-6 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
                       <Pill className="size-3.5" />
                     </span>
                     Prescribed Medicines
@@ -809,7 +809,7 @@ export function DoctorPosPage() {
                   {/* Rx items */}
                   {rxItems.length === 0 ? (
                     <div className="flex flex-col items-center gap-1.5 py-6 text-center">
-                      <Pill className="size-6 text-violet-300 dark:text-violet-700" />
+                      <Pill className="size-6 text-primary/30 dark:text-primary/40" />
                       <p className="text-xs text-muted-foreground">
                         No medicines added yet. Search above to find and prescribe medicines.
                       </p>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Home, Building2, Receipt, MapPin, Plus, Pencil, Trash2, Star, X, Check } from "lucide-react";
+import { CityInput } from "@/components/city-input/city-input";
 import {
   fetchEntityAddresses,
   createAddress,
@@ -63,6 +64,8 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [form, setForm] = useState<CreateAddressInput | UpdateAddressInput>(emptyAddressForm(addressableType, addressableId));
+  // Set by CityInput so handleSave can register newly typed cities before saving.
+  let commitCity: (() => Promise<void>) | null = null;
 
   const queryKey = ["addresses", addressableType, addressableId];
   const { data: addresses = [], isLoading } = useQuery({
@@ -125,6 +128,8 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
 
   function handleSave() {
     if (!(form as CreateAddressInput).addressLine1?.trim()) return;
+    // Register any newly typed city in the catalog before saving the address.
+    void commitCity?.();
     if (editingId) updateMutation.mutate({ id: editingId, data: form as UpdateAddressInput });
     else createMutation.mutate(form as CreateAddressInput);
   }
@@ -236,7 +241,14 @@ export function AddressManager({ addressableType, addressableId }: AddressManage
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field><FieldLabel htmlFor="addr-city">City</FieldLabel>
-                  <Input id="addr-city" placeholder="Mumbai" value={form.city ?? ""} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                  <CityInput
+                    id="addr-city"
+                    placeholder="Mumbai"
+                    state={form.state ?? ""}
+                    value={form.city ?? ""}
+                    onChange={(v) => setForm({ ...form, city: v })}
+                    exposeCommit={(fn) => { commitCity = fn; }}
+                  />
                 </Field>
                 <Field><FieldLabel htmlFor="addr-district">District</FieldLabel>
                   <Input id="addr-district" placeholder="Mumbai City" value={form.district ?? ""} onChange={(e) => setForm({ ...form, district: e.target.value })} />

@@ -53,7 +53,7 @@ function footerHtml(data: RxDocData): string {
   const extra = [data.orgPhone ? `Phone: ${data.orgPhone}` : "", data.orgEmail ? `Email: ${data.orgEmail}` : ""]
     .filter(Boolean)
     .join(" | ");
-  return `<div style="box-sizing:border-box;width:100%;background:#f0f2f5;padding:8px 24px;text-align:center;font-size:10px;color:#666;border-top:1px solid #ddd;">${data.generatedLabel}${extra ? ` | ${extra}` : ""}</div>
+  return `<div style="box-sizing:border-box;width:100%;background:#DFF2F0;padding:8px 24px;text-align:center;font-size:10px;color:#015E67;border-top:1px solid #81CCC4;">${data.generatedLabel}${extra ? ` | ${extra}` : ""}</div>
 <img src="${new URL("/footer.png", window.location.origin).href}" alt="" style="width:100%;height:auto;display:block;margin:0;padding:0;border:0;"/>`;
 }
 

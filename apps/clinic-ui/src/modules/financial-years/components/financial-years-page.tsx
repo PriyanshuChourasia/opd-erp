@@ -94,7 +94,7 @@ export function FinancialYearsPage() {
       header: "Current",
       cell: ({ row }) =>
         row.original.isCurrent ? (
-          <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-2xs" variant="outline">
+          <Badge className="bg-secondary text-secondary-foreground border-border text-2xs" variant="outline">
             <Check className="mr-1 size-2.5" />Current
           </Badge>
         ) : (

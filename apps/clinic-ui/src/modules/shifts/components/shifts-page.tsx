@@ -151,7 +151,7 @@ export function ShiftsPage() {
       header: "Type",
       cell: ({ row }) =>
         row.original.isOvernight ? (
-          <Badge variant="outline" className="text-2xs border-indigo-300 text-indigo-600 dark:border-indigo-700 dark:text-indigo-400">
+          <Badge variant="outline" className="text-2xs border-border text-primary">
             <Moon className="mr-1 size-2.5" />Overnight
           </Badge>
         ) : (

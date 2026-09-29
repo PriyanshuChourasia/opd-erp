@@ -54,7 +54,7 @@ const RESOURCES = [
   // Diagnostics & orders
   'lab-orders', 'radiology-orders', 'procedure-orders', 'diagnoses', 'diagnosis-systems',
   // Patient data
-  'allergies', 'patient-allergy-records', 'patient-vitals', 'addresses',
+  'allergies', 'patient-allergy-records', 'patient-vitals', 'addresses', 'cities',
   // Organisation & HR
   'organisation', 'company', 'prescription-templates',
   'users', 'roles', 'permissions', 'shifts', 'employee-schedules',

@@ -3,18 +3,8 @@ import { CalendarClock } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { fetchAppointments } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const APPT_STATUS_STYLES: Record<string, string> = {
-  SCHEDULED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  CONFIRMED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  CHECKED_IN: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  IN_PROGRESS: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  CANCELLED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  NO_SHOW: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+import { StatusBadge } from "@/components/status-badge";
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -83,12 +73,7 @@ export function PatientAppointmentsPage() {
                       {appt.type.replace("_", " ")}
                     </p>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={`text-2xs ${APPT_STATUS_STYLES[appt.status] ?? ""}`}
-                  >
-                    {appt.status.replace("_", " ")}
-                  </Badge>
+                  <StatusBadge status={appt.status} />
                 </li>
               ))}
             </ul>

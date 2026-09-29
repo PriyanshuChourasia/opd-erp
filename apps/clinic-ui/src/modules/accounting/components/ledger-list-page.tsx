@@ -52,6 +52,7 @@ export function LedgerListPage() {
     },
     {
       accessorKey: "currentBalance",
+      meta: { align: "right" },
       header: "Balance",
       cell: ({ row }) => (
         <span className={cn("tabular font-mono text-sm font-medium", row.original.currentBalance >= 0 ? "text-green-600" : "text-red-600")}>

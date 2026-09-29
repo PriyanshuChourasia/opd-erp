@@ -43,6 +43,15 @@ input[type="number"] {
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -84,6 +93,18 @@ input[type="number"] {
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
+  /* Semantic status. `-soft` is the chip background, `-foreground` is text on
+     it (>= 4.65:1, WCAG AA + margin), and the bare token is the solid accent
+     used for the leading dot (>= 3:1 on both `-soft` and --card). */
+  --success: oklch(0.41 0.115 155);
+  --success-foreground: oklch(0.298 0.115 155);
+  --success-soft: oklch(0.955 0.038 155);
+  --warning: oklch(0.408 0.125 75);
+  --warning-foreground: oklch(0.299 0.125 75);
+  --warning-soft: oklch(0.965 0.05 82);
+  --info: oklch(0.428 0.13 252);
+  --info-foreground: oklch(0.31 0.13 252);
+  --info-soft: oklch(0.955 0.048 252);
   --border: var(--primary);
   --input: var(--primary);
   --ring: oklch(0.6557 0.1319 168.46);
@@ -128,6 +149,15 @@ input[type="number"] {
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.729 0.115 155);
+  --success-foreground: oklch(0.989 0.115 155);
+  --success-soft: oklch(0.3 0.063 155);
+  --warning: oklch(0.73 0.125 75);
+  --warning-foreground: oklch(0.968 0.125 75);
+  --warning-soft: oklch(0.3 0.069 75);
+  --info: oklch(0.724 0.13 252);
+  --info-foreground: oklch(0.965 0.13 252);
+  --info-soft: oklch(0.3 0.072 252);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -163,6 +193,120 @@ input[type="number"] {
   html {
     @apply font-sans;
     font-size: calc(1rem * var(--font-scale, 1));
+    scroll-padding-top: 5rem;
+  }
+}
+
+/* ─── Landing-page animation utilities (lp-*) ────────────────────
+   Tailwind v4 forbids `@utility` inside `@media`, so each utility is
+   declared at the top level and gates its own animation declarations with
+   prefers-reduced-motion: no-preference instead. Net effect is the same:
+   with reduced motion nothing animates and every element that depends on
+   these effects is simply static (and visible). */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Floating satellite cards — gentle up/down bob. */
+@utility lp-float {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: lp-float 6s ease-in-out infinite;
+  }
+}
+@keyframes lp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Blurred gradient blobs — slow morph + drift for the hero background. */
+@utility lp-blob {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: lp-blob 18s ease-in-out infinite;
+    will-change: transform, border-radius;
+  }
+}
+@keyframes lp-blob {
+  0%,
+  100% {
+    border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    border-radius: 45% 55% 40% 60% / 60% 40% 55% 45%;
+    transform: translate3d(4%, -3%, 0) scale(1.08) rotate(8deg);
+  }
+  66% {
+    border-radius: 55% 45% 60% 40% / 45% 55% 40% 60%;
+    transform: translate3d(-3%, 4%, 0) scale(0.95) rotate(-6deg);
+  }
+}
+
+/* Infinite horizontal ticker. The track duplicates its content; -50%
+   shifts by exactly one copy for a seamless loop. */
+@utility lp-marquee {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: lp-marquee var(--lp-marquee-duration, 30s) linear infinite;
+  }
+}
+@utility lp-marquee-paused {
+  @media (prefers-reduced-motion: no-preference) {
+    animation-play-state: paused;
+  }
+}
+@keyframes lp-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Gradient-text shimmer for the hero accent word. The background is sized
+   to 200% so the highlight can sweep across without any jump. */
+@utility lp-shimmer {
+  @media (prefers-reduced-motion: no-preference) {
+    background-size: 200% auto;
+    animation: lp-shimmer 6s linear infinite;
+  }
+}
+@keyframes lp-shimmer {
+  to {
+    background-position: -200% center;
+  }
+}
+
+/* Expanding ring for the "Now serving" token. */
+@utility lp-pulse-ring {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 2px solid var(--ring-color, var(--color-primary));
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    &::after {
+      animation: lp-pulse-ring 2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+  }
+}
+@keyframes lp-pulse-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9);
   }
 }
 

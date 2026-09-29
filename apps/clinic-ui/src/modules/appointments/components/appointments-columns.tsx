@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppSelector } from "@/store/hooks";
@@ -16,37 +16,27 @@ import { hasPermission } from "@/lib/roles";
 
 export const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "IN_PROGRESS", "COMPLETED"];
 
-export const APPT_STATUS_STYLES: Record<string, string> = {
-  SCHEDULED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  CONFIRMED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  CHECKED_IN: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  IN_PROGRESS: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  CANCELLED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  RESCHEDULED: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  NO_SHOW: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
-
-/** Confirmed appointments are the ones sitting in the live queue (see
- *  AppointmentsService.update's CONFIRMED transition) — label plainly
- *  otherwise, no special-casing needed beyond underscore→space. */
+/** Plain formatter for raw status values, used where a chip is NOT being
+ *  rendered (the status <Select>, and the printed appointment slip). Chips use
+ *  <StatusBadge>, which applies its own semantic labels. */
 export function apptStatusLabel(status: string) {
-  return status.replace("_", " ");
+  return status.replace(/_/g, " ");
 }
 
 export function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
-/** Derive payment status from appointment data */
-export function paymentStatus(appt: Appointment): { label: string; className: string } {
+/** Derive payment status from appointment data. Returns a raw status so the
+ *  chip colour comes from the shared semantic tokens via <StatusBadge>. */
+export function paymentStatus(appt: Appointment): { label: string; status: string } {
   if (appt.bill) {
     const s = appt.bill.status;
-    if (s === "PAID") return { label: "Paid", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
-    if (s === "REFUNDED") return { label: "Refunded", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" };
-    if (s === "PARTIALLY_PAID") return { label: "Partial", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
-    return { label: "Due", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
+    if (s === "PAID") return { label: "Paid", status: "PAID" };
+    if (s === "REFUNDED") return { label: "Refunded", status: "REFUNDED" };
+    if (s === "PARTIALLY_PAID" || s === "PARTIAL") return { label: "Partial", status: "PARTIALLY_PAID" };
+    return { label: "Due", status: "PENDING" };
   }
-  if (appt.amountPaid > 0) return { label: "Advance", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
-  return { label: "Due", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
+  if (appt.amountPaid > 0) return { label: "Advance", status: "PARTIALLY_PAID" };
+  return { label: "Due", status: "PENDING" };
 }
 
 interface InvoiceActionCellProps {
@@ -95,16 +85,9 @@ function InvoiceActionCell({ appt, onOpenInvoice }: InvoiceActionCellProps) {
         <TooltipContent>{appt.bill ? (appt.bill.status === "PAID" ? "View Receipt" : "View Invoice") : "No invoice yet"}</TooltipContent>
       </Tooltip>
       {appt.bill ? (
-        <Badge variant="outline" className={cn("text-2xs",
-          appt.bill.status === "PAID" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
-            : "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
-        )}>
-          {appt.bill.status === "PAID" ? "Paid" : "Due"}
-        </Badge>
+        <StatusBadge status={appt.bill.status} label={appt.bill.status === "PAID" ? "Paid" : "Due"} />
       ) : (
-        <Badge variant="outline" className="text-2xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-          Due
-        </Badge>
+        <StatusBadge status="PENDING" label="Due" />
       )}
     </div>
   );
@@ -150,9 +133,7 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
       header: () => <div className="text-center">Status</div>,
       cell: ({ row }) => (
         <div className="flex justify-center">
-          <Badge variant="outline" className={`text-2xs ${APPT_STATUS_STYLES[row.original.status] ?? ""}`}>
-            {apptStatusLabel(row.original.status)}
-          </Badge>
+          <StatusBadge status={row.original.status} />
         </div>
       ),
     },
@@ -163,7 +144,7 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
         const ps = paymentStatus(row.original);
         return (
           <div className="flex justify-center">
-            <Badge variant="outline" className={`text-2xs ${ps.className}`}>{ps.label}</Badge>
+            <StatusBadge status={ps.status} label={ps.label} />
           </div>
         );
       },

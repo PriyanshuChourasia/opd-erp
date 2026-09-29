@@ -48,6 +48,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { DiagnosisSelect } from "@/components/diagnosis-select";
 import { PatientHistorySheet } from "./patient-history-sheet";
 import { fetchAllergies, fetchPatientVitalsLatest, fetchPatientVitalsHistory } from "@/lib/api";
+import { StatusBadge } from "@/components/status-badge";
 
 interface RxItem {
   tempId: string;
@@ -105,14 +106,6 @@ function parseDays(duration: string): number {
 function totalTablets(dosage: string, duration: string, quantity: number): number {
   return parseDailyTablets(dosage) * parseDays(duration) * quantity;
 }
-
-const QUEUE_STATUS_STYLES: Record<string, string> = {
-  WAITING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  IN_PROGRESS: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  SKIPPED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  NO_SHOW: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
 
 /** Small detail row used inside the patient-info card */
 function DetailRow({ label, value, capitalize, fullWidth }: {
@@ -524,9 +517,7 @@ export function DoctorPosPage() {
                           >
                             <HeartPulse className="size-4.5 text-rose-500" />
                           </Button>
-                          <Badge variant="outline" className={`text-2xs ${QUEUE_STATUS_STYLES[entry.status] ?? ""}`}>
-                            {entry.status.replace("_", " ")}
-                          </Badge>
+                          <StatusBadge status={entry.status} />
                           {entry.status === "WAITING" && (
                             <Button
                               variant="outline"
@@ -628,9 +619,7 @@ export function DoctorPosPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className={`text-2xs ${QUEUE_STATUS_STYLES[selectedEntry.status] ?? ""}`}>
-                      {selectedEntry.status.replace("_", " ")}
-                    </Badge>
+                    <StatusBadge status={selectedEntry.status} />
                     <Button variant="ghost" size="icon" className="size-9 text-muted-foreground hover:text-foreground" title="Clear form" onClick={clearForm}>
                       <X className="size-5" />
                     </Button>

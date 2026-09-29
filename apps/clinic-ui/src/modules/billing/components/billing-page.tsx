@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { useAppSelector } from "@/store/hooks";
@@ -16,15 +15,7 @@ import { useDateRangeSync } from "@/lib/date-range-search";
 import { hasPermission } from "@/lib/roles";
 import { InvoiceViewSheet } from "@/components/invoice-view-sheet";
 import { FinancialYearSelect } from "@/components/ui/financial-year-select";
-
-const STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  PAID: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  PARTIAL: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  PARTIALLY_PAID: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  REFUNDED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+import { StatusBadge } from "@/components/status-badge";
 
 function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
 
@@ -107,9 +98,7 @@ export function BillingPage() {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant="outline" className={`text-2xs ${STATUS_STYLES[row.original.status] ?? ""}`}>
-          {row.original.status}
-        </Badge>
+        <StatusBadge status={row.original.status} />
       ),
     },
     {
@@ -123,6 +112,7 @@ export function BillingPage() {
     },
     {
       accessorKey: "total",
+      meta: { align: "right" },
       header: "Total",
       cell: ({ row }) => <span className="tabular text-sm font-semibold">{currency(row.original.total)}</span>,
     },

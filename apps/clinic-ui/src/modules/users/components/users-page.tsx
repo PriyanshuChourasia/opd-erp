@@ -22,6 +22,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { initials } from "@/lib/utils";
 import { DataTable } from "@/components/data-table/data-table";
+import { StatusBadge } from "@/components/status-badge";
 
 const emptyForm = (): CreateUserInput & Partial<UpdateUserInput> => ({
   firstName: "",
@@ -201,8 +202,8 @@ export function UsersPage() {
       cell: ({ row }) => {
         const active = row.original.isActive;
         return active
-          ? <Badge variant="default" className="bg-green-600/10 text-green-600 text-2xs">Active</Badge>
-          : <Badge variant="outline" className="text-2xs text-muted-foreground border-dashed">Inactive</Badge>;
+          ? <StatusBadge status="ACTIVE" />
+          : <StatusBadge status="INACTIVE" />;
       },
     },
     {

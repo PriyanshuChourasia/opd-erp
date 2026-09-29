@@ -12,7 +12,6 @@ import {
 import { fetchPrescriptions } from "@/lib/api";
 import type { Prescription } from "@/lib/api";
 import { PrintPrescriptionButton } from "@/modules/prescriptions/components/print-prescription-button";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +22,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { StatusBadge } from "@/components/status-badge";
 
 interface PatientHistorySheetProps {
   patientId: string | null;
@@ -30,14 +30,6 @@ interface PatientHistorySheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const RX_STATUS_STYLES: Record<string, string> = {
-  ACTIVE: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  DISPENSED:
-    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  CANCELLED:
-    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
 
 function todayStr() {
   const d = new Date();
@@ -225,15 +217,7 @@ export function PatientHistorySheet({
                                     </span>
                                   )}
                                 </span>
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "shrink-0 text-2xs uppercase",
-                                    RX_STATUS_STYLES[rx.status] ?? ""
-                                  )}
-                                >
-                                  {rx.status}
-                                </Badge>
+                                <StatusBadge status={rx.status} />
                               </div>
                               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
                                 <span className="flex items-center gap-1">

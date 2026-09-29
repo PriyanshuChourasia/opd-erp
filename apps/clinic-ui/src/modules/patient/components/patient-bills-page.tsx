@@ -3,16 +3,8 @@ import { Receipt } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { fetchBills } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const BILL_STATUS_STYLES: Record<string, string> = {
-  PAID: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  PARTIAL: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  REFUNDED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+import { StatusBadge } from "@/components/status-badge";
 
 function currency(value: number) {
   return `₹${value.toFixed(2)}`;
@@ -77,12 +69,7 @@ export function PatientBillsPage() {
                     <span className="text-sm font-medium tabular-nums">
                       {currency(bill.total)}
                     </span>
-                    <Badge
-                      variant="outline"
-                      className={`text-2xs ${BILL_STATUS_STYLES[bill.status] ?? ""}`}
-                    >
-                      {bill.status}
-                    </Badge>
+                    <StatusBadge status={bill.status} />
                   </div>
                 </li>
               ))}

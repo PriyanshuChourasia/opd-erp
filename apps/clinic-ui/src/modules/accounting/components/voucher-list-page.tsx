@@ -8,16 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
+import { StatusBadge } from "@/components/status-badge";
 
 function currency(value: number) {
   return `₹${(value / 100).toFixed(2)}`;
 }
-
-const STATUS_STYLES: Record<string, string> = {
-  POSTED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  DRAFT: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
 
 export function VoucherListPage() {
   const navigate = useNavigate();
@@ -62,6 +57,7 @@ export function VoucherListPage() {
     },
     {
       accessorKey: "totalAmount",
+      meta: { align: "right" },
       header: "Amount",
       cell: ({ row }) => <span className="tabular font-mono text-sm font-medium">{currency(row.original.totalAmount)}</span>,
     },
@@ -69,9 +65,7 @@ export function VoucherListPage() {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant="outline" className={`text-2xs ${STATUS_STYLES[row.original.status] ?? ""}`}>
-          {row.original.status}
-        </Badge>
+        <StatusBadge status={row.original.status} />
       ),
     },
     {

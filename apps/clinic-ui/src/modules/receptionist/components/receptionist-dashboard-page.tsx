@@ -30,16 +30,15 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
 import { AllergySelect } from "@/components/allergy-select";
 import { AppointmentTimeHint, useAppointmentTimeCheck } from "@/modules/appointments/components/appointment-time-field";
 import { PaymentSheet, type PaymentPayload } from "@/components/payment-sheet";
 import { useDashboardStats } from "@/modules/dashboard/data/hooks";
-import { STATUS_STYLES } from "../../queue/data/interface";
 import { useAppSelector } from "@/store/hooks";
 import { hasPermission } from "@/lib/roles";
+import { StatusBadge } from "@/components/status-badge";
 
 const CONSULTATION_TYPES = [
   { value: "WALK_IN", label: "Walk-in", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400" },
@@ -71,16 +70,6 @@ function twoDaysLaterStr() {
 }
 
 function currency(value: number) { const n = Number(value) || 0; return `₹${n.toFixed(2)}`; }
-
-const APPT_STATUS_STYLES: Record<string, string> = {
-  SCHEDULED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  CONFIRMED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  CHECKED_IN: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  IN_PROGRESS: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  CANCELLED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  NO_SHOW: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
 
 const statTiles = [
   { key: "todayAppointments", label: "Today's appointments", icon: CalendarClock },
@@ -882,9 +871,9 @@ export function ReceptionistDashboardPage() {
                   <div key={appt.id} className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/30">
                     <span className={`flex w-14 shrink-0 items-center justify-center rounded-md px-2 py-1 text-2xs font-mono font-bold ${
                       appt.status === "COMPLETED"
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : appt.status === "IN_PROGRESS" || appt.status === "CHECKED_IN"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                        ? "bg-success-soft text-success-foreground"
+                        : appt.status === "IN_PROGRESS" || appt.status === "CHECKED_IN" || appt.status === "CONFIRMED"
+                          ? "bg-info-soft text-info-foreground"
                           : "bg-muted text-muted-foreground"
                     }`}>
                       #{appt.tokenNumber ?? "—"}
@@ -898,17 +887,11 @@ export function ReceptionistDashboardPage() {
                     <div className="flex flex-col items-end gap-1">
                       <div className="flex items-center gap-1.5">
                         {appt.bill ? (
-                          <Badge variant="outline" className="text-2xs bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
-                            Paid
-                          </Badge>
+                          <StatusBadge status="PAID" label="Paid" />
                         ) : appt.status === "COMPLETED" ? (
-                          <Badge variant="outline" className="text-2xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                            Unpaid
-                          </Badge>
+                          <StatusBadge status="PENDING" label="Unpaid" />
                         ) : null}
-                        <Badge variant="outline" className={`text-2xs ${APPT_STATUS_STYLES[appt.status] ?? ""}`}>
-                          {appt.status.replace("_", " ")}
-                        </Badge>
+                        <StatusBadge status={appt.status} />
                       </div>
                       <span className="whitespace-nowrap text-xs font-medium text-primary">
                         {appt.registrationFee > 0 || appt.amountPaid > 0
@@ -972,9 +955,7 @@ export function ReceptionistDashboardPage() {
                         {entry.doctor?.name ?? entry.doctor?.medicalRegistrationNo ?? "Doctor"}
                       </p>
                     </div>
-                    <Badge variant="outline" className={`text-2xs ${STATUS_STYLES[entry.status] ?? ""}`}>
-                      {entry.status.replace("_", " ")}
-                    </Badge>
+                    <StatusBadge status={entry.status} />
                   </div>
                 ))}
                 {/* Queue count footer */}

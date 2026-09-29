@@ -6,14 +6,8 @@ import { usePrescriptions } from "../data/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const RX_STATUS_STYLES: Record<string, string> = {
-  ACTIVE: "bg-blue-100 text-blue-700",
-  DISPENSED: "bg-green-100 text-green-700",
-  CANCELLED: "bg-red-100 text-red-700",
-};
+import { StatusBadge } from "@/components/status-badge";
 
 const PAGE_SIZE = 20;
 
@@ -134,9 +128,7 @@ function PrescriptionRow({ rx }: { rx: Prescription }) {
       <span className="truncate">
         {rx.diagnosis || <span className="text-muted-foreground">—</span>}
       </span>
-      <Badge variant="outline" className={`text-2xs uppercase ${RX_STATUS_STYLES[rx.status] ?? ""}`}>
-        {rx.status}
-      </Badge>
+      <StatusBadge status={rx.status} />
       <span className="flex items-center gap-1">
         <Pill className="size-3 text-muted-foreground" />
         {rx.items?.length ?? 0}

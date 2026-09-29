@@ -36,20 +36,7 @@ import { rxDocFromSavedPrescription } from "@/components/prescription-document/r
 import { assembleWordDocumentHtml } from "@/components/prescription-document/rx-blocks";
 import { generateRxPdf } from "@/components/prescription-document/rx-pdf";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
-
-const RX_STATUS_STYLES: Record<string, string> = {
-  ACTIVE: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  DISPENSED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
-
-const BILL_STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  PAID: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  PARTIAL: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  REFUNDED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+import { StatusBadge } from "@/components/status-badge";
 
 const RX_STATUSES = ["ACTIVE", "DISPENSED", "CANCELLED"];
 
@@ -460,9 +447,7 @@ export function PrescriptionsPage() {
                         <Receipt className="size-4 text-muted-foreground" />
                         <span className="text-sm font-medium">{bill.invoiceNo}</span>
                       </div>
-                      <Badge variant="outline" className={`text-2xs ${BILL_STATUS_STYLES[bill.status] ?? ""}`}>
-                        {bill.status}
-                      </Badge>
+                      <StatusBadge status={bill.status} />
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {bill.paymentMethod} &middot; {new Date(bill.createdAt).toLocaleString()}
@@ -567,9 +552,7 @@ export function PrescriptionsPage() {
                       <Badge variant="outline" className={`text-2xs ${entry.changeType === "CREATE" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
                         {entry.changeType}
                       </Badge>
-                      <Badge variant="outline" className={`text-2xs ${RX_STATUS_STYLES[entry.status] ?? ""}`}>
-                        {entry.status}
-                      </Badge>
+                      <StatusBadge status={entry.status} />
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {new Date(entry.createdAt).toLocaleString()}

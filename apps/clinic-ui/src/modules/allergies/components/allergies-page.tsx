@@ -39,6 +39,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { DataTable } from "@/components/data-table/data-table";
+import { StatusBadge } from "@/components/status-badge";
 
 function emptyForm(): CreateAllergyInput {
   return { name: "", severity: "MODERATE", category: "OTHER" };
@@ -202,19 +203,9 @@ export function AllergiesPage() {
         header: "Status",
         cell: ({ row }) =>
           row.original.isActive ? (
-            <Badge
-              className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-2xs"
-              variant="outline"
-            >
-              Active
-            </Badge>
+            <StatusBadge status="ACTIVE" />
           ) : (
-            <Badge
-              className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-2xs"
-              variant="outline"
-            >
-              Inactive
-            </Badge>
+            <StatusBadge status="INACTIVE" />
           ),
       },
       {

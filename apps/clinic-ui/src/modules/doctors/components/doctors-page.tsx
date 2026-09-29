@@ -545,6 +545,7 @@ export function DoctorsPage() {
     },
     {
       accessorKey: "consultationFee",
+      meta: { align: "right" },
       header: "Fee",
       cell: ({ row }) => (
         <span className="flex items-center gap-1 text-xs text-muted-foreground">

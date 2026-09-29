@@ -20,11 +20,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from "@/components/ui/date-picker"
+import { StatusBadge } from "@/components/status-badge";
 
 /* ─── Helpers ────────────────────────────────────────────── */
 
@@ -47,15 +47,6 @@ const consultationTypes = [
  * SRP: Each sub-section (PatientSearch, BookingForm) is extracted into
  * its own component. This file is the orchestrator.
  */
-const APPT_STATUS_STYLES: Record<string, string> = {
-  SCHEDULED: "bg-amber-100 text-amber-700",
-  CONFIRMED: "bg-blue-100 text-blue-700",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  COMPLETED: "bg-green-100 text-green-700",
-  CANCELLED: "bg-red-100 text-red-700",
-  CHECKED_IN: "bg-blue-100 text-blue-700",
-};
-
 const APPT_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "IN_PROGRESS", "COMPLETED"];
 
 function apptStatusLabel(status: string) {
@@ -299,9 +290,7 @@ export function AdminAppointments() {
                         Start Consultation
                       </Button>
                     ) : (
-                      <Badge variant="outline" className={cn('text-2xs', APPT_STATUS_STYLES[appt.status] ?? '')}>
-                        {appt.status === 'IN_PROGRESS' ? 'In Progress' : appt.status.replace('_', ' ')}
-                      </Badge>
+                      <StatusBadge status={appt.status} label={appt.status === 'IN_PROGRESS' ? 'In Progress' : appt.status.replace('_', ' ')} />
                     )}
                   </div>
                 </div>

@@ -37,6 +37,7 @@ export function DispensingPage() {
     },
     {
       accessorKey: "quantity",
+      meta: { align: "right" },
       header: "Quantity",
     },
     {

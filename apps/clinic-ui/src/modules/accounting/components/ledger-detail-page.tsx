@@ -55,6 +55,7 @@ export function LedgerDetailPage() {
     },
     {
       accessorKey: "debitAmount",
+      meta: { align: "right" },
       header: "Debit",
       cell: ({ row }) => (
         <span className="tabular text-right font-mono text-xs">
@@ -64,6 +65,7 @@ export function LedgerDetailPage() {
     },
     {
       accessorKey: "creditAmount",
+      meta: { align: "right" },
       header: "Credit",
       cell: ({ row }) => (
         <span className="tabular text-right font-mono text-xs">

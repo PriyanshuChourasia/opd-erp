@@ -9,11 +9,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DataTable } from "@/components/data-table/data-table";
+import { StatusBadge } from "@/components/status-badge";
 
 function emptyForm(): CreateDiscountRuleInput {
   return { name: "", type: "PERCENTAGE", value: 0, validFrom: "", validTo: "", description: "" };
@@ -128,9 +128,9 @@ export function DiscountsPage() {
       header: "Status",
       cell: ({ row }) =>
         row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-2xs" variant="outline">Active</Badge>
+          <StatusBadge status="ACTIVE" />
         ) : (
-          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-2xs" variant="outline">Inactive</Badge>
+          <StatusBadge status="INACTIVE" />
         ),
     },
     {

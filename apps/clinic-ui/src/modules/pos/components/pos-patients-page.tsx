@@ -7,9 +7,9 @@ import { searchPatients } from "../data/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
-import { APPT_STATUS_STYLES, currency } from "../data/interface";
+import { currency } from "../data/interface";
+import { StatusBadge } from "@/components/status-badge";
 
 export function PosPatientsPage() {
   const [search, setSearch] = useState("");
@@ -53,7 +53,7 @@ export function PosPatientsPage() {
                   <ul className="space-y-2">{history.map((appt: any) => (
                     <li key={appt.id} className="flex items-center justify-between text-sm">
                       <div className="min-w-0"><span className="font-medium">Dr. {appt.doctor.name}</span> <span className="text-muted-foreground">· {appt.type.replace("_", " ")} · {new Date(appt.date).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span></div>
-                      <div className="flex shrink-0 items-center gap-2"><span className="text-muted-foreground">{currency(appt.amount)}</span><Badge variant="outline" className={`text-2xs ${APPT_STATUS_STYLES[appt.status] ?? ""}`}>{appt.status.replace("_", " ")}</Badge></div>
+                      <div className="flex shrink-0 items-center gap-2"><span className="text-muted-foreground">{currency(appt.amount)}</span><StatusBadge status={appt.status} /></div>
                     </li>
                   ))}</ul>
                 )}

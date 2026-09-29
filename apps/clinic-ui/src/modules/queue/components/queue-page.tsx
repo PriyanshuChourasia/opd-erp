@@ -19,7 +19,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { PatientFormSheet } from "@/modules/patients/components/patient-form-sheet";
-import { STATUS_STYLES } from "../data/interface";
+import { StatusBadge } from "@/components/status-badge";
 
 const QUEUE_STATUSES = ["WAITING", "IN_PROGRESS", "COMPLETED", "SKIPPED", "NO_SHOW"];
 const ACTIVE_STATUSES = ["WAITING", "IN_PROGRESS"];
@@ -176,8 +176,8 @@ export function QueuePage() {
         const entry = row.original;
         return (
           <span className={`tabular flex shrink-0 items-center justify-center rounded-md px-2 py-0.5 text-2xs font-mono font-bold ${
-            entry.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-            entry.status === "COMPLETED" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+            entry.status === "IN_PROGRESS" ? "bg-info-soft text-info-foreground" :
+            entry.status === "COMPLETED" ? "bg-success-soft text-success-foreground" :
             "bg-muted text-muted-foreground"
           }`}>{entry.tokenNumber}</span>
         );
@@ -193,7 +193,7 @@ export function QueuePage() {
       header: "Status",
       cell: ({ row }) => {
         const entry = row.original;
-        return <Badge variant="outline" className={`text-2xs ${STATUS_STYLES[entry.status] ?? ""}`}>{entry.status.replace("_", " ")}</Badge>;
+        return <StatusBadge status={entry.status} />;
       },
     },
     {
@@ -374,6 +374,7 @@ export function QueuePage() {
             pagination={pagination}
             onPaginationChange={setPagination}
             isLoading={isLoading}
+            density="compact"
             emptyState={
               <div className="flex flex-col items-center gap-2 py-6 text-center">
                 <ListOrdered className="size-8 text-muted-foreground/50" />

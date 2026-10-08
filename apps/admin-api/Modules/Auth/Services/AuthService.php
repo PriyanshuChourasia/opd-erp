@@ -3,6 +3,7 @@
 namespace Modules\Auth\Services;
 
 use App\Enums\LicenseStatus;
+use App\Enums\OrganizationStatus;
 use App\Models\User;
 use Modules\Auth\Contracts\AuthServiceInterface;
 use Modules\Auth\Http\Requests\LoginRequest;
@@ -72,7 +73,7 @@ class AuthService implements AuthServiceInterface
             'organizationId' => $organization ? (string) $organization->id : null,
             'organization' => $organization ? [
                 'id' => (string) $organization->id,
-                'name' => $organization->name,
+                'name' => $organization->display_name ?? $organization->legal_name,
                 'status' => $organization->status,
             ] : null,
             'license' => $licenseData,
@@ -92,7 +93,7 @@ class AuthService implements AuthServiceInterface
             throw new HttpException(403, 'Your account is not linked to any organization.');
         }
 
-        if ($organization->status !== 'active') {
+        if ($organization->status !== OrganizationStatus::ACTIVE) {
             throw new HttpException(403, 'Your organization is inactive. Contact support.');
         }
 

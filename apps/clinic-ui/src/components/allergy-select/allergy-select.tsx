@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
@@ -107,7 +108,11 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
 
   return (
     <div className="relative">
-      {/* Tag-input container: chips + search input inside one box */}
+      {/* Tag-input container: chips + search input inside one box. The
+          results list renders in a portal (Popover) so no overflow-hidden
+          parent (Card, Sheet, table) can clip it. */}
+      <Popover open={showResults} onOpenChange={setShowResults}>
+      <PopoverAnchor asChild>
       <div
         ref={containerRef}
         className="flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-none border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring"
@@ -149,14 +154,24 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
               setShowResults(true);
             }}
             onFocus={() => setShowResults(true)}
-            onBlur={() => setTimeout(() => setShowResults(false), 200)}
+            onBlur={() => setShowResults(false)}
           />
         </div>
       </div>
+      </PopoverAnchor>
 
-      {/* Search results dropdown — absolutely positioned below the container */}
-      {showResults && (
-        <div className="absolute z-[100] mt-1 w-full max-h-56 overflow-y-auto rounded-none border bg-popover shadow-md">
+      {/* Search results dropdown — portal, anchored below the container */}
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="z-[100] w-(--radix-popover-trigger-width) max-h-56 gap-0 overflow-y-auto rounded-none border p-0 shadow-md"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onMouseDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          const target = e.target as Node | null;
+          if (target && containerRef.current?.contains(target)) e.preventDefault();
+        }}
+      >
           {search.trim().length >= 1 && filtered.length === 0 ? (
             <div className="divide-y">
               <p className="px-3 py-3 text-xs text-muted-foreground">
@@ -220,8 +235,8 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
               </button>
             </div>
           )}
-        </div>
-      )}
+      </PopoverContent>
+      </Popover>
 
       {/* Create new allergy sheet */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>

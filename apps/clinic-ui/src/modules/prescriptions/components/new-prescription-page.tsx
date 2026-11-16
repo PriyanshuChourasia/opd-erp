@@ -16,6 +16,7 @@ import { useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DiagnosisSelect } from "@/components/diagnosis-select";
 import { prescriptionsListRoute } from "../lib/prescription-routes";
 
 interface NewRxItem {
@@ -42,7 +43,7 @@ export function NewPrescriptionPage() {
   const [doctorId, setDoctorId] = useState(isDoctor ? (user?.userableId ?? "") : "");
   const [doctorQuery, setDoctorQuery] = useState("");
   const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
-  const [diagnosis, setDiagnosis] = useState("");
+  const [diagnosis, setDiagnosis] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<NewRxItem[]>([]);
   const [medicineQuery, setMedicineQuery] = useState("");
@@ -78,7 +79,7 @@ export function NewPrescriptionPage() {
       createPrescription({
         patientId: patient!.id,
         doctorId,
-        diagnosis: diagnosis || undefined,
+        diagnosis: diagnosis.length > 0 ? diagnosis.join(", ") : undefined,
         notes: notes || undefined,
         items: items.map((item) => ({
           medicineId: item.medicineId,
@@ -230,7 +231,7 @@ export function NewPrescriptionPage() {
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">Diagnosis</CardTitle></CardHeader>
             <CardContent>
-              <Input value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} placeholder="e.g. Hypertension, Diabetes..." />
+              <DiagnosisSelect value={diagnosis} onChange={setDiagnosis} />
             </CardContent>
           </Card>
 

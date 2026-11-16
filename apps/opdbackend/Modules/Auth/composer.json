@@ -1,8 +1,0 @@
-{
-    "name": "opdbackend/auth",
-    "autoload": {
-        "psr-4": {
-            "Modules\\Auth\\": ""
-        }
-    }
-}

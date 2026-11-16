@@ -324,7 +324,7 @@ export function QueuePage() {
                 onChange={(e) => setDoctorFilterQuery(e.target.value)}
               />
               {doctorFilterQuery.trim().length >= 1 && (
-                <div className="absolute z-50 mt-1 max-h-64 w-full divide-y overflow-y-auto rounded-none border bg-popover shadow-md">
+                <div className="absolute z-[100] mt-1 max-h-64 w-full divide-y overflow-y-auto rounded-none border bg-popover shadow-md">
                   {filteredDoctorOptions.length ? (
                     filteredDoctorOptions.map((d) => (
                       <button

@@ -7,6 +7,8 @@ import {
   AlertCircle,
   BadgePercent,
   BarChart3,
+  BookMarked,
+  BookOpen,
   Box,
   Building2,
   CalendarClock,
@@ -15,6 +17,7 @@ import {
   Cpu,
   Database,
   FileText,
+  FlaskConical,
   HardDrive,
   LayoutDashboard,
   LifeBuoy,
@@ -23,10 +26,12 @@ import {
   Package,
   Pill,
   Receipt,
+  Search,
   Settings,
   ShieldCheck,
   Stethoscope,
   Terminal,
+  Truck,
   User,
   UserCog,
   Users,
@@ -64,9 +69,10 @@ import { fetchMySidebarConfig } from "@/lib/api";
 
 /** Map of icon name strings → Lucide components. */
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Activity, AlertCircle, BadgePercent, BarChart3, Box, Building2, CalendarClock, ClipboardList,
-  Clock, Cpu, Database, FileText, HardDrive, LayoutDashboard, LifeBuoy, MapPin, Package,
-  Pill, Receipt, Settings, ShieldCheck, Stethoscope, Terminal, User, UserCog, Users, Wallet, Zap,
+  Activity, AlertCircle, BadgePercent, BarChart3, BookMarked, BookOpen, Box, Building2,
+  CalendarClock, ClipboardList, Clock, Cpu, Database, FileText, FlaskConical, HardDrive,
+  LayoutDashboard, LifeBuoy, MapPin, Package, Pill, Receipt, Search, Settings, ShieldCheck,
+  Stethoscope, Terminal, Truck, User, UserCog, Users, Wallet, Zap,
 };
 
 /** Hardcoded fallback menu (used when sidebar config is empty / not seeded yet). */
@@ -120,11 +126,23 @@ const FALLBACK_NAV: Record<string, { to: string; label: string; icon: string }[]
   ],
 };
 
-/** Group order for deterministic sidebar rendering. */
+/**
+ * Preferred group order for deterministic sidebar rendering. Groups returned
+ * by the API that aren't listed here are still rendered (after these, before
+ * "Account") — never silently dropped.
+ */
 const GROUP_ORDER = [
-  "Clinic", "OPD Reports", "Pharmacy & Billing", "Organisation",
-  "Access Control", "Developer", "Account",
+  "Patient Portal", "Clinic", "OPD Reports", "Pharmacy & Billing", "Accounting",
+  "Organisation", "Access Control", "Developer", "Account",
 ];
+
+/** Known groups first (in GROUP_ORDER), then any unknown groups, "Account" last. */
+function orderGroups(groups: string[]): string[] {
+  const known = GROUP_ORDER.filter((g) => g !== "Account" && groups.includes(g));
+  const unknown = groups.filter((g) => !GROUP_ORDER.includes(g)).sort();
+  const tail = groups.includes("Account") ? ["Account"] : [];
+  return [...known, ...unknown, ...tail];
+}
 
 export function AppSidebar() {
   const matchRoute = useMatchRoute();
@@ -171,8 +189,7 @@ export function AppSidebar() {
       grouped[item.group]!.push(item);
     }
 
-    return GROUP_ORDER
-      .filter((g) => grouped[g]?.length)
+    return orderGroups(Object.keys(grouped))
       .map((group) => ({
         group,
         items: grouped[group]!

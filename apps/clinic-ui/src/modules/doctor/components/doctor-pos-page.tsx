@@ -790,7 +790,7 @@ export function DoctorPosPage() {
                       onBlur={() => setTimeout(() => setMedicineDropdownOpen(false), 200)}
                     />
                     {medicineDropdownOpen && medicineQuery.trim().length >= 2 && (
-                      <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-52 overflow-y-auto">
+                      <div className="absolute z-[100] mt-1 w-full rounded-none border bg-popover shadow-md max-h-52 overflow-y-auto">
                         {medicines.length === 0 ? (
                           <p className="px-3 py-2 text-xs text-muted-foreground">No medicines found</p>
                         ) : (

@@ -491,7 +491,7 @@ export function EditPrescriptionPage() {
           </Card>
 
           {/* Medicine Items */}
-          <Card>
+          <Card className="overflow-visible">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-sm">Prescribed Medicines</CardTitle>
               <Button variant="outline" size="sm" onClick={addEditItem}>
@@ -523,7 +523,7 @@ export function EditPrescriptionPage() {
                         onBlur={() => setTimeout(() => setMedicineSearchIdx(null), 200)}
                       />
                       {medicineSearchIdx === idx && medicineResults.length > 0 && (
-                        <div className="absolute z-50 mt-1 w-full max-h-40 overflow-y-auto rounded-none border bg-popover shadow-md">
+                        <div className="absolute z-[100] mt-1 w-full max-h-40 overflow-y-auto rounded-none border bg-popover shadow-md">
                           {medicineResults.map((med) => (
                             <button
                               key={med.id}

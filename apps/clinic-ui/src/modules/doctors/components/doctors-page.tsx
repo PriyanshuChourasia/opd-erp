@@ -79,10 +79,17 @@ export function DoctorsPage() {
   });
   const [addresses, setAddresses] = useState<AddressEntry[]>([]);
 
+  // Users who can deactivate/reactivate doctors (e.g. Super Admin, Admin) see
+  // deactivated doctors too, so they stay in the list and can be reactivated.
+  // Everyone else sees active doctors only.
+  const canManageStatus = canUpdate || canDelete;
+  const isActiveFilter = canManageStatus ? "all" : undefined;
+
   const { data: response, isLoading } = useQuery({
-    queryKey: ["doctors", search, pagination.pageIndex, pagination.pageSize],
+    queryKey: ["doctors", search, pagination.pageIndex, pagination.pageSize, isActiveFilter],
     queryFn: () => fetchDoctors({
       search: search || undefined,
+      isActive: isActiveFilter,
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
     }),
@@ -550,6 +557,19 @@ export function DoctorsPage() {
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
           <DollarSign className="size-3" />₹{row.original.consultationFee}
         </span>
+      ),
+    },
+    {
+      id: "status",
+      header: () => <div className="text-center">Status</div>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          {row.original.isActive ? (
+            <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">Active</Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">Inactive</Badge>
+          )}
+        </div>
       ),
     },
     {

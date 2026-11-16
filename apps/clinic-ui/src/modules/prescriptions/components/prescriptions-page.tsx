@@ -380,7 +380,7 @@ export function PrescriptionsPage() {
                   onBlur={() => setTimeout(() => setDoctorSearchOpen(false), 200)}
                 />
                 {doctorSearchOpen && (
-                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-none border bg-popover shadow-md">
+                  <div className="absolute z-[100] mt-1 max-h-56 w-full overflow-y-auto rounded-none border bg-popover shadow-md">
                     {doctors
                       .filter((d) =>
                         !(doctorSearchQuery || "").trim() ||

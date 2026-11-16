@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Stethoscope, X } from "lucide-react";
 import { fetchDiagnoses, createDiagnosis, type Diagnosis } from "@/lib/api";
 import { toast } from "sonner";
 import { extractApiError } from "@/lib/axios-client";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 
 interface DiagnosisSelectProps {
   value: string[];
@@ -12,10 +17,15 @@ interface DiagnosisSelectProps {
   placeholder?: string;
 }
 
-export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelectProps) {
+export function DiagnosisSelect({
+  value,
+  onChange,
+  placeholder,
+}: DiagnosisSelectProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const anchorRef = useRef<HTMLDivElement>(null);
 
   const { data: response } = useQuery({
     queryKey: ["diagnoses", "select"],
@@ -27,8 +37,7 @@ export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelec
   const suggestions = trimmed
     ? catalog.filter(
         (d) =>
-          d.name.toLowerCase().includes(trimmed) &&
-          !value.includes(d.name),
+          d.name.toLowerCase().includes(trimmed) && !value.includes(d.name),
       )
     : catalog.filter((d) => !value.includes(d.name));
   const exactMatch = trimmed
@@ -83,22 +92,42 @@ export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelec
         </div>
       )}
 
-      {/* Search input */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder={placeholder ?? "Search or type to add a diagnosis..."}
-          className="pl-9"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 200)}
-        />
-      </div>
+      {/* Search input + dropdown. The dropdown renders in a portal (Popover)
+          so a parent with overflow-hidden (e.g. shadcn Card) can't clip it. */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverAnchor asChild>
+          <div ref={anchorRef} className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={
+                placeholder ?? "Search or type to add a diagnosis..."
+              }
+              className="pl-9"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setOpen(true);
+              }}
+              onFocus={() => setOpen(true)}
+              onBlur={() => setOpen(false)}
+            />
+          </div>
+        </PopoverAnchor>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-64 overflow-y-auto">
+        <PopoverContent
+          align="start"
+          sideOffset={4}
+          className="z-[100] w-(--radix-popover-trigger-width) max-h-64 gap-0 overflow-y-auto rounded-none border p-0 shadow-md"
+          // Keep focus in the input while the list is open / being clicked.
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.preventDefault()}
+          // Clicking the input itself shouldn't count as "outside".
+          onInteractOutside={(e) => {
+            const target = e.target as Node | null;
+            if (target && anchorRef.current?.contains(target))
+              e.preventDefault();
+          }}
+        >
           {suggestions.length > 0 && (
             <div className="divide-y">
               {suggestions.map((d) => (
@@ -110,7 +139,11 @@ export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelec
                 >
                   <Stethoscope className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex-1">{d.name}</span>
-                  {d.code && <span className="text-[10px] text-muted-foreground">{d.code}</span>}
+                  {d.code && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {d.code}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -119,17 +152,24 @@ export function DiagnosisSelect({ value, onChange, placeholder }: DiagnosisSelec
             <button
               type="button"
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-primary hover:bg-muted"
-              onClick={() => createMutation.mutate({ code: query.trim(), name: query.trim() })}
+              onClick={() =>
+                createMutation.mutate({
+                  code: query.trim(),
+                  name: query.trim(),
+                })
+              }
               disabled={createMutation.isPending}
             >
               <Plus className="size-3.5" /> Add "{query.trim()}" to catalog
             </button>
           )}
           {suggestions.length === 0 && trimmed.length === 0 && (
-            <p className="px-3 py-2 text-xs text-muted-foreground">No diagnoses in catalog yet</p>
+            <p className="px-3 py-2 text-xs text-muted-foreground">
+              No diagnoses in catalog yet
+            </p>
           )}
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

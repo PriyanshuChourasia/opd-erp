@@ -351,7 +351,7 @@ export function ReceptionistDashboardPage() {
                     <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input placeholder="Search by name or phone" className="pl-9" value={patientQuery} onChange={(e) => setPatientQuery(e.target.value)} />
                     {patientQuery.trim().length >= 1 && (
-                      <div className="absolute z-10 mt-1 w-full rounded-none border bg-popover shadow-md max-h-64 overflow-y-auto">
+                      <div className="absolute z-[100] mt-1 w-full rounded-none border bg-popover shadow-md max-h-64 overflow-y-auto">
                         {patientResults.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>}
                         {!patientResults.isLoading && (patientResults.data?.data ?? []).length === 0 && (
                           <p className="px-3 py-2 text-xs text-muted-foreground">No patients found</p>
@@ -580,7 +580,7 @@ export function ReceptionistDashboardPage() {
                       onBlur={() => setTimeout(() => setDoctorSearchOpen(false), 200)}
                     />
                     {doctorSearchOpen && (
-                      <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
+                      <div className="absolute z-[100] mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
                         {doctors
                           .filter((d) =>
                             !doctorSearchQuery.trim() ||

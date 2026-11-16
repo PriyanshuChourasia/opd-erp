@@ -92,8 +92,12 @@ export class DoctorsService
 
     const where: Record<string, unknown> = { ...searchFilter };
 
-    // Filter by isActive: default to only active doctors, unless explicitly requested
-    if (query.isActive !== undefined) {
+    // Filter by isActive: default to only active doctors (booking dropdowns
+    // etc.), 'all' = active + deactivated (doctor management list), or an
+    // explicit 'true' / 'false'. Deactivation is a soft flag — never a delete.
+    if (query.isActive === 'all') {
+      // no isActive filter
+    } else if (query.isActive !== undefined) {
       where.isActive = query.isActive === 'true';
     } else {
       where.isActive = true;
@@ -108,11 +112,21 @@ export class DoctorsService
     return { ...result, data: result.data.map((d) => ({ ...d, name: nameMap.get(d.id) ?? null })) };
   }
 
+  /**
+   * Tenant scope for a single doctor: the caller's organisation, plus legacy
+   * doctors with no organisation (organizationId = null). Reads and writes
+   * must use the same scope — otherwise findOne() finds a null-org doctor but
+   * the updateMany() then matches 0 rows and throws "Doctor not found".
+   */
+  private scopedWhere(id: string, organizationId?: string) {
+    return organizationId
+      ? { id, OR: [{ organizationId }, { organizationId: null }] }
+      : { id };
+  }
+
   async findOne(id: string, organizationId?: string) {
     const doctor = await this.prisma.doctor.findFirst({
-      where: organizationId
-        ? { id, OR: [{ organizationId }, { organizationId: null }] }
-        : { id },
+      where: this.scopedWhere(id, organizationId),
     });
     if (!doctor) throw new NotFoundException(`Doctor ${id} not found`);
     const nameMap = await getDoctorNameMap(this.prisma, [doctor.id]);
@@ -122,7 +136,7 @@ export class DoctorsService
   async update(id: string, dto: UpdateDoctorDto, userId?: string, organizationId?: string) {
     await this.findOne(id, organizationId);
     const result = await this.prisma.doctor.updateMany({
-      where: organizationId ? { id, organizationId } : { id },
+      where: this.scopedWhere(id, organizationId),
       data: { ...dto, updatedById: userId ?? null },
     });
     if (result.count === 0) throw new NotFoundException(`Doctor ${id} not found`);
@@ -420,7 +434,7 @@ export class DoctorsService
         data: { isActive: false },
       });
       const result = await tx.doctor.updateMany({
-        where: organizationId ? { id, organizationId } : { id },
+        where: this.scopedWhere(id, organizationId),
         data: { isActive: false },
       });
       if (result.count === 0) throw new NotFoundException(`Doctor ${id} not found`);
@@ -430,7 +444,7 @@ export class DoctorsService
 
   async restore(id: string, organizationId?: string) {
     const doctor = await this.prisma.doctor.findFirst({
-      where: organizationId ? { id, organizationId } : { id },
+      where: this.scopedWhere(id, organizationId),
     });
     if (!doctor) throw new NotFoundException(`Doctor ${id} not found`);
     return this.prisma.$transaction(async (tx) => {
@@ -440,7 +454,7 @@ export class DoctorsService
         data: { isActive: true },
       });
       return tx.doctor.updateMany({
-        where: organizationId ? { id, organizationId } : { id },
+        where: this.scopedWhere(id, organizationId),
         data: { isActive: true },
       }).then(() => this.findOne(id, organizationId));
     });

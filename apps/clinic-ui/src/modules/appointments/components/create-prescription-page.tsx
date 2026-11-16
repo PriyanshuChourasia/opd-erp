@@ -217,8 +217,6 @@ export function CreatePrescriptionPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
-  const canSubmit = items.some((it) => it.medicineName.trim()) || notes.trim();
-
   // ── Prescription preview ──
   const [previewOpen, setPreviewOpen] = useState(false);
   const canReadOrganisation = hasPermission(user?.permissions, "read", "company");
@@ -311,7 +309,7 @@ export function CreatePrescriptionPage() {
             <Eye className="size-4 mr-1.5" />
             Preview
           </Button>
-          <Button onClick={() => createMutation.mutate()} disabled={!canSubmit || createMutation.isPending}>
+          <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending /* always active — only blocked mid-save to avoid duplicates */}>
             {createMutation.isPending ? "Saving..." : "Save Prescription"}
           </Button>
         </div>
@@ -518,7 +516,7 @@ export function CreatePrescriptionPage() {
           </Card>
 
           {/* Medicine Items */}
-          <Card>
+          <Card className="overflow-visible">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-sm">Prescribed Medicines</CardTitle>
               <Button variant="outline" size="sm" onClick={addItem}>
@@ -550,7 +548,7 @@ export function CreatePrescriptionPage() {
                         onBlur={() => setTimeout(() => setMedicineSearchIdx(null), 200)}
                       />
                       {medicineSearchIdx === idx && medicineResults.length > 0 && (
-                        <div className="absolute z-50 mt-1 w-full max-h-40 overflow-y-auto rounded-none border bg-popover shadow-md">
+                        <div className="absolute z-[100] mt-1 w-full max-h-40 overflow-y-auto rounded-none border bg-popover shadow-md">
                           {medicineResults.map((med) => (
                             <button
                               key={med.id}

@@ -238,40 +238,38 @@ export function useAppointmentsColumns({ onOpenVitals, onPrintAppt, onOpenInvoic
               </TooltipTrigger>
               <TooltipContent>Print Slip</TooltipContent>
             </Tooltip>
-            {appt.status !== "COMPLETED" && (
-              <InvoiceActionCell appt={appt} onOpenInvoice={onOpenInvoice} />
-            )}
-            {appt.status === "COMPLETED" && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-9" aria-label="Edit prescription" onClick={() => navigate({ to: "/appointments/$appointmentId/prescription", params: { appointmentId: appt.id } })}>
-                      <Pencil className="size-4.5 text-indigo-600" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Edit Prescription</TooltipContent>
-                </Tooltip>
-                <InvoiceActionCell appt={appt} onOpenInvoice={onOpenInvoice} />
-              </>
-            )}
-            {appt.status !== "COMPLETED" && APPT_STATUSES.includes(appt.status as AppointmentStatus) && (
-              <Select
-                value={appt.status}
-                onValueChange={(value) => {
-                  if (value === appt.status) return;
-                  onStatusChange(appt, value as AppointmentStatus);
-                }}
-              >
-                <SelectTrigger size="sm" className="h-8 text-xs" aria-label="Change appointment status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {APPT_STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>{apptStatusLabel(status)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            {/* Prescription is available in every status, not just COMPLETED. */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-9" aria-label="Prescription" onClick={() => navigate({ to: "/appointments/$appointmentId/prescription", params: { appointmentId: appt.id } })}>
+                  <Pencil className="size-4.5 text-indigo-600" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Prescription</TooltipContent>
+            </Tooltip>
+            <InvoiceActionCell appt={appt} onOpenInvoice={onOpenInvoice} />
+            {/* Status dropdown is always shown. If the current status isn't one
+                of the selectable ones (e.g. CANCELLED, NO_SHOW), it's listed
+                too so the trigger shows it instead of rendering blank. */}
+            <Select
+              value={appt.status}
+              onValueChange={(value) => {
+                if (value === appt.status) return;
+                onStatusChange(appt, value as AppointmentStatus);
+              }}
+            >
+              <SelectTrigger size="sm" className="h-8 text-xs" aria-label="Change appointment status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {!APPT_STATUSES.includes(appt.status as AppointmentStatus) && (
+                  <SelectItem value={appt.status} disabled>{apptStatusLabel(appt.status)}</SelectItem>
+                )}
+                {APPT_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>{apptStatusLabel(status)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             </TooltipProvider>
           </div>
         );

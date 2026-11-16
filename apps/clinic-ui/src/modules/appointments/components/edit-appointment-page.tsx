@@ -387,7 +387,7 @@ export function EditAppointmentPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className="overflow-visible">
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
             {/* ── Left Column: Patient → Allergies → Doctor ── */}
@@ -413,7 +413,7 @@ export function EditAppointmentPage() {
                       onBlur={() => setTimeout(() => setPatientDropdownOpen(false), 200)}
                     />
                     {patientDropdownOpen && patientQuery.trim().length >= 1 && (
-                      <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-64 overflow-y-auto">
+                      <div className="absolute z-[100] mt-1 w-full rounded-none border bg-popover shadow-md max-h-64 overflow-y-auto">
                         {patientResults.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>}
                         {!patientResults.isLoading && (patientResults.data?.data ?? []).length === 0 && patientQuery.trim().length >= 1 && (
                           <p className="px-3 py-2 text-xs text-muted-foreground">No patients found</p>
@@ -487,7 +487,7 @@ export function EditAppointmentPage() {
                     </>
                   )}
                   {doctorSearchOpen && !form.doctorId && (
-                    <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-none border bg-popover shadow-md">
+                    <div className="absolute z-[100] mt-1 max-h-56 w-full overflow-y-auto rounded-none border bg-popover shadow-md">
                       {doctors
                         .filter((d) =>
                           !doctorSearchQuery.trim() ||

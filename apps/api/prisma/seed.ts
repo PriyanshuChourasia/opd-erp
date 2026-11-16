@@ -2916,6 +2916,7 @@ async function seedSidebarConfig() {
     { label: 'Departments', path: '/organisation/departments', icon: 'Building2', group: 'Organisation', sortOrder: 6, roleIds: [adminId, developerId].filter(Boolean) },
     { label: 'Designations', path: '/organisation/designations', icon: 'UserCog', group: 'Organisation', sortOrder: 7, roleIds: [adminId, developerId].filter(Boolean) },
     { label: 'Financial Years', path: '/organisation/financial-years', icon: 'CalendarClock', group: 'Organisation', sortOrder: 8, roleIds: [adminId, developerId].filter(Boolean) },
+    { label: 'Discounts', path: '/organisation/discounts', icon: 'BadgePercent', group: 'Organisation', sortOrder: 9, roleIds: [adminId, developerId].filter(Boolean) },
 
     // Accounting group
     { label: 'Chart of Accounts', path: '/accounting', icon: 'BookOpen', group: 'Accounting', sortOrder: 0, roleIds: [adminId, developerId].filter(Boolean) },
@@ -2944,6 +2945,16 @@ async function seedSidebarConfig() {
     { label: 'Profile', path: '/profile', icon: 'User', group: 'Account', sortOrder: 0, roleIds: allRoleIds },
     { label: 'Help', path: '/help', icon: 'LifeBuoy', group: 'Account', sortOrder: 1, roleIds: allRoleIds },
   ];
+
+  // Super Admin holds every permission except Developer tooling (see
+  // seedRoles), so it sees every menu Admin sees, minus the Developer group.
+  if (superAdminId) {
+    for (const item of menuItems) {
+      if (item.group !== 'Developer' && adminId && item.roleIds.includes(adminId) && !item.roleIds.includes(superAdminId)) {
+        item.roleIds = [...item.roleIds, superAdminId];
+      }
+    }
+  }
 
   for (const item of menuItems) {
     await prisma.sidebarMenu.create({

@@ -156,7 +156,7 @@ export function AllergySelect({ value, onChange, hideSelected }: AllergySelectPr
 
       {/* Search results dropdown — absolutely positioned below the container */}
       {showResults && (
-        <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-none border bg-popover shadow-md">
+        <div className="absolute z-[100] mt-1 w-full max-h-56 overflow-y-auto rounded-none border bg-popover shadow-md">
           {search.trim().length >= 1 && filtered.length === 0 ? (
             <div className="divide-y">
               <p className="px-3 py-3 text-xs text-muted-foreground">

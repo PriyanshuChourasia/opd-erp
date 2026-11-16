@@ -41,7 +41,7 @@ export function useDeleteDoctor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: deleteDoctor,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["doctors"] }); toast.success("Doctor deleted successfully"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["doctors"] }); toast.success("Doctor deactivated"); },
     onError: (err) => { toast.error(extractApiError(err)); },
   });
 }

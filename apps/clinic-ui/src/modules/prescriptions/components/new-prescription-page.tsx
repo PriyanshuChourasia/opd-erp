@@ -138,7 +138,7 @@ export function NewPrescriptionPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* ── Left: Patient + Doctor ── */}
         <div className="space-y-4">
-          <Card>
+          <Card className="overflow-visible">
             <CardHeader className="pb-3"><CardTitle className="text-sm">Patient *</CardTitle></CardHeader>
             <CardContent>
               {patient ? (
@@ -154,7 +154,7 @@ export function NewPrescriptionPage() {
                   <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input placeholder="Search patient by name or phone..." className="pl-9" value={patientSearch} onChange={(e) => setPatientSearch(e.target.value)} />
                   {patientSearch.trim().length >= 1 && (
-                    <div className="absolute z-10 mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
+                    <div className="absolute z-[100] mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
                       {patientResults.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>}
                       {!patientResults.isLoading && (patientResults.data?.data ?? []).length === 0 && (
                         <p className="px-3 py-2 text-xs text-muted-foreground">No patients found</p>
@@ -177,7 +177,7 @@ export function NewPrescriptionPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-visible">
             <CardHeader className="pb-3"><CardTitle className="text-sm">Doctor *</CardTitle></CardHeader>
             <CardContent>
               {isDoctor ? (
@@ -201,7 +201,7 @@ export function NewPrescriptionPage() {
                     onBlur={() => setTimeout(() => setDoctorSearchOpen(false), 200)}
                   />
                   {doctorSearchOpen && (
-                    <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
+                    <div className="absolute z-[100] mt-1 w-full rounded-none border bg-popover shadow-md max-h-56 overflow-y-auto">
                       {filteredDoctors.length === 0 ? (
                         <p className="px-3 py-2 text-xs text-muted-foreground">No doctors found</p>
                       ) : (

@@ -166,7 +166,7 @@ export function PurchaseEntryPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left: Purchase items */}
         <div className="space-y-4 lg:col-span-2">
-          <Card>
+          <Card className="overflow-visible">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Purchase Items</CardTitle>
             </CardHeader>
@@ -193,7 +193,7 @@ export function PurchaseEntryPage() {
                       />
                       {activeRowKey === row.key &&
                         medicineQuery.trim().length >= 1 && (
-                          <div className="absolute z-50 mt-1 w-full rounded-none border bg-popover shadow-md max-h-60 overflow-y-auto">
+                          <div className="absolute z-[100] mt-1 w-full rounded-none border bg-popover shadow-md max-h-60 overflow-y-auto">
                             {medicineResults.isLoading ? (
                               <p className="p-3 text-center text-sm text-muted-foreground">
                                 Searching…

@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "@tanstack/react-router";
 import {
   CalendarClock,
+  KeyRound,
   ClipboardList,
   LogIn,
   Pill,
@@ -28,6 +29,19 @@ const workflowSteps = [
   { icon: Receipt, label: "Billing & POS" },
   { icon: Pill, label: "Pharmacy dispensing" },
 ];
+
+/**
+ * Seeded demo accounts (see apps/api/prisma/seed.ts). Shown on the login page
+ * only in local dev, or when VITE_SHOW_DEMO_LOGINS=true is set at build time —
+ * never on a normal production build, since these are real, working logins.
+ */
+const DEMO_LOGINS = [
+  { role: "Super Admin", email: "superadmin@clinic.com", password: "SuperAdmin@123" },
+  { role: "Admin", email: "admin@clinic.com", password: "Admin@123" },
+  { role: "Doctor", email: "rajesh.sharma@clinic.com", password: "Doctor@123" },
+];
+const SHOW_DEMO_LOGINS =
+  import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_LOGINS === "true";
 
 export function LoginPage() {
   const loginMutation = useLogin();
@@ -139,6 +153,36 @@ export function LoginPage() {
               </form>
             </CardContent>
           </Card>
+
+          {/* Demo login credentials (dev / opt-in only) */}
+          {SHOW_DEMO_LOGINS && (
+            <Card className="mt-4">
+              <CardContent className="pt-4">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <KeyRound className="size-3.5" />
+                  Demo logins — click to fill
+                </p>
+                <ul className="divide-y text-xs">
+                  {DEMO_LOGINS.map((login) => (
+                    <li key={login.email}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 px-1 py-2 text-left hover:bg-muted"
+                        onClick={() => {
+                          form.setValue("email", login.email, { shouldValidate: true });
+                          form.setValue("password", login.password, { shouldValidate: true });
+                        }}
+                      >
+                        <span className="w-24 shrink-0 font-semibold text-foreground">{login.role}</span>
+                        <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{login.email}</span>
+                        <span className="shrink-0 font-mono text-muted-foreground">{login.password}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Register link */}
           <div className="mt-6 text-center">

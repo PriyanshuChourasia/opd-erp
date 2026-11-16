@@ -49,3 +49,5 @@ project/*
 
 EOF
 Medicine File 1 of 2.xls
+# Large source data files (exceed GitHub 100MB limit)
+medicine_file/*.xls
